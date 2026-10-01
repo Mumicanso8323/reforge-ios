@@ -125,3 +125,14 @@ jobs:
             --title "Re:Forge $VERSION (build $BUILD)" \
             --notes "開発版の未署名 ipa。SideStore で読み込むと自分の Apple ID で署名して入ります。" \
             --prerelease
+
+      # 更新ショートカット用の固定 URL(releases/download/dev/ReForge.ipa)。毎回ここを最新版で上書きする
+      - name: Update fixed "dev" release
+        if: github.event_name == 'workflow_dispatch' && inputs.release && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view dev --repo "${{ github.repository }}" >/dev/null 2>&1 || \
+            gh release create dev --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+              --title "Re:Forge 最新の開発版" --notes "更新ショートカット用。常に最新のプレリリースと同じ ipa。" --prerelease
+          gh release upload dev ReForge.ipa --repo "${{ github.repository }}" --clobber
