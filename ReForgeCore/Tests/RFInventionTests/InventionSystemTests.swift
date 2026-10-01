@@ -1,3 +1,4 @@
+import Foundation
 import RFContent
 import RFInvention
 import RFKernel
@@ -283,5 +284,36 @@ final class InventionSystemTests: XCTestCase {
         _ = fx.rig.simulation.apply(.invention(.makeDesign(steps: [.charcoalFurnace])), to: &w)
         let data = try JSONEncoder().encode(w)
         XCTAssertEqual(try JSONDecoder().decode(WorldState.self, from: data), w)
+    }
+
+    /// 手がかりの主張はコンテンツの JSON で書ける(非公開の層が本物の手がかりを書く形)。
+    func testHintClaimsDecodeFromContentJSON() throws {
+        let json = """
+        {"hints": [{"id": "hint.test.json", "from": "person.test_b",
+          "when": {"person": {"id": "person.test_b", "test": {"relationAtLeast": {"rank": 3}}}},
+          "about": "module:mixing_bowl", "text": "text.test.hint.json", "source": "source:companion",
+          "claims": [
+            {"says": {"before": {"first": {"module": "mixing_bowl", "input": "limestone"}, "then": {"module": "furnace"}}},
+             "toward": {"grade": {"grade": "fine", "category": "metal"}}},
+            {"says": {"includes": {"step": {"module": "quench_tank"}}}, "toward": {"temper": {"temper": "hard"}}},
+            {"says": {"gradeMeans": {"threshold": 8500}}}
+          ],
+          "target": {"parts": [{"temper": {"temper": "hard"}}, {"substance": {"substance": "Fe"}}, {"shape": {"shape": "plate"}}]}
+        }]}
+        """
+        var db = try TestContent.publicOnly()
+        try ContentLoader.apply(json: Data(json.utf8), to: &db)
+        let h = try XCTUnwrap(db.hints["hint.test.json"])
+        XCTAssertEqual(h.claims, [
+            HintClaim(.before(first: StepPattern(.mixingBowl, input: .limestone), then: StepPattern(.furnace)),
+                      toward: .grade(.fine, .metal)),
+            HintClaim(.includes(step: StepPattern(.quenchTank)), toward: .temper(.hard)),
+            HintClaim(.gradeMeans(threshold: Purity(percent: 85))),
+        ])
+        XCTAssertEqual(h.target, MatterName([.temper(.hard), .substance(.iron), .shape(.plate)]))
+        XCTAssertEqual(ClaimKind.before(first: StepPattern(.mixingBowl, input: .limestone), then: StepPattern(.furnace))
+            .holds(in: [.charcoalFurnace, .lime]), false)
+        XCTAssertEqual(ClaimKind.next(first: StepPattern(.millstone), then: StepPattern(.sluice))
+            .holds(in: [.millstone, .lime, .sluice]), false)
     }
 }
