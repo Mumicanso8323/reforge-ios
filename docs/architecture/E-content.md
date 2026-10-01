@@ -69,9 +69,9 @@ reforge-content/
   tools/                   原作の JSON からの変換スクリプト(*.py。出力先は上の各ディレクトリ)
 ```
 ### 4.3 CI での取り込み(既定値)
-- secret の名前: **`REFORGE_CONTENT_TOKEN`**(非公開リポジトリの contents を読むだけの fine-grained PAT)。
+- secret の名前: **`REFORGE_CONTENT_DEPLOY_KEY`**(非公開リポジトリの読み取り専用のデプロイキー。ed25519 の秘密鍵)。`actions/checkout` に `ssh-key` で渡す(swift のコンテナに ssh が無ければ先に入れる)。
 - `core` ジョブ: (1) 公開の層だけで `swift test`(公開版だけで通ることを毎回確かめる)→ (2) secret があれば `actions/checkout` で `Mumicanso8323/reforge-content` を `content/private` に取り込み、もう一度 `swift test`(非公開の層を重ねた検証・監査・受け入れテスト)。
-- secret はジョブの環境変数 `HAS_CONTENT_TOKEN` で有無を見る(`if:` に secrets を直接書けないため)。`core` ジョブの (1)(2) は `ci.yml` に入れてある。
+- secret はジョブの環境変数 `HAS_CONTENT_KEY` で有無を見る(`if:` に secrets を直接書けないため)。`core` ジョブの (1)(2) は `ci.yml` に入れてある。
 - **公開リポジトリの Actions のログとアーティファクトは誰でも読める。** 非公開の層を重ねたテストは出力をファイルに伏せ、失敗したテストの名前(公開のコード)だけを出す。ログをアーティファクトに上げない。テストの失敗の文面に本文を入れない(`XCTAssertEqual(文字列, …)` で本文を比べるテストは非公開の層では書かない。件数や ID で比べる)。
 - `ios` ジョブ(U13 でアプリがコンテンツの束を読むようになってから): secret があれば非公開の層を取り込み、**封をした束(4.5)にしてから** ipa に入れる。平文の非公開の層は ipa にもアーティファクトにも入れない。ipa はこれまでどおり公開の `dev` リリースに上げる(オーナーの更新ショートカットは変えない)。
 ### 4.4 手元での開発(非公開リポジトリが無い間も)
@@ -80,40 +80,41 @@ reforge-content/
 - 非公開リポジトリができたら、`git clone … content/private` するだけ。
 
 ### 4.5 ipa の中の物語の本文の封(暗号化)
-公開の `dev` リリースの ipa は誰でも落とせる。本文を平文で入れると、ipa を展開するだけで読めてしまう。そこで非公開の層は、CI がビルドごとに作る使い捨ての鍵で暗号化して入れ、鍵はアプリ本体のバイナリにだけ埋め込む(リーダー決定。オーナーに確認中)。
+公開の `dev` リリースの ipa は誰でも落とせる。本文を平文で入れると、ipa を展開するだけで読めてしまう。そこで非公開の層は、CI がビルドごとに作る使い捨ての鍵で暗号化して入れ、鍵はアプリ本体のバイナリにだけ埋め込む(リーダー決定。オーナーの最終返事待ち)。実装は U3(読み込み・封をする道具)と U13(アプリの起動・project.yml・ios ジョブ)。
 
 **守れるもの・守れないもの(オーナーに伝えておくこと)**
-- 守れる: ipa を展開しただけ・ファイルを grep しただけで本文が読める状態。検索エンジンや一覧サイトに本文の断片が拾われること。
-- 守れない: アプリのバイナリを解析して鍵を取り出す人。鍵は同じ ipa の中にあるので、これは「見えにくくする」までで、秘密の保護ではない。公開リポジトリの CI の手順(この文書と `tools/content/`)も公開なので、方式は知られている前提。
+- 守れる: ipa を展開しただけ・ファイルを grep しただけで本文が読める状態。本文の断片が検索や一覧サイトに拾われること。
+- 守れない: アプリのバイナリを解析して鍵を取り出す人。鍵は同じ ipa の中にあるので、これは「見えにくくする」までで、秘密の保護ではない。方式もこの公開の文書に書いてある前提。
 
-**封をした束の形式(`content/private.sealed`。ファイル 1 つ)**
+**アプリの束の中**: `content/public/`(平文)+ `content/private.sealed`(1 ファイル)。`content/private/` のディレクトリは ipa に入れない(project.yml のフォルダ参照は `content/public` と `content/private.sealed` だけ)。
+
+**`private.sealed` の形式**
 | 位置 | 長さ | 中身 |
 |---|---|---|
-| 0 | 8 | 合図 `RFSEAL01`(ASCII) |
-| 8 | 12 | nonce(ビルドごとに乱数) |
-| 20 | n | 暗号文(AES-256-GCM。追加認証データ = 合図の 8 バイト) |
-| 20+n | 16 | 認証タグ |
+| 0 | 4 | 合図 `RFS1`(ASCII) |
+| 4 | 12 | nonce(封をするたびに乱数) |
+| 16 | n | 暗号文(AES-256-GCM。追加認証データ = 合図の 4 バイト) |
+| 16+n | 16 | 認証タグ |
 
-- 平文 = 非公開の層の全 JSON を 1 つにまとめた「束」(JSON。`{"format": "reforge.pack", "version": 1, "files": {"<層の中の相対パス>": "<ファイルの中身の文字列>", …}}`、キーは昇順)。`materials/`・`tools/` と JSON 以外のファイルは入れない。
-- 束を読むのは RFContent(U3): `ContentLoader` の層の出所に「ディレクトリ」と並べて「メモリ上の束(相対パス → Data)」を足す。読み方(相対パスの昇順・upsert・remove・知らないキーはエラー)はディレクトリと同じ。
-- 暗号は RFContent に入れない(ReForgeCore は外部パッケージに依存せず、Linux の `swift test` に CryptoKit が無いため)。開封はアプリ側(CryptoKit の `AES.GCM`)で、開いた束を RFContent に渡す。
-- 封をするのは CI の macOS ランナー上のスクリプト `tools/content/seal.swift`(CryptoKit。U3 が作る)。Linux で同じことをする必要は無い。
+- 平文 = 非公開の層の `*.json` を 1 つにまとめた JSON: `{"version": 1, "files": {"<層の中の相対パス>": "<ファイルの中身(UTF-8 の文字列)>", …}}`。`materials/`・`tools/` と JSON 以外は入れない。
+- 暗号: Apple では CryptoKit、Linux(`swift test`)では swift-crypto(`import Crypto`。API は同じ)。Package.swift に swift-crypto の依存を足し、RFContent から Linux のときだけ `Crypto` の製品を使う(`#if canImport(CryptoKit)` で切り替え)。ReForgeCore の外部依存はこれ 1 つだけにする。
 
-**鍵の作り方と埋め込み方**
-1. `ios` ジョブで、ビルドの直前に 32 バイトの乱数の鍵を作る(`openssl rand 32`)。鍵はファイルにもログにも出さない(`::add-mask::` を付け、シェル変数だけで受け渡す)。
-2. `seal.swift` が鍵で束を封じ、`content/private.sealed` を書く。平文の `content/private/` はアプリに入れない(project.yml のフォルダ参照は `content/public` と `content/private.sealed` だけにする)。
-3. 鍵を Swift のソースに生成する: `ReForge/Generated/SealKey.swift`(gitignore)。鍵をそのまま書かず、別の乱数 32 バイトとの XOR の 2 つの配列に分けて書く(バイナリの文字列検索で 32 バイトの連続が見えないように)。
-4. 公開の層だけのビルド(secret が無い・手元)では、鍵の無い `SealKey.swift`(`nil`)を生成し、封をした束も入れない。アプリは公開の層だけで動く。
-5. 鍵はビルドごとに変わる。保存データは ID だけなので、鍵が変わっても保存は読める(D §1)。
-
-**読み込み(アプリ)**
-- 起動時: `content/private.sealed` があり、鍵があれば開封 → 束を RFContent の層として公開の層の上に重ねる。開封に失敗(タグの不一致・壊れたファイル)したら、公開の層だけで起動し、画面の帯に 1 行出す(落とさない)。
+**読み込み(RFContent、U3)**
+- `ContentLoader.loadBundled(root:key:)`: 公開の層を読む → `private/` があれば平文で重ねる(手元の開発)→ 無くて `private.sealed` と鍵があれば開封してメモリ上の層として重ねる。読み方・重ね方・知らないキーの検査は平文の層と同じ。
+- 鍵が違う・ファイルが壊れている(タグの不一致)ときはエラーを投げる(黙って公開だけにしない)。アプリ(U13)はそのエラーを受けて公開の層だけで起動し、画面の帯に 1 行出す(落とさない)。
 - 開いた本文はメモリにだけ置く(キャッシュをファイルに書かない)。
 
+**封をする側と鍵**
+- 実行ターゲット `rf-seal`(ReForgeCore の中。U3): `swift run --package-path ReForgeCore rf-seal content/private <出力の private.sealed> <出力の ContentKey.swift>`。Linux の core ジョブと macOS の ios ジョブで同じコードを使う。
+- 鍵はビルドごとに 32 バイトの乱数(`rf-seal` が作る)。ログにもアーティファクトにも出さない。
+- 鍵は生成ファイル `ReForge/Generated/ContentKey.swift`(gitignore)に埋める。そのまま書かず、別の乱数 32 バイトとの XOR の 2 つの配列に分けて書く(バイナリの文字列検索で鍵の並びがそのまま見えないように)。
+- 非公開が無いビルド(secret が無い・手元)では、鍵が `nil` の `ContentKey.swift` を生成し、`private.sealed` も入れない。アプリは公開の層だけで動く。
+- 鍵はビルドごとに変わるが、保存データは ID だけなので保存は読める(D §1)。
+
 **テスト**
-- Linux(`swift test`、U3): 束の形式の読み書き(相対パスの順・知らないキー・壊れた束はエラー)と、ディレクトリから読んだ層と同じ束から読んだ層が同じ `ContentDB` になること。
-- シミュレータ(アプリのテスト、U3 と U13): 封じて開くと同じ束になる / 1 バイト変えるとタグで弾かれる / 鍵が無いときは公開の層だけで起動する。
-- CI の検査(`ios` ジョブ、ipa を作った後): ipa の中に `content/private/` の平文が無いこと。非公開の `bundle.json` に置く見張りの文字列(`"canary"`。本文ではない無意味な文字列)が、展開した ipa のどのファイルにも平文で現れないこと(`grep -r` で 0 件)。失敗したら ipa を上げない。ログには見張りの文字列そのものを出さない。
+- Linux(`swift test`、U3): 封じて開くと同じ束 / 1 バイト変えるとエラー / 鍵違いはエラー / ディレクトリから読んだ層と束から読んだ層が同じ `ContentDB` になる。
+- シミュレータ(U13): 鍵が無いとき・開封に失敗したときに公開の層だけで起動する。
+- CI の検査(`ios` ジョブ、ipa を作った後。U13): ipa の中に `content/private/` が無いこと。非公開の `bundle.json` に置く見張りの文字列(本文ではない無意味な文字列)が、展開した ipa のどのファイルにも平文で現れないこと。見つかったら ipa を上げずに失敗にする。ログに見張りの文字列そのものを出さない。
 
 ## 5. 認識の表と禁止語の検査
 ### 5.1 認識の表
