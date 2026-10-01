@@ -12,7 +12,8 @@ public enum Effect: Codable, Hashable, Sendable {
     case learn(fact: FactID)
     // 物
     /// 物を渡す(item か matter のどちらか)。unique = 唯一品として(来歴で後から指せる)。
-    case give(item: ItemID?, matter: Matter?, quantity: Int, unique: Bool?)
+    /// attributes = 品そのものに持たせる属性(例 "owner": 遺品の持ち主)。
+    case give(item: ItemID?, matter: Matter?, quantity: Int, unique: Bool?, attributes: [String: String]? = nil)
     case take(what: Ingredient)
     // 数
     case counter(id: CounterID, add: Int)

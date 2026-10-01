@@ -28,15 +28,27 @@ public struct WorldFactory: Sendable {
         w.base.area = map.baseArea
         for (id, def) in content.stats { w.survival.stats[id] = Milli(raw: Int64(def.initial)) }
 
+        for (id, g) in content.groups {
+            var gs = GroupState()
+            gs.relation = g.relation ?? 0
+            gs.flags = Set(g.flags ?? [])
+            w.people.groups[id] = gs
+        }
+
         var ctx = StepContext(world: w, content: content)
         let s = content.start
         for p in s.members {
             var ps = PersonState(id: p, presence: .member(since: .zero))
             ps.position = map.spawn
             ps.ideology = content.people[p]?.ideology ?? [:]
+            ps.group = content.people[p]?.group
             ctx.world.people[p] = ps
         }
-        for p in s.unmet ?? [] { ctx.world.people[p] = PersonState(id: p, presence: .unmet) }
+        for p in s.unmet ?? [] {
+            var ps = PersonState(id: p, presence: .unmet)
+            ps.group = content.people[p]?.group
+            ctx.world.people[p] = ps
+        }
         for y in s.items {
             let stuff: Stuff? = y.matter.map { .matter($0) } ?? y.item.map { .item($0) }
             if let stuff { ctx.addStock(stuff, y.min, to: .base) }

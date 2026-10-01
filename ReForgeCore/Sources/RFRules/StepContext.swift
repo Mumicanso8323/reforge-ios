@@ -79,13 +79,15 @@ public struct StepContext {
     // MARK: 在庫
 
     /// 物を入れる(同じ中身の山があれば合わせる。唯一品は合わせない)。
-    /// 在庫に足す。唯一品(unique)と減る品(durability)は山を合わせない。
+    /// 在庫に足す。唯一品(unique)・減る品(durability)・属性つき(attributes)は山を合わせない。
     public mutating func addStock(_ stuff: Stuff, _ n: Int, to holder: HolderID, origin: ProvenanceID? = nil,
-                                  unique: EntityID? = nil, durability: Milli? = nil)
+                                  unique: EntityID? = nil, durability: Milli? = nil, attributes: [String: String]? = nil)
     {
         guard n > 0 else { return }
         let o = origin ?? ProvenanceLedger.unknownOrigin
-        putEntry(StockEntry(stuff: stuff, quantity: n, origins: [o: n], unique: unique, durability: durability), to: holder)
+        let attrs = attributes?.isEmpty == true ? nil : attributes
+        putEntry(StockEntry(stuff: stuff, quantity: n, origins: [o: n], unique: unique, durability: durability,
+                            attributes: attrs), to: holder)
         emit(.itemGained(holder: holder, stuff: stuff, quantity: n, record: origin))
     }
 
@@ -94,8 +96,7 @@ public struct StepContext {
     public mutating func putEntry(_ e: StockEntry, to holder: HolderID) {
         guard e.quantity > 0 else { return }
         var list = world.inventory.holders[holder] ?? []
-        if e.unique == nil, e.durability == nil,
-           let i = list.firstIndex(where: { $0.unique == nil && $0.durability == nil && $0.stuff == e.stuff })
+        if e.isPlain, let i = list.firstIndex(where: { $0.isPlain && $0.stuff == e.stuff })
         {
             list[i].quantity += e.quantity
             for (k, v) in e.origins { list[i].origins[k, default: 0] += v }
@@ -157,11 +158,14 @@ public struct StepContext {
 }
 
 extension Ingredient {
-    /// 在庫の山がこの材料に合うか。
+    /// 在庫の山がこの材料に合うか(attributes があれば、その全部が山の属性と一致すること)。
     public func matches(_ e: StockEntry) -> Bool {
+        if let want = attributes, !want.isEmpty {
+            guard let have = e.attributes, want.allSatisfy({ have[$0.key] == $0.value }) else { return false }
+        }
         switch e.stuff {
-        case .item(let i): item == i && matter == nil
-        case .matter(let m): matter?.matches(m) ?? false
+        case .item(let i): return item == i && matter == nil
+        case .matter(let m): return matter?.matches(m) ?? false
         }
     }
 }

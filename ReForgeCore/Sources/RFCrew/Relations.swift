@@ -93,6 +93,7 @@ enum Membership {
     static func meet(_ id: PersonID, at: WorldPoint?, cause: ProvenanceID?, _ ctx: inout StepContext) -> CommandResult {
         guard var ps = ctx.world.people[id] ?? (ctx.content.people[id] != nil ? PersonState(id: id, presence: .unmet) : nil)
         else { return .rejected(Rejection("reason.person.unknown")) }
+        if ctx.world.people[id] == nil { ps.group = ctx.content.people[id]?.group }
         guard case .unmet = ps.presence else { return .done }  // 既に会っている
         let now = ctx.world.clock.now
         ps.presence = .met(at: now)
@@ -108,6 +109,7 @@ enum Membership {
     static func join(_ id: PersonID, cause: ProvenanceID?, _ ctx: inout StepContext) -> CommandResult {
         guard var ps = ctx.world.people[id] ?? (ctx.content.people[id] != nil ? PersonState(id: id, presence: .unmet) : nil)
         else { return .rejected(Rejection("reason.person.unknown")) }
+        if ctx.world.people[id] == nil { ps.group = ctx.content.people[id]?.group }
         switch ps.presence {
         case .member: return .done
         case .dead: return .rejected(Rejection("reason.person.dead"))

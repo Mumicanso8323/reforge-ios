@@ -364,19 +364,14 @@ enum Loot {
                 ctx.warnings.append("得られる物に item も matter も無い")
                 continue
             }
+            let durability = y.durability.map { Milli(raw: Int64($0)) }
             if y.unique == true {
                 for _ in 0..<n {
-                    let e = ctx.world.newEntityID()
-                    ctx.addStock(stuff, 1, to: holder, origin: origin, unique: e)
-                    if let d = y.durability, var list = ctx.world.inventory.holders[holder],
-                       let i = list.firstIndex(where: { $0.unique == e }) {
-                        // 減ったら戻らない品の残り(StepContext.addStock に耐久の引数が無いので、入れた直後に付ける)
-                        list[i].durability = Milli(raw: Int64(d))
-                        ctx.world.inventory.holders[holder] = list
-                    }
+                    ctx.addStock(stuff, 1, to: holder, origin: origin, unique: ctx.world.newEntityID(),
+                                 durability: durability, attributes: y.attributes)
                 }
             } else {
-                ctx.addStock(stuff, n, to: holder, origin: origin)
+                ctx.addStock(stuff, n, to: holder, origin: origin, durability: durability, attributes: y.attributes)
             }
         }
     }

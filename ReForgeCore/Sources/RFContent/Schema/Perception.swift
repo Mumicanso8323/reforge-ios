@@ -28,6 +28,7 @@ public enum Subject {
     public static func fact(_ id: FactID) -> SubjectID { SubjectID("fact:\(id.rawValue)") }
     public static func interaction(_ id: InteractionID) -> SubjectID { SubjectID("interaction:\(id.rawValue)") }
     public static func aura(_ id: AuraKindID) -> SubjectID { SubjectID("aura:\(id.rawValue)") }
+    public static func group(_ id: GroupID) -> SubjectID { SubjectID("group:\(id.rawValue)") }
     /// 有限の部品(残骸の区画など)。部品の名前は POIDef.parts の語。
     public static func part(_ name: String) -> SubjectID { SubjectID("part:\(name)") }
     /// ノートの出典(人以外: ノアの手・端末…)。人が出典なら person:<id> を使う。

@@ -19,15 +19,21 @@ public struct StockEntry: Codable, Equatable, Sendable {
     public var unique: EntityID?
     /// 減ったら戻らない品の残り(千分率)。
     public var durability: Milli?
+    /// 品そのものが持つ属性(例 "owner": 遺品の持ち主の PersonID)。属性のある山は他の山と合わせない。
+    public var attributes: [String: String]?
 
     public init(stuff: Stuff, quantity: Int, origins: [ProvenanceID: Int] = [:], unique: EntityID? = nil,
-                durability: Milli? = nil) {
+                durability: Milli? = nil, attributes: [String: String]? = nil) {
         self.stuff = stuff
         self.quantity = quantity
         self.origins = origins
         self.unique = unique
         self.durability = durability
+        self.attributes = attributes
     }
+
+    /// 他の山と合わせられる(唯一品でも、減る品でも、属性つきでもない)。
+    public var isPlain: Bool { unique == nil && durability == nil && attributes == nil }
 
     /// 来歴を何種類まで覚えておくか。
     public static let originLimit = 16

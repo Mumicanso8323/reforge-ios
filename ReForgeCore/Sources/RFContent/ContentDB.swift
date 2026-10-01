@@ -49,6 +49,8 @@ public struct ContentDB: Equatable, Sendable {
     public var sheets: [SheetID: SheetDef] = [:]
     /// 記録から開ける資料。
     public var documents: [DocumentID: DocumentDef] = [:]
+    /// 集団(勢力)。初めの関係と旗。
+    public var groups: [GroupID: GroupDef] = [:]
     public var objectives: [ObjectiveID: ObjectiveDef] = [:]
     public var chapters: [ChapterID: ChapterDef] = [:]
     public var endings: [EndingID: EndingDef] = [:]

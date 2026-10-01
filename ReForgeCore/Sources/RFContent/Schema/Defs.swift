@@ -19,8 +19,12 @@ public struct Ingredient: Codable, Hashable, Sendable {
     public var item: ItemID?
     public var matter: MatterMatch?
     public var quantity: Int
+    /// 品の属性の一致(条件 has で使う。例 "owner": 遺品の持ち主)。費用・消費では使わない。
+    public var attributes: [String: String]?
 
-    public init(item: ItemID? = nil, matter: MatterMatch? = nil, quantity: Int) {
+    public init(item: ItemID? = nil, matter: MatterMatch? = nil, quantity: Int,
+                attributes: [String: String]? = nil) {
+        self.attributes = attributes
         self.item = item
         self.matter = matter
         self.quantity = quantity
@@ -310,6 +314,8 @@ public struct Yield: Codable, Equatable, Sendable {
     public var unique: Bool?
     /// 減ったら戻らない品の残り(千分率の raw。旧文明系の品など)。持ち主: U8
     public var durability: Int?
+    /// 品そのものに持たせる属性(例 "owner": 遺品の持ち主の PersonID)。
+    public var attributes: [String: String]?
 }
 
 // MARK: - 人
@@ -325,6 +331,8 @@ public struct PersonDef: ContentDef, Equatable {
     public var parameters: Value?
     /// 得意分野の振る舞い(能力ではなく、配属の効きの範囲。見張りで間に出る、など)。持ち主: U5。
     public var behaviors: [CrewBehavior]?
+    /// 初めに属している集団(勢力)。nil = どこにも属さない。
+    public var group: GroupID?
 }
 
 public struct IdeologyAxisDef: ContentDef, Equatable {

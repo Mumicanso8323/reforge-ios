@@ -218,7 +218,7 @@ struct ContentFile: Codable {
         case bundle, clock, mapGen, start, rewind, ruleBook, survival, combat, hauling
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
         case memoryKinds, lines, hints, research, skills, abilities, enemies, auras, stats, failureRules
-        case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings, documents
+        case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings, documents, groups
         case perception, forbidden, auditStages, textGates, texts, glyphs, latinAllowed
         case remove
         // 探索と拠点(U8)
@@ -262,6 +262,7 @@ struct ContentFile: Codable {
     var scenes: [SceneDef]?
     var sheets: [SheetDef]?
     var documents: [DocumentDef]?
+    var groups: [GroupDef]?
     var objectives: [ObjectiveDef]?
     var chapters: [ChapterDef]?
     var endings: [EndingDef]?
@@ -331,6 +332,7 @@ struct ContentFile: Codable {
         upsert("scenes", &db.scenes, scenes)
         upsert("sheets", &db.sheets, sheets)
         upsert("documents", &db.documents, documents)
+        upsert("groups", &db.groups, groups)
         upsert("objectives", &db.objectives, objectives)
         upsert("chapters", &db.chapters, chapters)
         upsert("endings", &db.endings, endings)
@@ -402,6 +404,7 @@ struct ContentFile: Codable {
         case "scenes": drop(&db.scenes)
         case "sheets": drop(&db.sheets)
         case "documents": drop(&db.documents)
+        case "groups": drop(&db.groups)
         case "objectives": drop(&db.objectives)
         case "chapters": drop(&db.chapters)
         case "endings": drop(&db.endings)

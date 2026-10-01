@@ -29,7 +29,7 @@ public enum EffectApplier {
             ctx.learn(f, via: cause)
 
         // MARK: 物
-        case .give(let item, let matter, let n, let unique):
+        case .give(let item, let matter, let n, let unique, let attributes):
             let stuff: Stuff
             if let m = matter { stuff = .matter(m) } else if let i = item { stuff = .item(i) } else {
                 ctx.warnings.append("give: item も matter も無い")
@@ -38,9 +38,11 @@ public enum EffectApplier {
             let subject: SubjectRef = item.map { .item($0) } ?? .none
             let rec = ctx.record(.discovered, subject, detail: ["quantity": .int(Int64(n))])
             if unique == true {
-                for _ in 0..<n { ctx.addStock(stuff, 1, to: .base, origin: rec, unique: ctx.world.newEntityID()) }
+                for _ in 0..<n {
+                    ctx.addStock(stuff, 1, to: .base, origin: rec, unique: ctx.world.newEntityID(), attributes: attributes)
+                }
             } else {
-                ctx.addStock(stuff, n, to: .base, origin: rec)
+                ctx.addStock(stuff, n, to: .base, origin: rec, attributes: attributes)
             }
         case .take(let ing):
             guard let took = ctx.takeStock(ing.quantity, from: .base, where: ing.matches) else {

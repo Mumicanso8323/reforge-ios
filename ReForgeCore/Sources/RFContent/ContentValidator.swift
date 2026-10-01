@@ -98,6 +98,7 @@ public enum ContentValidator {
         need += db.research.keys.map { (Subject.research($0), "research") }
         need += db.skills.keys.map { (Subject.skill($0), "skill") }
         need += db.abilities.keys.map { (Subject.ability($0), "ability") }
+        need += db.groups.keys.map { (Subject.group($0), "group") }
         for (id, sh) in db.sheets {
             need.append((sh.title, "sheet \(id)"))
             need += sh.rows.map { ($0.subject, "sheet \(id)") }
