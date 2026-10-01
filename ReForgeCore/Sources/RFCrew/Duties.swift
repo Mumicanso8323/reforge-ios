@@ -203,16 +203,15 @@ enum Duties {
             return Station(layer: opos.layer, target: [opos.point], standOn: false, activity: idleActivity(w),
                            slack: slack)
         case .haul(let route):
-            guard let r = w.logistics.routes[route], let from = w.placements.items[r.from],
-                  let to = w.placements.items[r.to] else {
+            // 統合で U7 の HaulEndpoint(置いた物 / 拠点の蓄え)に合わせた最小の形。経路の path を往復する形は U5 が入れる
+            guard let r = w.logistics.routes[route], let from = endpoint(r.from, w), let to = endpoint(r.to, w) else {
                 drop(id, &ctx)
                 return nil
             }
             let leg = ps.haulLeg ?? .pickup
             if ps.haulLeg == nil { ctx.world.people[id]?.haulLeg = .pickup }
             let end = leg == .pickup ? from : to
-            return Station(layer: end.at.layer, target: footprint(end.id, w), standOn: false,
-                           activity: .carrying(route: route))
+            return Station(layer: end.layer, target: end.cells, standOn: false, activity: .carrying(route: route))
         }
     }
 
@@ -232,6 +231,18 @@ enum Duties {
 
     static func isUnderConstruction(_ p: Placement) -> Bool {
         if case .underConstruction = p.status { true } else { false }
+    }
+
+    /// 運搬の端の場所(置いた物ならその占めるマス、拠点の蓄えなら拠点の範囲の中心)。
+    static func endpoint(_ e: HaulEndpoint, _ w: WorldState) -> (layer: LayerID, cells: [GridPoint])? {
+        switch e {
+        case .placement(let id):
+            guard let p = w.placements.items[id] else { return nil }
+            return (p.at.layer, footprint(id, w))
+        case .base:
+            guard let a = w.base.area else { return nil }
+            return (.surface, [GridPoint(a.origin.x + a.size.width / 2, a.origin.y + a.size.height / 2)])
+        }
     }
 
     static func footprint(_ e: EntityID, _ w: WorldState) -> [GridPoint] {

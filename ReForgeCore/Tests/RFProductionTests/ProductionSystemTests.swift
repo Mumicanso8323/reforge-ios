@@ -185,7 +185,8 @@ final class ProductionSystemTests: XCTestCase {
     // MARK: 仲間が付くと速い
 
     func testOperatorWithMatchingSpecialtyIsFaster() throws {
-        let fx = try F()
+        // 出来事の試験(U11)の「初めての炉で仲間を引き寄せる範囲」を外す(引かれると炉を離れる)
+        let fx = try F { $0.events["event.test.first_furnace"] = nil }
         func produced(withOperator: Bool) -> (Int, Int?) {
             var w = fx.world(charcoal: 200)
             let furnace = fx.place(.furnace, 15, 16, &w)

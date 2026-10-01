@@ -26,6 +26,10 @@
 | `stats`・`failureRules`・`trackers` | 拠点全体の数値(内訳と合計・隠れた値)・失敗の規則(値で)・追跡カウンタ | U4・U12・U11 |
 | `facts`・`events`・`scenes`・`sheets`・`objectives`・`chapters`・`endings`・`findings` | 事実(scope・含意)・出来事(引き金・効果・選択肢・止めるか・印)・場面(3 行まで)・工程表の記録・目標・章・結末・所見の文 | U11・U6 |
 | `start`・`rewind` | 始まりの世界・巻き戻しと失って続けるの規則 | U12 |
+| `survival`・`combat`・`hauling`・`exploration`・`base` | 1 つだけの設定(後の層が勝つ。無ければ各システムの既定): 生存の規則・戦闘の数・運搬の数・探索の区画・拠点 | U4・U9・U7・U8 |
+| `fields`・`exploreEvents` | 探索の場と、新しい区画や POI に入ったときに重み付きで引く出来事 | U8 |
+| `documents` | 記録から開ける資料(本文は文字列表。条件が成り立つと記録に載る) | 統合担当(型)・U13(画面)・U14(中身) |
+| `latinAllowed` | 画面に出してよいラテン文字の固有名(英語の ID の検査から外す) | U3 |
 | `perception`・`forbidden`・`auditStages`・`textGates`・`glyphs`・`texts` | 認識の表・禁止語の規則・監査の段・文字列の門・地図の文字・文字列表 | U3 |
 | `remove` | 前の層の定義を消す(集まりの名前 → ID の並び) | — |
 
@@ -86,7 +90,7 @@ reforge-content/
 - 守れる: ipa を展開しただけ・ファイルを grep しただけで本文が読める状態。本文の断片が検索や一覧サイトに拾われること。
 - 守れない: アプリのバイナリを解析して鍵を取り出す人。鍵は同じ ipa の中にあるので、これは「見えにくくする」までで、秘密の保護ではない。方式もこの公開の文書に書いてある前提。
 
-**アプリの束の中**: `content/public/`(平文)+ `content/private.sealed`(1 ファイル)。`content/private/` のディレクトリは ipa に入れない(project.yml のフォルダ参照は `content/public` と `content/private.sealed` だけ)。
+**アプリの束の中**: `content/public/`(平文)+ `content/private.sealed`(1 ファイル)。`content/private/` のディレクトリは ipa に入れない。`tools/content/stage.sh` が `AppContent/content/`(公開の層の写しと `private.sealed`)と `ReForge/Generated/ContentKey.swift` を作り、project.yml はフォルダ参照 `AppContent/content` だけを同梱する(どちらも gitignore)。**Mac で手元ビルドする前にも `tools/content/stage.sh` を回す**(ContentKey.swift が無いとアプリがコンパイルできない)。
 
 **`private.sealed` の形式**
 | 位置 | 長さ | 中身 |

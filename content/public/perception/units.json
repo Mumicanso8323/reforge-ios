@@ -405,6 +405,86 @@
           "name": "text.unit.interaction.interaction.test.u_rock"
         }
       ]
+    },
+    {
+      "subject": "module:minehead",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.module.minehead",
+          "glyph": "掘"
+        }
+      ]
+    },
+    {
+      "subject": "module:millstone",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.module.millstone",
+          "glyph": "臼"
+        }
+      ]
+    },
+    {
+      "subject": "module:sluice",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.module.sluice",
+          "glyph": "樋"
+        }
+      ]
+    },
+    {
+      "subject": "module:mixing_bowl",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.module.mixing_bowl",
+          "glyph": "鉢"
+        }
+      ]
+    },
+    {
+      "subject": "module:anvil",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.module.anvil",
+          "glyph": "床"
+        }
+      ]
+    },
+    {
+      "subject": "module:quench_tank",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.module.quench_tank",
+          "glyph": "槽"
+        }
+      ]
+    },
+    {
+      "subject": "module:test.gathering_post",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.module.test.gathering_post",
+          "glyph": "集"
+        }
+      ]
+    },
+    {
+      "subject": "module:test.boiler",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.module.test.boiler",
+          "glyph": "釜"
+        }
+      ]
     }
   ],
   "texts": {
@@ -452,6 +532,14 @@
     "text.unit.interaction.interaction.test.u_plain": "試験の行為その4",
     "text.unit.interaction.interaction.test.u_relic": "試験の行為その5",
     "text.unit.interaction.interaction.test.u_river": "試験の行為その6",
-    "text.unit.interaction.interaction.test.u_rock": "試験の行為その7"
+    "text.unit.interaction.interaction.test.u_rock": "試験の行為その7",
+    "text.unit.module.minehead": "採掘口",
+    "text.unit.module.millstone": "石臼",
+    "text.unit.module.sluice": "洗い樋",
+    "text.unit.module.mixing_bowl": "混ぜ鉢",
+    "text.unit.module.anvil": "金床",
+    "text.unit.module.quench_tank": "焼入れ槽",
+    "text.unit.module.test.gathering_post": "試験の集め場",
+    "text.unit.module.test.boiler": "試験の釜"
   }
 }

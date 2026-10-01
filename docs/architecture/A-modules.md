@@ -71,6 +71,5 @@ L6  RFPresent                画面向けの射影(Frame・区画・工程表)�
 - **地図(RFMap)**: 担当の型がまだ無いので `RFMap/Boundary.swift` に他の層が当てにする最小の形(`MapState`・`MapLayer`・`DepositState`・`POIState`・`TerrainDef`・`MapGenConfig`・生成/経路/視界の protocol)を置いた。担当の型が来たら、担当の型を正としてこのファイルを消し、`WorldState.map` と `FrameBuilder.tile` と `WorldFactory` の呼び出しを合わせる(統合担当)。
 
 ## 5. 旧版(b7)の扱い
-- `ReForgeCore`・`ReForgeContent` ターゲット(b7 の GameState・Action・ActionResolver・Balance・DayFlow・TimeModel・FailurePolicy・GameText)は**凍結**してそのまま残した。新しい層と名前が重なる型(GameState など)があるが、モジュールが別なので衝突しない(同じファイルで両方を import しないこと)。
-- 理由: いまのアプリ(`ReForge/`)は b7 の型で書かれている。Mac が無くアプリのビルドを手元で確かめられないので、新しい UI(U13)が `ReForgeEngine` に切り替える時に、b7 のターゲット・テスト・アプリの旧画面を一緒に消す。それまでアプリのビルドは壊さない。
-- b7 の T08 の禁止語の表は公開リポジトリに語そのものを書いている。新しい仕組みでは禁止語は非公開の層に置く(E §5)。b7 を消すときに一緒に消える。
+- b7 の `ReForgeCore`・`ReForgeContent` ターゲットとテスト(T08 を含む)、製品 `ReForgeCore` は、U13 の新しい画面に切り替えたときに消した(統合 8020db2)。アプリは製品 `ReForgeEngine` だけを使う。
+- b7 の T08 は禁止語の語そのものを公開リポジトリに書いていた。消したのは今の版からだけで、過去のコミットの履歴には残る。新しい仕組みでは禁止語は非公開の層に置く(E §5)。

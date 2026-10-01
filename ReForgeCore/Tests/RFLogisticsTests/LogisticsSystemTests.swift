@@ -52,7 +52,7 @@ final class LogisticsSystemTests: XCTestCase {
         let route = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .placement(anvil) && $0.to == .base })
         XCTAssertEqual(route.distance, 11)
         XCTAssertEqual(route.factorPermille, 640)
-        w.people["person.test_a"]?.activity = .carrying(route: route.id)
+        w.people["person.test_a"]?.assignment = .haul(route: route.id)
         _ = rig.simulation.runSteps(Int(8 * 3600 / SimStep.gameSeconds), &w)
         XCTAssertTrue((12...13).contains(w.logistics.routes[route.id]!.movedToday), "1 人 × 20 個 × 0.64 ≒ 12.8")
     }
@@ -85,13 +85,13 @@ final class LogisticsSystemTests: XCTestCase {
         XCTAssertEqual(w.logistics.routes[route.id]!.movedToday, 0)
         XCTAssertEqual(w.logistics.routes[route.id]!.blocked, HaulRules.noHaulers)
         // 2 人が運ぶと、鉱石が炉へ届いて炉が動く
-        for p in ["person.test_a", "person.test_b"] as [PersonID] { w.people[p]?.activity = .carrying(route: route.id) }
+        for p in ["person.test_a", "person.test_b"] as [PersonID] { w.people[p]?.assignment = .haul(route: route.id) }
         _ = rig.simulation.runSteps(Int(8 * 3600 / SimStep.gameSeconds), &w)
         XCTAssertGreaterThan(w.logistics.routes[route.id]!.movedToday, 0)
         XCTAssertNil(w.logistics.routes[route.id]!.blocked)
         XCTAssertGreaterThan(w.placements.items[furnace]!.module!.lifetimeProduced, 0, "運ばれた鉱石で炉が動く")
-        // 専任の配属は表示用に写す
-        w.people["person.test_a"]?.assignment = .haul(route: route.id)
+        // 専任の配属は表示用に写す(test_b は配属を外して共同の手に戻す)
+        w.people["person.test_b"]?.assignment = .idle
         _ = rig.simulation.runSteps(1, &w)
         XCTAssertEqual(w.logistics.routes[route.id]!.haulers, ["person.test_a"])
         // 見込み: 専任 1 人 + 配属の無い 1 人(経路 1 本)・距離 12 → 1 日 16 個
@@ -113,7 +113,7 @@ final class LogisticsSystemTests: XCTestCase {
         let route = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .placement(anvil) && $0.to == .base })
         XCTAssertEqual(route.distance, 11)
         XCTAssertEqual(route.factorPermille, 800)
-        for p in ["person.test_a", "person.test_b"] as [PersonID] { w.people[p]?.activity = .carrying(route: route.id) }
+        for p in ["person.test_a", "person.test_b"] as [PersonID] { w.people[p]?.assignment = .haul(route: route.id) }
         _ = rig.simulation.runSteps(Int(8 * 3600 / SimStep.gameSeconds), &w)
         let moved = w.logistics.routes[route.id]!.movedToday
         XCTAssertTrue((15...16).contains(moved), "2 人 × 10 個 × 0.8 = 16(\(moved))")
@@ -139,8 +139,8 @@ final class LogisticsSystemTests: XCTestCase {
         _ = rig.simulation.runSteps(1, &w)
         let supply = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .base && $0.to == .placement(furnace) })
         let deliver = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .placement(furnace) && $0.to == .base })
-        w.people["person.test_a"]?.activity = .carrying(route: supply.id)
-        w.people["person.test_b"]?.activity = .carrying(route: deliver.id)
+        w.people["person.test_a"]?.assignment = .haul(route: supply.id)
+        w.people["person.test_b"]?.assignment = .haul(route: deliver.id)
         _ = rig.simulation.runSteps(Int(26 * 3600 / SimStep.gameSeconds), &w)
         let lumps = w.inventory.entries(.base).filter { if case .matter(let m) = $0.stuff { m.stage == .metal } else { false } }
         XCTAssertEqual(lumps.reduce(0) { $0 + $1.quantity }, 2)

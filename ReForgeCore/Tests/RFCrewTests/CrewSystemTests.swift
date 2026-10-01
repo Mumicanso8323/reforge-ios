@@ -36,6 +36,8 @@ final class CrewSystemTests: XCTestCase {
         let kind: PlaceableKind = module.map { .module($0) } ?? .structure(structure!)
         w.placements.items[id] = Placement(id: id, kind: kind, at: p, facing: .north, origin: ProvenanceLedger.unknownOrigin,
                                            status: status)
+        // 動いているモジュールは中身(ModuleRuntime)を持つ(物流は中身の無いモジュールを端と見なさない)
+        if module != nil, case .running = status { w.placements.items[id]?.module = ModuleRuntime(design: nil, step: nil) }
         return id
     }
 
@@ -288,7 +290,7 @@ final class CrewSystemTests: XCTestCase {
         let a = place(&w, module: "furnace", at: at(w, -4, 0))
         let b = place(&w, module: "furnace", at: at(w, 5, 0))
         let route = w.newEntityID()
-        w.logistics.routes[route] = HaulRoute(id: route, from: a, to: b)
+        w.logistics.routes[route] = HaulRoute(id: route, from: .placement(a), to: .placement(b))
         XCTAssertNil(apply(rig, &w, .assign(person: "person.test_a", assignment: .haul(route: route))).rejection)
         XCTAssertEqual(w.people.haulers(of: route), ["person.test_a"])
         var arrivals: [GridPoint] = []

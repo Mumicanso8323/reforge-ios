@@ -90,15 +90,16 @@ jobs:
           path: content/private
           persist-credentials: false
 
-      # 公開の層の写しと、封をした非公開の層(private.sealed)と鍵の Swift ファイルを作る(E-content.md §4.5)。
-      # 非公開の層が無ければ鍵 nil で、公開の層だけのアプリになる。鍵・本文はログに出さない。
-      - name: コンテンツの束を作る
-        run: tools/content/stage.sh
-
       - name: Xcode
         run: |
           x=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1); echo "using $x"
           sudo xcode-select -s "$x"; xcodebuild -version
+
+      # 公開の層の写しと、封をした非公開の層(private.sealed)と鍵の Swift ファイルを作る(E-content.md §4.5)。
+      # 非公開の層が無ければ鍵 nil で、公開の層だけのアプリになる。鍵・本文はログに出さない。
+      # Xcode を選んだ後・XcodeGen の前に回す(生成する ContentKey.swift と AppContent/ をプロジェクトが拾う)。
+      - name: コンテンツの束を作る
+        run: tools/content/stage.sh
 
       - name: XcodeGen
         run: |
