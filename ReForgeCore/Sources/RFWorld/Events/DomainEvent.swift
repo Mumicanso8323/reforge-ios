@@ -18,6 +18,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case trialed(record: ProvenanceID)
     case crafted(quantity: Int, record: ProvenanceID)
     case designed(design: EntityID, record: ProvenanceID)
+    /// 推理の手がかり(HintDef)がノートに載った。from は仲間の知識なら仲間。
+    case hintHeard(hint: HintID, from: PersonID?, record: ProvenanceID)
     case produced(placement: EntityID, quantity: Int)
     case moduleStopped(placement: EntityID, reason: TextID)
     case moduleResumed(placement: EntityID)
@@ -65,6 +67,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case objectiveChanged(objective: ObjectiveID, status: ObjectiveStatus)
     case chapterEnded(chapter: ChapterID, record: ProvenanceID)
     case endingReached(ending: EndingID)
+    /// 仲間が一言いった(画面は認識の層で文字にして帯に出す)。
+    case lineSpoken(person: PersonID, line: LineID)
     // 失敗
     case runFailed(cause: TextID)
     /// 巻き戻した・失って続けたあとの最初のステップで出す(act = .rewound / .continuedWithLoss)。
@@ -81,6 +85,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .trialed: "trialed"
         case .crafted: "crafted"
         case .designed: "designed"
+        case .hintHeard: "hint"
         case .produced: "produced"
         case .moduleStopped: "module.stopped"
         case .moduleResumed: "module.resumed"
@@ -119,6 +124,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .objectiveChanged: "objective"
         case .chapterEnded: "chapter.ended"
         case .endingReached: "ending"
+        case .lineSpoken: "line"
         case .runFailed: "failed"
         case .runResumed: "run.resumed"
         }
@@ -137,6 +143,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .explored(_, _, let r), .partChanged(_, _, let r):
             r
         case .itemGained(_, _, _, let r): r
+        case .hintHeard(_, _, let r): r
         case .opinion(_, let r, _): r
         default: nil
         }

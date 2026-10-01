@@ -46,41 +46,65 @@ public enum ConditionEvaluator {
         case .not(let x): return evaluatePure(x, world: w, content: content, trigger: trigger).map { !$0 }
         case .chance: return nil
         case .known(let e): return e.evaluate(w.knowledge.factSet)
-        case .has(let ing):
-            let n = [HolderID.base, .person(.noah)].reduce(0) { acc, h in
-                acc + w.inventory.entries(h).filter(ing.matches).reduce(0) { $0 + $1.quantity }
-            }
-            return n >= ing.quantity
-        case .placedCount(let m, let s, let atLeast):
+        case .has(let ing): return stockCount(ing, w) >= ing.quantity
+        case .stock(let ing, let cmp, let perMember):
+            let target = perMember == true ? ing.quantity * w.people.members.count : ing.quantity
+            return cmp.test(Int64(stockCount(ing, w)), Int64(target))
+        case .placedCount(let m, let s, let atLeast, let unfinished):
             let n = w.placements.items.values.filter { p in
+                if unfinished != true, case .underConstruction = p.status { return false }
                 switch p.kind {
-                case .module(let k): m == k || (m == nil && s == nil)
-                case .structure(let k): s == k || (m == nil && s == nil)
+                case .module(let k): return m == k || (m == nil && s == nil)
+                case .structure(let k): return s == k || (m == nil && s == nil)
                 }
             }.count
             return n >= atLeast
         case .ledger(let q, let atLeast): return ProvenanceQueries.count(q, in: w) >= atLeast
         case .firstTime(let q):
-            guard let t = trigger, let r = w.ledger.record(t), ProvenanceQueries.matches(q, r, run: w.run.index) else {
+            guard let t = trigger, let r = w.ledger.record(t), ProvenanceQueries.matches(q, r) else {
                 return false
             }
-            return w.ledger.records.first { ProvenanceQueries.matches(q, $0, run: w.run.index) }?.id == t
+            return w.ledger.records.first { ProvenanceQueries.matches(q, $0) }?.id == t
+        case .trigger(let q):
+            guard let t = trigger, let r = w.ledger.record(t) else { return false }
+            return ProvenanceQueries.matches(q, r)
         case .part(let kind, let part, let state):
             for (id, poi) in w.map.layers.values.flatMap(\.pois) where poi.kind == kind {
                 let st = w.exploration.poi[id]?.parts[part] ?? .intact
                 if st.name == state { return true }
             }
             return false
+        case .poi(let kind, let test):
+            for (id, poi) in w.map.layers.sorted(by: { $0.key < $1.key }).flatMap({ $0.value.pois.sorted { $0.key < $1.key } })
+            where poi.kind == kind {
+                let pr = w.exploration.poi[id] ?? POIProgress()
+                switch test {
+                case .visitsAtLeast(let n): if pr.visits >= n { return true }
+                case .flag(let f): if pr.flags.contains(f) { return true }
+                case .partsInState(let st, let n):
+                    let names = content.pois[kind]?.parts ?? Array(pr.parts.keys)
+                    if names.filter({ (pr.parts[$0] ?? .intact).name == st }).count >= n { return true }
+                }
+            }
+            return false
         case .inAura(let p, let kind):
             return Auras.active(at: w.people[p]?.position, kind: kind, in: w) != nil
-        case .person(let id, let test): return testPerson(w.people[id], test, w)
+        case .person(let id, let test): return testPerson(w.people[id], test, w, content)
+        case .someone(let tests, let atLeast, let includeNonMembers):
+            let pool = includeNonMembers == true ? w.people.order : w.people.members
+            let n = pool.filter { id in tests.allSatisfy { testPerson(w.people[id], $0, w, content) } }.count
+            return n >= (atLeast ?? 1)
         case .members(let n): return w.people.members.count >= n
         case .group(let id, let r): return (w.people.groups[id]?.relation ?? Int.min) >= r
+        case .groupFlag(let id, let f): return w.people.groups[id]?.flags.contains(f) ?? false
         case .counter(let id, let cmp, let v): return cmp.test(Int64(w.narrative.counters[id] ?? 0), Int64(v))
         case .stat(let id, let cmp, let v): return cmp.test(w.survival.stats[id]?.raw ?? 0, Int64(v))
         case .phase(let ph): return w.clock.phase == ph
         case .dayAtLeast(let d): return w.clock.day >= d
         case .eventFired(let id): return w.narrative.fired[id] != nil
+        case .sinceFired(let id, let h):
+            guard let f = w.narrative.fired[id] else { return false }
+            return (w.clock.now - f.lastAt) >= .hours(h)
         case .choiceMade(let e, let ch):
             return w.ledger.records.contains { $0.act == .chose && $0.subject == .choice(e, ch) }
         case .researchDone(let id): return w.research.completed.contains(id)
@@ -88,22 +112,63 @@ public enum ConditionEvaluator {
         case .at(let person, let place):
             guard let pos = w.people[person]?.position else { return false }
             return Places.contains(place, pos, world: w, trigger: trigger)
-        case .discoveredPOI(let kind):
-            return w.map.layers.values.contains { layer in
-                layer.pois.contains { $0.value.kind == kind && w.knowledge.discovered.contains($0.key) }
+        case .nearTerrain(let place, let tag, let radius):
+            guard let c = Places.resolve(place, world: w, trigger: trigger), let layer = w.map[c.layer] else { return false }
+            for dy in -radius...radius {
+                for dx in -radius...radius {
+                    guard let t = layer.terrain(at: GridPoint(c.point.x + dx, c.point.y + dy)) else { continue }
+                    let def = content.terrains[t]
+                    if def?.tags.contains(tag) == true || (tag == "water" && def?.isWater == true) { return true }
+                }
             }
+            return false
+        case .discoveredPOI(let kind, let atLeast):
+            let n = w.map.layers.values.reduce(0) { acc, layer in
+                acc + layer.pois.filter { $0.value.kind == kind && w.knowledge.discovered.contains($0.key) }.count
+            }
+            return n >= (atLeast ?? 1)
         case .objective(let id, let st): return w.narrative.objectives[id]?.rawValue == st.rawValue
         case .runAtLeast(let i): return w.run.index >= i
         }
     }
 
-    static func testPerson(_ p: PersonState?, _ t: PersonTest, _ w: WorldState) -> Bool {
+    /// 拠点の蓄え+ノアの持ち物で、材料に合う物の数。
+    public static func stockCount(_ ing: Ingredient, _ w: WorldState) -> Int {
+        [HolderID.base, .person(.noah)].reduce(0) { acc, h in
+            acc + w.inventory.entries(h).filter(ing.matches).reduce(0) { $0 + $1.quantity }
+        }
+    }
+
+    public static func testPerson(_ p: PersonState?, _ t: PersonTest, _ w: WorldState, _ content: ContentDB) -> Bool {
         guard let p else { return false }
         switch t {
         case .member: return p.presence.isMember
         case .alive: return p.presence.isAlive
         case .dead: return !p.presence.isAlive
         case .met: if case .unmet = p.presence { return false } else { return true }
+        case .away: if case .away = p.presence { return true } else { return false }
+        case .body(let stat, let cmp, let v):
+            let b = p.body
+            let raw: Int64
+            switch stat {
+            case "health": raw = b.health.raw
+            case "stamina": raw = b.stamina.raw
+            case "satiety": raw = b.satiety.raw
+            case "hydration": raw = b.hydration.raw
+            case "mind": raw = b.mind.raw
+            default: raw = Int64(b.conditions[StatID(stat)] ?? 0)
+            }
+            return cmp.test(raw, Int64(v))
+        case .specialty(let tag): return content.people[p.id]?.specialties.contains(tag) ?? false
+        case .near(let other, let r):
+            guard let a = p.position, let b = w.people[other]?.position, a.layer == b.layer else { return false }
+            return a.point.chebyshev(to: b.point) <= r
+        case .working:
+            switch p.activity {
+            case .working, .carrying, .interacting: return true
+            default: return false
+            }
+        case .inGroup(let g): return g.map { p.group == $0 } ?? (p.group != nil)
         case .relationAtLeast(let r): return p.relation.rank >= r
         case .ideologyAtLeast(let a, let v): return (p.ideology[a] ?? 0) >= v
         case .hasMemory(let k): return p.memories.contains { $0.kind == k }
@@ -140,8 +205,10 @@ extension PartState {
 
 /// 来歴の問い合わせ。
 public enum ProvenanceQueries {
-    public static func matches(_ q: ProvenanceQuery, _ r: ProvenanceRecord, run: Int) -> Bool {
-        if q.currentRunOnly ?? true, r.run != run { return false }
+    /// 記録が問い合わせに合うか。周回では絞らない: 来歴(world.ledger)には今の時間軸の記録だけが入っている
+    /// (巻き戻しは夜明けまでの記録を残し、その後の分は消して RunState.pastLives に写す)。だから夜明けより前に
+    /// 置いた炉は、巻き戻した後も「置いたことがある」のまま(巻き戻しは物語の引き金を変えない)。
+    public static func matches(_ q: ProvenanceQuery, _ r: ProvenanceRecord) -> Bool {
         if let a = q.act, r.act != a { return false }
         if let a = q.actor, r.actor != a { return false }
         if let t = q.tag, !r.tags.contains(t) { return false }
@@ -166,8 +233,19 @@ public enum ProvenanceQueries {
     }
 
     /// 合う記録の count の合計(ラインの生産は 1 記録に数がまとまっている)。
+    /// currentRunOnly == false なら、前の周回で覚えておいた記録(pastLives.memorable。今の来歴に無いもの)も数える。
     public static func count(_ q: ProvenanceQuery, in w: WorldState) -> Int {
-        w.ledger.records.filter { matches(q, $0, run: w.run.index) }.reduce(0) { $0 + $1.count }
+        var n = w.ledger.records.filter { matches(q, $0) }.reduce(0) { $0 + $1.count }
+        if q.currentRunOnly == false {
+            var seen = Set(w.ledger.records.map(\.id))
+            for life in w.run.pastLives {
+                for r in life.memorable where !seen.contains(r.id) && matches(q, r) {
+                    seen.insert(r.id)
+                    n += r.count
+                }
+            }
+        }
+        return n
     }
 
     private static func isItem(_ s: SubjectRef) -> Bool { if case .item = s { true } else { false } }
@@ -195,8 +273,36 @@ public enum Places {
         case .base:
             return w.base.area.map { WorldPoint(.surface, GridPoint($0.origin.x + $0.size.width / 2, $0.origin.y + $0.size.height / 2)) }
         case .point(let at): return at
+        case .placement(let m, let s):
+            return placement(m, s, in: w).flatMap { w.placements.items[$0]?.at }
         case .near(let inner, _): return resolve(inner, world: w, trigger: trigger)
         }
+    }
+
+    /// その種類の置いた物のうち最も早く置いたもの(両方 nil なら何でも)。
+    public static func placement(_ module: ModuleKindID?, _ structure: StructureKindID?, in w: WorldState) -> EntityID? {
+        w.placements.sortedIDs.first { id in
+            switch w.placements.items[id]?.kind {
+            case .module(let k)?: module == k || (module == nil && structure == nil)
+            case .structure(let k)?: structure == k || (module == nil && structure == nil)
+            case nil: false
+            }
+        }
+    }
+
+    /// 引き金の記録が置いた物を指していれば、その置いた物(まだあるときだけ)。引き金が出来事の発火・選択の記録なら、
+    /// その引き金(inputs の先頭)をたどる(効果の cause は発火の記録で、その inputs が工業の行為の記録)。
+    public static func triggerPlacement(_ trigger: ProvenanceID?, in w: WorldState) -> EntityID? {
+        var next = trigger
+        for _ in 0..<4 {
+            guard let t = next, let r = w.ledger.record(t) else { return nil }
+            switch r.subject {
+            case .module(_, let e?), .structure(_, let e?), .entity(let e): return w.placements.items[e] != nil ? e : nil
+            case .event, .choice: next = r.inputs.first
+            default: return nil
+            }
+        }
+        return nil
     }
 
     public static func contains(_ p: PlaceSelector, _ pos: WorldPoint, world w: WorldState, trigger: ProvenanceID?) -> Bool {
