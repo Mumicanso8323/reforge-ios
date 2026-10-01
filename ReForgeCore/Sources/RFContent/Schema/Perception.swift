@@ -23,6 +23,21 @@ public enum Subject {
     public static func sheet(_ id: SheetID) -> SubjectID { SubjectID("sheet:\(id.rawValue)") }
     public static func research(_ id: ResearchID) -> SubjectID { SubjectID("research:\(id.rawValue)") }
     public static func ability(_ id: AbilityID) -> SubjectID { SubjectID("ability:\(id.rawValue)") }
+    public static func skill(_ id: SkillID) -> SubjectID { SubjectID("skill:\(id.rawValue)") }
+    public static func event(_ id: EventID) -> SubjectID { SubjectID("event:\(id.rawValue)") }
+    public static func fact(_ id: FactID) -> SubjectID { SubjectID("fact:\(id.rawValue)") }
+    public static func interaction(_ id: InteractionID) -> SubjectID { SubjectID("interaction:\(id.rawValue)") }
+    public static func aura(_ id: AuraKindID) -> SubjectID { SubjectID("aura:\(id.rawValue)") }
+    /// 有限の部品(残骸の区画など)。部品の名前は POIDef.parts の語。
+    public static func part(_ name: String) -> SubjectID { SubjectID("part:\(name)") }
+    /// ノートの出典(人以外: ノアの手・端末…)。人が出典なら person:<id> を使う。
+    /// R1 の出典のラベルは中立の語にする(結合設計 BEAT-02 / REQ-S5)。後の事実でラベルが変わってよい。
+    public static func source(_ name: String) -> SubjectID { SubjectID("source:\(name)") }
+    /// 日誌の 1 行の型(行為ごと)。見え方の name が文の型で、{actor} {subject} {count} を埋める。
+    /// 型そのものも事実で変わってよい(同じ行為の言い方が後で変わる)。
+    public static func journal(_ act: ActKind) -> SubjectID { SubjectID("journal:\(act.rawValue)") }
+    /// どれにも当たらない対象(実体・ライン札など)の総称。
+    public static func misc(_ name: String) -> SubjectID { SubjectID("misc:\(name)") }
 
     /// 物質の名前の部品 1 つの見出し。
     public static func namePart(_ p: NamePart) -> SubjectID {
@@ -86,12 +101,19 @@ public enum StatDisplay: Codable, Equatable, Sendable {
 /// 禁止語の規則: until が成り立つまで、プレイヤーに見える文字列に words を含めてはいけない。
 /// 本物の規則は非公開のコンテンツにある(語そのものがネタバレなので)。公開版は試験用の語だけ。
 public struct ForbiddenRule: Codable, Equatable, Sendable {
+    /// 規則の名札(違反の報告で語の代わりに出す。語そのものを公開のログに出さないため)。
+    public var id: String?
     public var words: [String]
     public var until: FactExpr
+    /// 静的な監査で「until が解けない限り、ほかのどの事実を知っていても出さない」まで調べるか(既定 true)。
+    /// false にすると、監査の段(auditStages)で書いた事実の組だけで調べる。
+    public var strict: Bool?
 
-    public init(words: [String], until: FactExpr) {
+    public init(id: String? = nil, words: [String], until: FactExpr, strict: Bool? = nil) {
+        self.id = id
         self.words = words
         self.until = until
+        self.strict = strict
     }
 }
 
@@ -111,6 +133,11 @@ public struct AuditStage: Codable, Equatable, Sendable {
 public struct TextGate: Codable, Equatable, Sendable {
     public var text: TextID
     public var gate: FactExpr
+
+    public init(text: TextID, gate: FactExpr) {
+        self.text = text
+        self.gate = gate
+    }
 }
 
 /// 巻き戻しの規則(何を持ち越すか)。
