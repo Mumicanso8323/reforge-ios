@@ -19,7 +19,7 @@ public enum DepositGenerator {
 
     /// 鉱脈を 1 つ作る。
     /// - Parameters:
-    ///   - primaryPercent: 主な鉱物の割合(%)を幅で指定し直す(岩山の露頭の 30% 前後など)。nil なら原作の幅。
+    ///   - primaryPercent: 主な鉱物の割合(%)を幅で指定し直す(岩山の露頭の 20〜35% など)。nil なら原作の幅。
     ///   - appearanceVariant: 見た目を固定したいとき(川岸の粘土 = 土石の 3 番など)。
     public static func make(id: DepositID, at position: GridPoint, category: DepositCategory,
                             rng: inout SeededRandom, primaryPercent: ClosedRange<Int>? = nil,

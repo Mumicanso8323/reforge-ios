@@ -494,9 +494,9 @@ enum WorldMapGenerator {
                                anchor: lm.farWreck, footprint: .rect(width: 2, height: 1), isDiscovered: false)
         layer.placements.place(far)
 
-        // 露頭: 鉄、純度 30% 前後(R1 の物語の値)
+        // 露頭: 鉄、純度 20〜35%(seed で変わる。最初の鉄が粗鉄塊と鉄塊の境目になる幅)
         layer.deposits.add(DepositGenerator.make(id: .outcrop, at: lm.outcrop, category: .iron,
-                                                 rng: &rng, primaryPercent: 27...33))
+                                                 rng: &rng, primaryPercent: 20...35))
         // 岩山の奥に鉄と銅をもう 1 つずつ(原作の開始時の鉱脈: 鉄・銅・土石)
         var rocks: [GridPoint] = []
         let r = lm.mountainRadius + 1

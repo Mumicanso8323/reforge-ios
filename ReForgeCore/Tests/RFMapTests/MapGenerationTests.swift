@@ -121,6 +121,15 @@ final class MapGenerationTests: XCTestCase {
         }
     }
 
+    func testOutcropPurityVariesBySeed() {
+        // 露頭の純度は seed ごとに 20〜35% の幅で散らばる(粗鉄塊〜鉄塊の境目をまたぐ)
+        let purities = MapFixture.r1Seeds.map { $0.surface.deposits[.outcrop]!.purity.basisPoints }
+        XCTAssertTrue(purities.allSatisfy { (2000...3500).contains($0) })
+        XCTAssertLessThan(purities.min()!, 2300)
+        XCTAssertGreaterThan(purities.max()!, 3200)
+        XCTAssertGreaterThan(Set(purities).count, 10)
+    }
+
     /// 生成側の検証関数を使わず、テスト側で測り直す。
     func assertLandmarkGuarantees(_ m: WorldMap, _ label: String, file: StaticString = #filePath, line: UInt = #line) {
         let r = m.config.landmarks
@@ -156,12 +165,12 @@ final class MapGenerationTests: XCTestCase {
         XCTAssertTrue(r.mountain.contains(dM), "\(label): 岩山 \(dM)", file: file, line: line)
         XCTAssertEqual(L.biome(at: lm.mountainCenter), .rock, "\(label)", file: file, line: line)
 
-        // 露頭: 鉄の鉱脈で純度 30% 前後、岩場の上、拠点からいちばん近い岩場
+        // 露頭: 鉄の鉱脈で純度 20〜35%、岩場の上、拠点からいちばん近い岩場
         let outcrop = L.deposits[.outcrop]
         XCTAssertNotNil(outcrop, "\(label): 露頭が無い", file: file, line: line)
         if let d = outcrop {
             XCTAssertEqual(d.category, .iron, file: file, line: line)
-            XCTAssertTrue((2700...3300).contains(d.purity.basisPoints), "\(label): 露頭の純度 \(d.purity)", file: file, line: line)
+            XCTAssertTrue((2000...3500).contains(d.purity.basisPoints), "\(label): 露頭の純度 \(d.purity)", file: file, line: line)
             XCTAssertEqual(L.biome(at: d.position), .rock, file: file, line: line)
             let dist = d.position.distance(to: o)
             XCTAssertTrue(r.outcrop.contains(dist), "\(label): 露頭 \(dist)", file: file, line: line)
