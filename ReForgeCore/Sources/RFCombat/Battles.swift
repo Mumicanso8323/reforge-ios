@@ -92,7 +92,9 @@ enum Battles {
         // いなくなった人(死んだ・失って続けるで外れた)は帯から抜ける
         for i in b.units.indices where b.units[i].isActive {
             guard let p = b.units[i].person else { continue }
-            if !b.participants.contains(p) || ctx.world.people[p]?.presence.isAlive != true { b.units[i].state = .escaped }
+            if (b.units[i].side == .allies && !b.participants.contains(p)) || ctx.world.people[p]?.presence.isAlive != true {
+                b.units[i].state = .escaped
+            }
         }
         var result = Lane.outcome(of: b)
         if result == nil, ctx.world.clock.now >= b.nextTurnAt {
@@ -179,8 +181,71 @@ enum Battles {
             }
         }
 
+        // 相手の側の人(集団との戦い。U16): 死・傷は人の担当へ。集団の旗で結果を残す
+        if case .group(let g) = b.kind {
+            for u in b.units where u.side == .enemies {
+                guard let p = u.person else { continue }
+                if u.state == .dead {
+                    ctx.queue(.crew(.dieFromEffect(person: p, reason: "reason.combat.killed", cause: endRecord)))
+                } else if u.damageTaken > 0 {
+                    var amount = u.damageTaken * 1000
+                    if !b.lethal { amount = min(amount, Int((ctx.world.people[p]?.body.health.raw ?? 0) - 1000)) }
+                    if amount > 0 { ctx.queue(.crew(.injureFromEffect(person: p, amount: amount, cause: endRecord))) }
+                }
+            }
+            let flag = outcome == .won ? "battle.won" : (outcome == .fled ? "battle.fled" : "battle.lost")
+            EffectApplier.apply([.groupFlag(id: g, flag: flag, on: true)], &ctx, cause: endRecord)
+        }
+
         ctx.world.combat.lastBattle = b
         ctx.emit(.battleEnded(battle: id, won: outcome == .won, fled: outcome == .fled, record: endRecord))
         ctx.changes.mark(.combat)
+    }
+
+    // MARK: 集団との戦い(U16・D11)
+
+    /// 拠点の外の集団の人と戦う。味方は near の近く(rally)にいる一員、相手はその集団の生きている人(members で名指し)。
+    /// 帯・手番・方針・撤退は獣との戦いと同じ。人はどちらの側でも倒れて外れ、lethal なら 0 で死ぬ。
+    @discardableResult
+    static func startGroup(_ g: GroupID, near: WorldPoint, members: [PersonID]?, lethal: Bool, cause: ProvenanceID?,
+                           _ ctx: inout StepContext, def: CombatDef) -> EntityID? {
+        let w = ctx.world
+        func fit(_ p: PersonID) -> Bool {
+            guard let ps = w.people[p], ps.presence.isAlive else { return false }
+            return Int(ps.body.health.raw / 1000) >= def.down
+        }
+        let allies = Threats.fighters(w).filter { p, pos in
+            !Threats.busy(p, w) && pos.layer == near.layer && pos.point.chebyshev(to: near.point) <= def.rally && fit(p)
+        }.map(\.0)
+        let foes = (members ?? w.people.order.filter { w.people[$0]?.group == g })
+            .filter { fit($0) && !w.people.members.contains($0) && !Threats.busy($0, w) }
+        guard !allies.isEmpty, !foes.isEmpty else { return nil }
+        let laneSize = max(def.lane, foes.count + 2)
+        var units: [BattleUnit] = []
+        func unit(_ p: PersonID, _ side: BattleUnit.Side, _ pos: Int) -> BattleUnit? {
+            guard let ps = w.people[p] else { return nil }
+            let wp = Weapons.profile(ps.equipment[def.slot], def: def, ruleBook: ctx.content.ruleBook)
+            return BattleUnit(ref: .person(p), side: side, position: pos, hp: max(1, Int(ps.body.health.raw / 1000)),
+                              maxHP: 100, attack: def.attack + wp.bonus, defense: def.defense, speed: def.speed,
+                              reachMin: wp.reachMin, reachMax: wp.reachMax, weaponOrigin: wp.origin)
+        }
+        for (i, p) in allies.enumerated() {
+            if let u = unit(p, .allies, min(i, max(0, laneSize / 2 - 1))) { units.append(u) }
+        }
+        for (i, p) in foes.enumerated() {
+            if let u = unit(p, .enemies, max(laneSize / 2, laneSize - 1 - i)) { units.append(u) }
+        }
+        let id = ctx.world.newEntityID()
+        let rec = ctx.record(.fought, .person(foes[0]), actor: allies.first, place: near,
+                             inputs: [cause].compactMap { $0 },
+                             detail: ["group": .string(g.rawValue), "enemies": .int(Int64(foes.count))])
+        let b = BattleState(id: id, kind: .group(g), at: near, laneSize: laneSize, participants: allies, enemies: [],
+                            units: units, stance: w.combat.defaultStance, startedAt: w.clock.now,
+                            firstTurnAt: w.clock.now + GameDuration(seconds: def.turn), origin: rec, lethal: lethal)
+        ctx.world.combat.battles[id] = b
+        if w.clock.phase != .day { ctx.world.combat.night.battles += 1 }
+        ctx.emit(.battleStarted(battle: id, record: rec))
+        ctx.changes.mark(.combat)
+        return id
     }
 }

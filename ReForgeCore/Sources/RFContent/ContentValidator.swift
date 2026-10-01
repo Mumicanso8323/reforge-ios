@@ -34,6 +34,7 @@ public enum ContentValidator {
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)
         narrativeRules(db, &out)  // 出来事まわり(U11。Schema/Condition.swift)
+        worldTypeRules(db, &out)  // 場所・縛り・電力・掘った量・壊す・集団との戦い(U16。Schema/WorldTypes.swift)
         return out
     }
 

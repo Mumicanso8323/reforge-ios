@@ -102,10 +102,13 @@ public struct MapGenConfig: Codable, Equatable, Sendable {
     public var size: GridSize
     /// 予備(いまは読まない)。
     public var parameters: Value
+    /// コンテンツが決める場所(砦など。U16)。距離の範囲を保証して置く。
+    public var sites: [SiteRule]?
 
-    public init(size: GridSize, parameters: Value = .null) {
+    public init(size: GridSize, parameters: Value = .null, sites: [SiteRule]? = nil) {
         self.size = size
         self.parameters = parameters
+        self.sites = sites
     }
 }
 
@@ -131,6 +134,7 @@ public struct RFMapGenerator: MapGenerating {
         let size = GridSize(width: max(side, config.size.width), height: max(side, config.size.height))
         var c = MapGenerationConfig(size: size)
         c.allowUnverifiedFallback = true
+        c.sites = config.sites
         do {
             var map = try WorldMap.generate(config: c, rng: &rng)
             map.assignEntities(allocate)

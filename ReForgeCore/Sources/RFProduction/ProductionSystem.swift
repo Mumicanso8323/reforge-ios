@@ -37,6 +37,14 @@ public struct ProductionSystem: SimSystem {
             return Placing.useFinite(placement, stock: stock, &ctx)
         case .convertPlacements(let from, let to, let cause):
             return Placing.convert(from: from, to: to, cause: cause, &ctx)
+        case .destroyFromEffect(let near, let radius, let module, let max, let cause):
+            for id in Destruction.targets(near: near, radius: radius, max: max, in: ctx.world, where: { p in
+                guard let k = p.moduleKind else { return false }
+                return module.map { $0 == k } ?? true
+            }) { Destruction.destroy(id, cause: cause, &ctx) }
+            return .done
+        case .repair(let placement):
+            return Placing.repair(placement, &ctx)
         }
     }
 
@@ -69,6 +77,8 @@ public enum ProductionText {
     public static let noSuchStep: TextID = "reason.design.no_step"
     public static let notAModule: TextID = "reason.placement.not_module"
     public static let noSuchPlacement: TextID = "reason.placement.unknown"
+    /// 直すものが壊れていない(U16)。
+    public static let notBroken: TextID = "reason.placement.not_broken"
     // 有限の品
     public static let finiteNotUsable: TextID = "reason.finite.not_usable"
     public static let finiteAlreadyUsed: TextID = "reason.finite.already_used"
@@ -76,6 +86,10 @@ public enum ProductionText {
     // 止まった理由
     public static let noInput: TextID = "reason.module.no_input"
     public static let noAux: TextID = "reason.module.no_aux"
+    /// 電力が来ていない(U16)。
+    public static let noPower: TextID = "reason.module.no_power"
+    /// 人が付いていない(人の手で回す発電機。U16)。
+    public static let noWorker: TextID = "reason.module.no_worker"
     public static let outputFull: TextID = "reason.module.output_full"
     public static let depleted: TextID = "reason.module.depleted"
     public static let noDeposit: TextID = "reason.module.no_deposit"

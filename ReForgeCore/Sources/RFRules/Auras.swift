@@ -21,13 +21,25 @@ public enum Auras {
     }
 
     /// その場所に効いている範囲の効果(ID 順。kind を指定すればその種類だけ)。
-    public static func covering(_ pos: WorldPoint, in w: WorldState, kind: AuraKindID? = nil) -> [Aura] {
+    /// content を渡すと、距離の縛り(AuraDef.requiresNear)で今は効かない範囲も外す。
+    public static func covering(_ pos: WorldPoint, in w: WorldState, kind: AuraKindID? = nil,
+                                content: ContentDB? = nil) -> [Aura] {
         w.auras.active.values.sorted { $0.id < $1.id }.filter { a in
             if let kind, a.kind != kind { return false }
             guard a.strength > 0, let c = center(of: a, in: w), c.layer == pos.layer else { return false }
             if let u = a.until, w.clock.now >= u { return false }
-            return c.point.chebyshev(to: pos.point) <= a.radius
+            guard c.point.chebyshev(to: pos.point) <= a.radius else { return false }
+            if let content, !tetherHolds(a, in: w, content: content) { return false }
+            return true
         }
+    }
+
+    /// 距離の縛り(AuraDef.requiresNear)が成り立っているか(縛りが無ければ true)。
+    /// 中心がその人から radius マスより遠い・別の層・どちらかが地図にいない間は効かない(U16)。
+    public static func tetherHolds(_ a: Aura, in w: WorldState, content: ContentDB) -> Bool {
+        guard let t = content.auras[a.kind]?.requiresNear else { return true }
+        guard let c = center(of: a, in: w), let p = w.people[t.person]?.position, p.layer == c.layer else { return false }
+        return c.point.chebyshev(to: p.point) <= t.radius
     }
 
     public static func active(at pos: WorldPoint?, kind: AuraKindID, in w: WorldState) -> Aura? {
@@ -39,7 +51,7 @@ public enum Auras {
     public static func modifiers(at pos: WorldPoint, in w: WorldState, content: ContentDB)
         -> [(modifier: AuraDef.Modifier, strength: Int, aura: Aura)]
     {
-        covering(pos, in: w).flatMap { a in
+        covering(pos, in: w, content: content).flatMap { a in
             (content.auras[a.kind]?.modifiers ?? []).map { ($0, a.strength, a) }
         }
     }
@@ -74,6 +86,7 @@ public enum Auras {
     public static func statPerHour(_ stat: StatID, in w: WorldState, content: ContentDB) -> Int {
         w.auras.active.values.sorted { $0.id < $1.id }.reduce(0) { acc, a in
             if let u = a.until, w.clock.now >= u { return acc }
+            if !tetherHolds(a, in: w, content: content) { return acc }
             return acc + (content.auras[a.kind]?.modifiers ?? []).reduce(0) { sum, m in
                 if case .statPerHour(let st, let amount) = m, st == stat { return sum + amount * a.strength / 1000 }
                 return sum
@@ -84,7 +97,7 @@ public enum Auras {
     /// この人を中心へ引き寄せている範囲(あれば。ID 順で最初のもの)。
     public static func drawing(_ person: PersonID, in w: WorldState, content: ContentDB) -> Aura? {
         guard let ps = w.people[person], ps.presence.isAlive, let pos = ps.position else { return nil }
-        return covering(pos, in: w).first { a in
+        return covering(pos, in: w, content: content).first { a in
             guard let def = content.auras[a.kind],
                   def.modifiers.contains(where: { if case .drawTowardSource = $0 { true } else { false } })
             else { return false }
@@ -121,6 +134,7 @@ public enum Auras {
         for id in w.placements.sortedIDs {
             guard let p = w.placements.items[id] else { continue }
             if case .underConstruction = p.status { continue }
+            if p.status == .broken { continue }  // 壊れた物は範囲を出さない(U16)
             let kinds: [AuraKindID]
             switch p.kind {
             case .module(let k): kinds = ctx.content.modules[k]?.auras ?? []

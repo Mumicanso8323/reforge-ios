@@ -84,6 +84,10 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case runFailed(cause: TextID)
     /// 巻き戻した・失って続けたあとの最初のステップで出す(act = .rewound / .continuedWithLoss)。
     case runResumed(act: ActKind, record: ProvenanceID)
+    /// 置いた物が壊された(U16。地図に残り、直せる)。
+    case placementDestroyed(placement: EntityID, record: ProvenanceID)
+    /// 壊れた置いた物を直した(U16)。
+    case placementRepaired(placement: EntityID, record: ProvenanceID)
 
     /// 物語の出来事の引き金に書く名前。
     public var hook: String {
@@ -144,6 +148,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .lineSpoken: "line"
         case .runFailed: "failed"
         case .runResumed: "run.resumed"
+        case .placementDestroyed: "destroyed"
+        case .placementRepaired: "repaired"
         }
     }
 
@@ -159,7 +165,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .researchCompleted(_, let r), .skillAcquired(_, _, let r), .researchNode(_, _, let r),
              .abilityUsed(_, _, let r), .eventFired(_, let r),
              .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r),
-             .explored(_, _, let r), .partChanged(_, _, let r):
+             .explored(_, _, let r), .partChanged(_, _, let r),
+             .placementDestroyed(_, let r), .placementRepaired(_, let r):
             r
         case .itemGained(_, _, _, let r): r
         case .hintHeard(_, _, let r): r

@@ -82,12 +82,12 @@ public enum Lane {
         if crit { dmg *= 2 }
         b.units[t].hp -= dmg
         b.units[t].damageTaken += dmg
-        if target.side == .allies {
-            if b.lethal && b.units[t].hp <= 0 {
-                b.units[t].state = .dead
-            } else if b.units[t].hp < def.down {
-                b.units[t].state = .down
+        if target.person != nil {
+            // 人は(どちらの側でも)倒れて帯から外れる。lethal の戦いでは倒れた人が死ぬ(U16: 人と人の戦い。死者は戻らない)
+            if b.units[t].hp < def.down || b.units[t].hp <= 0 {
+                b.units[t].state = b.lethal ? .dead : .down
             }
+            if target.side == .enemies, !b.units[t].isActive { b.units[a].kills += 1 }
         } else if b.units[t].hp <= 0 {
             b.units[t].state = .dead
             b.units[a].kills += 1

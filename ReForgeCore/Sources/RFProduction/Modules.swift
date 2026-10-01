@@ -25,8 +25,9 @@ enum Modules {
                 ctx.world.placements.items[id]?.module?.operatorID = op
                 ctx.changes.mark(.placements)
             }
-            if inBase.contains(id) { pullFromBase(id, &ctx) }
+            if inBase.contains(id), ctx.world.placements.items[id]?.status != .broken { pullFromBase(id, &ctx) }
         }
+        Power.update(ids, &ctx)
         for id in ids { advance(id, &ctx) }
         for id in ids { pushOut(id, down: links[id], inBase: inBase.contains(id), &ctx) }
     }
@@ -37,7 +38,8 @@ enum Modules {
         var out: [EntityID: PersonID] = [:]
         for pid in w.people.order {
             guard let ps = w.people[pid], ps.presence.isMember, ps.presence.isAlive,
-                  case .working(let at) = ps.activity, out[at] == nil else { continue }
+                  case .working(let at) = ps.activity, out[at] == nil,
+                  ps.workSpeed != 0 else { continue }  // 働けない人(距離の縛り。U16)は付いていないのと同じ
             out[at] = pid
         }
         return out
@@ -64,6 +66,8 @@ enum Modules {
             s = max(1, ProductionRules.operatorSpeed(op, module: kind, w, content))
         }
         if m.finite != nil, let f = content.modules[kind]?.finite { s = s * f.speedPermille / 1000 }
+        // 電力が足りない(需要 > 供給)間は半分の速さ(原作 IsPowerShortage。U16)
+        if (content.modules[kind]?.power?.draw ?? 0) > 0, w.logistics.powerDemand > w.logistics.powerSupply { s = s / 2 }
         for (mod, strength, _) in Auras.modifiers(at: p.at, in: w, content: content) {
             if case .workSpeed(let pm) = mod { s = s * (1000 + (pm - 1000) * strength / 1000) / 1000 }
         }
@@ -121,9 +125,10 @@ enum Modules {
 
     // MARK: 1 回の処理
 
-    enum Kind { case extract, produce, process, idle }
+    enum Kind { case extract, produce, process, generate, idle }
 
     static func kind(of m: ModuleRuntime, _ def: ModuleDef) -> Kind {
+        if (def.power?.output ?? 0) > 0 { return .generate }  // 発電機(U16)
         if def.placement.requiresDeposit == true { return .extract }
         if def.produces != nil { return .produce }
         if m.takesMatter { return .process }
@@ -134,7 +139,13 @@ enum Modules {
     static func blocker(_ id: EntityID, _ w: WorldState, _ content: ContentDB) -> (TextID, ItemID?)? {
         guard let p = w.placements.items[id], let m = p.module, let kind = p.moduleKind,
               let def = content.modules[kind] else { return (ProductionText.notAModule, nil) }
+        // 電力を使うモジュールは、供給が無ければ止まる(U16)
+        if (def.power?.draw ?? 0) > 0, w.logistics.powerSupply <= 0 { return (ProductionText.noPower, nil) }
         switch Self.kind(of: m, def) {
+        case .generate:
+            if let fuel = def.power?.fuel, m.inputCount(fuel) < 1 { return (ProductionText.noAux, fuel) }
+            if def.power?.needsWorker == true, m.operatorID == nil { return (ProductionText.noWorker, nil) }
+            return nil
         case .extract:
             guard let dep = m.deposit, let d = w.map[p.at.layer]?.deposits[dep] else { return (ProductionText.noDeposit, nil) }
             if d.isDepleted { return (ProductionText.depleted, nil) }
@@ -165,12 +176,21 @@ enum Modules {
         guard let p = ctx.world.placements.items[id], let kind = p.moduleKind, let def = ctx.content.modules[kind]
         else { return }
         let dt = SimStep.gameSeconds
+        if p.status == .broken {  // 壊れて止まっている(U16。直すまで動かない)
+            ctx.world.placements.items[id]?.module?.today.idleSeconds += dt
+            return
+        }
         if let (reason, item) = blocker(id, ctx.world, ctx.content) {
             setStatus(id, .stopped(reason: reason), waiting: item, &ctx)
             ctx.world.placements.items[id]?.module?.today.idleSeconds += dt
             return
         }
         setStatus(id, .running, waiting: nil, &ctx)
+        if let m = ctx.world.placements.items[id]?.module, Self.kind(of: m, def) == .generate {
+            ctx.world.placements.items[id]?.module?.today.runningSeconds += dt
+            Power.burnFuel(id, def, &ctx)
+            return
+        }
         let s = speed(id, ctx.world, ctx.content)
         ctx.world.placements.items[id]?.module?.today.runningSeconds += dt
         ctx.world.placements.items[id]?.module?.progress += dt * 1000 * Int64(s) / 1000
@@ -204,7 +224,7 @@ enum Modules {
                 guard blocker(id, ctx.world, ctx.content) == nil, processOne(id, &ctx) else { break }
                 made += 1
             }
-        case .idle: break
+        case .idle, .generate: break
         }
         guard made > 0 else { return }
         wearFinite(id, &ctx)
