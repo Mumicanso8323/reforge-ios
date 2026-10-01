@@ -167,10 +167,12 @@ public struct VisibilityLayer: Codable, Equatable, Sendable {
 
     // MARK: Codable(チャンクを座標順に並べ、ビット表は base64)
 
+    /// bits は base64 の文字列で明示的に書く(Data のままだと正準 JSON はバイトの配列に、標準の JSONDecoder は
+    /// base64 の文字列を期待して、読み戻せない。地形の TerrainGrid と同じ扱い)。
     private struct SavedChunk: Codable {
         var cx: Int
         var cy: Int
-        var bits: Data
+        var bits: String
     }
 
     private enum CodingKeys: String, CodingKey { case size, chunks, viewCenter, viewRadius }
@@ -181,10 +183,10 @@ public struct VisibilityLayer: Codable, Equatable, Sendable {
         viewCenter = try c.decodeIfPresent(GridPoint.self, forKey: .viewCenter)
         viewRadius = try c.decode(Int.self, forKey: .viewRadius)
         for ch in try c.decode([SavedChunk].self, forKey: .chunks) {
-            guard ch.bits.count == Self.chunkSize * 8 else {
+            guard let data = Data(base64Encoded: ch.bits), data.count == Self.chunkSize * 8 else {
                 throw DecodingError.dataCorruptedError(forKey: .chunks, in: c, debugDescription: "視界のチャンクの長さが合わない")
             }
-            let bytes = [UInt8](ch.bits)
+            let bytes = [UInt8](data)
             var rows = [UInt64](repeating: 0, count: Self.chunkSize)
             for r in 0..<Self.chunkSize {
                 var v: UInt64 = 0
@@ -203,7 +205,7 @@ public struct VisibilityLayer: Codable, Equatable, Sendable {
         let chunks = explored.keys.sorted().map { key -> SavedChunk in
             var bytes = [UInt8](); bytes.reserveCapacity(Self.chunkSize * 8)
             for v in explored[key]! { for b in 0..<8 { bytes.append(UInt8(truncatingIfNeeded: v >> UInt64(b * 8))) } }
-            return SavedChunk(cx: key.cx, cy: key.cy, bits: Data(bytes))
+            return SavedChunk(cx: key.cx, cy: key.cy, bits: Data(bytes).base64EncodedString())
         }
         try c.encode(chunks, forKey: .chunks)
     }
