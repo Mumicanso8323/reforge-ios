@@ -221,6 +221,8 @@ public struct LineDef: ContentDef, Equatable {
     public var when: Condition?
     public var text: TextID
     public var weight: Int?
+    /// 同じ一言を次に言えるまでのゲーム時間(既定: 直近に言った 3 つとは重ねない)。
+    public var cooldownHours: Int?
 }
 
 public struct HintDef: ContentDef, Equatable {
@@ -283,8 +285,10 @@ public struct AuraDef: ContentDef, Equatable {
 
     public var id: AuraKindID
     public var modifiers: [Modifier]
-    /// 誰に効くか(nil は全員)。
+    /// 誰に効くか(nil は全員。ただし drawTowardSource はノアと中心の人には、ここで名指ししない限り効かない)。
     public var affects: [PersonID]?
+    /// 置いた物・人の定義から付くときの半径(マス)。効果 addAura で半径を書かないときもこれ。
+    public var radius: Int?
 }
 
 /// 拠点全体の数値(内訳と合計・暦…)。見せない値もここ。見せ方は認識の表。
@@ -313,6 +317,10 @@ public struct TrackerDef: ContentDef, Equatable {
         case nightsWhere(condition: Condition)
         /// 来歴の数(問い合わせに合う記録の count の合計)。
         case ledgerCount(query: ProvenanceQuery)
+        /// 条件が成り立っていたゲーム分(毎ステップ判定)。
+        case minutesWhere(condition: Condition)
+        /// 拠点の中心から最も遠くまで行ったマス数(チェビシェフ距離の最大。person が nil なら一員の誰か)。探索の届いた範囲。
+        case farthestFromBase(person: PersonID?)
     }
 
     public var id: CounterID
@@ -339,20 +347,25 @@ public struct FactDef: ContentDef, Equatable {
 /// 出来事。日数でなく、行動(hook)と世界の状態(when)で起きる。
 public struct EventDef: ContentDef, Equatable {
     public struct Trigger: Codable, Equatable, Sendable {
-        /// どの DomainEvent の後に調べるか(hook の名前)。nil なら夜明けと毎時。
+        /// どの DomainEvent の後に調べるか(hook の名前)。nil なら夜明けと毎時("hour")。
+        /// 空の配列なら自分からは起きない(効果 fire / schedule でだけ起きる)。
         public var on: [String]?
         public var when: Condition
     }
 
     public enum Repeat: Codable, Equatable, Sendable {
         case once
+        /// 前に起きてから hours ゲーム時間たてば、また起きる。
         case cooldown(hours: Int)
+        /// 1 日(夜明けから次の夜明けまで)に 1 回まで。
+        case oncePerDay
         case always
     }
 
     public var id: EventID
     public var trigger: Trigger
     public var repeats: Repeat?
+    /// 同じ hook で複数が成り立つとき、大きい方から調べる(既定 0。同じなら ID 順)。
     public var priority: Int?
     public var effects: [Effect]
     /// 添え物の場面(下の帯に 3 行まで)。
@@ -407,6 +420,8 @@ public struct ObjectiveDef: ContentDef, Equatable {
     public var text: TextID
     public var completeWhen: Condition
     public var effects: [Effect]?
+    /// これが成り立てば失敗(達成より先に調べない。達成が先)。
+    public var failWhen: Condition?
 }
 
 public struct ChapterDef: ContentDef, Equatable {
@@ -416,8 +431,11 @@ public struct ChapterDef: ContentDef, Equatable {
 
 public struct EndingDef: ContentDef, Equatable {
     public var id: EndingID
+    /// 自分から届く条件(効果 ending で直接届くこともある)。
     public var when: Condition
     public var scene: SceneID?
+    /// 届いたときの効果(帰る人・残る人が分かれる、など)。
+    public var effects: [Effect]?
 }
 
 /// 所見(RFMatter の FindingID)の文。引数(燃料の名前など)は {0} {1} で埋める。
