@@ -8,14 +8,18 @@ let package = Package(
     platforms: [.iOS(.v17), .macOS(.v14)],
     products: [
         .library(name: "ReForgeCore", targets: ["ReForgeCore", "ReForgeContent"]),
+        .library(name: "RFMap", targets: ["RFMap"]),
     ],
     targets: [
         .target(name: "ReForgeCore"),
+        // RFMap: 地図(地形・POI・鉱脈・視界・経路)。他のターゲットに依存しない。
+        .target(name: "RFMap"),
         .target(
             name: "ReForgeContent",
             dependencies: ["ReForgeCore"],
             resources: [.copy("Resources")]
         ),
         .testTarget(name: "ReForgeCoreTests", dependencies: ["ReForgeCore", "ReForgeContent"]),
+        .testTarget(name: "RFMapTests", dependencies: ["RFMap"]),
     ]
 )
