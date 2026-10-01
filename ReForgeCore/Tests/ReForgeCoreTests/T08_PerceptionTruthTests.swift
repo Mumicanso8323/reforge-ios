@@ -102,7 +102,7 @@ final class T08_PerceptionTruthTests: XCTestCase {
             s.withBuildings(g.content.blueprints.map(\.id)),
         ]
         for st in states {
-            samples += [t.dayLabel(st.day), t.actionsLabel(st), t.restConfirm(st), t.victoryBody(st), t.savePointLabel(st)]
+            samples += [t.dayLabel(st.day), t.actionsLabel(st), t.victoryBody(st), t.savePointLabel(st)]
             samples += t.warnings(st).map(\.text)
             samples += GatherKind.allCases.flatMap { [t.gatherName($0), t.gatherPreview($0, in: st)] }
             samples += g.content.items.map { t.stockLabel($0.id, in: st) }
@@ -149,6 +149,8 @@ final class T08_PerceptionTruthTests: XCTestCase {
                    .gathered(.stone, gains: [ItemAmount(ID.stone, 3), ItemAmount(ID.clay, 1)], scavengeLeft: nil)]
         samples += events.map { t.journal(LogEntry(day: 1, event: $0)) }
         samples += t.dawnLines(report)
+        samples += t.dawnSummary(report) + t.dawnSummary(DawnReport(endedDay: 1, tally: DayTally(), daysWithoutFood: 0, daysWithoutWater: 0))
+        samples += [t.duskHint(canWorkAtNight: true), t.duskHint(canWorkAtNight: false)]
         samples += [t.failureReasonText(.starvation), t.failureReasonText(.dehydration)]
 
         // ゲームオーバーの選択肢

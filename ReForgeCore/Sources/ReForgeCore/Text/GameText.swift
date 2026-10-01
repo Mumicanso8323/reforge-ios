@@ -21,9 +21,6 @@ public struct GameText: Sendable {
 
     public func name(_ item: ItemID) -> String { content.itemName(item) }
 
-    /// 昼の「休む」の確認(S1)。
-    public func restConfirm(_ s: GameState) -> String { "残り \(s.actionPointsLeft) 行動を使わずに日没にしますか?" }
-
     /// 製作の確定ボタン(S3)。
     public func craftButton(times: Int) -> String { "作る(\(times) 行動)" }
 
@@ -162,11 +159,12 @@ public struct GameText: Sendable {
 
     // MARK: 夜明けの結果(「寝る」の結果シートと日誌の集計行)
 
+    /// 品目の表示順(コンテンツの並び)にそろえる。
+    func sorted(_ d: [ItemID: Int]) -> [ItemAmount] {
+        content.items.map(\.id).compactMap { id in d[id].map { ItemAmount(id, $0) } }
+    }
+
     public func dawnLines(_ r: DawnReport) -> [String] {
-        let order = content.items.map(\.id)
-        func sorted(_ d: [ItemID: Int]) -> [ItemAmount] {
-            order.compactMap { id in d[id].map { ItemAmount(id, $0) } }
-        }
         let consumed = sorted(r.tally.consumed)
         let produced = sorted(r.tally.produced)
         var lines = [
@@ -176,6 +174,33 @@ public struct GameText: Sendable {
         if r.tally.foodShort { lines.append("\(name(ID.food))が足りなかった") }
         if r.tally.waterShort { lines.append("\(name(ID.water))が足りなかった") }
         return lines
+    }
+
+    /// 夜明けの短い知らせ(拠点の画面に数秒だけ出す。全部の内訳は日誌の集計行)。
+    /// 1 行目は食料と水の増減(生産 − 消費)、2 行目は生産、3 行目は足りなかった物。無い行は出さない。
+    public func dawnSummary(_ r: DawnReport) -> [String] {
+        func net(_ id: ItemID) -> Int { (r.tally.produced[id] ?? 0) - (r.tally.consumed[id] ?? 0) }
+        func signed(_ n: Int) -> String { n > 0 ? "+\(n)" : n < 0 ? "\(Self.minus)\(-n)" : "±0" }
+        var changes = ["\(name(ID.food)) \(signed(net(ID.food)))"]
+        if let ration = r.tally.consumed[ID.ration], ration > 0 {
+            changes.append("\(name(ID.ration)) \(Self.minus)\(ration)")
+        }
+        changes.append("\(name(ID.water)) \(signed(net(ID.water)))")
+        var lines = ["夜が明けた。" + changes.joined(separator: "、")]
+        let produced = sorted(r.tally.produced)
+        if !produced.isEmpty { lines.append("生産 " + amounts(produced, separator: "、")) }
+        let short = (r.tally.foodShort ? [name(ID.food)] : []) + (r.tally.waterShort ? [name(ID.water)] : [])
+        if !short.isEmpty { lines.append("\(short.joined(separator: "と"))が足りなかった") }
+        return lines
+    }
+
+    // MARK: 日没(S1)
+
+    /// 日が沈んだときに拠点の画面に出す一言。夜作業ができるかで変わる。
+    public func duskHint(canWorkAtNight: Bool) -> String {
+        canWorkAtNight
+            ? "日が沈んだ。火のそばで夜作業をするか、朝まで寝るか"
+            : "日が沈んだ。火がなければ夜は何もできない。朝まで寝よう"
     }
 
     // MARK: 日誌(S7)
