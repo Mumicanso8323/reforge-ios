@@ -29,6 +29,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case built(placement: EntityID, record: ProvenanceID)
     // 動く・探す
     case arrived(person: PersonID, at: WorldPoint)
+    case walked(person: PersonID, tiles: Int, staminaCost: Int)
     case entered(person: PersonID, poi: EntityID)
     case interacted(person: PersonID, interaction: InteractionID, at: WorldPoint, record: ProvenanceID)
     case itemGained(holder: HolderID, stuff: Stuff, quantity: Int, record: ProvenanceID?)
@@ -97,6 +98,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .dismantled: "dismantled"
         case .built: "built"
         case .arrived: "arrived"
+        case .walked: "walked"
         case .entered: "entered"
         case .interacted: "interacted"
         case .itemGained: "item.gained"

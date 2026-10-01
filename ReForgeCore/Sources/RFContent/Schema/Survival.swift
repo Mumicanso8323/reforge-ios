@@ -33,6 +33,16 @@ public struct SurvivalDef: Codable, Equatable, Sendable {
     /// そのときの作業の速さ(千分率)。既定 750。
     public var mindLowWorkPermille: Int?
 
+    /// スタミナ: 歩いた地形の moveCost 1 あたりの増減(raw)。既定 -5(平地 10 のマス 1 つで 0.05 減る)。
+    /// 歩いたことは RFCrew の出来事 walked で受ける。
+    public var staminaPerMoveCost: Int?
+    /// スタミナの 1 時間あたりの回復(raw)。既定 +1500。
+    public var staminaRegenPerHour: Int?
+    /// スタミナがこの値(raw)を下回ると作業が遅くなる。既定 10000(= 10)。
+    public var staminaLowThreshold: Int?
+    /// そのときの作業の速さ(千分率)。既定 750。
+    public var staminaLowWorkPermille: Int?
+
     /// 学ぶ時期(研究・スキルの習得)とみなす建造物の provides のタグ。既定 ["research"]。
     /// その建造物に付いている(配属か、いまの動作)人は「学んでいる」。
     public var studyTags: [String]?
@@ -108,6 +118,10 @@ public struct SurvivalDef: Codable, Equatable, Sendable {
     public var mindLow: Int { mindLowThreshold ?? 20000 }
     public var mindLowWork: Int { mindLowWorkPermille ?? 750 }
     public var study: [String] { studyTags ?? ["research"] }
+    public var staminaPerCost: Int { staminaPerMoveCost ?? -5 }
+    public var staminaRegen: Int { staminaRegenPerHour ?? 1500 }
+    public var staminaLow: Int { staminaLowThreshold ?? 10000 }
+    public var staminaLowWork: Int { staminaLowWorkPermille ?? 750 }
     public var studyFood: Int { studyFoodPermille ?? 1500 }
     public var wound: StatID { woundAilment ?? "ailment.wound" }
     public var healthRegen: Int { healthRegenPerHour ?? 500 }
