@@ -119,12 +119,23 @@ public struct RewindDef: Codable, Equatable, Sendable {
     public var memorableTags: [ProvenanceTag]
     /// 関係の点を持ち越す割合(千分率。既定 1000 = 全部)。
     public var relationPermille: Int?
-    /// 「失って続ける」で失うもの(効果の並び。誰かが去る・物を失う…)。
+    /// 「失って続ける」で失うもの(効果の並び。誰かが去る・物を失う…)。下の 2 つの既定の喪失に足して適用する。
     public var lossEffects: [Effect]?
+    /// 巻き戻した後、夜明けの時点の一員(ノアを除く)に付ける記憶(about = 巻き戻しの来歴)。
+    /// 一言の文脈 "rewind.deja_vu" の条件(person.hasMemory)がこれを見る。nil なら付けない。
+    public var dejaVuMemory: MemoryKindID?
+    /// 「失って続ける」で拠点を去る仲間の数(既定 1。関係の点が最も低い人から。ノアは去らない)。
+    public var lossMembers: Int?
+    /// 「失って続ける」で失う拠点の蓄えの割合(千分率。既定 500。唯一品は失わない)。
+    public var lossItemPermille: Int?
 
-    public init(memorableTags: [ProvenanceTag] = [], relationPermille: Int? = nil, lossEffects: [Effect]? = nil) {
+    public init(memorableTags: [ProvenanceTag] = [], relationPermille: Int? = nil, lossEffects: [Effect]? = nil,
+                dejaVuMemory: MemoryKindID? = nil, lossMembers: Int? = nil, lossItemPermille: Int? = nil) {
         self.memorableTags = memorableTags
         self.relationPermille = relationPermille
         self.lossEffects = lossEffects
+        self.dejaVuMemory = dejaVuMemory
+        self.lossMembers = lossMembers
+        self.lossItemPermille = lossItemPermille
     }
 }
