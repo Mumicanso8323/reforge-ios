@@ -14,8 +14,8 @@ public struct ExplorationState: Codable, Equatable, Sendable {
     public var active: [PersonID: ActiveInteraction] = [:]
     /// 採集した日(キー `ExplorationState.countKey` → 日)。クールダウンの判定に使う。
     public var harvestedDay: [String: Int] = [:]
-    /// 出来事の表を引き終えた区画(層 → 区画の格子のビット列)。
-    public var exploredRegions: [LayerID: GridBitset] = [:]
+    /// 出来事の表を引き終えた区画(`ExplorationState.regionKey`(層 × 場)→ 区画の格子のビット列)。
+    public var exploredRegions: [String: GridBitset] = [:]
     /// 探索の出来事が起きた回数(一度きりの判定にも使う)。
     public var exploreFired: [EventID: Int] = [:]
     /// 前のステップでいた場所(歩いて入ったことの判定)。
@@ -28,6 +28,9 @@ public struct ExplorationState: Codable, Equatable, Sendable {
     public var range: Int = 1
 
     public init() {}
+
+    /// 区画のビット列のキー(層 × 場。場の無い地形は "-")。
+    public static func regionKey(_ layer: LayerID, field: String?) -> String { "\(layer.rawValue)|\(field ?? "-")" }
 
     /// 回数・クールダウンのキー(行為 × 場所)。POI なら場所の代わりに POI の実体。
     public static func countKey(_ interaction: InteractionID, poi: EntityID?, at p: WorldPoint) -> String {

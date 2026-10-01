@@ -7,7 +7,8 @@ import RFWorld
 /// 歩いて探す(原作の一発の「探索」を、地図を歩くことに置き換えたもの)。
 ///
 /// - 一員が POI のそばに来たら「入った」(訪れた回数・発見・`entered`)。ノアが初めて入った POI では、その POI の場の表を引く。
-/// - ノアが新しい区画(regionSize 四方)に入ったら、その足元の地形の場の表を引く(拠点の範囲の中は引かない)。
+/// - ノアが区画(regionSize 四方)の中で、まだ引いていない場(足元と周り 8 マスの地形の場)に触れたら、その場の表を引く
+///   (区画 × 場ごとに 1 回。1 ステップに 1 回まで。拠点の範囲の中は引かない)。川べりを歩けば川辺の表、森の縁なら森の表も引く。
 /// - 表の引き方は原作 `ExplorationEventDatabase.RollEvent`: 場の表 + 汎用の表から、探索範囲(minRange)と一度きりで絞り、
 ///   重みで 1 件。乱数は探索の流れ。候補の条件(when)は乱数を使わない評価だけ(chance は使えない)。
 /// - 探索範囲 = 1 + 拠点の中心から最も遠くまで行った距離 ÷ rangeStep(上限 maxRange)。
@@ -23,8 +24,8 @@ enum Wandering {
             guard pid == .noah else { continue }
             if let (poi, kind) = firstVisit, let field = field(forPOI: kind, ctx.content) {
                 roll(field: field, person: pid, at: pos, poi: poi, &ctx)
-            } else if enteredNewRegion(pos, &ctx) {
-                roll(field: field(at: pos, ctx), person: pid, at: pos, poi: nil, &ctx)
+            } else if let f = newRegionField(pos, &ctx) {
+                roll(field: f, person: pid, at: pos, poi: nil, &ctx)
             }
         }
     }
@@ -79,18 +80,31 @@ enum Wandering {
 
     // MARK: 区画
 
-    static func enteredNewRegion(_ pos: WorldPoint, _ ctx: inout StepContext) -> Bool {
+    /// 足元と周りの場のうち、この区画でまだ引いていない最初の場(足元が先)。引く場に印を付けて返す。
+    /// 場の無い地形だけなら汎用の表のために "-" を 1 回。
+    static func newRegionField(_ pos: WorldPoint, _ ctx: inout StepContext) -> FieldID?? {
         let cfg = ctx.content.exploration
-        if cfg.quietInBase ?? true, pos.layer == .surface, ctx.world.base.area?.contains(pos.point) == true { return false }
-        guard let layer = ctx.world.map[pos.layer] else { return false }
+        if cfg.quietInBase ?? true, pos.layer == .surface, ctx.world.base.area?.contains(pos.point) == true { return nil }
+        guard let layer = ctx.world.map[pos.layer] else { return nil }
         let rs = max(1, cfg.regionSize ?? 8)
         let size = GridSize(width: (layer.size.width + rs - 1) / rs, height: (layer.size.height + rs - 1) / rs)
-        var bits = ctx.world.exploration.exploredRegions[pos.layer] ?? GridBitset(size: size)
         let r = GridPoint(pos.point.x / rs, pos.point.y / rs)
-        guard size.contains(r), !bits[r] else { return false }
-        bits[r] = true
-        ctx.world.exploration.exploredRegions[pos.layer] = bits
-        return true
+        guard size.contains(r) else { return nil }
+        var seen: [FieldID?] = []
+        for p in [pos.point] + pos.point.neighbors8 where layer.size.contains(p) {
+            let f = field(at: WorldPoint(pos.layer, p), ctx)
+            if !seen.contains(f) { seen.append(f) }
+        }
+        if seen.count > 1 { seen.removeAll { $0 == nil } }
+        for f in seen {
+            let key = ExplorationState.regionKey(pos.layer, field: f?.rawValue)
+            var bits = ctx.world.exploration.exploredRegions[key] ?? GridBitset(size: size)
+            guard !bits[r] else { continue }
+            bits[r] = true
+            ctx.world.exploration.exploredRegions[key] = bits
+            return .some(f)
+        }
+        return nil
     }
 
     // MARK: 場と表

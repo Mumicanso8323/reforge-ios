@@ -134,53 +134,36 @@ public struct PartOp: Codable, Equatable, Sendable {
 }
 
 extension Yield {
-    public init(item: ItemID? = nil, matter: Matter? = nil, min: Int, max: Int, basisPoints: Int? = nil,
-                unique: Bool? = nil, durability: Int? = nil) {
-        self.item = item
-        self.matter = matter
-        self.min = min
-        self.max = max
-        self.basisPoints = basisPoints
-        self.unique = unique
-        self.durability = durability
+    /// 物の得られ方(確率は万分率。nil は必ず)。
+    public static func of(_ item: ItemID, _ min: Int, _ max: Int, basisPoints: Int? = nil, unique: Bool? = nil,
+                          durability: Int? = nil) -> Yield {
+        Yield(item: item, matter: nil, min: min, max: max, basisPoints: basisPoints, unique: unique, durability: durability)
+    }
+
+    public static func of(_ matter: Matter, _ min: Int, _ max: Int, basisPoints: Int? = nil) -> Yield {
+        Yield(item: nil, matter: matter, min: min, max: max, basisPoints: basisPoints, unique: nil, durability: nil)
     }
 }
 
 extension InteractionDef {
-    public init(id: InteractionID, target: Target, seconds: Int, hold: Bool = false, when: Condition? = nil,
-                allowedPhases: [DayPhase]? = nil, limit: Int? = nil, yields: [Yield] = [], effects: [Effect]? = nil,
-                tags: [ProvenanceTag]? = nil, cost: [Ingredient]? = nil, partOp: PartOp? = nil,
-                cooldownDays: Int? = nil, requiredPeople: Int? = nil) {
-        self.id = id
-        self.target = target
-        self.seconds = seconds
-        self.hold = hold
-        self.when = when
-        self.allowedPhases = allowedPhases
-        self.limit = limit
-        self.yields = yields
-        self.effects = effects
-        self.tags = tags
-        self.cost = cost
-        self.partOp = partOp
-        self.cooldownDays = cooldownDays
-        self.requiredPeople = requiredPeople
+    /// 行為の定義(テスト・コードから作るとき)。
+    public static func make(id: InteractionID, target: Target, seconds: Int, hold: Bool = false, when: Condition? = nil,
+                            allowedPhases: [DayPhase]? = nil, limit: Int? = nil, yields: [Yield] = [],
+                            effects: [Effect]? = nil, tags: [ProvenanceTag]? = nil, cost: [Ingredient]? = nil,
+                            partOp: PartOp? = nil, cooldownDays: Int? = nil, requiredPeople: Int? = nil) -> InteractionDef {
+        InteractionDef(id: id, target: target, seconds: seconds, hold: hold, when: when, allowedPhases: allowedPhases,
+                       limit: limit, yields: yields, effects: effects, tags: tags, cost: cost, partOp: partOp,
+                       cooldownDays: cooldownDays, requiredPeople: requiredPeople)
     }
 }
 
 extension StructureDef {
-    public init(id: StructureKindID, cost: [Ingredient], footprint: [GridPoint]? = nil, buildSeconds: Int,
-                provides: [String: Int], auras: [AuraKindID]? = nil, requiresBaseArea: Bool? = nil,
-                placement: PlacementRule? = nil, specialty: String? = nil) {
-        self.id = id
-        self.cost = cost
-        self.footprint = footprint
-        self.buildSeconds = buildSeconds
-        self.provides = provides
-        self.auras = auras
-        self.parameters = nil
-        self.requiresBaseArea = requiresBaseArea
-        self.placement = placement
-        self.specialty = specialty
+    /// 建造物の定義(テスト・コードから作るとき)。
+    public static func make(id: StructureKindID, cost: [Ingredient], footprint: [GridPoint]? = nil, buildSeconds: Int,
+                            provides: [String: Int], auras: [AuraKindID]? = nil, requiresBaseArea: Bool? = nil,
+                            placement: PlacementRule? = nil, specialty: String? = nil) -> StructureDef {
+        StructureDef(id: id, cost: cost, footprint: footprint, buildSeconds: buildSeconds, provides: provides,
+                     auras: auras, parameters: nil, requiresBaseArea: requiresBaseArea, placement: placement,
+                     specialty: specialty)
     }
 }
