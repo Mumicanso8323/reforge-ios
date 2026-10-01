@@ -133,6 +133,32 @@ public enum ModuleTopology {
         return nil
     }
 
+    /// 全モジュールの直結(上流 → 下流)を一度に引く(マスの索引を 1 回だけ作る。毎ステップ回す側が使う)。
+    /// directDownstream(of:) を全モジュールに当てたのと同じ結果。
+    public static func directLinks(in w: WorldState) -> [EntityID: EntityID] {
+        var cells: [WorldPoint: [EntityID]] = [:]
+        let ids = w.placements.sortedIDs
+        for id in ids {
+            guard let p = w.placements.items[id] else { continue }
+            for off in p.footprint {
+                cells[WorldPoint(p.at.layer, GridPoint(p.at.point.x + off.x, p.at.point.y + off.y)), default: []].append(id)
+            }
+        }
+        var out: [EntityID: EntityID] = [:]
+        for id in ids {
+            guard let p = w.placements.items[id], let m = p.module else { continue }
+            search: for side in m.ports.outputs {
+                for other in cells[WorldPoint(p.at.layer, p.at.point.moved(side))] ?? [] where other != id {
+                    if let om = w.placements.items[other]?.module, om.ports.inputs.contains(side.opposite) {
+                        out[id] = other
+                        break search
+                    }
+                }
+            }
+        }
+        return out
+    }
+
     /// 自分に直結している上流のモジュール(ID 順)。
     public static func directUpstreams(of id: EntityID, in w: WorldState) -> [EntityID] {
         w.placements.moduleIDs.filter { $0 != id && directDownstream(of: $0, in: w) == id }

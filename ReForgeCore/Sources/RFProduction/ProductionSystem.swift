@@ -112,7 +112,7 @@ public enum ProductionRules {
     /// 付いている仲間がいるときのモジュールの速さ(千分率)。
     /// U5 の `PersonState.workSpeed`(1000 + 専門一致 300 + 関係ランク 3 以上 100 + 思想と配属の印)が境界に入ったら
     /// それに置き換える(二重に掛けないこと)。それまでは専門と関係ランクだけをここで数える。
-    /// 範囲の効果・空腹の掛け率はモジュールの側で掛ける。付いていないときより遅くはしない。
+    /// 範囲の効果・空腹の掛け率はモジュールの側で掛ける。思想が配属と合わない人は 1000 を下回ってよい(MECH-05)。
     public static func operatorSpeed(_ op: PersonID, module kind: ModuleKindID, _ w: WorldState, _ content: ContentDB)
         -> Int
     {

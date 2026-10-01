@@ -13,12 +13,34 @@ import RFWorld
 enum Modules {
     static func step(_ ctx: inout StepContext) {
         let ids = ctx.world.placements.moduleIDs
+        guard !ids.isEmpty else { return }
+        // 1 ステップに 1 回だけ引く(モジュールごとに地図や人を引き直さない)
+        let operators = operatorsByModule(ctx.world)
+        let links = ModuleTopology.directLinks(in: ctx.world)
+        var inBase: Set<EntityID> = []
+        for id in ids where ModuleTopology.isInBase(id, in: ctx.world) { inBase.insert(id) }
         for id in ids {
-            refreshOperator(id, &ctx)
-            if ModuleTopology.isInBase(id, in: ctx.world) { pullFromBase(id, &ctx) }
+            let op = operators[id]
+            if ctx.world.placements.items[id]?.module?.operatorID != op {
+                ctx.world.placements.items[id]?.module?.operatorID = op
+                ctx.changes.mark(.placements)
+            }
+            if inBase.contains(id) { pullFromBase(id, &ctx) }
         }
         for id in ids { advance(id, &ctx) }
-        for id in ids { pushOut(id, &ctx) }
+        for id in ids { pushOut(id, down: links[id], inBase: inBase.contains(id), &ctx) }
+    }
+
+    /// モジュール → そこで働いている一員(activity == .working(at:) の人の並びで最初の 1 人)。
+    /// 歩いている途中の人は数えない。配属に従ってそばへ歩かせ、着いたら working にするのは RFCrew。
+    static func operatorsByModule(_ w: WorldState) -> [EntityID: PersonID] {
+        var out: [EntityID: PersonID] = [:]
+        for pid in w.people.order {
+            guard let ps = w.people[pid], ps.presence.isMember, ps.presence.isAlive,
+                  case .working(let at) = ps.activity, out[at] == nil else { continue }
+            out[at] = pid
+        }
+        return out
     }
 
     /// 夜明けに 1 日の集計を回す。
@@ -33,31 +55,13 @@ enum Modules {
 
     // MARK: 付いている仲間
 
-    /// いまこのモジュールで働いている一員(activity == .working(at:)。歩いている途中の人は数えない。
-    /// 配属に従ってそばへ歩かせ、着いたら working にするのは RFCrew)。人の並びで最初の 1 人。
-    static func operatorOf(_ id: EntityID, _ w: WorldState) -> PersonID? {
-        for pid in w.people.order {
-            guard let ps = w.people[pid], ps.presence.isMember, ps.presence.isAlive else { continue }
-            if ps.activity == .working(at: id) { return pid }
-        }
-        return nil
-    }
-
-    static func refreshOperator(_ id: EntityID, _ ctx: inout StepContext) {
-        let op = operatorOf(id, ctx.world)
-        if ctx.world.placements.items[id]?.module?.operatorID != op {
-            ctx.world.placements.items[id]?.module?.operatorID = op
-            ctx.changes.mark(.placements)
-        }
-    }
-
     /// 速さ(千分率)。付いている仲間(専門 +30%・関係ランク 3 以上 +10%。作業の速さが掛かる)、
     /// 有限の品、範囲の効果 workSpeed。
     static func speed(_ id: EntityID, _ w: WorldState, _ content: ContentDB) -> Int {
         guard let p = w.placements.items[id], let m = p.module, let kind = p.moduleKind else { return 1000 }
         var s = 1000
-        if let op = m.operatorID ?? operatorOf(id, w) {
-            s = max(s, ProductionRules.operatorSpeed(op, module: kind, w, content))
+        if let op = m.operatorID {
+            s = max(1, ProductionRules.operatorSpeed(op, module: kind, w, content))
         }
         if m.finite != nil, let f = content.modules[kind]?.finite { s = s * f.speedPermille / 1000 }
         for (mod, strength, _) in Auras.modifiers(at: p.at, in: w, content: content) {
@@ -82,9 +86,9 @@ enum Modules {
     }
 
     /// 出口の物を隣の直結へ渡す。直結も運搬の経路も無く、拠点の中なら蓄えへ入れる。
-    static func pushOut(_ id: EntityID, _ ctx: inout StepContext) {
+    static func pushOut(_ id: EntityID, down: EntityID?, inBase: Bool, _ ctx: inout StepContext) {
         guard let m = ctx.world.placements.items[id]?.module, !m.output.isEmpty else { return }
-        if let down = ModuleTopology.directDownstream(of: id, in: ctx.world) {
+        if let down {
             var moved = 0
             for e in m.output {
                 guard let room = ctx.world.placements.items[down]?.module?.room(for: e.stuff), room > 0 else { continue }
@@ -103,7 +107,7 @@ enum Modules {
             return
         }
         let routed = !ctx.world.logistics.routes(from: .placement(id)).isEmpty
-        guard !routed, ModuleTopology.isInBase(id, in: ctx.world) else { return }
+        guard !routed, inBase else { return }
         let all = ctx.world.placements.items[id]!.module!.output
         ctx.world.placements.items[id]?.module?.output = []
         var n = 0
