@@ -56,6 +56,10 @@ public struct SurvivalDef: Codable, Equatable, Sendable {
     /// 体力の自然な回復(1 時間あたり raw)。状態が無いときだけ。既定 +500。
     public var healthRegenPerHour: Int?
 
+    /// 体と数値を進める区切り(ゲーム秒)。既定 300(5 ゲーム分)。ステップの幅(15 秒)の倍数にする。
+    /// 空腹の作業の遅れ・精神力の増減・蓄えの日数などは、この区切りごとに変わる。
+    public var tickSeconds: Int?
+
     /// 生存が書く拠点全体の値の名前(失敗の規則・画面はこの値を見る。日数は Milli の日数)。
     public var statNames: StatNames?
 
@@ -108,6 +112,8 @@ public struct SurvivalDef: Codable, Equatable, Sendable {
 
     // MARK: 既定値を埋めた読み方
 
+    public static let defaultTickSeconds: Int64 = 300
+    public var tick: Int64 { tickSeconds.map { Int64(max(1, $0)) } ?? Self.defaultTickSeconds }
     public var foodPerDay: Int { foodPerPersonPerDay ?? 1000 }
     public var waterPerDay: Int { waterPerPersonPerDay ?? 1000 }
     public var hungryWork: Int { hungryWorkPermille ?? 500 }

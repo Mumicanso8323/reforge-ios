@@ -79,6 +79,8 @@ extension TestRig {
     /// 1 日(昼 + 夜)のステップ数。
     var stepsPerDay: Int { Int(TimeSystem.dayLength(content.clock).seconds / SimStep.gameSeconds) }
     var stepsPerHour: Int { Int(3600 / SimStep.gameSeconds) }
+    /// 生存が体と数値を進める区切り 1 回ぶんのステップ数(既定 5 ゲーム分)。
+    var stepsPerTick: Int { Int((content.survival?.tick ?? SurvivalDef.defaultTickSeconds) / SimStep.gameSeconds) }
 
     /// 拠点の蓄えに物を入れる。
     func stock(_ w: inout WorldState, _ item: ItemID, _ n: Int, to holder: HolderID = .base) {
