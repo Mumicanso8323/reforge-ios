@@ -195,7 +195,7 @@ public enum ForbiddenAudit {
         var s = Set([v.name, v.description].compactMap { $0 })
         switch v.display {
         case .bands(_, let labels): s.formUnion(labels)
-        case .number(_, let unit): if let u = unit { s.insert(u) }
+        case .number(_, let unit, _): if let u = unit { s.insert(u) }
         case .hidden, nil: break
         }
         return s
