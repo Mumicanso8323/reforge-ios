@@ -5,6 +5,7 @@ options:
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
+  developmentLanguage: ja
 
 settings:
   base:
@@ -21,8 +22,10 @@ targets:
     type: application
     platform: iOS
     sources:
+      # Sources(SwiftUI)と Resources(Localizable.xcstrings)
       - path: ReForge
     dependencies:
+      # ReForgeCore 製品にはロジック(ReForgeCore)とコンテンツ(ReForgeContent)の両方が入る
       - package: ReForgeCore
     settings:
       base:

@@ -1,0 +1,506 @@
+{
+  "sourceLanguage": "ja",
+  "strings": {
+    "いまの状態とセーブ地点がすべて消えます。元には戻せません。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いまの状態とセーブ地点がすべて消えます。元には戻せません。"
+          }
+        }
+      }
+    },
+    "いまの状態は保存されます。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いまの状態は保存されます。"
+          }
+        }
+      }
+    },
+    "いまの記録を消して最初からはじめますか?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いまの記録を消して最初からはじめますか?"
+          }
+        }
+      }
+    },
+    "いまは購入できません(準備中)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "いまは購入できません(準備中)"
+          }
+        }
+      }
+    },
+    "ここまでを記録する": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここまでを記録する"
+          }
+        }
+      }
+    },
+    "このアプリについて": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "このアプリについて"
+          }
+        }
+      }
+    },
+    "すべての権利を留保": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "すべての権利を留保"
+          }
+        }
+      }
+    },
+    "つづきから": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "つづきから"
+          }
+        }
+      }
+    },
+    "つづける": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "つづける"
+          }
+        }
+      }
+    },
+    "はじめから": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "はじめから"
+          }
+        }
+      }
+    },
+    "やめる": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "やめる"
+          }
+        }
+      }
+    },
+    "タイトルへ": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タイトルへ"
+          }
+        }
+      }
+    },
+    "タイトルへ戻りますか?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "タイトルへ戻りますか?"
+          }
+        }
+      }
+    },
+    "バージョン": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バージョン"
+          }
+        }
+      }
+    },
+    "メニュー": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メニュー"
+          }
+        }
+      }
+    },
+    "ライセンス": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライセンス"
+          }
+        }
+      }
+    },
+    "一時停止": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一時停止"
+          }
+        }
+      }
+    },
+    "上下の広告を消します。ゲームの内容は変わりません。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上下の広告を消します。ゲームの内容は変わりません。"
+          }
+        }
+      }
+    },
+    "休む": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "休む"
+          }
+        }
+      }
+    },
+    "作る": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "作る"
+          }
+        }
+      }
+    },
+    "再開": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "再開"
+          }
+        }
+      }
+    },
+    "夜": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夜"
+          }
+        }
+      }
+    },
+    "夜は長い。火のそばで作業を続けるか、朝まで眠るか。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夜は長い。火のそばで作業を続けるか、朝まで眠るか。"
+          }
+        }
+      }
+    },
+    "夜作業をする": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夜作業をする"
+          }
+        }
+      }
+    },
+    "寝る": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "寝る"
+          }
+        }
+      }
+    },
+    "崩壊した地球で、拠点を立て直す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "崩壊した地球で、拠点を立て直す"
+          }
+        }
+      }
+    },
+    "広告": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "広告"
+          }
+        }
+      }
+    },
+    "広告は非表示です": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "広告は非表示です"
+          }
+        }
+      }
+    },
+    "広告を消す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "広告を消す"
+          }
+        }
+      }
+    },
+    "建てる": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建てる"
+          }
+        }
+      }
+    },
+    "建てる(1 行動)": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建てる(1 行動)"
+          }
+        }
+      }
+    },
+    "建設済み": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "建設済み"
+          }
+        }
+      }
+    },
+    "復元できる購入はありません": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "復元できる購入はありません"
+          }
+        }
+      }
+    },
+    "拠点が自立した": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拠点が自立した"
+          }
+        }
+      }
+    },
+    "拠点は持ちこたえられなかった": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拠点は持ちこたえられなかった"
+          }
+        }
+      }
+    },
+    "採取する": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "採取する"
+          }
+        }
+      }
+    },
+    "日が沈んだ": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日が沈んだ"
+          }
+        }
+      }
+    },
+    "日誌": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日誌"
+          }
+        }
+      }
+    },
+    "昼の残り": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "昼の残り"
+          }
+        }
+      }
+    },
+    "朝をむかえる": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "朝をむかえる"
+          }
+        }
+      }
+    },
+    "消す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消す"
+          }
+        }
+      }
+    },
+    "記録": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録"
+          }
+        }
+      }
+    },
+    "記録を消しますか?": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録を消しますか?"
+          }
+        }
+      }
+    },
+    "記録を消す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記録を消す"
+          }
+        }
+      }
+    },
+    "設定": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定"
+          }
+        }
+      }
+    },
+    "購入する": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入する"
+          }
+        }
+      }
+    },
+    "購入を復元": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入を復元"
+          }
+        }
+      }
+    },
+    "購入を復元しました": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "購入を復元しました"
+          }
+        }
+      }
+    },
+    "長い夜が明けた": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長い夜が明けた"
+          }
+        }
+      }
+    },
+    "閉じる": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "閉じる"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

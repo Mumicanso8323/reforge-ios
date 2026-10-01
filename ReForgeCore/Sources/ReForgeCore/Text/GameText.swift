@@ -21,6 +21,29 @@ public struct GameText: Sendable {
 
     public func name(_ item: ItemID) -> String { content.itemName(item) }
 
+    /// 昼の「休む」の確認(S1)。
+    public func restConfirm(_ s: GameState) -> String { "残り \(s.actionPointsLeft) 行動を使わずに日没にしますか?" }
+
+    /// 製作の確定ボタン(S3)。
+    public func craftButton(times: Int) -> String { "作る(\(times) 行動)" }
+
+    /// 採取した直後に行の右に出す小さな表示(S2)。
+    public func gainFlash(_ gains: [ItemAmount]) -> String {
+        gains.filter { $0.quantity > 0 }.map { "+\($0.quantity)" }.joined(separator: " ")
+    }
+
+    /// 製作の可否の 1 行(S3)。作れるなら nil。
+    public func craftBlocker(_ r: RecipeDef, in s: GameState) -> String? {
+        if !r.stations.isEmpty, !r.stations.contains(where: { s.has($0) }) {
+            return message(for: .needsBuilding(r.stations))
+        }
+        if let e = Crafting.shortage(r, times: 1, in: s) { return message(for: e) }
+        return nil
+    }
+
+    /// 保存地点の説明(設定・ゲームオーバー)。
+    public func savePointLabel(_ s: GameState) -> String { "\(s.day) 日目の記録" }
+
     func amounts(_ list: [ItemAmount], sign: String = "+", separator: String = " ") -> String {
         list.map { "\(name($0.item)) \(sign)\($0.quantity)" }.joined(separator: separator)
     }
