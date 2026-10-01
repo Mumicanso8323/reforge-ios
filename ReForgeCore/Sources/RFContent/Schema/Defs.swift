@@ -126,6 +126,25 @@ public struct HandworkDef: ContentDef, Equatable {
     }
 }
 
+/// 運搬の数(最上位キー "hauling"。どれも省略でき、無ければ R1 の仮の値 = RFLogistics.HaulRules の既定)。
+public struct HaulingDef: Codable, Equatable, Sendable {
+    /// 1 人 1 日(昼の長さのゲーム時間)に運べる数。既定 10。
+    public var perPersonPerDay: Int?
+    /// ここまでは落ちない距離(マス)。既定 8。
+    public var freeDistance: Int?
+    /// この距離ごとに落ちる(マス)。既定 5。
+    public var stepDistance: Int?
+    /// 1 段で残る割合(千分率。掛け算で重ねる)。既定 800。
+    public var keepPermille: Int?
+
+    public init(perPersonPerDay: Int? = nil, freeDistance: Int? = nil, stepDistance: Int? = nil, keepPermille: Int? = nil) {
+        self.perPersonPerDay = perPersonPerDay
+        self.freeDistance = freeDistance
+        self.stepDistance = stepDistance
+        self.keepPermille = keepPermille
+    }
+}
+
 /// 有限の品(減ったら戻らない品。旧文明系の刃など)をモジュールに使うときの定義(ModuleDef.finite)。
 public struct FiniteUseDef: Codable, Equatable, Sendable {
     /// 使える物。

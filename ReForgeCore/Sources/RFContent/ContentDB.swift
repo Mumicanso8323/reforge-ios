@@ -15,6 +15,8 @@ public struct ContentDB: Sendable {
     public var rewind = RewindDef()
     /// 生存の規則(消費・空腹・精神力・状態)。nil = 規則なし(公開の試験用の層は持たない)。持ち主: U4
     public var survival: SurvivalDef?
+    /// 運搬の数(1 人 1 日の数・距離の落ち)。nil なら R1 の仮の値。持ち主: U7
+    public var hauling: HaulingDef?
     /// 発明の規則の表(RFMatter)。コンテンツに無ければ R1 の表。
     public var ruleBook: RuleBook = .r1
 

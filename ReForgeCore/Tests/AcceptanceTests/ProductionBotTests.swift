@@ -264,7 +264,7 @@ final class ProductionBotTests: XCTestCase {
 
     func testR1_02_LineBeatsHandwork() throws {
         _ = try Self.content()
-        // 既定 100 走(REFORGE_R1_02_SEEDS で減らせる。開発中の確かめ用)
+        // 既定 100 走(手元と夜間)。CI は REFORGE_R1_02_SEEDS=20(.github/workflows/ci.yml)
         let n = Int(ProcessInfo.processInfo.environment["REFORGE_R1_02_SEEDS"] ?? "") ?? 100
         let seeds = Array(UInt64(0)..<UInt64(n))
         final class Box: @unchecked Sendable {

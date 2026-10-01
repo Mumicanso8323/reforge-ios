@@ -30,6 +30,33 @@ final class LogisticsSystemTests: XCTestCase {
         XCTAssertEqual(HaulRules.perDay(crewMilli: 2000, distance: 14), 12)
     }
 
+    /// 運搬の数はコンテンツの "hauling" で変えられる(省略した値は R1 の既定)。
+    func testHaulingNumbersComeFromContent() throws {
+        var c = try TestContent.publicOnly()
+        XCTAssertNil(c.hauling)
+        try ContentLoader.apply(json: Data(#"{ "hauling": { "perPersonPerDay": 20, "freeDistance": 4 } }"#.utf8), to: &c)
+        XCTAssertEqual(c.hauling, HaulingDef(perPersonPerDay: 20, freeDistance: 4))
+        XCTAssertEqual(HaulRules.factor(distance: 5, c.hauling), 800, "4 マスを超えたら落ちる")
+        XCTAssertEqual(HaulRules.factor(distance: 10, c.hauling), 640, "段の長さは既定の 5")
+        XCTAssertEqual(HaulRules.perDay(crewMilli: 1000, distance: 3, c.hauling), 20)
+        // 経路の落ちと運ぶ速さにも効く
+        let rig = TestRig(content: c)
+        var w = world(rig)
+        XCTAssertNil(rig.simulation.apply(.production(.place(module: .anvil, at: wp(0, 16), facing: .east)), to: &w).rejection)
+        let anvil = w.placements.at(wp(0, 16))[0]
+        var ctx = StepContext(world: w, content: rig.content)
+        let plate = Matter(substance: .iron, purity: Purity(percent: 50), stage: .metal, shape: .plate)
+        ModuleRuntime.put(StockEntry(stuff: .matter(plate), quantity: 40), into: &ctx.world.placements.items[anvil]!.module!.output)
+        w = ctx.world
+        _ = rig.simulation.runSteps(1, &w)
+        let route = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .placement(anvil) && $0.to == .base })
+        XCTAssertEqual(route.distance, 11)
+        XCTAssertEqual(route.factorPermille, 640)
+        w.people["person.test_a"]?.activity = .carrying(route: route.id)
+        _ = rig.simulation.runSteps(Int(8 * 3600 / SimStep.gameSeconds), &w)
+        XCTAssertTrue((12...13).contains(w.logistics.routes[route.id]!.movedToday), "1 人 × 20 個 × 0.64 ≒ 12.8")
+    }
+
     /// 札の次の段を離して置くと、その間が自動で運搬の経路になり、仲間が運ぶ。
     func testGapBecomesHaulRouteAndCrewCarries() throws {
         let rig = try TestRig.publicOnly()

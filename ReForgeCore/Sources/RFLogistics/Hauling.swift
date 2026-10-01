@@ -40,11 +40,12 @@ enum Hauling {
         }
     }
 
-    /// 1 人が昼のあいだ運び続けて HaulRules.perPersonPerDay 個になる速さで、運んでいる人の数だけ進める。
+    /// 1 人が昼のあいだ運び続けて 1 日の数(HaulingDef.perPersonPerDay、既定 10)になる速さで、運んでいる人の数だけ進める。
     static func step(_ ctx: inout StepContext) {
         let ids = ctx.world.logistics.sortedRouteIDs
         guard !ids.isEmpty else { return }
         let day = max(1, ctx.content.clock.dayGameSeconds)
+        let perPerson = HaulRules.perPersonPerDay(ctx.content.hauling)
         for id in ids {
             guard var r = ctx.world.logistics.routes[id] else { continue }
             let assigned = dedicated(id, ctx.world)
@@ -65,7 +66,7 @@ enum Hauling {
                 ctx.world.logistics.routes[id] = r
                 continue
             }
-            r.carryMicro += Int64(crewMilli) * HaulRules.perPersonPerDay * Int64(r.factorPermille) * SimStep.gameSeconds / day
+            r.carryMicro += Int64(crewMilli) * perPerson * Int64(r.factorPermille) * SimStep.gameSeconds / day
             let n = Int(r.carryMicro / 1_000_000)
             ctx.world.logistics.routes[id] = r
             guard n > 0 else { continue }
@@ -161,12 +162,12 @@ enum Hauling {
 /// 画面とボットが読む運搬の見え方。
 public enum LogisticsQueries {
     /// 経路の 1 日の流量の見込み(専任と、配属の無い一員を経路の数で等分した手、と距離から。昼のあいだ運ぶとして)。
-    public static func perDay(_ route: EntityID, world w: WorldState) -> Int {
+    public static func perDay(_ route: EntityID, world w: WorldState, content: ContentDB? = nil) -> Int {
         guard let r = w.logistics.routes[route], let d = r.distance else { return 0 }
         let routes = max(1, w.logistics.routes.count)
         let crew = Hauling.dedicated(route, w).reduce(0) { $0 + Hauling.workSpeed($1, w) }
             + Hauling.pool(w).reduce(0) { $0 + Hauling.workSpeed($1, w) } / routes
-        return HaulRules.perDay(crewMilli: crew, distance: d)
+        return HaulRules.perDay(crewMilli: crew, distance: d, content?.hauling)
     }
 
     /// 間を空けて置いたときの見込み(照準の点線の横に出す): 距離・落ち・n 人で 1 日に運べる数。
@@ -179,6 +180,6 @@ public enum LogisticsQueries {
             else { return nil }
             d = steps.count
         }
-        return (d, HaulRules.perDay(crewMilli: haulers * 1000, distance: d))
+        return (d, HaulRules.perDay(crewMilli: haulers * 1000, distance: d, content.hauling))
     }
 }

@@ -106,7 +106,7 @@ enum HaulRoutes {
             r.blocked = HaulRules.unreachable
             return
         }
-        r.factorPermille = HaulRules.factor(distance: r.distance ?? 0)
+        r.factorPermille = HaulRules.factor(distance: r.distance ?? 0, content.hauling)
         if r.blocked == HaulRules.unreachable { r.blocked = nil }
     }
 
