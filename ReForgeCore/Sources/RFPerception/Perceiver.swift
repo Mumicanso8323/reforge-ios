@@ -134,11 +134,21 @@ public struct Perceiver: Sendable {
             for (i, t) in thresholds.enumerated() where value.raw >= Int64(t) && i + 1 < labels.count { label = labels[i + 1] }
             guard let l = label else { return nil }
             out = rawText(l)
-        case .number(let divisor, let unit):
+        case .number(let divisor, let unit, let decimals):
             let v = divisor > 0 ? value.raw / Int64(divisor) : value.raw
-            out = "\(v)" + (unit.map { rawText($0) } ?? "")
+            out = Self.decimalString(v, places: decimals ?? 0) + (unit.map { rawText($0) } ?? "")
         }
         return audited(out, origin: "stat:\(id.rawValue)")
+    }
+
+    /// 整数 v を 10^places で割った値を、小数 places 桁で(切り捨て。浮動小数を使わない)。
+    static func decimalString(_ v: Int64, places: Int) -> String {
+        guard places > 0 else { return "\(v)" }
+        var scale: Int64 = 1
+        for _ in 0..<places { scale *= 10 }
+        let a = v.magnitude
+        let frac = String(a % UInt64(scale))
+        return (v < 0 ? "-" : "") + "\(a / UInt64(scale))." + String(repeating: "0", count: places - frac.count) + frac
     }
 
     // MARK: 書き換わった物

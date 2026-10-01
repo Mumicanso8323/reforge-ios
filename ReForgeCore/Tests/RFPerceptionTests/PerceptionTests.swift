@@ -91,6 +91,24 @@ final class PerceptionTests: XCTestCase {
         XCTAssertNil(Perceiver(content: db, known: []).stat("stat.no_such", value: Milli(raw: 5)))
     }
 
+    /// 数の見せ方の小数の桁(整数の計算・切り捨て)。decimals を省いた JSON も読める。
+    func testStatNumberWithDecimals() throws {
+        var db = try TestContent.publicOnly()
+        try ContentLoader.apply(json: Data(#"""
+        {"perception": [{"subject": "stat:stat.test.air", "variants": [
+          {"when": true, "name": "text.stat.air", "display": {"number": {"divisor": 10, "unit": "text.test.percent", "decimals": 2}}}]}],
+         "texts": {"text.test.percent": "%"}}
+        """#.utf8), to: &db)
+        let p = Perceiver(content: db, known: [])
+        XCTAssertEqual(p.stat("stat.test.air", value: Milli(raw: 800)), "0.80%")
+        XCTAssertEqual(p.stat("stat.test.air", value: Milli(raw: 805)), "0.80%", "切り捨て")
+        XCTAssertEqual(p.stat("stat.test.air", value: Milli(raw: 12345)), "12.34%")
+        XCTAssertEqual(p.stat("stat.test.air", value: Milli(raw: -50)), "-0.05%")
+        XCTAssertEqual(ContentValidator.validate(db).filter { $0.level == .error }, [])
+        db.perception["stat:stat.test.air"]?.variants[0].display = .number(divisor: 10, unit: nil, decimals: 9)
+        XCTAssertTrue(ContentValidator.validate(db).contains { $0.rule == "perception.number" })
+    }
+
     /// 物質の名前は部品ごとに引いて連結する。
     func testMatterNameFromParts() throws {
         let db = try TestContent.publicOnly()
