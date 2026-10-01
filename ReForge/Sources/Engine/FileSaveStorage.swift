@@ -1,48 +1,12 @@
 import Foundation
 import ReForgeEngine
 
-/// 保存の置き場(D-save.md §1)。Application Support/reforge/saves/ にスロットごとの JSON を置く。
-/// 書くときは一時ファイル → 置き換え(.atomic。途中で落ちても前の保存が残る)。
-struct FileSaveStorage: SaveStorage {
-    let directory: URL
-
-    init(directory: URL? = nil) {
-        if let directory {
-            self.directory = directory
-        } else {
-            let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            self.directory = base.appendingPathComponent("reforge/saves", isDirectory: true)
-        }
-    }
-
-    static func fileName(_ slot: SaveSlot) -> String { slot.fileStem + ".json" }
-
-    static func slot(fileName name: String) -> SaveSlot? {
-        guard name.hasSuffix(".json") else { return nil }
-        return SaveSlot(fileStem: String(name.dropLast(5)))
-    }
-
-    private func url(_ slot: SaveSlot) -> URL { directory.appendingPathComponent(Self.fileName(slot)) }
-
-    func write(_ data: Data, slot: SaveSlot) throws {
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try data.write(to: url(slot), options: .atomic)
-    }
-
-    func read(slot: SaveSlot) throws -> Data? {
-        let u = url(slot)
-        guard FileManager.default.fileExists(atPath: u.path) else { return nil }
-        return try Data(contentsOf: u)
-    }
-
-    func delete(slot: SaveSlot) throws {
-        let u = url(slot)
-        if FileManager.default.fileExists(atPath: u.path) { try FileManager.default.removeItem(at: u) }
-    }
-
-    func list() throws -> [SaveSlot] {
-        guard FileManager.default.fileExists(atPath: directory.path) else { return [] }
-        return try FileManager.default.contentsOfDirectory(atPath: directory.path).compactMap(Self.slot(fileName:))
+/// 保存の置き場(D-save.md §1)。型は本体(RFSave.FileSaveStorage)のものを使い、アプリは既定の場所と全消しだけを足す。
+/// 既定の場所: Application Support/reforge/saves/。書き込みは本体側で一時ファイル → 置き換え(.atomic)。
+extension FileSaveStorage {
+    init() {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        self.init(directory: base.appendingPathComponent("reforge/saves", isDirectory: true))
     }
 
     func deleteAll() throws {
