@@ -1,0 +1,91 @@
+{
+  "//": "出来事の仕組み(U11)の試験用。本文・物語は無い。日数を使わない引き金(工業の初めて・追跡カウンタ・前の出来事・来歴)、予約、クールダウン、1 日 1 回の確率、優先度、範囲の効果、一言の選び方を確かめる。",
+  "facts": [
+    { "id": "fact.test.near_known" },
+    { "id": "fact.test.prio" }
+  ],
+  "auras": [
+    { "id": "aura.test.pull", "modifiers": [ { "drawTowardSource": {} } ], "radius": 4 },
+    { "id": "aura.test.ward", "modifiers": [ { "repelEnemies": {} }, { "workSpeed": { "permille": 1500 } }, { "bodyPerHour": { "stat": "mind", "amount": 4 } } ], "radius": 2 }
+  ],
+  "structures": [
+    { "id": "structure.test.beacon", "cost": [ { "item": "wood", "quantity": 1 } ], "buildSeconds": 600,
+      "provides": { "light": 3 }, "auras": ["aura.test.ward"] }
+  ],
+  "trackers": [
+    { "id": "counter.test.furnaces", "kind": { "ledgerCount": { "query": { "act": "placed", "module": "furnace" } } } },
+    { "id": "counter.test.nights_lit", "kind": { "nightsWhere": { "condition": { "placedCount": { "structure": "structure.test.beacon", "atLeast": 1 } } } } },
+    { "id": "counter.test.far", "kind": { "farthestFromBase": { } } }
+  ],
+  "events": [
+    {
+      "id": "event.test.first_furnace",
+      "trigger": { "on": ["placed"], "when": { "firstTime": { "query": { "act": "placed", "module": "furnace" } } } },
+      "effects": [
+        { "addAura": { "kind": "aura.test.pull", "at": { "trigger": {} }, "hours": 6 } },
+        { "counter": { "id": "counter.test.first_furnace", "add": 1 } },
+        { "say": { "context": "work", "speaker": "person.test_a" } }
+      ],
+      "tags": ["tag.test.memorable"]
+    },
+    {
+      "id": "event.test.near",
+      "trigger": { "on": ["hour"], "when": { "counter": { "id": "counter.test.near", "cmp": "ge", "value": 30 } } },
+      "effects": [
+        { "learn": { "fact": "fact.test.near_known" } },
+        { "schedule": { "event": "event.test.followup", "afterMinutes": 120 } }
+      ]
+    },
+    {
+      "id": "event.test.followup",
+      "trigger": { "on": [], "when": { "always": {} } },
+      "effects": [ { "counter": { "id": "counter.test.followup", "add": 1 } } ]
+    },
+    {
+      "id": "event.test.after_near",
+      "trigger": { "on": ["hour"], "when": { "sinceFired": { "event": "event.test.near", "hours": 3 } } },
+      "effects": [ { "counter": { "id": "counter.test.after_near", "add": 1 } } ]
+    },
+    {
+      "id": "event.test.tick",
+      "trigger": { "on": ["hour"], "when": { "always": {} } },
+      "repeats": { "cooldown": { "hours": 4 } },
+      "effects": [ { "counter": { "id": "counter.test.tick", "add": 1 } } ]
+    },
+    {
+      "id": "event.test.lucky",
+      "trigger": { "on": ["dawn"], "when": { "chance": { "basisPoints": 5000 } } },
+      "repeats": { "oncePerDay": {} },
+      "effects": [ { "counter": { "id": "counter.test.lucky", "add": 1 } }, { "stat": { "id": "stat.test.hidden", "add": 10 } } ]
+    },
+    {
+      "id": "event.test.prio_low",
+      "trigger": { "on": ["fact"], "when": { "known": { "expr": "fact.test.prio" } } },
+      "effects": [ { "setCounter": { "id": "counter.test.prio", "value": 1 } } ]
+    },
+    {
+      "id": "event.test.prio_high",
+      "priority": 5,
+      "trigger": { "on": ["fact"], "when": { "known": { "expr": "fact.test.prio" } } },
+      "effects": [ { "setCounter": { "id": "counter.test.prio", "value": 2 } } ]
+    }
+  ],
+  "objectives": [
+    { "id": "objective.test.beacon", "text": "text.test.objective",
+      "completeWhen": { "placedCount": { "structure": "structure.test.beacon", "atLeast": 1 } },
+      "effects": [ { "chapter": { "id": "chapter.test.two" } } ] }
+  ],
+  "chapters": [
+    { "id": "chapter.test.two", "title": "text.test.objective" }
+  ],
+  "endings": [
+    { "id": "ending.test.end", "when": { "counter": { "id": "counter.test.end", "cmp": "ge", "value": 1 } },
+      "effects": [ { "counter": { "id": "counter.test.ended", "add": 1 } } ] }
+  ],
+  "lines": [
+    { "id": "line.test.work_a", "speaker": "person.test_a", "context": "work", "text": "text.test.line1" },
+    { "id": "line.test.work_b", "speaker": "person.test_b", "context": "work", "text": "text.test.line2",
+      "when": { "known": { "expr": "fact.test.alpha" } }, "weight": 3 },
+    { "id": "line.test.work_c", "speaker": "person.test_c", "context": "work", "text": "text.test.line2" }
+  ]
+}
