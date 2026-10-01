@@ -18,6 +18,25 @@ final class PacingStatTests: XCTestCase {
         guard let stat = candidates.first, let marks = stat.marks?.sorted() else { return }
         // 失敗で走行が止まらないように(届く日だけを見る)
         content.failureRules = [:]
+        // 出来事は、この数値を足す・この数値を時間あたりに足す範囲の効果を付け外すものだけを残す(季節の上積み)。
+        // 全部の出来事を毎ステップ調べると 150 日の走行が CI の時間に収まらない
+        let pacingAuras = Set(content.auras.values.filter { a in
+            a.modifiers.contains { if case .statPerHour(let st, _) = $0 { st == stat.id } else { false } }
+        }.map(\.id))
+        func touches(_ e: Effect) -> Bool {
+            switch e {
+            case .stat(let id, _), .setStat(let id, _): id == stat.id
+            case .addAura(let k, _, _, _, _), .removeAura(let k), .scaleAura(let k, _, _): pacingAuras.contains(k)
+            default: false
+            }
+        }
+        content.events = content.events.filter { $0.value.effects.contains(where: touches) }.mapValues { e in
+            var e = e
+            e.choices = nil
+            e.blocking = nil
+            return e
+        }
+        XCTAssertFalse(content.events.isEmpty, "季節の上積みの出来事が無い")
         let sim = Simulation(content: content, systems: [TimeSystem(), SurvivalSystem(), NarrativeSystem()])
         var world = WorldFactory(content: content, mapGenerator: RFMapGenerator()).newWorld(seed: 5)
         var reached: [Int?] = Array(repeating: nil, count: marks.count)
