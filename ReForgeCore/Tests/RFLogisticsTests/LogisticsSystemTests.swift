@@ -52,6 +52,7 @@ final class LogisticsSystemTests: XCTestCase {
         let route = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .placement(anvil) && $0.to == .base })
         XCTAssertEqual(route.distance, 11)
         XCTAssertEqual(route.factorPermille, 640)
+        XCTAssertTrue(route.waiting, "運ぶ物がある(共同の手を回す目安)")
         w.people["person.test_a"]?.assignment = .haul(route: route.id)
         _ = rig.simulation.runSteps(Int(8 * 3600 / SimStep.gameSeconds), &w)
         XCTAssertTrue((12...13).contains(w.logistics.routes[route.id]!.movedToday), "1 人 × 20 個 × 0.64 ≒ 12.8")

@@ -262,6 +262,14 @@ final class SurvivalSystemTests: XCTestCase {
         XCTAssertEqual(w.people[b]?.body.health, Milli(90))
         XCTAssertEqual(w.people[b]?.body.conditions["ailment.wound"], 10)
         XCTAssertTrue(w.ledger.records.contains { $0.act == .wasInjured && $0.subject == .person(b) })
+        // 引き金の来歴を渡せば、wasInjured の inputs から辿れる(REQ-S6)
+        var ctx = StepContext(world: w, content: rig.content)
+        let trigger = ctx.record(.fought, .person(b), actor: b)
+        w = ctx.world
+        XCTAssertNil(rig.simulation.apply(.survival(.injure(person: b, amount: 0, cause: trigger)), to: &w).rejection)
+        XCTAssertEqual(w.ledger.records.last { $0.act == .wasInjured }?.inputs, [trigger])
+        XCTAssertNil(rig.simulation.apply(.survival(.afflict(person: b, ailment: "ailment.test.poison", severity: 0, cause: trigger)), to: &w).rejection)
+        XCTAssertEqual(w.ledger.records.last { $0.act == .wasInjured }?.inputs, [trigger])
         _ = rig.simulation.runSteps(rig.stepsPerDay / 4, &w)  // 20 / 日 → 1/4 日で 5
         XCTAssertEqual(w.people[b]?.body.conditions["ailment.wound"], 5)
         _ = rig.simulation.runSteps(rig.stepsPerDay / 4, &w)

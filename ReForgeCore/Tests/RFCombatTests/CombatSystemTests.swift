@@ -57,6 +57,7 @@ final class CombatSystemTests: XCTestCase {
         let raided = r.events.compactMap { if case .raided(_, let rec) = $0 { rec } else { nil } }
         XCTAssertEqual(raided.count, 1)
         let rec = try XCTUnwrap(w.ledger.record(raided[0]))
+        XCTAssertEqual(rec.act, .raided)
         guard case .enemy(let kind, _) = rec.subject else { return XCTFail("奪った記録は獣を指す") }
         XCTAssertEqual(kind, "enemy.test.small")
         XCTAssertTrue(w.combat.threats.isEmpty, "奪った群れは帰る・夜明けに残らない")

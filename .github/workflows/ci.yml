@@ -35,7 +35,7 @@ jobs:
     name: ReForgeCore (Linux)
     runs-on: ubuntu-latest
     container: swift:6.1-noble
-    timeout-minutes: 20
+    timeout-minutes: 40  # 公開の層と非公開の層の 2 回。150 日の受け入れテストがある
     env:
       # 非公開のコンテンツ(物語の本文)を読む読み取り専用のデプロイキー(ed25519)。無い(fork の PR など)ときは公開の層だけで回す。
       # secrets は if: に直接書けないので、有無だけを環境変数にする。docs/architecture/E-content.md §4.3

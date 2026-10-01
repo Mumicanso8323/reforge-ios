@@ -35,18 +35,21 @@ public struct SurvivalSystem: SimSystem {
         switch c {
         case .consume(let person, let stock):
             return Body.consume(person: person, stock: stock, r, &ctx)
-        case .afflict(let person, let ailment, let severity):
-            guard ctx.world.people[person]?.presence.isAlive == true else {
-                return .rejected(Rejection("reason.survival.no_person"))
-            }
-            Body.afflict(person, ailment, severity, r, &ctx)
-            return .done
-        case .injure(let person, let amount):
+        case .afflict(let person, let ailment, let severity, let cause):
             guard ctx.world.people[person]?.presence.isAlive == true else {
                 return .rejected(Rejection("reason.survival.no_person"))
             }
             ctx.record(.wasInjured, .person(person), actor: person, place: ctx.world.people[person]?.position,
-                       detail: ["amount": .int(Int64(amount))])
+                       inputs: cause.map { [$0] } ?? [],
+                       detail: ["ailment": .string(ailment.rawValue), "severity": .int(Int64(severity))])
+            Body.afflict(person, ailment, severity, r, &ctx)
+            return .done
+        case .injure(let person, let amount, let cause):
+            guard ctx.world.people[person]?.presence.isAlive == true else {
+                return .rejected(Rejection("reason.survival.no_person"))
+            }
+            ctx.record(.wasInjured, .person(person), actor: person, place: ctx.world.people[person]?.position,
+                       inputs: cause.map { [$0] } ?? [], detail: ["amount": .int(Int64(amount))])
             Body.adjust(person, "health", -Int64(amount) * 1000, &ctx)
             Body.afflict(person, r.wound, amount, r, &ctx)
             return .done

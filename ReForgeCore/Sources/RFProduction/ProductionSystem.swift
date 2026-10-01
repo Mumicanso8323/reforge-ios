@@ -35,9 +35,8 @@ public struct ProductionSystem: SimSystem {
             return Handwork.handle(id, input: input, holding: holding, person: .noah, &ctx)
         case .useFinite(let placement, let stock):
             return Placing.useFinite(placement, stock: stock, &ctx)
-        case .convertPlacements:
-            // U11 の効果から来る。U7 が処理を入れるまでは受けない(本体が「受け手の無いコマンド」の警告を出す)
-            return .notMine
+        case .convertPlacements(let from, let to, let cause):
+            return Placing.convert(from: from, to: to, cause: cause, &ctx)
         }
     }
 
