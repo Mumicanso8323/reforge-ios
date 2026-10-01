@@ -138,6 +138,7 @@ public enum ContentValidator {
         for (id, f) in db.failureRules { refs.append((f.cause, "failureRule \(id)")) }
         for (id, m) in db.modules { if let r = m.placement.reasonIfBlocked { refs.append((r, "module \(id)")) } }
         for (id, sh) in db.sheets { for r in sh.rows { if let n = r.note { refs.append((n, "sheet \(id)")) } } }
+        for (id, d) in db.documents { refs += [(d.title, "document \(id)"), (d.body, "document \(id)")] }
         for (id, e) in db.events {
             for c in e.choices ?? [] {
                 refs.append((c.label, "event \(id)"))

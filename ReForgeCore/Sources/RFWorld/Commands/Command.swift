@@ -102,6 +102,8 @@ public enum BaseCommand: Codable, Equatable, Sendable {
 public enum CombatCommand: Codable, Equatable, Sendable {
     case stance(battle: EntityID, stance: BattleState.Stance)
     case retreat(battle: EntityID)
+    /// 戦闘が始まったときの方針(寝ている間の戦闘もこれで進む)。
+    case setDefaultStance(stance: BattleState.Stance)
     /// 効果から: 戦闘を始める。
     case startBattle(enemy: EnemyKindID, count: Int, near: WorldPoint)
     // 効果から(持ち主 U9 が処理する。cause = 引き金の来歴)

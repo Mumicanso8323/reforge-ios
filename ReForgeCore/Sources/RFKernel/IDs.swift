@@ -78,6 +78,7 @@ public enum AuraKindTag {}
 public enum HandworkTag {}
 public enum GroupTag {}
 public enum SheetTag {}
+public enum DocumentTag {}
 public enum FailureRuleTag {}
 
 /// 知っている事実(認識の層の単位)。例: "fact.sky.double_moon_seen"。
@@ -136,6 +137,8 @@ public typealias HandworkID = TypedID<HandworkTag>
 public typealias AuraKindID = TypedID<AuraKindTag>
 /// 工程表(設計画面と同じ部品で開ける表)。ライン札以外の記録もこれで開く。
 public typealias SheetID = TypedID<SheetTag>
+/// 記録から開ける資料(DocumentDef)。
+public typealias DocumentID = TypedID<DocumentTag>
 /// 失敗の規則(何がどうなったら失敗か。期限は日数でなく値で判定する)。
 public typealias FailureRuleID = TypedID<FailureRuleTag>
 
