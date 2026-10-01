@@ -18,7 +18,7 @@ let package = Package(
             dependencies: ["ReForgeCore"],
             resources: [.copy("Resources")]
         ),
-        .target(name: "RFMatter"),
+        .target(name: "RFMatter", exclude: ["README.md"]),
         .testTarget(name: "ReForgeCoreTests", dependencies: ["ReForgeCore", "ReForgeContent"]),
         .testTarget(name: "RFMatterTests", dependencies: ["RFMatter"]),
     ]

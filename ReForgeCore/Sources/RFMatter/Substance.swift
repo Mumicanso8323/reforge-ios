@@ -36,10 +36,10 @@ public struct MatterProperties: Codable, Hashable, Sendable {
     public var hardness: Double
     /// 16 放射能レベル
     public var radioactivityLevel: Double
-    /// 17 幻覚効果レベル(R1 では使わない)
-    public var illusionEffectLevel: Double
-    /// 18 次元シフトの度合い(R1 では使わない)
-    public var dimensionalShiftPotential: Double
+    /// 17 番目の特性(R3 以降で使う。R1 は既定値のまま)
+    public var traitR3a: Double
+    /// 18 番目の特性(R3 以降で使う。R1 は既定値のまま)
+    public var traitR3b: Double
 
     public init(
         density: Double, meltingPoint: Double?, boilingPoint: Double?, plasmaPoint: Double?, atomicMass: Double,
@@ -47,8 +47,8 @@ public struct MatterProperties: Codable, Hashable, Sendable {
         thermalConductivity: Double, electricalConductivity: Double, specificHeatCapacity: Double,
         corrosionResistance: Double, reactivityLevel: Double, hardness: Double,
         radioactivityLevel: Double = MatterProperties.infinitesimal,
-        illusionEffectLevel: Double = MatterProperties.infinitesimal,
-        dimensionalShiftPotential: Double = MatterProperties.infinitesimal
+        traitR3a: Double = MatterProperties.infinitesimal,
+        traitR3b: Double = MatterProperties.infinitesimal
     ) {
         self.density = density
         self.meltingPoint = meltingPoint
@@ -66,25 +66,28 @@ public struct MatterProperties: Codable, Hashable, Sendable {
         self.reactivityLevel = reactivityLevel
         self.hardness = hardness
         self.radioactivityLevel = radioactivityLevel
-        self.illusionEffectLevel = illusionEffectLevel
-        self.dimensionalShiftPotential = dimensionalShiftPotential
+        self.traitR3a = traitR3a
+        self.traitR3b = traitR3b
     }
 }
 
-/// 結晶構造(原作 `Crystals`。R1 で使う実在のものだけ)。
+/// 結晶構造(原作 `Crystals`。R1 で使う実在のものだけ)。保存は生の値なので、ケース名を変えても値は変えない。
 public enum CrystalStructure: String, Codable, Hashable, Sendable, CaseIterable {
-    case fcc, bcc, cubic, hexagonal, hcp, tetragonal, orthorhombic, oblique, rhombohedral
-    case monoclinic, triclinic, diamond, covalent, inverseSpinel, liquid
+    case fcc = "fcc", bcc = "bcc", cubic = "cubic", hexagonal = "hexagonal", hcp = "hcp"
+    case tetragonal = "tetragonal", orthorhombic = "orthorhombic", oblique = "oblique"
+    case rhombohedral = "rhombohedral", monoclinic = "monoclinic", triclinic = "triclinic"
+    case diamond = "diamond", covalent = "covalent", inverseSpinel = "inverse_spinel", liquid = "liquid"
 }
 
 /// 磁気秩序(原作 `Magnetics`)。
 public enum MagneticOrdering: String, Codable, Hashable, Sendable, CaseIterable {
-    case para, dia, ferro, antiferro, ferri, nonMagnetic, unknown
+    case para = "para", dia = "dia", ferro = "ferro", antiferro = "antiferro", ferri = "ferri"
+    case nonMagnetic = "non_magnetic", unknown = "unknown"
 }
 
 /// 物理的な状態(原作 `States`)。
 public enum PhysicalState: String, Codable, Hashable, Sendable, CaseIterable {
-    case solid, liquid, gas, plasma
+    case solid = "solid", liquid = "liquid", gas = "gas", plasma = "plasma"
 }
 
 /// 物質の定義(原作 `Substance`)。表示名は持たない(認識の層が ID から引く)。

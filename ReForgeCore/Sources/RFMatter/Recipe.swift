@@ -114,8 +114,26 @@ public struct RecipeBook: Codable, Hashable, Sendable {
                basePurity: Purity(percent: 80), inputPurityWeight: 1000, requiresFire: true),
     ])
 
-    /// R1 の表 = 原作 + `RecipeOverride.r1`。
-    public static let r1 = original.applying(RecipeOverride.r1)
+    /// R1 の表 = 原作 + `RecipeOverride.r1` + `RecipeBook.r1Additions`。
+    public static let r1 = original.applying(RecipeOverride.r1).adding(r1Additions)
+
+    /// R1 で足したレシピ(原作の recipes.json に無いもの)。
+    ///
+    /// 叩き重ね(`r1_fold`): 熱し直した板をもう一度叩くと、残っていた滓が絞り出されて純度が上がる。
+    /// base 94・W 0.5。石灰を使わずに精へ届く 2 本目の道のための値で、露頭の鉱石 20〜35% では
+    /// 「砕く→洗う→炉→叩く→(熱し直す→叩く)×2」が 85% を越え(85.72〜85.85%)、
+    /// 洗いを抜くと越えない(83.88〜84.33%)。叩き重ねは 2 回まで(規則の表で制限)。
+    public static let r1Additions: [Recipe] = [
+        Recipe(id: .fold, inputs: [RecipeInput("iron_plate")], output: "iron_plate",
+               basePurity: Purity(percent: 94), inputPurityWeight: 5000, requiresFire: true),
+    ]
+
+    /// レシピを足した表を返す(同じ ID は置き換え)。
+    public func adding(_ list: [Recipe]) -> RecipeBook {
+        var copy = self
+        for r in list { copy.recipes[r.id] = r }
+        return copy
+    }
 
     /// 差分を当てた表を返す(原作の値は書き換えない)。
     public func applying(_ overrides: [RecipeOverride]) -> RecipeBook {
