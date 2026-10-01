@@ -82,7 +82,8 @@ public enum LogisticsCommand: Codable, Equatable, Sendable {
 
 public enum ExplorationCommand: Codable, Equatable, Sendable {
     /// マス・POI・置いた物に対する行為(漁る・汲む・掘る…)。押し続ける行為は holding で始め・終える。
-    case interact(interaction: InteractionID, at: WorldPoint, holding: Bool)
+    /// person = 誰がするか(nil はノア)。その人が対象のそばにいなければ断る。
+    case interact(interaction: InteractionID, at: WorldPoint, holding: Bool, person: PersonID? = nil)
     // 効果から(持ち主 U8 が処理する。cause = 引き金の来歴)
     /// 周りの地図を既知にする。
     case revealMap(around: WorldPoint, radius: Int, cause: ProvenanceID?)

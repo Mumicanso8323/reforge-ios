@@ -57,7 +57,7 @@ enum Interactions {
     static func start(_ def: InteractionDef, at: WorldPoint, holding: Bool, actor: PersonID,
                       _ ctx: inout StepContext) -> Result<GameDuration?, Rejection> {
         let w = ctx.world
-        guard let person = w.people[actor], person.presence.isAlive, let pos = person.position else {
+        guard let person = w.people[actor], person.presence.isMember, let pos = person.position else {
             return .failure(Rejection("reason.explore.no_actor"))
         }
         let phases = def.allowedPhases ?? [.day, .nightWork]

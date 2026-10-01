@@ -1,3 +1,4 @@
+import Foundation
 import RFContent
 import RFExploration
 import RFKernel
@@ -74,6 +75,31 @@ final class ExplorationSystemTests: XCTestCase {
             b.interact("interaction.scavenge", at: b.wreckAt)
         }
         XCTAssertEqual(a.world, b.world)
+    }
+
+    /// 誰がするかを選べる(無ければノア)。仲間とノアは同時に別々の行為ができ、来歴の actor はした人。
+    /// 一員でない人(まだ会っていない・迎えていない)はできない。
+    func testInteractByAnotherPerson() throws {
+        var rig = try ExploreRig()
+        let a: PersonID = "person.test_a"
+        rig.put(a, rig.wreckAt + GridPoint(3, 1))
+        let at = WorldPoint(.surface, rig.wreckAt)
+        XCTAssertNil(rig.apply(.exploration(.interact(interaction: "interaction.scavenge", at: at, holding: true,
+                                                      person: a))).rejection)
+        XCTAssertNil(rig.apply(.exploration(.interact(interaction: "interaction.scavenge", at: at, holding: true))).rejection)
+        XCTAssertNotNil(rig.world.exploration.active[a])
+        XCTAssertNotNil(rig.world.exploration.active[.noah])
+        rig.steps(4)
+        XCTAssertEqual(Set(rig.records(.scavenged).compactMap(\.actor)), [a, .noah])
+        let c: PersonID = "person.test_c"
+        rig.put(c, rig.wreckAt + GridPoint(0, 2))
+        XCTAssertEqual(rig.apply(.exploration(.interact(interaction: "interaction.scavenge", at: at, holding: true,
+                                                        person: c))).rejection?.reason, "reason.explore.no_actor")
+        // person を書かない古いコマンドの JSON も読める(ノアになる)
+        let old = Data(#"{"exploration":{"_0":{"interact":{"interaction":"interaction.scavenge","at":{"layer":"layer.surface","point":{"x":1,"y":2}},"holding":true}}}}"#.utf8)
+        let decoded = try JSONDecoder().decode(Command.self, from: old)
+        XCTAssertEqual(decoded, .exploration(.interact(interaction: "interaction.scavenge",
+                                                      at: WorldPoint(.surface, GridPoint(1, 2)), holding: true)))
     }
 
     /// 届かない所からはできない(足元カードの理由を返すだけで、止めない)。
