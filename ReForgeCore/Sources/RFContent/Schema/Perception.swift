@@ -94,8 +94,9 @@ public enum StatDisplay: Codable, Equatable, Sendable {
     case hidden
     /// 段階の言葉で(しきい値の昇順。値がしきい値以上なら、その言葉)。
     case bands(thresholds: [Int], labels: [TextID])
-    /// 数で(千分率の値を割る数と、単位の言葉)。
-    case number(divisor: Int, unit: TextID?)
+    /// 数で(千分率の値を割る数と、単位の言葉)。decimals = n なら、割った値をさらに 10^n で割って小数 n 桁で出す
+    /// (整数の計算だけ・切り捨て。例: 値 800・割る数 10・小数 2 桁 → "0.80")。省略は整数。
+    case number(divisor: Int, unit: TextID?, decimals: Int? = nil)
 }
 
 /// 禁止語の規則: until が成り立つまで、プレイヤーに見える文字列に words を含めてはいけない。

@@ -66,8 +66,9 @@ public enum ContentValidator {
                         out.append(Issue(level: .error, rule: "perception.bands",
                                          message: "\(s) の段階: しきい値は昇順・言葉はしきい値 + 1 個"))
                     }
-                case .number(let d, _) where d <= 0:
-                    out.append(Issue(level: .error, rule: "perception.number", message: "\(s) の割る数が 0 以下"))
+                case .number(let d, _, let places) where d <= 0 || !(0...6).contains(places ?? 0):
+                    out.append(Issue(level: .error, rule: "perception.number",
+                                     message: "\(s) の割る数が 0 以下か、小数の桁が 0〜6 の外"))
                 default: break
                 }
             }
@@ -160,7 +161,7 @@ public enum ContentValidator {
                 if let d = v.description { refs.append((d, "perception \(s)")) }
                 switch v.display {
                 case .bands(_, let labels): refs += labels.map { ($0, "perception \(s)") }
-                case .number(_, let unit?): refs.append((unit, "perception \(s)"))
+                case .number(_, let unit?, _): refs.append((unit, "perception \(s)"))
                 default: break
                 }
             }
