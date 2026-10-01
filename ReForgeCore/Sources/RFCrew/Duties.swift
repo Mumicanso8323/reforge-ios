@@ -39,7 +39,7 @@ enum Duties {
         if ps.dwellUntil != nil {
             ctx.world.people[id]?.dwellUntil = nil
             if case .talking = ps.activity { ctx.world.people[id]?.activity = .idle }
-            if case .haul = ps.override?.assignment ?? ps.assignment, ps.motion == nil {
+            if case .carrying = ps.activity, ps.motion == nil {
                 // 積み下ろしが終わった: 向きを変える
                 let leg = ps.haulLeg ?? .pickup
                 ctx.world.people[id]?.haulLeg = leg == .pickup ? .dropoff : .pickup
@@ -81,6 +81,14 @@ enum Duties {
         if let m = fresh.motion, let g = m.goal, station.layer == pos.layer, stillGood(g, station) {
             let a = walkingActivity(station, to: WorldPoint(pos.layer, g))
             if fresh.activity != a { ctx.world.people[id]?.activity = a }
+            return
+        }
+        // 運搬: 経路の道のり(HaulRoute.path)の上にいれば、その道をそのまま歩く(画面の点線と同じ道)
+        if case .carrying(let route) = station.activity, let anchor = Walking.anchor(fresh, planner: &planner),
+           let seg = HaulPath.segment(route, from: anchor, to: station.target[0], ctx.world, &planner), !seg.isEmpty {
+            Walking.start(id, anchor: anchor, path: seg, goal: station.target[0], throughFog: false, &ctx)
+            ctx.world.people[id]?.activity = station.activity
+            ctx.world.people[id]?.workSpeed = nil
             return
         }
         // 経路を引く
@@ -170,7 +178,9 @@ enum Duties {
         guard let pos = ps.position else { return nil }
         switch a {
         case .idle:
-            return nil
+            // 配属の無い仲間は、昼は運搬の共同の手(運搬が既定の役割。order.md §5.4)。夜は眠る。ノアは含めない
+            guard id != .noah, w.clock.phase == .day, let route = HaulPath.sharedRoute(for: id, w) else { return nil }
+            return haulStation(id, route, ps, &ctx)
         case .rest:
             if let shelter = nearestStructure(providing: "shelter", from: pos, w, ctx.content) {
                 return Station(layer: pos.layer, target: footprint(shelter, w), standOn: true, activity: .sleeping,
@@ -203,16 +213,25 @@ enum Duties {
             return Station(layer: opos.layer, target: [opos.point], standOn: false, activity: idleActivity(w),
                            slack: slack)
         case .haul(let route):
-            // 統合で U7 の HaulEndpoint(置いた物 / 拠点の蓄え)に合わせた最小の形。経路の path を往復する形は U5 が入れる
-            guard let r = w.logistics.routes[route], let from = endpoint(r.from, w), let to = endpoint(r.to, w) else {
+            guard w.logistics.routes[route] != nil else {
                 drop(id, &ctx)
                 return nil
             }
-            let leg = ps.haulLeg ?? .pickup
-            if ps.haulLeg == nil { ctx.world.people[id]?.haulLeg = .pickup }
-            let end = leg == .pickup ? from : to
-            return Station(layer: end.layer, target: end.cells, standOn: false, activity: .carrying(route: route))
+            return haulStation(id, route, ps, &ctx)
         }
+    }
+
+    /// 運搬の行き先: 経路の道のりの端(通れるマス)。道のりが無ければ端の置いた物・拠点の蓄えのそば。
+    static func haulStation(_ id: PersonID, _ route: EntityID, _ ps: PersonState, _ ctx: inout StepContext) -> Station? {
+        let w = ctx.world
+        guard let r = w.logistics.routes[route] else { return nil }
+        let leg = ps.haulLeg ?? .pickup
+        if ps.haulLeg == nil { ctx.world.people[id]?.haulLeg = .pickup }
+        if let tiles = HaulPath.walkable(r, w, ctx.content), let end = leg == .pickup ? tiles.tiles.first : tiles.tiles.last {
+            return Station(layer: tiles.layer, target: [end], standOn: true, activity: .carrying(route: route))
+        }
+        guard let end = endpoint(leg == .pickup ? r.from : r.to, w) else { return nil }
+        return Station(layer: end.layer, target: end.cells, standOn: false, activity: .carrying(route: route))
     }
 
     /// 対象が消えた・建て終わった配属を外す(プレイヤーの配属を、仲間が自分で外す)。
@@ -311,5 +330,54 @@ enum WorkSpeed {
         case .module(let k): return c.modules[k]?.specialty
         case .structure(let k): return c.structures[k].flatMap { $0.specialty ?? $0.parameters?["specialty"]?.stringValue }
         }
+    }
+}
+
+/// 運搬の道のり(RFLogistics の HaulRoute.path。端のマスを含む)を歩く。
+enum HaulPath {
+    /// 道のりのうち人が立てるマス(置いたモジュールのマス・通れない地形を除く)。つながっていなければ nil。
+    static func walkable(_ r: HaulRoute, _ w: WorldState, _ c: ContentDB) -> (layer: LayerID, tiles: [GridPoint])? {
+        let layer = r.from.placement.flatMap { w.placements.items[$0]?.at.layer }
+            ?? r.to.placement.flatMap { w.placements.items[$0]?.at.layer } ?? .surface
+        var blocked = Set<GridPoint>()
+        for id in w.placements.sortedIDs {
+            guard let p = w.placements.items[id], p.at.layer == layer, case .module = p.kind else { continue }
+            for o in p.footprint { blocked.insert(p.at.point + o) }
+        }
+        guard let l = w.map[layer] else { return nil }
+        let costs = MoveCostTable(terrains: c.terrains)
+        let tiles = r.path.filter { p in
+            !blocked.contains(p) && l.biome(at: p).map { costs.cost($0) != nil } == true
+        }
+        guard !tiles.isEmpty else { return nil }
+        for (a, b) in zip(tiles, tiles.dropFirst()) where a.chebyshev(to: b) != 1 { return nil }
+        return (layer, tiles)
+    }
+
+    /// from(道のりの上のマス)から goal(道のりの端)までの、道のりに沿ったマスの並び(from を含まない)。
+    /// from が道のりの上に無ければ nil(まず道のりまで経路探索で歩く)。
+    static func segment(_ route: EntityID, from: GridPoint, to goal: GridPoint, _ w: WorldState,
+                        _ planner: inout PathPlanner) -> [GridPoint]? {
+        guard let r = w.logistics.routes[route], let (layer, tiles) = walkable(r, w, planner.content),
+              let i = tiles.firstIndex(of: from), let j = tiles.firstIndex(of: goal), i != j else { return nil }
+        let seg = i < j ? Array(tiles[(i + 1)...j]) : Array(tiles[j..<i].reversed())
+        // 通れなくなったマス(後から置かれたモジュール)があれば使わない
+        guard seg.allSatisfy({ planner.passableTruth($0, layer) }) else { return nil }
+        return seg
+    }
+
+    /// 共同の手の受け持ち: 配属の無い仲間(ノアを除く・人の順)を、道のりのある経路(ID 順)へ順に割り振る。
+    /// 運ぶ物が待っている経路(HaulRoute.waiting)があればそれだけに、1 本も無ければ全部の経路に均等に。
+    static func sharedRoute(for id: PersonID, _ w: WorldState) -> EntityID? {
+        let usable = w.logistics.sortedRouteIDs.filter { w.logistics.routes[$0].map { !$0.path.isEmpty } ?? false }
+        let waiting = usable.filter { w.logistics.routes[$0]?.waiting == true }
+        let routes = waiting.isEmpty ? usable : waiting
+        guard !routes.isEmpty else { return nil }
+        let hands = w.people.members.filter { pid in
+            guard pid != .noah, let ps = w.people[pid], ps.position != nil, ps.override == nil else { return false }
+            return ps.assignment == .idle
+        }
+        guard let k = hands.firstIndex(of: id) else { return nil }
+        return routes[k % routes.count]
     }
 }

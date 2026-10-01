@@ -157,19 +157,32 @@ enum Membership {
         return .done
     }
 
-    /// 傷を負う(amount = 体力の千分率の raw)。体力が尽きれば死ぬ(死因は傷)。
+    /// 傷を負う(amount = 体力の千分率の raw)。体を書くのは RFSurvival(生存の規則があれば survival.injure に渡す。
+    /// 体力の単位に直し、端数は切り上げ)。生存の規則が無い世界(公開の試験用)では、ここで体力を減らす。
+    /// 体力が尽きたときの死は `deathsFromHealth`(毎ステップ)が扱う。
     static func injure(_ id: PersonID, amount: Int, cause: ProvenanceID?, _ ctx: inout StepContext) -> CommandResult {
-        guard var ps = ctx.world.people[id], ps.presence.isAlive else { return .rejected(Rejection("reason.person.unknown")) }
-        let rec = ctx.record(.wasInjured, .person(id), actor: id, place: ps.position, inputs: cause.map { [$0] } ?? [],
-                             detail: ["amount": .int(Int64(amount))])
-        ps.body.health = Milli(raw: max(0, ps.body.health.raw - Int64(amount)))
-        ctx.world.people[id] = ps
+        guard let ps = ctx.world.people[id], ps.presence.isAlive else { return .rejected(Rejection("reason.person.unknown")) }
+        guard amount > 0 else { return .done }
+        if ctx.content.survival != nil {
+            ctx.queue(.survival(.injure(person: id, amount: (amount + 999) / 1000, cause: cause)))
+            return .done
+        }
+        ctx.record(.wasInjured, .person(id), actor: id, place: ps.position, inputs: cause.map { [$0] } ?? [],
+                   detail: ["amount": .int(Int64(amount))])
+        ctx.world.people[id]?.body.health = Milli(raw: max(0, ps.body.health.raw - Int64(amount)))
         ctx.emit(.bodyChanged(person: id))
         ctx.changes.mark(.people)
-        if ps.body.health.raw <= 0 {
-            return die(id, reason: "cause.injury", cause: rec, &ctx)
-        }
+        deathsFromHealth(&ctx)
         return .done
+    }
+
+    /// 体力が尽きた人は死ぬ(戻らない)。死因の来歴は、その人の最後の「傷を負った」記録を指す(あれば)。
+    static func deathsFromHealth(_ ctx: inout StepContext) {
+        for id in ctx.world.people.order {
+            guard let ps = ctx.world.people[id], ps.presence.isAlive, ps.position != nil, ps.body.health.raw <= 0 else { continue }
+            let last = ctx.world.ledger.records.last { $0.act == .wasInjured && $0.subject == .person(id) }?.id
+            _ = die(id, reason: "cause.injury", cause: last, &ctx)
+        }
     }
 
     static func clearOnMap(_ ps: inout PersonState) {

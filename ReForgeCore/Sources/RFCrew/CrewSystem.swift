@@ -153,6 +153,7 @@ public struct CrewSystem: SimSystem {
 
     public func step(_ ctx: inout StepContext) {
         Relations.normalizeAll(&ctx)
+        Membership.deathsFromHealth(&ctx)
         let order = ctx.world.people.order
         guard order.contains(where: { ctx.world.people[$0]?.position != nil }) else { return }
         let workspace = PathWorkspace()
@@ -211,6 +212,8 @@ public struct CrewSystem: SimSystem {
                 ctx.world.people[p]?.skills.insert(skill)
                 ctx.changes.mark(.people)
             }
+        case .bodyChanged:
+            Membership.deathsFromHealth(&ctx)
         case .runResumed(_, let rec):
             // 巻き戻しの後: 前の周回を覚えている仲間の「前にも」の一言(記憶は RFFailure が付けている)
             Lines.say(context: "rewind.deja_vu", speaker: nil, &ctx, trigger: rec)
