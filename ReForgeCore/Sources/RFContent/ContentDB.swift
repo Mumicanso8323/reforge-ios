@@ -15,6 +15,8 @@ public struct ContentDB: Equatable, Sendable {
     public var rewind = RewindDef()
     /// 生存の規則(消費・空腹・精神力・状態)。nil = 規則なし(公開の試験用の層は持たない)。持ち主: U4
     public var survival: SurvivalDef?
+    /// 戦闘の数(帯の長さ・1 手の時間・素手の強さ・間合い・見張り…)。nil = RFCombat の既定(R1)。持ち主: U9
+    public var combat: CombatDef?
     /// 発明の規則の表(RFMatter)。コンテンツに無ければ R1 の表。
     public var ruleBook: RuleBook = .r1
 

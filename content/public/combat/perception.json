@@ -1,0 +1,23 @@
+{
+  "//": "脅威と戦闘(U9)の試験用の見え方。本物の名前と呼び方の切り替えは非公開の層。",
+  "perception": [
+    { "subject": "enemy:enemy.test.small", "variants": [ { "when": true, "name": "text.enemy.test.small", "glyph": "r" } ] },
+    { "subject": "enemy:enemy.test.pack", "variants": [ { "when": true, "name": "text.enemy.test.pack", "glyph": "w" } ] },
+    { "subject": "item:test_meat", "variants": [ { "when": true, "name": "text.item.test_meat" } ] },
+    { "subject": "item:test_hide", "variants": [ { "when": true, "name": "text.item.test_hide" } ] },
+    { "subject": "structure:structure.test.fence", "variants": [ { "when": true, "name": "text.structure.test.fence", "glyph": "#" } ] },
+    { "subject": "structure:structure.test.pit", "variants": [ { "when": true, "name": "text.structure.test.pit", "glyph": "o" } ] },
+    { "subject": "structure:structure.test.store", "variants": [ { "when": true, "name": "text.structure.test.store", "glyph": "□" } ] },
+    { "subject": "structure:structure.test.watchfire", "variants": [ { "when": true, "name": "text.structure.test.watchfire", "glyph": "火" } ] }
+  ],
+  "texts": {
+    "text.enemy.test.small": "小さな獣",
+    "text.enemy.test.pack": "群れの獣",
+    "text.item.test_meat": "肉",
+    "text.item.test_hide": "皮",
+    "text.structure.test.fence": "柵",
+    "text.structure.test.pit": "落とし穴",
+    "text.structure.test.store": "保管",
+    "text.structure.test.watchfire": "見張りの火"
+  }
+}

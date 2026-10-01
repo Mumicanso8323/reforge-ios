@@ -215,7 +215,7 @@ struct LayerKeys {
 /// JSON 1 ファイルの形。どの集まりも省略できる。
 struct ContentFile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case bundle, clock, mapGen, start, rewind, ruleBook, survival
+        case bundle, clock, mapGen, start, rewind, ruleBook, survival, combat
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
         case memoryKinds, lines, hints, research, skills, abilities, enemies, auras, stats, failureRules
         case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings, documents
@@ -234,6 +234,7 @@ struct ContentFile: Codable {
     var start: StartDef?
     var rewind: RewindDef?
     var survival: SurvivalDef?
+    var combat: CombatDef?
     var ruleBook: RuleBook?
     var terrains: [TerrainDef]?
     var biomes: [BiomeDef]?
@@ -295,6 +296,7 @@ struct ContentFile: Codable {
         if let v = start { db.start = v }
         if let v = rewind { db.rewind = v }
         if let v = survival { db.survival = v }
+        if let v = combat { db.combat = v }
         if let v = ruleBook { db.ruleBook = v }
         func upsert<D: ContentDef>(_ name: String, _ dict: inout [D.Key: D], _ items: [D]?) {
             for d in items ?? [] {

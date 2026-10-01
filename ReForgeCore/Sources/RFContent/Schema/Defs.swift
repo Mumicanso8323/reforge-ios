@@ -358,13 +358,7 @@ public struct AbilityDef: ContentDef, Equatable {
     public var reserveMax: Int?
 }
 
-public struct EnemyDef: ContentDef, Equatable {
-    public var id: EnemyKindID
-    public var health: Int
-    public var attack: Int
-    public var drops: [Yield]
-    public var parameters: Value?
-}
+// EnemyDef(敵)は Schema/Combat.swift(持ち主 U9)。
 
 // MARK: - 範囲の効果・隠れた値・失敗
 
