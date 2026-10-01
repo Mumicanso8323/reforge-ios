@@ -1,0 +1,24 @@
+{
+  "//": "脅威と戦闘(U9)の試験用。名前は無い(敵の見え方は非公開の認識の表)。夜の群れ・出会いの確率は 0 にしてある(他の担当の走行を乱さない)。確率を上げる試験は RFCombatTests が上書きする。",
+  "enemies": [
+    {
+      "id": "enemy.test.small", "health": 15, "attack": 3, "defense": 1, "speed": 5,
+      "drops": [ { "item": "test_meat", "min": 1, "max": 1 } ],
+      "steals": [ { "item": "test_food", "quantity": 1 } ],
+      "tags": ["tag.test.hunt"]
+    },
+    {
+      "id": "enemy.test.pack", "health": 35, "attack": 8, "defense": 3, "speed": 7, "mapSpeed": 6,
+      "drops": [ { "item": "test_meat", "min": 2, "max": 2 }, { "item": "test_hide", "min": 1, "max": 1, "basisPoints": 6000 } ],
+      "steals": [ { "item": "test_food", "quantity": 2 } ],
+      "nests": ["poi.test.den"], "nestGuard": 2,
+      "tags": ["tag.test.hunt"], "nestTags": ["tag.test.den_broken"]
+    }
+  ],
+  "structures": [
+    { "id": "structure.test.fence", "cost": [ { "item": "wood", "quantity": 1 } ], "buildSeconds": 600, "provides": { "fence": 1 } },
+    { "id": "structure.test.pit", "cost": [ { "item": "wood", "quantity": 1 } ], "buildSeconds": 600, "provides": { "trap": 2 } },
+    { "id": "structure.test.store", "cost": [ { "item": "wood", "quantity": 1 } ], "buildSeconds": 600, "provides": { "storage": 10 } },
+    { "id": "structure.test.watchfire", "cost": [ { "item": "wood", "quantity": 1 } ], "buildSeconds": 600, "provides": { "watch": 3, "light": 2 } }
+  ]
+}

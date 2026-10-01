@@ -51,6 +51,12 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case threatAppeared(threat: EntityID, kind: EnemyKindID)
     case battleStarted(battle: EntityID, record: ProvenanceID)
     case battleEnded(battle: EntityID, won: Bool, fled: Bool, record: ProvenanceID)
+    /// 巣を壊した(poi は地図の実体)。
+    case nestDestroyed(poi: EntityID, record: ProvenanceID)
+    /// 獣に蓄えを奪われた。
+    case raided(threat: EntityID, record: ProvenanceID)
+    /// 罠(置いた物)が獣を倒した。
+    case trapSprung(placement: EntityID, record: ProvenanceID)
     // 研究
     case researchCompleted(research: ResearchID, record: ProvenanceID)
     case skillAcquired(person: PersonID, skill: SkillID, record: ProvenanceID)
@@ -108,6 +114,9 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .threatAppeared: "threat"
         case .battleStarted: "battle.started"
         case .battleEnded: "battle.ended"
+        case .nestDestroyed: "nest.destroyed"
+        case .raided: "raided"
+        case .trapSprung: "trap.sprung"
         case .researchCompleted: "research.completed"
         case .skillAcquired: "skill"
         case .unlocked: "unlocked"
@@ -132,6 +141,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .placed(_, let r), .dismantled(_, let r), .built(_, let r), .interacted(_, _, _, let r),
              .finiteUsed(let r), .personMet(_, let r), .personJoined(_, let r), .personLeft(_, let r),
              .personDied(_, let r), .battleStarted(_, let r), .battleEnded(_, _, _, let r),
+             .nestDestroyed(_, let r), .raided(_, let r), .trapSprung(_, let r),
              .researchCompleted(_, let r), .skillAcquired(_, _, let r), .eventFired(_, let r),
              .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r):
             r
