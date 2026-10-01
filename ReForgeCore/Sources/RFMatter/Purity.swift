@@ -2,7 +2,7 @@ import RFKernel
 import Foundation
 
 // Purity(万分率の整数)は RFKernel に移した(形・意味は同じ)。
-// 保存の読み込みで範囲外を throw するのは、RFMatter 側では Matter の decode で確かめている。
+// 保存の読み込みで範囲外は throw する(Purity と Matter の decode の両方)。
 
 /// 純度の効き(原作 `NameGenerator.Nines` / `PurityEffect`、naming-engine.md のナイン方式)。
 /// 表示と装備の性能用。工程の計算(純度・名前・硬さ)には使わない(対数は端末ごとに末位がずれうるので、
