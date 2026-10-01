@@ -63,6 +63,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case objectiveChanged(objective: ObjectiveID, status: ObjectiveStatus)
     case chapterEnded(chapter: ChapterID, record: ProvenanceID)
     case endingReached(ending: EndingID)
+    /// 仲間が一言いった(画面は認識の層で文字にして帯に出す)。
+    case lineSpoken(person: PersonID, line: LineID)
     // 失敗
     case runFailed(cause: TextID)
     /// 巻き戻した・失って続けたあとの最初のステップで出す(act = .rewound / .continuedWithLoss)。
@@ -116,6 +118,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .objectiveChanged: "objective"
         case .chapterEnded: "chapter.ended"
         case .endingReached: "ending"
+        case .lineSpoken: "line"
         case .runFailed: "failed"
         case .runResumed: "run.resumed"
         }

@@ -19,6 +19,7 @@ public enum ContentValidator {
         startMembersExist(db, &out)
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)
+        narrativeRules(db, &out)  // 出来事まわり(U11。Schema/Condition.swift)
         return out
     }
 
