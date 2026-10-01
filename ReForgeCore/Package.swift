@@ -63,8 +63,11 @@ targets += systems.map { .target(name: $0, dependencies: systemDeps) }
 /// テストはモジュールごとに 1 つ。実装担当は自分のテストターゲットだけを触る。
 let testedModules = ["RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception",
                      "RFSave", "RFFailure", "RFSim", "RFPresent"] + systems
+/// テストが #filePath で直接読む固定のファイル(SwiftPM のリソースにしない)。
+let testExcludes: [String: [String]] = ["RFSave": ["Fixtures"]]
 targets += testedModules.map {
-    .testTarget(name: "\($0)Tests", dependencies: [.target(name: $0), "RFTestSupport"])
+    .testTarget(name: "\($0)Tests", dependencies: [.target(name: $0), "RFTestSupport"],
+                exclude: testExcludes[$0] ?? [])
 }
 /// 受け入れテスト(TEST-R1-xx のボット走行など、複数システムをまたぐもの)
 targets.append(.testTarget(name: "AcceptanceTests", dependencies: ["ReForgeEngine", "RFTestSupport"]))

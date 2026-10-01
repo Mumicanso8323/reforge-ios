@@ -52,3 +52,12 @@
 - 巻き戻しの持ち越し(上の表の各行)。番号が重ならない。timeline の事実は消える。
 - 4 択のそれぞれで、続けられる世界になる(`run.isActive`)。
 - 中断(TEST-R1-08): 置くモード・試作の途中・会話の途中で `resume` を書き、読んで続きから(時計は止まっていた)。
+
+## 6. U12 の実装で決まったこと(b59cac6)
+- 封筒に `summary`(seed・日・相・周回・巻き戻し回数・進行中か)。一覧の表示と「同じ走行の夜明けか」の判定に使う。
+- 画面の途中の状態は `SaveSlot.screen`(ファイル `resume-ui.json`)に生の Data で置く。
+- 保存の JSON は自前の正準の書き出し(`CanonicalJSON`。Set と非文字列キーの辞書をソート、キーは UTF-8 順)でバイト列を固定する。固定の JSON は `Tests/RFSaveTests/Fixtures/save-v1.json`。リリース前は形が変わるとテストを飛ばし、作り直し方(`REFORGE_UPDATE_SAVE_FIXTURES=1`)を出す。リリース後は失敗にする。
+- 失って続ける: `RewindDef.lossEffects` があればそれだけ。無ければ既定(関係の点が最も低い一員 1 人が去る・拠点の蓄えの唯一品でない物の 500‰ を失う)と、成り立っていた失敗の規則の `onContinue`。適用しても失敗の規則が成り立つなら選べない。
+- 巻き戻しの `pastLives` には、印の付いた記録と失敗の記録に加えて、持ち越した事実・ノート・仲間の記憶が指す記録の写しを残す(`RunState.pastRecord` で引ける)。夜明けの一員(ノア以外)に `RewindDef.dejaVuMemory` の記憶を付ける。
+- 保存の書き換えは `Recovery.perform` の中: 最初から = 夜明けと続きを消す(手動は残す)/ 巻き戻し = その夜明けを巻き戻した世界で上書きし、先の夜明けを消す / ロード = 先の夜明けを消す。
+- 画面へのつなぎ(統合担当が GameHost に入れる): `SaveBook.autosaveDawn`(出来事に dawn)・`writeResume`(背面に回る時)・`Recovery.choices / perform` → `GameHost.replace`。

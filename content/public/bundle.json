@@ -14,5 +14,5 @@
     "unlocks": [ { "module": { "id": "furnace" } } ],
     "objectives": ["objective.test.first"]
   },
-  "rewind": { "memorableTags": ["tag.test.memorable"] }
+  "rewind": { "memorableTags": ["tag.test.memorable"], "dejaVuMemory": "memory.test.deja_vu" }
 }

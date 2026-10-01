@@ -302,6 +302,9 @@ public struct FailureRuleDef: ContentDef, Equatable {
     public var id: FailureRuleID
     public var when: Condition
     public var cause: TextID
+    /// 「失って続ける」を選んだとき、この原因を解く効果(飢えの日数を戻す・数値を下げる…)。
+    /// 適用しても失敗の規則がまだ成り立つなら「失って続ける」は選べない(すぐ同じ失敗に戻らないように)。
+    public var onContinue: [Effect]?
 }
 
 /// 追跡カウンタ(観測した夜の数・ある仲間がノアの近くで働いた時間など)。毎ステップ、本体が数える。

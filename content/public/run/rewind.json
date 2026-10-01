@@ -1,0 +1,11 @@
+{
+  "//": "保存と失敗(U12)の仕組みのテスト用。巻き戻しの後に仲間へ付く記憶と、その記憶で選ばれる一言(文は既存の試験用)。",
+  "memoryKinds": [
+    { "id": "memory.test.deja_vu", "persistsAcrossRewind": true }
+  ],
+  "lines": [
+    { "id": "line.test.deja_vu", "speaker": "person.test_a", "context": "rewind.deja_vu",
+      "when": { "person": { "id": "person.test_a", "test": { "hasMemory": { "kind": "memory.test.deja_vu" } } } },
+      "text": "text.test.line2" }
+  ]
+}
