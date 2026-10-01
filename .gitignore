@@ -1,0 +1,14 @@
+# XcodeGen で生成する
+*.xcodeproj/
+*.xcworkspace/
+# ビルド成果物
+build/
+DerivedData/
+SourcePackages/
+.build/
+.swiftpm/
+Payload/
+*.ipa
+*.log
+xcuserdata/
+.DS_Store

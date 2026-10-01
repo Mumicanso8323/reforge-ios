@@ -1,0 +1,61 @@
+# XcodeGen の定義。.xcodeproj はコミットせず、CI(と Mac がある時は手元)で `xcodegen generate` して作る。
+name: ReForge
+options:
+  bundleIdPrefix: com.yusukedoi
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+packages:
+  ReForgeCore:
+    path: ReForgeCore
+
+targets:
+  ReForge:
+    type: application
+    platform: iOS
+    sources:
+      - path: ReForge
+    dependencies:
+      - package: ReForgeCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yusukedoi.reforge
+        PRODUCT_NAME: ReForge
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: "Re:Forge"
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        TARGETED_DEVICE_FAMILY: "1"
+        ENABLE_PREVIEWS: YES
+
+  ReForgeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ReForgeTests
+    dependencies:
+      # ReForgeCore は静的リンクなので、テスト側でも直接リンクすると重複する。アプリ経由で見る。
+      - target: ReForge
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yusukedoi.reforge.tests
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  ReForge:
+    build:
+      targets:
+        ReForge: all
+    test:
+      config: Debug
+      targets:
+        - ReForgeTests
