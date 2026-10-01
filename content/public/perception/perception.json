@@ -1,48 +1,382 @@
 {
   "//": "試験用の認識の表と文字列。禁止語は試験用の語だけ(本物の規則は非公開の層)。",
   "perception": [
-    { "subject": "person:person.noah", "variants": [ { "when": true, "name": "text.name.noah", "glyph": "↓" } ] },
-    { "subject": "person:person.test_a", "variants": [ { "when": true, "name": "text.name.test_a", "glyph": "a" } ] },
-    { "subject": "person:person.test_b", "variants": [ { "when": true, "name": "text.name.test_b", "glyph": "b" } ] },
-    { "subject": "person:person.test_c", "variants": [ { "when": true, "name": "text.name.test_c", "glyph": "c" } ] },
-    { "subject": "terrain:grass", "variants": [ { "when": true, "name": "text.terrain.grass", "glyph": "ψ" } ] },
-    { "subject": "terrain:water", "variants": [ { "when": true, "name": "text.terrain.water", "glyph": "∙" } ] },
-    { "subject": "terrain:rock", "variants": [ { "when": true, "name": "text.terrain.rock", "glyph": "ﾛ" } ] },
-    { "subject": "item:wood", "variants": [ { "when": true, "name": "text.item.wood" } ] },
-    { "subject": "item:test_ore", "variants": [
-      { "when": "fact.test.revealed", "name": "text.item.test_ore.true", "announce": true },
-      { "when": true, "name": "text.item.test_ore.seen" }
-    ] },
-    { "subject": "module:furnace", "variants": [
-      { "when": "fact.test.revealed", "name": "text.module.furnace.true", "glyph": "炉" },
-      { "when": true, "name": "text.module.furnace", "glyph": "炉" }
-    ] },
-    { "subject": "sheet:sheet.test.record", "variants": [ { "when": true, "name": "text.sheet.record" } ] },
-    { "subject": "stat:stat.test.air", "variants": [
-      { "when": "fact.test.revealed", "name": "text.stat.air", "display": { "number": { "divisor": 10, "unit": null } } },
-      { "when": true, "name": "text.stat.air", "display": { "bands": { "thresholds": [900], "labels": ["text.stat.air.low", "text.stat.air.high"] } } }
-    ] },
-    { "subject": "stat:stat.test.hidden", "variants": [ { "when": true, "name": "text.stat.hidden", "display": { "hidden": {} } } ] },
-    { "subject": "substance:Fe", "variants": [ { "when": true, "name": "text.matter.fe" } ] },
-    { "subject": "shape:plate", "variants": [ { "when": true, "name": "text.shape.plate" } ] },
-    { "subject": "shape:lump", "variants": [ { "when": true, "name": "text.shape.lump" } ] },
-    { "subject": "grade:fine.metal", "variants": [ { "when": true, "name": "text.grade.fine" } ] },
-    { "subject": "grade:crude.metal", "variants": [ { "when": true, "name": "text.grade.crude" } ] },
-    { "subject": "temper:hard", "variants": [ { "when": true, "name": "text.temper.hard" } ] }
+    {
+      "subject": "person:person.noah",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.name.noah",
+          "glyph": "↓"
+        }
+      ]
+    },
+    {
+      "subject": "person:person.test_a",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.name.test_a",
+          "glyph": "a"
+        }
+      ]
+    },
+    {
+      "subject": "person:person.test_b",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.name.test_b",
+          "glyph": "b"
+        }
+      ]
+    },
+    {
+      "subject": "person:person.test_c",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.name.test_c",
+          "glyph": "c"
+        }
+      ]
+    },
+    {
+      "subject": "terrain:grass",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.terrain.grass",
+          "glyph": "ψ"
+        }
+      ]
+    },
+    {
+      "subject": "terrain:water",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.terrain.water",
+          "glyph": "∙"
+        }
+      ]
+    },
+    {
+      "subject": "terrain:rock",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.terrain.rock",
+          "glyph": "ﾛ"
+        }
+      ]
+    },
+    {
+      "subject": "item:wood",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.item.wood"
+        }
+      ]
+    },
+    {
+      "subject": "item:test_ore",
+      "variants": [
+        {
+          "when": "fact.test.revealed",
+          "name": "text.item.test_ore.true",
+          "announce": true
+        },
+        {
+          "when": true,
+          "name": "text.item.test_ore.seen"
+        }
+      ]
+    },
+    {
+      "subject": "module:furnace",
+      "variants": [
+        {
+          "when": "fact.test.revealed",
+          "name": "text.module.furnace.true",
+          "glyph": "炉"
+        },
+        {
+          "when": true,
+          "name": "text.module.furnace",
+          "glyph": "炉"
+        }
+      ]
+    },
+    {
+      "subject": "sheet:sheet.test.record",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.sheet.record"
+        }
+      ]
+    },
+    {
+      "subject": "stat:stat.test.air",
+      "variants": [
+        {
+          "when": "fact.test.revealed",
+          "name": "text.stat.air",
+          "display": {
+            "number": {
+              "divisor": 10,
+              "unit": null
+            }
+          }
+        },
+        {
+          "when": true,
+          "name": "text.stat.air",
+          "display": {
+            "bands": {
+              "thresholds": [
+                900
+              ],
+              "labels": [
+                "text.stat.air.low",
+                "text.stat.air.high"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "subject": "stat:stat.test.hidden",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.stat.hidden",
+          "display": {
+            "hidden": {}
+          }
+        }
+      ]
+    },
+    {
+      "subject": "substance:Fe",
+      "variants": [
+        {
+          "when": "fact.test.revealed",
+          "name": "text.matter.fe.true",
+          "announce": true
+        },
+        {
+          "when": true,
+          "name": "text.matter.fe"
+        }
+      ]
+    },
+    {
+      "subject": "shape:plate",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.shape.plate"
+        }
+      ]
+    },
+    {
+      "subject": "shape:lump",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.shape.lump"
+        }
+      ]
+    },
+    {
+      "subject": "grade:fine.metal",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.grade.fine"
+        }
+      ]
+    },
+    {
+      "subject": "grade:crude.metal",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.grade.crude"
+        }
+      ]
+    },
+    {
+      "subject": "temper:hard",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.temper.hard"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.test.beacon",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.structure.beacon",
+          "glyph": "♦"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.test.shelter",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.structure.shelter",
+          "glyph": "⌂"
+        }
+      ]
+    },
+    {
+      "subject": "poi:poi.test.wreck",
+      "variants": [
+        {
+          "when": "fact.test.revealed",
+          "name": "text.poi.wreck.true",
+          "glyph": "残",
+          "announce": true
+        },
+        {
+          "when": true,
+          "name": "text.poi.wreck",
+          "glyph": "残"
+        }
+      ]
+    },
+    {
+      "subject": "part:part.a",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.part.a"
+        }
+      ]
+    },
+    {
+      "subject": "part:part.b",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.part.b"
+        }
+      ]
+    },
+    {
+      "subject": "source:test.hand",
+      "variants": [
+        {
+          "when": "fact.test.revealed",
+          "name": "text.source.hand.true"
+        },
+        {
+          "when": true,
+          "name": "text.source.hand"
+        }
+      ]
+    },
+    {
+      "subject": "journal:placed",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.journal.placed"
+        }
+      ]
+    },
+    {
+      "subject": "journal:built",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.journal.built"
+        }
+      ]
+    },
+    {
+      "subject": "journal:crafted",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.journal.crafted"
+        }
+      ]
+    },
+    {
+      "subject": "journal:trialed",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.journal.trialed"
+        }
+      ]
+    },
+    {
+      "subject": "journal:produced",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.journal.produced"
+        }
+      ]
+    },
+    {
+      "subject": "journal:scavenged",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.journal.scavenged"
+        }
+      ]
+    }
   ],
   "forbidden": [
-    { "words": ["禁句A"], "until": "fact.test.revealed" }
+    {
+      "id": "rule.test.a",
+      "words": [
+        "禁句A"
+      ],
+      "until": "fact.test.revealed"
+    }
   ],
   "auditStages": [
-    { "id": "start", "facts": [] },
-    { "id": "revealed", "facts": ["fact.test.alpha", "fact.test.beta", "fact.test.gamma", "fact.test.revealed"] }
+    {
+      "id": "start",
+      "facts": []
+    },
+    {
+      "id": "revealed",
+      "facts": [
+        "fact.test.alpha",
+        "fact.test.beta",
+        "fact.test.gamma",
+        "fact.test.revealed"
+      ]
+    }
   ],
   "textGates": [
-    { "text": "text.item.test_ore.true", "gate": "fact.test.revealed" }
+    {
+      "text": "text.item.test_ore.true",
+      "gate": "fact.test.revealed"
+    }
   ],
-  "glyphs": { "item:wood": "木" },
+  "glyphs": {
+    "item:wood": "木"
+  },
   "texts": {
     "text.unknown": "？",
+    "text.structure.beacon": "のろし台",
     "text.name.noah": "ノア",
     "text.name.test_a": "試験の仲間A",
     "text.name.test_b": "試験の仲間B",
@@ -81,6 +415,21 @@
     "reason.narrative.bad_choice": "それは選べない",
     "reason.run.not_active": "もう終わっている",
     "reason.command.unhandled": "いまはできない",
-    "cause.unknown": "分からない"
+    "cause.unknown": "分からない",
+    "text.matter.fe.true": "本当の鉄",
+    "text.structure.shelter": "試験の小屋",
+    "text.poi.wreck": "試験の残骸",
+    "text.poi.wreck.true": "本当の残骸",
+    "text.part.a": "試験の区画A",
+    "text.part.b": "試験の区画B",
+    "text.source.hand": "手の覚え",
+    "text.source.hand.true": "試験の出典",
+    "text.journal.placed": "{actor}が{subject}を置いた",
+    "text.journal.built": "{actor}が{subject}を建てた",
+    "text.journal.crafted": "{actor}が{subject}を作った",
+    "text.journal.trialed": "{actor}が{subject}を試した",
+    "text.journal.produced": "{subject}が{count}個できた",
+    "text.journal.scavenged": "{actor}が{subject}を漁った",
+    "text.test.note": "試験の書き留め"
   }
 }

@@ -87,8 +87,9 @@ public struct TerrainGrid: Codable, Equatable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         field = try c.decode(BiomeField.self, forKey: .field)
         size = field.size
-        if let data = try c.decodeIfPresent(Data.self, forKey: .dense) {
-            guard data.count == size.cellCount else {
+        // base64 の文字列で読み書きする(Data の Codable はエンコーダ次第で配列にもなるため。保存の正準 JSON と揃える)
+        if let text = try c.decodeIfPresent(String.self, forKey: .dense) {
+            guard let data = Data(base64Encoded: text), data.count == size.cellCount else {
                 throw DecodingError.dataCorruptedError(forKey: .dense, in: c, debugDescription: "地形のマス数が合わない")
             }
             dense = [UInt8](data)
@@ -108,7 +109,7 @@ public struct TerrainGrid: Codable, Equatable, Sendable {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(field, forKey: .field)
         if let dense {
-            try c.encode(Data(dense), forKey: .dense)
+            try c.encode(Data(dense).base64EncodedString(), forKey: .dense)
         } else {
             let pairs = overrides.keys.sorted().map { [$0, Int(overrides[$0]!.rawValue)] }
             try c.encode(pairs, forKey: .overrides)

@@ -4,7 +4,7 @@ import RFMatter
 
 /// 読み込んだコンテンツの全部(不変)。公開の層と非公開の層を重ねたもの(E-content.md)。
 /// 本体・認識の層・画面はこれだけを見る。JSON を直接読まない。
-public struct ContentDB: Sendable {
+public struct ContentDB: Equatable, Sendable {
     /// 重ねた層(順番どおり)。セーブに版を残すのに使う。
     public var layers: [LayerManifest] = []
 
@@ -57,6 +57,9 @@ public struct ContentDB: Sendable {
     public var texts: [TextID: String] = [:]
     /// 地図の文字(見出し → 1 文字)。認識の表の glyph が優先。
     public var glyphs: [SubjectID: String] = [:]
+    /// 画面に出してよいラテン文字の語(固有名・題名など)。英語の ID の検査はこの語を除いてから判定する。
+    /// 層をまたいで足し合わせる。語がネタバレなら非公開の層に置き、禁止語の規則で until まで伏せる。
+    public var latinAllowed: [String] = []
 
     public init() {}
 }
@@ -74,10 +77,14 @@ public struct LayerManifest: Codable, Equatable, Sendable {
     public var visibility: Visibility
     /// 版(コンテンツのリポジトリのコミットなど)。セーブに残し、移行の判断に使う。
     public var version: String
+    /// 見張りの文字列(非公開の層だけ。本文ではない無意味な文字列)。CI が、封をした ipa の中に平文で
+    /// 現れないことを確かめるのに使う(E-content.md §4.5)。画面には出さない。
+    public var canary: String?
 
-    public init(id: String, visibility: Visibility, version: String) {
+    public init(id: String, visibility: Visibility, version: String, canary: String? = nil) {
         self.id = id
         self.visibility = visibility
         self.version = version
+        self.canary = canary
     }
 }
