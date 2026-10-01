@@ -1,3 +1,4 @@
+import RFKernel
 import RFMatter
 
 /// テスト用の文字列化(認識の層の代わり。語の表はここだけに置く)。

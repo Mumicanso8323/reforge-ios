@@ -1,3 +1,4 @@
+import RFKernel
 import Foundation
 
 /// レシピに入れる 1 口(原作 `ItemStack` の、純度の計算に要る部分)。

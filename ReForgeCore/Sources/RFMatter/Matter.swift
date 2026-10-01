@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 形(原作 `ShapeType`)。原作は列挙の値に基準質量(g)を入れていたが、保存の互換のため
 /// 生の値は名前の文字列にし、質量は `baseMassGrams` で引く。生の値はケース名を変えても変えない。
 public enum Shape: String, Codable, Hashable, Sendable, CaseIterable {
@@ -127,12 +129,17 @@ public struct Matter: Codable, Hashable, Sendable {
         case components = "components", alloy = "alloy", traits = "traits"
     }
 
-    /// 読むときも混ぜ物の並びを正規化する(ID 順・重複なし)。
+    /// 読むときも混ぜ物の並びを正規化する(ID 順・重複なし)。純度が 0...10000 の外なら黙って丸めずに throw する。
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        let bp = try c.decode(Int.self, forKey: .purity)
+        guard (0...10000).contains(bp) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .purity, in: c, debugDescription: "純度が 0...10000 の外: \(bp)")
+        }
         self.init(
             substance: try c.decode(SubstanceID.self, forKey: .substance),
-            purity: try c.decode(Purity.self, forKey: .purity),
+            purity: Purity(basisPoints: bp),
             stage: try c.decode(MatterStage.self, forKey: .stage),
             shape: try c.decode(Shape.self, forKey: .shape),
             thermal: try c.decode(ThermalState.self, forKey: .thermal),

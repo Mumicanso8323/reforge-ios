@@ -1,0 +1,86 @@
+{
+  "//": "試験用の認識の表と文字列。禁止語は試験用の語だけ(本物の規則は非公開の層)。",
+  "perception": [
+    { "subject": "person:person.noah", "variants": [ { "when": true, "name": "text.name.noah", "glyph": "↓" } ] },
+    { "subject": "person:person.test_a", "variants": [ { "when": true, "name": "text.name.test_a", "glyph": "a" } ] },
+    { "subject": "person:person.test_b", "variants": [ { "when": true, "name": "text.name.test_b", "glyph": "b" } ] },
+    { "subject": "person:person.test_c", "variants": [ { "when": true, "name": "text.name.test_c", "glyph": "c" } ] },
+    { "subject": "terrain:grass", "variants": [ { "when": true, "name": "text.terrain.grass", "glyph": "ψ" } ] },
+    { "subject": "terrain:water", "variants": [ { "when": true, "name": "text.terrain.water", "glyph": "∙" } ] },
+    { "subject": "terrain:rock", "variants": [ { "when": true, "name": "text.terrain.rock", "glyph": "ﾛ" } ] },
+    { "subject": "item:wood", "variants": [ { "when": true, "name": "text.item.wood" } ] },
+    { "subject": "item:test_ore", "variants": [
+      { "when": "fact.test.revealed", "name": "text.item.test_ore.true", "announce": true },
+      { "when": true, "name": "text.item.test_ore.seen" }
+    ] },
+    { "subject": "module:furnace", "variants": [
+      { "when": "fact.test.revealed", "name": "text.module.furnace.true", "glyph": "炉" },
+      { "when": true, "name": "text.module.furnace", "glyph": "炉" }
+    ] },
+    { "subject": "sheet:sheet.test.record", "variants": [ { "when": true, "name": "text.sheet.record" } ] },
+    { "subject": "stat:stat.test.air", "variants": [
+      { "when": "fact.test.revealed", "name": "text.stat.air", "display": { "number": { "divisor": 10, "unit": null } } },
+      { "when": true, "name": "text.stat.air", "display": { "bands": { "thresholds": [900], "labels": ["text.stat.air.low", "text.stat.air.high"] } } }
+    ] },
+    { "subject": "stat:stat.test.hidden", "variants": [ { "when": true, "name": "text.stat.hidden", "display": { "hidden": {} } } ] },
+    { "subject": "substance:Fe", "variants": [ { "when": true, "name": "text.matter.fe" } ] },
+    { "subject": "shape:plate", "variants": [ { "when": true, "name": "text.shape.plate" } ] },
+    { "subject": "shape:lump", "variants": [ { "when": true, "name": "text.shape.lump" } ] },
+    { "subject": "grade:fine.metal", "variants": [ { "when": true, "name": "text.grade.fine" } ] },
+    { "subject": "grade:crude.metal", "variants": [ { "when": true, "name": "text.grade.crude" } ] },
+    { "subject": "temper:hard", "variants": [ { "when": true, "name": "text.temper.hard" } ] }
+  ],
+  "forbidden": [
+    { "words": ["禁句A"], "until": "fact.test.revealed" }
+  ],
+  "auditStages": [
+    { "id": "start", "facts": [] },
+    { "id": "revealed", "facts": ["fact.test.alpha", "fact.test.beta", "fact.test.gamma", "fact.test.revealed"] }
+  ],
+  "textGates": [
+    { "text": "text.item.test_ore.true", "gate": "fact.test.revealed" }
+  ],
+  "glyphs": { "item:wood": "木" },
+  "texts": {
+    "text.unknown": "？",
+    "text.name.noah": "ノア",
+    "text.name.test_a": "試験の仲間A",
+    "text.name.test_b": "試験の仲間B",
+    "text.name.test_c": "試験の人C",
+    "text.terrain.grass": "草地",
+    "text.terrain.water": "水辺",
+    "text.terrain.rock": "岩場",
+    "text.item.wood": "薪",
+    "text.item.test_ore.seen": "見慣れない石",
+    "text.item.test_ore.true": "禁句Aの石",
+    "text.module.furnace": "炉",
+    "text.module.furnace.true": "本当の炉",
+    "text.sheet.record": "試験の記録",
+    "text.sheet.design": "ライン札",
+    "text.sheet.trial": "試作",
+    "text.stat.air": "空気",
+    "text.stat.air.low": "澄んでいる",
+    "text.stat.air.high": "濁っている",
+    "text.stat.hidden": "見えない値",
+    "text.matter.fe": "鉄",
+    "text.shape.plate": "板",
+    "text.shape.lump": "塊",
+    "text.grade.fine": "精",
+    "text.grade.crude": "粗",
+    "text.temper.hard": "剛",
+    "text.test.objective": "試験の目標",
+    "text.test.cause": "試験の失敗",
+    "text.test.row": "試験の行",
+    "text.test.yes": "はい",
+    "text.test.no": "いいえ",
+    "text.test.line1": "試験の一言",
+    "text.test.line2": "試験の二言",
+    "reason.time.not_dusk": "まだ日が沈んでいない",
+    "reason.time.still_day": "まだ昼だ",
+    "reason.narrative.no_decision": "もう決まっている",
+    "reason.narrative.bad_choice": "それは選べない",
+    "reason.run.not_active": "もう終わっている",
+    "reason.command.unhandled": "いまはできない",
+    "cause.unknown": "分からない"
+  }
+}

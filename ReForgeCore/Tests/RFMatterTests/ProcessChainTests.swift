@@ -1,3 +1,4 @@
+import RFKernel
 import Foundation
 import XCTest
 @testable import RFMatter
@@ -336,9 +337,13 @@ final class ProcessChainTests: XCTestCase {
     }
 
     func testDecodingRejectsBadPurityAndNormalizesAdditives() throws {
-        XCTAssertThrowsError(try JSONDecoder().decode(Purity.self, from: Data("10001".utf8)))
-        XCTAssertThrowsError(try JSONDecoder().decode(Purity.self, from: Data("-1".utf8)))
-        XCTAssertEqual(try JSONDecoder().decode(Purity.self, from: Data("10000".utf8)), .full)
+        // Purity 単体の decode は RFKernel の型(丸めるか throw するかは設計担当に依頼済み)。物の読み込みでは throw する
+        func matterJSON(purity: Int) -> Data {
+            Data(#"{"additives":[],"components":[],"purity":\#(purity),"shape":"lump","stage":"ore","substance":"Fe2O3","temper":"none","thermal":"ambient","traits":{},"worked":0}"#.utf8)
+        }
+        XCTAssertThrowsError(try JSONDecoder().decode(Matter.self, from: matterJSON(purity: 10001)))
+        XCTAssertThrowsError(try JSONDecoder().decode(Matter.self, from: matterJSON(purity: -1)))
+        XCTAssertEqual(try JSONDecoder().decode(Matter.self, from: matterJSON(purity: 10000)).purity, .full)
         let json = #"{"additives":["water","limestone","water"],"components":[],"purity":3000,"shape":"lump","stage":"ore","substance":"Fe2O3","temper":"none","thermal":"ambient","traits":{},"worked":0}"#
         let m = try JSONDecoder().decode(Matter.self, from: Data(json.utf8))
         XCTAssertEqual(m.additives, [.limestone, .water])

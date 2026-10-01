@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 工程の 1 段(設計画面の 1 行)。
 public struct ProcessStep: Codable, Hashable, Sendable {
     public var module: ModuleKind
@@ -15,6 +17,9 @@ public struct ProcessStep: Codable, Hashable, Sendable {
 
     /// 入れた物の ID(並びは入れた順)。
     public var inputItems: [ItemID] { inputs.map(\.item) }
+
+    /// 最初に入れた物(燃料・混ぜ物 1 つの段の表示用。入力が 1 つだった頃の呼び出し側との互換)。
+    public var input: ItemID? { inputs.first?.item }
 
     enum CodingKeys: String, CodingKey { case module = "module", inputs = "inputs" }
 

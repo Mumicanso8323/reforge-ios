@@ -1,0 +1,18 @@
+{
+  "//": "公開の試験用コンテンツ。仕組みのテストのための最小の集まりで、物語・出来事の本文・後半の品名は入れない(docs/architecture/E-content.md)。本物は非公開の層(content/private または REFORGE_PRIVATE_CONTENT)が重ねて置き換える。",
+  "bundle": { "id": "public", "visibility": "public", "version": "fixture-1" },
+  "clock": { "dayRealSeconds": 180, "dayGameHours": 8, "nightGameHours": 18 },
+  "mapGen": { "size": { "width": 32, "height": 32 }, "parameters": null },
+  "start": {
+    "members": ["person.noah", "person.test_a", "person.test_b"],
+    "unmet": ["person.test_c"],
+    "items": [
+      { "item": "wood", "min": 3, "max": 3 },
+      { "item": "test_ore", "min": 2, "max": 2 }
+    ],
+    "facts": [],
+    "unlocks": [ { "module": { "id": "furnace" } } ],
+    "objectives": ["objective.test.first"]
+  },
+  "rewind": { "memorableTags": ["tag.test.memorable"] }
+}

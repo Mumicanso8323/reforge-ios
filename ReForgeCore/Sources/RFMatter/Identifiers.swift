@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 文字列を中身に持つ型付き ID。データ(規則の表・JSON)で後から足せるように enum にはしない。
 /// 表示名ではない(表示は認識の層がこの ID から引く)。
 public protocol StringIdentifier: RawRepresentable, Codable, CodingKeyRepresentable, Hashable, Comparable, Sendable,
@@ -28,54 +30,50 @@ public struct SubstanceID: StringIdentifier {
 }
 
 /// 持ち物・投入物(燃料・混ぜ物・水)の ID。原作の item_id と同じ綴り。
-public struct ItemID: StringIdentifier {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    public static let ironOre: ItemID = "iron_ore"
-    public static let wood: ItemID = "wood"
-    public static let charcoal: ItemID = "charcoal"
-    public static let coal: ItemID = "coal"
-    public static let limestone: ItemID = "limestone"
-    public static let water: ItemID = "water"
+// ItemID は RFKernel の型(TypedID<ItemTag>)。ここでは定数だけを足す。
+extension TypedID where Tag == ItemTag {
+    public static var ironOre: Self { "iron_ore" }
+    public static var wood: Self { "wood" }
+    public static var charcoal: Self { "charcoal" }
+    public static var coal: Self { "coal" }
+    public static var limestone: Self { "limestone" }
+    public static var water: Self { "water" }
 }
 
 /// レシピの ID。原作 recipes.json の id と同じ綴り。
-public struct RecipeID: StringIdentifier {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
-    public static let charcoalSmelt: RecipeID = "charcoal_smelt"
-    public static let basicSmelt: RecipeID = "basic_smelt"
-    public static let fluxSmelt: RecipeID = "flux_smelt"
-    public static let crush: RecipeID = "crush"
-    public static let wash: RecipeID = "wash"
-    public static let plateForge: RecipeID = "plate_forge"
-    public static let castIronPlate: RecipeID = "cast_iron_plate"
-    public static let charcoalBurn: RecipeID = "charcoal_burn"
+// RecipeID は RFKernel の型(TypedID<RecipeTag>)。
+extension TypedID where Tag == RecipeTag {
+    public static var charcoalSmelt: Self { "charcoal_smelt" }
+    public static var basicSmelt: Self { "basic_smelt" }
+    public static var fluxSmelt: Self { "flux_smelt" }
+    public static var crush: Self { "crush" }
+    public static var wash: Self { "wash" }
+    public static var plateForge: Self { "plate_forge" }
+    public static var castIronPlate: Self { "cast_iron_plate" }
+    public static var charcoalBurn: Self { "charcoal_burn" }
     /// 叩き重ね(R1 で足したレシピ。原作の recipes.json には無い)。
-    public static let fold: RecipeID = "r1_fold"
+    public static var fold: Self { "r1_fold" }
 }
 
 /// 工程のモジュールの種類。規則の表(`RuleBook`)のキー。新しいモジュールは ID と規則を足すだけで増やせる。
-public struct ModuleKind: StringIdentifier {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
+/// 工程のモジュールの種類 = RFKernel の ModuleKindID(地図に置くモジュールの種類と同じ ID)。
+public typealias ModuleKind = ModuleKindID
 
+extension TypedID where Tag == ModuleKindTag {
     /// 採掘口(鉱脈の上でだけ動く。並びの先頭)。
-    public static let minehead: ModuleKind = "minehead"
+    public static var minehead: Self { "minehead" }
     /// 石臼(塊を粉にする)。
-    public static let millstone: ModuleKind = "millstone"
+    public static var millstone: Self { "millstone" }
     /// 洗い樋(粉をすすいで砂を流す)。
-    public static let sluice: ModuleKind = "sluice"
+    public static var sluice: Self { "sluice" }
     /// 混ぜ鉢(混ぜ物を入れる。R1 は石灰石)。
-    public static let mixingBowl: ModuleKind = "mixing_bowl"
+    public static var mixingBowl: Self { "mixing_bowl" }
     /// 炉(燃料で熱する)。
-    public static let furnace: ModuleKind = "furnace"
+    public static var furnace: Self { "furnace" }
     /// 叩き台(熱い鉄を叩いて板にする)。
-    public static let anvil: ModuleKind = "anvil"
+    public static var anvil: Self { "anvil" }
     /// 水槽(熱い鉄を急に冷やす)。
-    public static let quenchTank: ModuleKind = "quench_tank"
+    public static var quenchTank: Self { "quench_tank" }
 }
 
 /// 副産物の ID(production-system-design.md の副産物一覧)。
@@ -95,56 +93,54 @@ public struct ByproductID: StringIdentifier {
 
 /// 所見(実験ノートに自動で載る事実)の ID。文はコンテンツ側がこの ID から引く。
 /// ノートは事実だけを書き、規則はまとめない(推理をプレイヤーから取らない)。
-public struct FindingID: StringIdentifier {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-
+// FindingID は RFKernel の型(TypedID<FindingTag>)。
+extension TypedID where Tag == FindingTag {
     /// 採掘口が並びの先頭にない(鉱脈の上でしか掘れない)。
-    public static let mineheadNotAtHead: FindingID = "minehead.not_at_head"
+    public static var mineheadNotAtHead: Self { "minehead.not_at_head" }
     /// 粉をさらに石臼にかけても変わらなかった。
-    public static let crushAlreadyDust: FindingID = "crush.already_dust"
+    public static var crushAlreadyDust: Self { "crush.already_dust" }
     /// 鉄は石臼では砕けなかった。
-    public static let crushMetalTooTough: FindingID = "crush.metal_too_tough"
+    public static var crushMetalTooTough: Self { "crush.metal_too_tough" }
     /// 塊のままでは中まで水が通らない(洗っても変わらない)。
-    public static let washLumpNoEffect: FindingID = "wash.lump_no_effect"
+    public static var washLumpNoEffect: Self { "wash.lump_no_effect" }
     /// 鉄を洗い樋に通しても変わらなかった。
-    public static let washMetalNoEffect: FindingID = "wash.metal_no_effect"
+    public static var washMetalNoEffect: Self { "wash.metal_no_effect" }
     /// 混ぜてあった石灰が水で流れてしまった。
-    public static let washFluxWashedAway: FindingID = "wash.flux_washed_away"
+    public static var washFluxWashedAway: Self { "wash.flux_washed_away" }
     /// 冷えた鉄に石灰は馴染まない(炉の後で混ぜても効かない)。
-    public static let mixAfterSmeltNoEffect: FindingID = "mix.after_smelt_no_effect"
+    public static var mixAfterSmeltNoEffect: Self { "mix.after_smelt_no_effect" }
     /// もう混ざっていたので、足しても変わらなかった。
-    public static let mixAlreadyMixed: FindingID = "mix.already_mixed"
+    public static var mixAlreadyMixed: Self { "mix.already_mixed" }
     /// 石灰石ではない物を混ぜ鉢に入れたが、馴染まずに残らなかった(引数: 入れた物)。
-    public static let mixUnknownAdditive: FindingID = "mix.unknown_additive"
+    public static var mixUnknownAdditive: Self { "mix.unknown_additive" }
     /// 混ぜ物を入れずに混ぜ鉢を通した。
-    public static let mixNothingAdded: FindingID = "mix.nothing_added"
+    public static var mixNothingAdded: Self { "mix.nothing_added" }
     /// 燃料の火では温度が足りず、溶けなかった(引数: 燃料)。
-    public static let furnaceTooCool: FindingID = "furnace.too_cool"
+    public static var furnaceTooCool: Self { "furnace.too_cool" }
     /// 燃料なしで炉を通した。
-    public static let furnaceNoFuel: FindingID = "furnace.no_fuel"
+    public static var furnaceNoFuel: Self { "furnace.no_fuel" }
     /// 鉱石を叩いても板にならなかった。
-    public static let hammerOreNoEffect: FindingID = "hammer.ore_no_effect"
+    public static var hammerOreNoEffect: Self { "hammer.ore_no_effect" }
     /// 冷やしてから叩いたら割れた。
-    public static let hammerCrackedAfterQuench: FindingID = "hammer.cracked_after_quench"
+    public static var hammerCrackedAfterQuench: Self { "hammer.cracked_after_quench" }
     /// 割れた鉄は叩いても戻らない。
-    public static let hammerAlreadyCracked: FindingID = "hammer.already_cracked"
+    public static var hammerAlreadyCracked: Self { "hammer.already_cracked" }
     /// 冷めかけた鉄は叩いても伸びなかった(熱し直しが要る)。
-    public static let hammerTooCool: FindingID = "hammer.too_cool"
+    public static var hammerTooCool: Self { "hammer.too_cool" }
     /// これ以上叩き重ねても変わらなかった。
-    public static let hammerNoFurther: FindingID = "hammer.no_further"
+    public static var hammerNoFurther: Self { "hammer.no_further" }
     /// 叩いていない塊は、冷やしても硬くならなかった。
-    public static let quenchUnworkedNotHardened: FindingID = "quench.unworked_not_hardened"
+    public static var quenchUnworkedNotHardened: Self { "quench.unworked_not_hardened" }
     /// 鉱石を水に浸けても変わらなかった。
-    public static let quenchOreNoEffect: FindingID = "quench.ore_no_effect"
+    public static var quenchOreNoEffect: Self { "quench.ore_no_effect" }
     /// もう冷えていたので、水に浸けても変わらなかった。
-    public static let quenchAlreadyCold: FindingID = "quench.already_cold"
+    public static var quenchAlreadyCold: Self { "quench.already_cold" }
     /// 最後まで炉で溶けず、鉄にならなかった。
-    public static let endedAsOre: FindingID = "result.ended_as_ore"
+    public static var endedAsOre: Self { "result.ended_as_ore" }
     /// 規則の表にないモジュール。
-    public static let unknownModule: FindingID = "module.unknown"
+    public static var unknownModule: Self { "module.unknown" }
     /// どの規則にも当たらず、何も起きなかった(引数: モジュール・形)。
-    public static let noEffect: FindingID = "module.no_effect"
+    public static var noEffect: Self { "module.no_effect" }
 }
 
 /// 名前の固有名・慣用名の ID(原作 NameGenerator の Layer 0・1)。語は認識の層が引く。
