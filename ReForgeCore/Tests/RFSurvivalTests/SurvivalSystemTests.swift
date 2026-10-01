@@ -77,7 +77,7 @@ final class SurvivalSystemTests: XCTestCase {
         var w = rig.factory.newWorld(seed: 1)
         rig.stock(&w, "test.ration", 6)
         rig.stock(&w, "test.water_pack", 3)
-        _ = rig.simulation.runSteps(1, &w)
+        _ = rig.simulation.runSteps(rig.stepsPerTick, &w)
         XCTAssertEqual(w.survival.stat("stat.food_days"), Milli(2))  // 6 個 ÷ 3 人
         XCTAssertEqual(w.survival.stat("stat.water_days"), Milli(1))
     }
@@ -126,7 +126,7 @@ final class SurvivalSystemTests: XCTestCase {
         _ = rig.simulation.runSteps(rig.stepsPerDay * 3, &w)
         XCTAssertGreaterThanOrEqual(w.survival.stat("stat.days_without_food").raw, 2000)
         rig.stock(&w, "test.ration", 3)
-        _ = rig.simulation.runSteps(1, &w)
+        _ = rig.simulation.runSteps(rig.stepsPerTick, &w)  // 次の区切りで食べる
         XCTAssertEqual(w.survival.stat("stat.days_without_food"), .zero)
         XCTAssertEqual(rig.count(w, "test.ration"), 0)
         XCTAssertNil(w.survival.vitals[noah]?.hungrySince)
@@ -172,7 +172,7 @@ final class SurvivalSystemTests: XCTestCase {
         XCTAssertTrue(r.events.contains(.bodyChanged(person: thirsty)))
 
         // 中毒の間は作業が遅く、1 日で治る
-        _ = rig.simulation.runSteps(1, &w)
+        _ = rig.simulation.runSteps(rig.stepsPerTick, &w)
         XCTAssertEqual(w.survival.workPermille(for: thirsty), 700)
         _ = rig.simulation.runSteps(rig.stepsPerDay, &w)
         XCTAssertNil(w.people[thirsty]?.body.conditions["ailment.test.poison"])
@@ -322,7 +322,7 @@ final class SurvivalSystemTests: XCTestCase {
         w = ctx.world
         rig.stock(&w, "test.ration", 100)
         rig.stock(&w, "test.water_pack", 100)
-        _ = rig.simulation.runSteps(1, &w)
+        _ = rig.simulation.runSteps(rig.stepsPerTick, &w)
         XCTAssertLessThan(w.people[noah]!.body.stamina.raw, 10_000)
         XCTAssertEqual(w.survival.workPermille(for: noah), 750)
         // 時間で戻る(+1.5 / 時)
@@ -344,16 +344,15 @@ final class SurvivalSystemTests: XCTestCase {
         XCTAssertEqual(w.survival.stat("stat.test.gas.base").raw, 810)
         XCTAssertEqual(w.survival.stat("stat.test.gas.extra").raw, 10 * 26)
         XCTAssertEqual(w.survival.stat("stat.test.gas").raw, 810 + 260)
+        XCTAssertEqual(w.survival.stat("stat.test.calendar").raw, 0)  // 暦は回る
         // 出来事の効果が内訳に足した分も合計に入る
         var ctx = StepContext(world: w, content: rig.content)
         EffectApplier.apply([.stat(id: "stat.test.gas.extra", add: 100)], &ctx, cause: nil)
         w = ctx.world
-        _ = rig.simulation.runSteps(1, &w)
+        _ = rig.simulation.runSteps(rig.stepsPerTick, &w)
         XCTAssertEqual(w.survival.stat("stat.test.gas").raw,
                        w.survival.stat("stat.test.gas.base").raw + w.survival.stat("stat.test.gas.extra").raw)
         XCTAssertGreaterThanOrEqual(w.survival.stat("stat.test.gas.extra").raw, 360)
-        // 暦は回る
-        XCTAssertEqual(w.survival.stat("stat.test.calendar").raw, 0)
         XCTAssertTrue(rig.content.stats["stat.test.gas"]!.isAlert(1400))
         XCTAssertFalse(rig.content.stats["stat.test.gas"]!.isAlert(1399))
     }

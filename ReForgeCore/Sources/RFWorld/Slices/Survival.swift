@@ -10,8 +10,13 @@ public struct SurvivalState: Codable, Equatable, Sendable {
     public var stats: [StatID: Milli] = [:]
     /// 1 日・1 時間あたりの増減を固定ステップに割ったときの端数(整数で繰り越す。刻みによらず一致させるため)。
     public var statCarry: [StatID: Int64] = [:]
+    /// 最後に体と数値を進めた時刻(区切り。RFSurvival は区切りごとにその間の秒をまとめて進める)。
+    public var lastTick: GameTime = .zero
     /// しきい値(StatDef.marks)を越えたかを調べるための、前に見た値。
     public var marksSeen: [StatID: Milli] = [:]
+    /// 一員の並びの写し(people.order の順。RFSurvival が毎ステップ全員をなめないため)。nil なら引き直す。
+    /// 合流・離脱・死の出来事と夜明けで nil にする。
+    public var members: [PersonID]?
     /// 人ごとの内部の値(食事の進み・空腹の始まり・端数)。見える値は PersonState.body。
     public var vitals: [PersonID: Vitals] = [:]
     /// 人ごとの作業の速さ(千分率。1000 = 普通は持たない)。他のシステムは workPermille(for:) で読む。
@@ -42,7 +47,20 @@ public struct Vitals: Codable, Equatable, Sendable {
     public var foodCredit: Int = 0
     public var waterCredit: Int = 0
     /// 体の値・状態の回復の端数(名前 → 端数)。
-    public var carry: [String: Int64] = [:]
+    public var carry: BodyCarry = BodyCarry()
+    /// 状態の回復の端数(状態 → 端数)。
+    public var ailmentCarry: [StatID: Int64] = [:]
+
+    public init() {}
+}
+
+/// 体の値ごとの「1 時間あたりの率 × 秒」の端数(単位: raw × 秒。3600 で 1 raw)。
+public struct BodyCarry: Codable, Equatable, Sendable {
+    public var health: Int64 = 0
+    public var stamina: Int64 = 0
+    public var satiety: Int64 = 0
+    public var hydration: Int64 = 0
+    public var mind: Int64 = 0
 
     public init() {}
 }

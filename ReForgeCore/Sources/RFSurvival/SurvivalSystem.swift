@@ -31,7 +31,7 @@ public struct SurvivalSystem: SimSystem {
 
     public func handle(_ command: Command, _ ctx: inout StepContext) -> CommandResult {
         guard case .survival(let c) = command else { return .notMine }
-        guard let r = rules(ctx.content) else { return .rejected(Rejection("reason.survival.no_rules")) }
+        guard let r = rulesOverride ?? ctx.content.survival else { return .rejected(Rejection("reason.survival.no_rules")) }
         switch c {
         case .consume(let person, let stock):
             return Body.consume(person: person, stock: stock, r, &ctx)
@@ -58,22 +58,30 @@ public struct SurvivalSystem: SimSystem {
 
     // MARK: - ステップ
 
+    /// 体と数値は区切り(既定 5 ゲーム分)ごとに、その間の秒をまとめて進める(毎ステップは時刻を比べるだけ)。
+    /// 区切りはゲーム時刻で決まるので、昼の刻み・夜作業・寝るによらず同じ時刻に同じ計算になる。
     public func step(_ ctx: inout StepContext) {
-        Stats.step(&ctx)
-        if let r = rules(ctx.content) { Body.step(r, &ctx) }
+        let elapsed = (ctx.world.clock.now - ctx.world.survival.lastTick).seconds
+        let r = rulesOverride ?? ctx.content.survival
+        guard elapsed >= (r?.tick ?? SurvivalDef.defaultTickSeconds) else { return }
+        ctx.world.survival.lastTick = ctx.world.clock.now
+        Stats.step(&ctx, seconds: elapsed)
+        if let r { Body.step(r, seconds: elapsed, &ctx) }
         Stats.markCrossings(&ctx)
     }
 
     // MARK: - 出来事
 
     public func react(to event: DomainEvent, _ ctx: inout StepContext) {
-        guard let r = rules(ctx.content) else { return }
         switch event {
         case .walked(let person, _, let cost):
             // 歩いた分だけスタミナが減る(全員に共通)。RFCrew が 1 ステップに 1 回、マスに入った人ごとに出す。
             // staminaCost = 入ったマスの地形の移動コストの合計(草地 10・森 20・岩 30、斜めは 1.4 倍)
-            guard cost > 0, ctx.world.people[person]?.presence.isAlive == true else { return }
+            guard cost > 0, let r = rulesOverride ?? ctx.content.survival, ctx.world.people[person]?.presence.isAlive == true else { return }
             Body.adjust(person, "stamina", Int64(cost) * Int64(r.staminaPerCost), &ctx)
+        case .personJoined, .personLeft, .personDied, .dawn:
+            // 一員の並びの写しを引き直す(夜明けは念のため)
+            if ctx.world.survival.members != nil { ctx.world.survival.members = nil }
         default:
             break
         }
