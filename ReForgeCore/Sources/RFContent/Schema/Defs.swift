@@ -100,6 +100,46 @@ public struct HandworkDef: ContentDef, Equatable {
     /// どこでできるか(建造物の種類。nil はどこでも)。
     public var station: StructureKindID?
     public var parameters: Value?
+    // 以下は U7(生産)が足した。どれも省略可能。
+    /// 足元(ノアのいるマスか隣)の鉱脈を 1 回掘る手作業(採掘口の手の版)。1 単位 = 鉱脈 1 回ぶん。
+    public var onDeposit: Bool?
+    /// 1 回押すのにかかるゲーム秒(既定 160 = 昼の実時間 1 秒)。押し続けている間、この速さで進む。
+    public var pressSeconds: Int?
+    /// できる時間帯(既定は昼だけ。夜にもできるものは夜作業の 1 単位ずつ、押す回数 × pressSeconds の時間がかかる)。
+    public var allowedPhases: [DayPhase]?
+    /// この手作業を任意にする T1 のモジュール(どれかが動いていれば、手作業は「任意」と表示する)。
+    public var promotedBy: [ModuleKindID]?
+
+    public init(id: HandworkID, step: ProcessStep? = nil, yields: [Yield]? = nil, presses: Int,
+                station: StructureKindID? = nil, parameters: Value? = nil, onDeposit: Bool? = nil,
+                pressSeconds: Int? = nil, allowedPhases: [DayPhase]? = nil, promotedBy: [ModuleKindID]? = nil) {
+        self.id = id
+        self.step = step
+        self.yields = yields
+        self.presses = presses
+        self.station = station
+        self.parameters = parameters
+        self.onDeposit = onDeposit
+        self.pressSeconds = pressSeconds
+        self.allowedPhases = allowedPhases
+        self.promotedBy = promotedBy
+    }
+}
+
+/// 有限の品(減ったら戻らない品。旧文明系の刃など)をモジュールに使うときの定義(ModuleDef.finite)。
+public struct FiniteUseDef: Codable, Equatable, Sendable {
+    /// 使える物。
+    public var items: [ItemID]
+    /// 使っている間の速さ(千分率。2000 = 2 倍)。
+    public var speedPermille: Int
+    /// 1 回の処理ごとに減る残り(千分率。残りは 1000 から始まる)。
+    public var wearPerCycle: Int
+
+    public init(items: [ItemID], speedPermille: Int, wearPerCycle: Int) {
+        self.items = items
+        self.speedPermille = speedPermille
+        self.wearPerCycle = wearPerCycle
+    }
 }
 
 /// 地図に置く生産モジュール。
@@ -119,6 +159,37 @@ public struct ModuleDef: ContentDef, Equatable {
     public var parameters: Value?
     /// この工程の段を試作で使うのに要る条件(省略時は RFInvention の既定: 炉は置いた炉、水槽は置いた水槽か水辺)。
     public var trial: TrialRequirement?
+    // 以下は U7(生産)が足した。どれも省略可能。
+    /// 1 回の処理で通す数(既定 1)。採掘口は 1 回 = 鉱脈を 1 回掘る(1 回で 2〜3 個)。
+    public var batch: Int?
+    /// 工程の無い T1(採集所・井戸など)が 1 回の処理で出す物。
+    public var produces: [Yield]?
+    /// 1 回の処理で使う物(煮沸場の生水と薪など。工程の段に入れる物とは別)。
+    public var consumes: [Ingredient]?
+    /// 入口・出口に溜めておける数(既定 12)。
+    public var buffer: Int?
+    /// 有限の品を使えるか(使うと速いが、減ったら戻らない)。
+    public var finite: FiniteUseDef?
+
+    public init(id: ModuleKindID, cost: [Ingredient], placement: PlacementRule, ports: [PortDef], cycleSeconds: Int,
+                specialty: String? = nil, auras: [AuraKindID]? = nil, parameters: Value? = nil,
+                trial: TrialRequirement? = nil, batch: Int? = nil, produces: [Yield]? = nil,
+                consumes: [Ingredient]? = nil, buffer: Int? = nil, finite: FiniteUseDef? = nil) {
+        self.id = id
+        self.cost = cost
+        self.placement = placement
+        self.ports = ports
+        self.cycleSeconds = cycleSeconds
+        self.specialty = specialty
+        self.auras = auras
+        self.parameters = parameters
+        self.trial = trial
+        self.batch = batch
+        self.produces = produces
+        self.consumes = consumes
+        self.buffer = buffer
+        self.finite = finite
+    }
 }
 
 public struct PlacementRule: Codable, Equatable, Sendable {
@@ -130,6 +201,14 @@ public struct PlacementRule: Codable, Equatable, Sendable {
     public var terrainTags: [String]?
     /// 置けないときの理由(文字列表のキー)。
     public var reasonIfBlocked: TextID?
+
+    public init(requiresDeposit: Bool? = nil, requiresWaterAdjacent: Bool? = nil, terrainTags: [String]? = nil,
+                reasonIfBlocked: TextID? = nil) {
+        self.requiresDeposit = requiresDeposit
+        self.requiresWaterAdjacent = requiresWaterAdjacent
+        self.terrainTags = terrainTags
+        self.reasonIfBlocked = reasonIfBlocked
+    }
 }
 
 public struct PortDef: Codable, Equatable, Sendable {
@@ -137,6 +216,14 @@ public struct PortDef: Codable, Equatable, Sendable {
     /// 向き(north = モジュールの正面)を基準にした辺。
     public var side: Direction
     public var flow: Flow
+    /// 運ぶ物の種類(R2: 溶けた金属・液体・気体のパイプ)。nil は普通の物。U7 が足した(省略可能)。
+    public var transport: String?
+
+    public init(side: Direction, flow: Flow, transport: String? = nil) {
+        self.side = side
+        self.flow = flow
+        self.transport = transport
+    }
 }
 
 /// 建造物(シェルター・焚き火台・柵・保管・炭焼き窯・研究机…)。
