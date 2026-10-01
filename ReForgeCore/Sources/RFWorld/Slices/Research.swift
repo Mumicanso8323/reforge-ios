@@ -16,8 +16,7 @@ public struct ResearchState: Codable, Equatable, Sendable {
 public struct UnlockSet: Codable, Equatable, Sendable {
     public var modules: Set<ModuleKindID> = []
     public var structures: Set<StructureKindID> = []
-    public var processes: Set<ProcessID> = []
-    public var recipes: Set<RecipeID> = []
+    public var handwork: Set<HandworkID> = []
     public var interactions: Set<InteractionID> = []
     public var research: Set<ResearchID> = []
 

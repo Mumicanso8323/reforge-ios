@@ -36,7 +36,7 @@ public enum ActKind: String, Codable, CaseIterable, Sendable {
     // 周回
     case rewound, failed, continuedWithLoss, chapterEnded
     // 工業の行為(開示の引き金になりやすいもの)
-    case observed           // 観測した(観測の夜の数は来歴の count と追跡カウンタで数える)
+    // observed(観測した)は「知る」の並びにある。観測の夜の数は来歴の count と追跡カウンタで数える
     case analyzed           // 分析した
     case repaired           // 直した
     case salvagedPart       // 有限の部品(残骸の区画など)を取り外した・解体した

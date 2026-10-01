@@ -1,3 +1,4 @@
+import RFKernel
 import Foundation
 import XCTest
 @testable import RFMatter

@@ -10,18 +10,15 @@ public struct InventionState: Codable, Equatable, Sendable {
 
 public struct LineDesign: Codable, Equatable, Sendable {
     public var id: EntityID
-    /// 最初に入れる物の種類(鉱石など)。
-    public var input: ItemKindID
-    public var steps: [ProcessStepSpec]
+    /// 工程の並び(RFMatter の ProcessStep。採掘口が先頭なら鉱脈から始まる)。
+    public var steps: [ProcessStep]
     /// 札にしたときの来歴(どの試作から作ったか inputs で辿れる)。
     public var origin: ProvenanceID
     /// 試作で確かめた結果(未確認なら nil)。
-    public var expected: MaterialProfile?
+    public var expected: Matter?
 
-    public init(id: EntityID, input: ItemKindID, steps: [ProcessStepSpec], origin: ProvenanceID,
-                expected: MaterialProfile?) {
+    public init(id: EntityID, steps: [ProcessStep], origin: ProvenanceID, expected: Matter?) {
         self.id = id
-        self.input = input
         self.steps = steps
         self.origin = origin
         self.expected = expected
@@ -33,8 +30,8 @@ public struct LineDesign: Codable, Equatable, Sendable {
 public struct NotebookState: Codable, Equatable, Sendable {
     public var trials: [TrialRecord] = []
     public var hints: [HintID: GameTime] = [:]
-    /// 図鑑(物の種類 → 見たことのある最良の純度・形)。空欄は「まだ見ていない」。
-    public var codex: [ItemKindID: CodexEntry] = [:]
+    /// 図鑑(作った・見た物の名前 → 最良の純度)。空欄(まだ無い名前)は認識の表の「影」で出す。
+    public var codex: [CodexEntry] = []
     /// 手がかりの書き留め(端末の断片・仲間の知識・ノアの手ざわり・命名からの類推)。出典つき。
     /// 出典のラベルも認識の層で引くので、後で「誰が言ったか・何だったか」の見え方が変わる。
     public var notes: [NoteEntry] = []
@@ -68,13 +65,14 @@ public struct TrialRecord: Codable, Equatable, Sendable {
     public var record: ProvenanceID
     public var at: GameTime
     public var run: Int
-    public var input: MaterialProfile
+    public var input: Matter
     public var quantity: Int
-    public var steps: [ProcessStepSpec]
-    public var outcome: ChainOutcome
+    public var steps: [ProcessStep]
+    /// 結果(物・名前の部品・硬さ・粘り・副産物・所見・使った物)。RFMatter の ChainResult。
+    public var outcome: ChainResult
 
-    public init(record: ProvenanceID, at: GameTime, run: Int, input: MaterialProfile, quantity: Int,
-                steps: [ProcessStepSpec], outcome: ChainOutcome) {
+    public init(record: ProvenanceID, at: GameTime, run: Int, input: Matter, quantity: Int,
+                steps: [ProcessStep], outcome: ChainResult) {
         self.record = record
         self.at = at
         self.run = run
@@ -86,13 +84,13 @@ public struct TrialRecord: Codable, Equatable, Sendable {
 }
 
 public struct CodexEntry: Codable, Equatable, Sendable {
+    public var name: MatterName
     public var bestPurity: Purity
-    public var forms: Set<FormID>
     public var firstSeen: ProvenanceID?
 
-    public init(bestPurity: Purity, forms: Set<FormID>, firstSeen: ProvenanceID?) {
+    public init(name: MatterName, bestPurity: Purity, firstSeen: ProvenanceID?) {
+        self.name = name
         self.bestPurity = bestPurity
-        self.forms = forms
         self.firstSeen = firstSeen
     }
 }

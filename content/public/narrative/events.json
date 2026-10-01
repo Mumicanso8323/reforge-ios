@@ -1,0 +1,35 @@
+{
+  "//": "試験用の事実と出来事(本文なし)。仕組みのテストだけに使う。",
+  "facts": [
+    { "id": "fact.test.alpha" },
+    { "id": "fact.test.beta", "implies": ["fact.test.gamma"] },
+    { "id": "fact.test.gamma" },
+    { "id": "fact.test.revealed" },
+    { "id": "fact.test.timeline", "scope": "timeline" }
+  ],
+  "events": [
+    {
+      "id": "event.test.chain",
+      "trigger": { "on": ["fact"], "when": { "known": { "expr": "fact.test.alpha" } } },
+      "effects": [ { "learn": { "fact": "fact.test.beta" } }, { "counter": { "id": "counter.test.chain", "add": 1 } } ],
+      "tags": ["tag.test.memorable"]
+    },
+    {
+      "id": "event.test.decision",
+      "trigger": { "on": ["fact"], "when": { "known": { "expr": "fact.test.gamma" } } },
+      "effects": [ { "counter": { "id": "counter.test.asked", "add": 1 } } ],
+      "choices": [
+        { "id": "choice.test.yes", "label": "text.test.yes",
+          "effects": [ { "learn": { "fact": "fact.test.revealed" } }, { "relation": { "person": "person.test_a", "add": 5 } } ],
+          "tags": ["tag.test.build"] },
+        { "id": "choice.test.no", "label": "text.test.no", "effects": [ { "counter": { "id": "counter.test.refused", "add": 1 } } ] }
+      ]
+    }
+  ],
+  "scenes": [
+    { "id": "scene.test.one", "lines": [ { "speaker": "person.test_a", "text": "text.test.line1" }, { "text": "text.test.line2" } ] }
+  ],
+  "lines": [
+    { "id": "line.test.campfire", "speaker": "person.test_a", "context": "campfire", "text": "text.test.line1" }
+  ]
+}

@@ -38,14 +38,14 @@ public enum CrewCommand: Codable, Equatable, Sendable {
     /// 焚き火のそばで話す(夜作業)。
     case talk(person: PersonID)
     /// 装備を替える。
-    case equip(person: PersonID, slot: String, holder: HolderID, entryIndex: Int)
+    case equip(person: PersonID, slot: String, stock: StockSelector)
 }
 
 public enum InventionCommand: Codable, Equatable, Sendable {
     /// 試作(手持ちの材料を実際に使う)。夜なら時間が進む。
-    case trial(input: ItemKindID, quantity: Int, steps: [ProcessStepSpec])
+    case trial(input: StockSelector, quantity: Int, steps: [ProcessStep])
     /// 並びをライン札にする。
-    case makeDesign(input: ItemKindID, steps: [ProcessStepSpec])
+    case makeDesign(steps: [ProcessStep])
     case discardDesign(design: EntityID)
 }
 
@@ -58,9 +58,9 @@ public enum ProductionCommand: Codable, Equatable, Sendable {
     /// 片付ける(材料は全部戻る。戻せる操作なので確認は出さない)。
     case dismantle(placement: EntityID)
     /// 手作業を押し続ける(押している間 holding = true を送り続ける代わりに、開始と終了の 2 回送る)。
-    case handwork(recipe: RecipeID, holding: Bool)
-    /// 有限の品をモジュールに使う / 取っておく。
-    case useFinite(placement: EntityID, holder: HolderID, entryIndex: Int)
+    case handwork(id: HandworkID, input: StockSelector?, holding: Bool)
+    /// 有限の品をモジュールに使う(使わなければ取っておいたことになる)。
+    case useFinite(placement: EntityID, stock: StockSelector)
 }
 
 public enum LogisticsCommand: Codable, Equatable, Sendable {
@@ -103,5 +103,5 @@ public enum NarrativeCommand: Codable, Equatable, Sendable {
 
 public enum SurvivalCommand: Codable, Equatable, Sendable {
     /// 食べる・飲む(生水か煮沸かは物の種類で選ぶ)。
-    case consume(person: PersonID, holder: HolderID, kind: ItemKindID)
+    case consume(person: PersonID, stock: StockSelector)
 }

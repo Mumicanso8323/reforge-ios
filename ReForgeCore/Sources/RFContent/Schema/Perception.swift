@@ -1,12 +1,41 @@
 import RFKernel
+import RFMatter
 
 // 認識の表(D: Perception-Truth)。真実の ID(SubjectID)ごとに、知っている事実に応じた見え方を並べる。
 // 上から順に when を調べ、最初に成り立った見え方を使う。最後の行は when = true(既定の見え方)にする(検証で確かめる)。
 //
-// 見出しの名前の付け方(コンテンツ全体の約束):
-//   物の種類・モジュール・建造物・地形・POI・人などは、その ID の文字列をそのまま見出しにする
-//   (例: ItemKindID "item.ore.red" の見え方は SubjectID "item.ore.red")。
-//   名前の部品(純度の等級・形の接尾辞)・ノートの出典・地図のラベル・数値の見せ方も見出しを持つ。
+// 見出しの名前の付け方(コンテンツ全体の約束): 「名前空間:ID」。作るときは Subject の関数を使う。
+//   item:iron_ore / module:furnace / structure:shelter / terrain:grass / poi:wreck / person:<id> / finding:<id>
+//   名前の部品: substance:Fe / shape:plate / grade:fine.metal / temper:hard / proper:steel / extreme:poor
+//   ノートの出典・地図のラベル・数値の見せ方(stat:<id>)・工程表(sheet:<id>)も見出しを持つ。
+
+/// 見出しの作り方(名前空間の約束を 1 か所に)。
+public enum Subject {
+    public static func item(_ id: ItemID) -> SubjectID { SubjectID("item:\(id.rawValue)") }
+    public static func module(_ id: ModuleKindID) -> SubjectID { SubjectID("module:\(id.rawValue)") }
+    public static func structure(_ id: StructureKindID) -> SubjectID { SubjectID("structure:\(id.rawValue)") }
+    public static func terrain(_ id: TerrainID) -> SubjectID { SubjectID("terrain:\(id.rawValue)") }
+    public static func poi(_ id: POIKindID) -> SubjectID { SubjectID("poi:\(id.rawValue)") }
+    public static func person(_ id: PersonID) -> SubjectID { SubjectID("person:\(id.rawValue)") }
+    public static func finding(_ id: FindingID) -> SubjectID { SubjectID("finding:\(id.rawValue)") }
+    public static func stat(_ id: StatID) -> SubjectID { SubjectID("stat:\(id.rawValue)") }
+    public static func enemy(_ id: EnemyKindID) -> SubjectID { SubjectID("enemy:\(id.rawValue)") }
+    public static func sheet(_ id: SheetID) -> SubjectID { SubjectID("sheet:\(id.rawValue)") }
+    public static func research(_ id: ResearchID) -> SubjectID { SubjectID("research:\(id.rawValue)") }
+    public static func ability(_ id: AbilityID) -> SubjectID { SubjectID("ability:\(id.rawValue)") }
+
+    /// 物質の名前の部品 1 つの見出し。
+    public static func namePart(_ p: NamePart) -> SubjectID {
+        switch p {
+        case .extreme(let e): SubjectID("extreme:\(e.rawValue)")
+        case .grade(let g, let c): SubjectID("grade:\(g.rawValue).\(c.rawValue)")
+        case .temper(let t): SubjectID("temper:\(t.rawValue)")
+        case .proper(let id): SubjectID("proper:\(id.rawValue)")
+        case .substance(let id): SubjectID("substance:\(id.rawValue)")
+        case .shape(let s): SubjectID("shape:\(s.rawValue)")
+        }
+    }
+}
 
 public struct SubjectDef: Codable, Equatable, Sendable {
     public var subject: SubjectID

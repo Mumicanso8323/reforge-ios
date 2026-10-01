@@ -1,4 +1,5 @@
 import RFKernel
+import RFMatter
 
 /// 世界の状態を見る条件(出来事の引き金・選択肢の出る条件・研究の前提・目標の達成…)。
 /// 宣言的なデータで、評価は RFRules.ConditionEvaluator。
@@ -15,8 +16,8 @@ public indirect enum Condition: Codable, Hashable, Sendable {
 
     /// 知っている事実(認識の層と同じ式)。
     case known(expr: FactExpr)
-    /// 物を持っている(拠点の蓄え+ノアの持ち物。純度の下限つき)。
-    case hasItem(kind: ItemKindID, atLeast: Int, minPurity: Purity?)
+    /// 物を持っている(拠点の蓄え+ノアの持ち物)。
+    case has(what: Ingredient)
     /// モジュール・建造物が動いている数。
     case placedCount(module: ModuleKindID?, structure: StructureKindID?, atLeast: Int)
     /// 来歴の問い合わせ(「炉を置いたことがある」「この印の付いた物を 10 個以上作った」)。
@@ -72,7 +73,7 @@ public enum PersonTest: Codable, Hashable, Sendable {
 public struct ProvenanceQuery: Codable, Hashable, Sendable {
     public var act: ActKind?
     public var actor: PersonID?
-    public var item: ItemKindID?
+    public var item: ItemID?
     public var module: ModuleKindID?
     public var structure: StructureKindID?
     public var person: PersonID?
@@ -83,7 +84,7 @@ public struct ProvenanceQuery: Codable, Hashable, Sendable {
     /// 今の周回だけを見るか(既定 true。前の周回は RunState.pastLives を見る)。
     public var currentRunOnly: Bool?
 
-    public init(act: ActKind? = nil, actor: PersonID? = nil, item: ItemKindID? = nil, module: ModuleKindID? = nil,
+    public init(act: ActKind? = nil, actor: PersonID? = nil, item: ItemID? = nil, module: ModuleKindID? = nil,
                 structure: StructureKindID? = nil, person: PersonID? = nil, enemy: EnemyKindID? = nil,
                 poi: POIKindID? = nil, event: EventID? = nil, tag: ProvenanceTag? = nil, currentRunOnly: Bool? = nil) {
         self.act = act
@@ -116,8 +117,7 @@ public enum PlaceSelector: Codable, Hashable, Sendable {
 public enum UnlockTarget: Codable, Hashable, Sendable {
     case module(id: ModuleKindID)
     case structure(id: StructureKindID)
-    case process(id: ProcessID)
-    case recipe(id: RecipeID)
+    case handwork(id: HandworkID)
     case interaction(id: InteractionID)
     case research(id: ResearchID)
 }

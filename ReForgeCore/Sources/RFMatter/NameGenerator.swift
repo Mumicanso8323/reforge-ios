@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 名前の部品。命名は文字列を返さず、語の ID の並びを返す。
 /// 最終の文字列化は `NameRendering` を差し替えて行う(認識の層: プレイヤーが知っている事実で見え方が変わる)。
 public enum NamePart: Codable, Hashable, Sendable {

@@ -15,10 +15,10 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case discovered(entity: EntityID, record: ProvenanceID)
     case tilesRevealed(layer: LayerID, count: Int)
     // 作る
-    case trialed(record: ProvenanceID, outcome: ChainOutcome)
-    case crafted(kind: ItemKindID, quantity: Int, record: ProvenanceID)
+    case trialed(record: ProvenanceID)
+    case crafted(quantity: Int, record: ProvenanceID)
     case designed(design: EntityID, record: ProvenanceID)
-    case produced(placement: EntityID, kind: ItemKindID, quantity: Int)
+    case produced(placement: EntityID, quantity: Int)
     case moduleStopped(placement: EntityID, reason: TextID)
     case moduleResumed(placement: EntityID)
     // 置く・建てる
@@ -29,9 +29,9 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case arrived(person: PersonID, at: WorldPoint)
     case entered(person: PersonID, poi: EntityID)
     case interacted(person: PersonID, interaction: InteractionID, at: WorldPoint, record: ProvenanceID)
-    case itemGained(holder: HolderID, kind: ItemKindID, quantity: Int, record: ProvenanceID?)
-    case itemSpent(holder: HolderID, kind: ItemKindID, quantity: Int)
-    case finiteUsed(kind: ItemKindID, record: ProvenanceID)
+    case itemGained(holder: HolderID, stuff: Stuff, quantity: Int, record: ProvenanceID?)
+    case itemSpent(holder: HolderID, stuff: Stuff, quantity: Int)
+    case finiteUsed(record: ProvenanceID)
     // 人
     case personMet(person: PersonID, record: ProvenanceID)
     case personJoined(person: PersonID, record: ProvenanceID)
@@ -43,7 +43,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case assigned(person: PersonID, assignment: Assignment)
     // 生存
     case statCrossed(stat: StatID, value: Milli)
-    case shortage(kind: ItemKindID)
+    case shortage(item: ItemID)
     case bodyChanged(person: PersonID)
     // 戦い
     case threatAppeared(threat: EntityID, kind: EnemyKindID)
@@ -119,9 +119,9 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     public var record: ProvenanceID? {
         switch self {
         case .factLearned(_, let r): r
-        case .discovered(_, let r), .trialed(let r, _), .crafted(_, _, let r), .designed(_, let r),
+        case .discovered(_, let r), .trialed(let r), .crafted(_, let r), .designed(_, let r),
              .placed(_, let r), .dismantled(_, let r), .built(_, let r), .interacted(_, _, _, let r),
-             .finiteUsed(_, let r), .personMet(_, let r), .personJoined(_, let r), .personLeft(_, let r),
+             .finiteUsed(let r), .personMet(_, let r), .personJoined(_, let r), .personLeft(_, let r),
              .personDied(_, let r), .battleStarted(_, let r), .battleEnded(_, _, _, let r),
              .researchCompleted(_, let r), .skillAcquired(_, _, let r), .eventFired(_, let r),
              .decided(_, _, let r), .chapterEnded(_, let r):

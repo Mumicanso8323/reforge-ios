@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 形(原作 `ShapeType`)。原作は列挙の値に基準質量(g)を入れていたが、保存の互換のため
 /// 生の値は名前の文字列にし、質量は `baseMassGrams` で引く。
 public enum Shape: String, Codable, Hashable, Sendable, CaseIterable {

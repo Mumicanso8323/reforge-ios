@@ -77,12 +77,12 @@ public struct MapLayer: Codable, Equatable, Sendable {
 /// 鉱脈(有限・枯れる)。
 public struct DepositState: Codable, Equatable, Sendable {
     public var at: GridPoint
-    /// 出てくる鉱石の種類(真実)。見た目の名前は認識の層が引く。
-    public var ore: ItemKindID
+    /// 出てくる鉱石の種類(真実。原作の item_id 例: "iron_ore")。見た目の名前は認識の層が引く。
+    public var ore: ItemID
     public var purity: Purity
     public var remainingExtractions: Int
 
-    public init(at: GridPoint, ore: ItemKindID, purity: Purity, remainingExtractions: Int) {
+    public init(at: GridPoint, ore: ItemID, purity: Purity, remainingExtractions: Int) {
         self.at = at
         self.ore = ore
         self.purity = purity

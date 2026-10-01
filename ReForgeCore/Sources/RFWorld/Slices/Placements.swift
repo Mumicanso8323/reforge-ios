@@ -63,8 +63,8 @@ public enum PlacementStatus: Codable, Equatable, Sendable {
 public struct ModuleRuntime: Codable, Equatable, Sendable {
     /// どのライン札から置いたか(札なしで置いた単体なら nil)。
     public var design: EntityID?
-    /// このモジュールが受け持つ工程。
-    public var step: ProcessStepSpec?
+    /// このモジュールが受け持つ工程(混ぜ物・燃料の選択を含む)。
+    public var step: ProcessStep?
     public var input: [StockEntry] = []
     public var output: [StockEntry] = []
     /// いまの 1 回の進み(ゲーム秒)。
@@ -75,7 +75,7 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
     public var today: ThroughputTally = ThroughputTally()
     public var yesterday: ThroughputTally = ThroughputTally()
 
-    public init(design: EntityID?, step: ProcessStepSpec?) {
+    public init(design: EntityID?, step: ProcessStep?) {
         self.design = design
         self.step = step
     }

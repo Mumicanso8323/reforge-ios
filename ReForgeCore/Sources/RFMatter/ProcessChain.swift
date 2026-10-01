@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 工程の 1 段(設計画面の 1 行)。
 public struct ProcessStep: Codable, Hashable, Sendable {
     public var module: ModuleKind

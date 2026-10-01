@@ -1,12 +1,19 @@
 /// 世界状態の数値は整数で持つ(浮動小数の丸めが端末・版で変わってセーブや走行の再現が崩れないように)。
 
-/// 純度。万分率(0...10000 = 0.00%...100.00%)。
+/// 純度。万分率(0...10000 = 0.00%...100.00%)。物質の担当の Purity をここに移した(形・意味は同じ)。
 public struct Purity: Hashable, Comparable, Codable, Sendable, CustomStringConvertible {
     public static let scale = 10_000
     public let basisPoints: Int
 
+    public static let zero = Purity(basisPoints: 0)
+    public static let full = Purity(basisPoints: 10000)
+
+    /// 範囲外は 0...10000 に丸める。
     public init(basisPoints: Int) { self.basisPoints = min(Self.scale, max(0, basisPoints)) }
-    public init(percent: Int) { self.init(basisPoints: percent * 100) }
+    /// 百分率で作る(例: Purity(percent: 30) = 30.00%)。
+    public init(percent: Int, hundredths: Int = 0) { self.init(basisPoints: percent * 100 + hundredths) }
+
+    public static func + (a: Purity, b: Purity) -> Purity { Purity(basisPoints: a.basisPoints + b.basisPoints) }
 
     public var percent: Double { Double(basisPoints) / 100 }
     public var description: String {

@@ -1,3 +1,5 @@
+import RFKernel
+
 extension RuleBook {
     /// R1 の規則の表(order.md §5.4 の発明の表)。
     ///

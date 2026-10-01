@@ -4,6 +4,8 @@ public indirect enum Value: Hashable, Sendable {
     case null
     case bool(Bool)
     case int(Int64)
+    /// Int64 に入らない符号なしの値(乱数の状態など)。
+    case uint(UInt64)
     case string(String)
     case array([Value])
     case object([String: Value])
@@ -24,6 +26,7 @@ extension Value: Codable {
         if c.decodeNil() { self = .null }
         else if let b = try? c.decode(Bool.self) { self = .bool(b) }
         else if let i = try? c.decode(Int64.self) { self = .int(i) }
+        else if let u = try? c.decode(UInt64.self) { self = .uint(u) }
         else if let s = try? c.decode(String.self) { self = .string(s) }
         else if let a = try? c.decode([Value].self) { self = .array(a) }
         else if let o = try? c.decode([String: Value].self) { self = .object(o) }
@@ -39,6 +42,7 @@ extension Value: Codable {
         case .null: try c.encodeNil()
         case .bool(let b): try c.encode(b)
         case .int(let i): try c.encode(i)
+        case .uint(let u): try c.encode(u)
         case .string(let s): try c.encode(s)
         case .array(let a): try c.encode(a)
         case .object(let o): try c.encode(o)

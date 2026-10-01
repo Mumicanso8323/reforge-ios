@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 物質の 18 特性(原作 `Matter/Property.cs` の Property レコード)。
 /// 物理定数なので浮動小数で持つ。工程の判定(純度・名前・硬さ)には使わない(R2 の装備反映で使う)。
 public struct MatterProperties: Codable, Hashable, Sendable {

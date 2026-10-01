@@ -173,13 +173,13 @@ public struct MemoryRecord: Codable, Equatable, Sendable {
 }
 
 public struct EquippedItem: Codable, Equatable, Sendable {
-    public var profile: MaterialProfile
+    public var stuff: Stuff
     public var origin: ProvenanceID?
     /// 減ったら戻らない品の残り(千分率)。
     public var durability: Milli?
 
-    public init(profile: MaterialProfile, origin: ProvenanceID?, durability: Milli? = nil) {
-        self.profile = profile
+    public init(stuff: Stuff, origin: ProvenanceID?, durability: Milli? = nil) {
+        self.stuff = stuff
         self.origin = origin
         self.durability = durability
     }

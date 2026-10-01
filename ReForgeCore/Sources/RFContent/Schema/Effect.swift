@@ -1,4 +1,5 @@
 import RFKernel
+import RFMatter
 
 /// 出来事・選択肢・研究の完了などが世界に与える変化。宣言的なデータで、適用は RFRules.EffectApplier。
 /// 「文を出すだけ」の出来事を基本にしない: 効果は世界の状態を変える(場面 startScene は添え物)。
@@ -8,8 +9,9 @@ public enum Effect: Codable, Hashable, Sendable {
     // 知る
     case learn(fact: FactID)
     // 物
-    case give(item: ItemKindID, quantity: Int, purity: Purity?, form: FormID?, unique: Bool?)
-    case take(item: ItemKindID, quantity: Int)
+    /// 物を渡す(item か matter のどちらか)。unique = 唯一品として(来歴で後から指せる)。
+    case give(item: ItemID?, matter: Matter?, quantity: Int, unique: Bool?)
+    case take(what: Ingredient)
     // 数
     case counter(id: CounterID, add: Int)
     case setCounter(id: CounterID, value: Int)

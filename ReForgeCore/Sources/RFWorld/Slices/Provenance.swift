@@ -1,4 +1,5 @@
 import RFKernel
+import RFMatter
 
 /// 来歴。プレイヤーが作った物・置いた物・選んだこと・倒した相手・失った仲間などを、誰が・いつ・何を・どこで・
 /// 何から、の構造で残す(文章のログではない)。後の開示・条件・仲間の記憶・日誌は、ここを問い合わせて
@@ -39,6 +40,11 @@ public struct ProvenanceLedger: Codable, Equatable, Sendable {
         let i = id.raw - (records.first?.id.raw ?? 1)
         guard i >= 0, i < records.count, records[i].id == id else { return records.first { $0.id == id } }
         return records[i]
+    }
+
+    /// 番号を先へ進める(巻き戻しの後、前の周回の記録と番号を重ねないため)。
+    public mutating func continueNumbering(after other: ProvenanceLedger) {
+        nextID = max(nextID, other.nextID)
     }
 
     public mutating func update(_ id: ProvenanceID, _ body: (inout ProvenanceRecord) -> Void) {
@@ -101,7 +107,9 @@ public struct ProvenanceRecord: Codable, Equatable, Sendable {
 /// 来歴が指す対象。
 public enum SubjectRef: Codable, Hashable, Sendable {
     case none
-    case item(ItemKindID)
+    case item(ItemID)
+    /// 物質(名前の部品で指す: 「精鉄板」を初めて作った、など)。
+    case matter(MatterName)
     case entity(EntityID)
     case module(ModuleKindID, EntityID?)
     case structure(StructureKindID, EntityID?)
@@ -125,6 +133,7 @@ public enum SubjectRef: Codable, Hashable, Sendable {
         switch self {
         case .none: "none"
         case .item(let k): "item:\(k)"
+        case .matter(let n): "matter:\(n.parts.map { "\($0)" }.joined(separator: "/"))"
         case .entity: "entity"
         case .module(let k, _): "module:\(k)"
         case .structure(let k, _): "structure:\(k)"

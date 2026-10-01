@@ -13,19 +13,44 @@ public protocol ContentDef: Codable, Sendable {
 }
 
 extension TerrainDef: ContentDef {}
-extension MaterialKindDef: ContentDef {}
-extension ProcessDef: ContentDef {}
 
-/// 物の数(費用・材料)。
-public struct ItemCost: Codable, Hashable, Sendable {
-    public var kind: ItemKindID
+/// 材料・費用 1 つ。item(薪・木炭…)か matter(鉄板など。条件で絞る)のどちらか。
+public struct Ingredient: Codable, Hashable, Sendable {
+    public var item: ItemID?
+    public var matter: MatterMatch?
     public var quantity: Int
-    public var minPurity: Purity?
 
-    public init(kind: ItemKindID, quantity: Int, minPurity: Purity? = nil) {
-        self.kind = kind
+    public init(item: ItemID? = nil, matter: MatterMatch? = nil, quantity: Int) {
+        self.item = item
+        self.matter = matter
         self.quantity = quantity
+    }
+}
+
+/// 物質の条件(nil は問わない)。「純度 45% 以上の鉄の板」など。
+public struct MatterMatch: Codable, Hashable, Sendable {
+    public var substance: SubstanceID?
+    public var stage: MatterStage?
+    public var shapes: [Shape]?
+    public var minPurity: Purity?
+    public var tempers: [Temper]?
+
+    public init(substance: SubstanceID? = nil, stage: MatterStage? = nil, shapes: [Shape]? = nil,
+                minPurity: Purity? = nil, tempers: [Temper]? = nil) {
+        self.substance = substance
+        self.stage = stage
+        self.shapes = shapes
         self.minPurity = minPurity
+        self.tempers = tempers
+    }
+
+    public func matches(_ m: Matter) -> Bool {
+        if let s = substance, m.substance != s { return false }
+        if let s = stage, m.stage != s { return false }
+        if let s = shapes, !s.contains(m.shape) { return false }
+        if let p = minPurity, m.purity < p { return false }
+        if let t = tempers, !t.contains(m.temper) { return false }
+        return true
     }
 }
 
@@ -64,12 +89,12 @@ public struct POIDef: ContentDef, Equatable {
 
 // MARK: - 作る・置く
 
-/// 手作業・固定の作り方(押し続けて 1 単位)。
-public struct RecipeDef: ContentDef, Equatable {
-    public var id: RecipeID
-    public var inputs: [ItemCost]
-    public var output: ItemCost
-    public var form: FormID?
+/// 手作業(押し続けて 1 単位。原作 HandCraft)。工程 1 つを手でやる(石臼の代わりに石で砕く、など)。
+public struct HandworkDef: ContentDef, Equatable {
+    public var id: HandworkID
+    /// 手でやる工程(RFMatter の規則の表で計算する)。工程でない手作業(枝を拾う等)は nil で yields を使う。
+    public var step: ProcessStep?
+    public var yields: [Yield]?
     /// 押し続ける回数(粉 5 / 塊 8 / 板 16 など)。
     public var presses: Int
     /// どこでできるか(建造物の種類。nil はどこでも)。
@@ -79,10 +104,9 @@ public struct RecipeDef: ContentDef, Equatable {
 
 /// 地図に置く生産モジュール。
 public struct ModuleDef: ContentDef, Equatable {
+    /// モジュールの種類 = 工程の種類(RFMatter の RuleBook のキー)。
     public var id: ModuleKindID
-    /// 受け持つ工程(採掘口のように工程でないものは nil)。
-    public var process: ProcessID?
-    public var cost: [ItemCost]
+    public var cost: [Ingredient]
     public var placement: PlacementRule
     /// 入出口(向き基準の相対の辺)。
     public var ports: [PortDef]
@@ -116,7 +140,7 @@ public struct PortDef: Codable, Equatable, Sendable {
 /// 建造物(シェルター・焚き火台・柵・保管・炭焼き窯・研究机…)。
 public struct StructureDef: ContentDef, Equatable {
     public var id: StructureKindID
-    public var cost: [ItemCost]
+    public var cost: [Ingredient]
     public var footprint: [GridPoint]?
     /// 建てるのにかかるゲーム秒(仲間が手伝うと速い)。
     public var buildSeconds: Int
@@ -153,13 +177,13 @@ public struct InteractionDef: ContentDef, Equatable {
     public var tags: [ProvenanceTag]?
 }
 
+/// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。
 public struct Yield: Codable, Equatable, Sendable {
-    public var kind: ItemKindID
+    public var item: ItemID?
+    public var matter: Matter?
     public var min: Int
     public var max: Int
     public var basisPoints: Int?
-    public var purity: Purity?
-    public var form: FormID?
     public var unique: Bool?
 }
 
@@ -396,8 +420,9 @@ public struct EndingDef: ContentDef, Equatable {
     public var scene: SceneID?
 }
 
-public struct ObservationDef: ContentDef, Equatable {
-    public var id: ObservationID
+/// 所見(RFMatter の FindingID)の文。引数(燃料の名前など)は {0} {1} で埋める。
+public struct FindingDef: ContentDef, Equatable {
+    public var id: FindingID
     public var text: TextID
 }
 
@@ -407,7 +432,7 @@ public struct StartDef: Codable, Equatable, Sendable {
     public var members: [PersonID]
     /// 存在だけを内部に持つ人(まだ会っていない)。
     public var unmet: [PersonID]?
-    public var items: [ItemCost]
+    public var items: [Yield]
     public var facts: [FactID]
     public var unlocks: [UnlockTarget]
     public var objectives: [ObjectiveID]?
@@ -415,7 +440,7 @@ public struct StartDef: Codable, Equatable, Sendable {
     /// 始めに起こす出来事(目覚めの場面など)。
     public var events: [EventID]?
 
-    public init(members: [PersonID], unmet: [PersonID]? = nil, items: [ItemCost] = [], facts: [FactID] = [],
+    public init(members: [PersonID], unmet: [PersonID]? = nil, items: [Yield] = [], facts: [FactID] = [],
                 unlocks: [UnlockTarget] = [], objectives: [ObjectiveID]? = nil, chapter: ChapterID? = nil,
                 events: [EventID]? = nil) {
         self.members = members

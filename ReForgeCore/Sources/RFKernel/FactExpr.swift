@@ -61,7 +61,7 @@ extension FactExpr: Codable {
             try c.encode(true)
         case .fact(let f):
             var c = encoder.singleValueContainer()
-            try c.encode(f.raw)
+            try c.encode(f.rawValue)
         case .all(let xs):
             var k = encoder.container(keyedBy: Keys.self)
             try k.encode(xs, forKey: .all)
