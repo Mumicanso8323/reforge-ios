@@ -117,6 +117,8 @@ struct ContentFile: Decodable {
         case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings
         case perception, forbidden, auditStages, textGates, texts, glyphs
         case remove
+        // 探索と拠点(U8)
+        case fields, exploreEvents, exploration, base
     }
 
     /// 人が読むための注記のキー(読み飛ばす)。
@@ -165,6 +167,11 @@ struct ContentFile: Decodable {
     var glyphs: [String: String]?
     /// 前の層の定義を消す(集まりの名前 → ID の並び)。
     var remove: [String: [String]]?
+    // 探索と拠点(U8)
+    var fields: [FieldDef]?
+    var exploreEvents: [ExploreEventDef]?
+    var exploration: ExplorationDef?
+    var base: BaseDef?
 
     func apply(to db: inout ContentDB) {
         if let b = bundle { db.layers.append(b) }
@@ -210,6 +217,11 @@ struct ContentFile: Decodable {
         for g in textGates ?? [] { db.textGates[g.text] = g }
         for (k, v) in texts ?? [:] { db.texts[TextID(k)] = v }
         for (k, v) in glyphs ?? [:] { db.glyphs[SubjectID(k)] = v }
+        // 探索と拠点(U8)
+        upsert(&db.fields, fields)
+        upsert(&db.exploreEvents, exploreEvents)
+        if let v = exploration { db.exploration = v }
+        if let v = base { db.base = v }
         for (collection, ids) in remove ?? [:] { Self.remove(collection, ids, from: &db) }
     }
 
@@ -243,6 +255,8 @@ struct ContentFile: Decodable {
         case "objectives": drop(&db.objectives)
         case "perception": drop(&db.perception)
         case "texts": drop(&db.texts)
+        case "fields": drop(&db.fields)
+        case "exploreEvents": drop(&db.exploreEvents)
         default: break
         }
     }
