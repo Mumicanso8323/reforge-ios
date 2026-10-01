@@ -1,0 +1,44 @@
+{
+  "//": "地図の生成器(RFMap)が置く地形と目印の、ネタバレの無い一般の名前と地図の文字。公開のアプリで「？」を出さないため。本物の名前・文字は非公開の層が上書きする。",
+  "terrains": [
+    { "id": "shore", "passable": true, "moveCost": 15, "isWater": true, "tags": ["water", "shore"] },
+    { "id": "ford", "passable": true, "moveCost": 30, "isWater": true, "tags": ["water", "ford"] },
+    { "id": "forest", "passable": true, "moveCost": 15, "isWater": false, "tags": ["forest"] },
+    { "id": "ruins", "passable": true, "moveCost": 15, "isWater": false, "tags": ["ruins"] },
+    { "id": "cleared", "passable": true, "moveCost": 10, "isWater": false, "tags": ["ground"] }
+  ],
+  "perception": [
+    { "subject": "terrain:shore", "variants": [ { "when": true, "name": "text.terrain.shore", "glyph": "≈" } ] },
+    { "subject": "terrain:ford", "variants": [ { "when": true, "name": "text.terrain.ford", "glyph": "≡" } ] },
+    { "subject": "terrain:forest", "variants": [ { "when": true, "name": "text.terrain.forest", "glyph": "♣" } ] },
+    { "subject": "terrain:ruins", "variants": [ { "when": true, "name": "text.terrain.ruins", "glyph": "▥" } ] },
+    { "subject": "terrain:cleared", "variants": [ { "when": true, "name": "text.terrain.cleared", "glyph": "·" } ] },
+    { "subject": "poi:wreck.home", "variants": [ { "when": true, "name": "text.poi.map_wreck", "glyph": "▣" } ] },
+    { "subject": "poi:wreck.far", "variants": [ { "when": true, "name": "text.poi.map_wreck", "glyph": "▣" } ] },
+    { "subject": "poi:ruins_factory", "variants": [ { "when": true, "name": "text.poi.ruins", "glyph": "▤" } ] },
+    { "subject": "poi:ruins_military", "variants": [ { "when": true, "name": "text.poi.ruins", "glyph": "▤" } ] },
+    { "subject": "poi:ruins_lab", "variants": [ { "when": true, "name": "text.poi.ruins", "glyph": "▤" } ] },
+    { "subject": "poi:ruins_residential", "variants": [ { "when": true, "name": "text.poi.ruins", "glyph": "▤" } ] },
+    { "subject": "poi:wolf_nest", "variants": [ { "when": true, "name": "text.poi.nest", "glyph": "◎" } ] },
+    { "subject": "poi:bear_den", "variants": [ { "when": true, "name": "text.poi.nest", "glyph": "◎" } ] },
+    { "subject": "poi:golem_cave", "variants": [ { "when": true, "name": "text.poi.nest", "glyph": "◎" } ] },
+    { "subject": "poi:water_source", "variants": [ { "when": true, "name": "text.poi.water_source", "glyph": "◌" } ] },
+    { "subject": "poi:fertile_land", "variants": [ { "when": true, "name": "text.poi.fertile_land", "glyph": "✿" } ] },
+    { "subject": "poi:geothermal_vent", "variants": [ { "when": true, "name": "text.poi.geothermal", "glyph": "◬" } ] },
+    { "subject": "poi:contamination_zone", "variants": [ { "when": true, "name": "text.poi.contamination", "glyph": "▒" } ] }
+  ],
+  "texts": {
+    "text.terrain.shore": "水辺",
+    "text.terrain.ford": "浅瀬",
+    "text.terrain.forest": "森",
+    "text.terrain.ruins": "崩れた跡",
+    "text.terrain.cleared": "開けた地面",
+    "text.poi.map_wreck": "残骸",
+    "text.poi.ruins": "崩れた建物",
+    "text.poi.nest": "巣",
+    "text.poi.water_source": "水場",
+    "text.poi.fertile_land": "肥えた土",
+    "text.poi.geothermal": "温かい穴",
+    "text.poi.contamination": "汚れた場所"
+  }
+}
