@@ -350,6 +350,21 @@ final class CrewSystemTests: XCTestCase {
         XCTAssertEqual(w.people["person.test_b"]!.activity, .carrying(route: route))
     }
 
+    /// 採取を続ける配属: 仲間は水辺の隣まで歩いて interacting になり、RFExploration がその人の行為として何度も汲む。
+    func testGatherAssignmentWalksAndRepeatsTheInteraction() throws {
+        let rig = try TestRig.publicOnly()
+        var w = world(rig)
+        let pond = at(w, 6, -4)
+        water(&w, [pond.point])
+        _ = apply(rig, &w, .assign(person: "person.test_a", assignment: .gather(interaction: "interaction.draw_water", at: pond)))
+        _ = rig.simulation.runSteps(120, &w)
+        let a = w.people["person.test_a"]!
+        XCTAssertEqual(a.position!.point.chebyshev(to: pond.point), 1, "水辺の隣に立つ")
+        guard case .interacting("interaction.draw_water", pond, _) = a.activity else { return XCTFail("\(a.activity)") }
+        let gathered = w.ledger.records.filter { $0.actor == "person.test_a" && $0.act == .gathered }
+        XCTAssertGreaterThanOrEqual(gathered.count, 2, "終わればまた始める")
+    }
+
     // MARK: - 上書き(範囲の効果)
 
     /// 範囲の効果(drawTowardSource)の中の仲間は、配属に従わず中心へ歩く。範囲が消えれば配属に戻る。
