@@ -17,3 +17,4 @@ content/private/
 ReForge/Generated/
 content/private.sealed
 AppContent/
+__pycache__/
