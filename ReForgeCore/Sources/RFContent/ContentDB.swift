@@ -74,10 +74,14 @@ public struct LayerManifest: Codable, Equatable, Sendable {
     public var visibility: Visibility
     /// 版(コンテンツのリポジトリのコミットなど)。セーブに残し、移行の判断に使う。
     public var version: String
+    /// 見張りの文字列(非公開の層だけ。本文ではない無意味な文字列)。CI が、封をした ipa の中に平文で
+    /// 現れないことを確かめるのに使う(E-content.md §4.5)。画面には出さない。
+    public var canary: String?
 
-    public init(id: String, visibility: Visibility, version: String) {
+    public init(id: String, visibility: Visibility, version: String, canary: String? = nil) {
         self.id = id
         self.visibility = visibility
         self.version = version
+        self.canary = canary
     }
 }
