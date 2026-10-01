@@ -13,6 +13,12 @@ public protocol SaveStorage: Sendable {
 /// 夜明けの自動セーブを何日分残すか(巻き戻しの戻り先は最新の 1 つ。残りは「セーブ地点からロード」用)。
 public enum SavePolicy {
     public static let keepDawns = 3
+    /// 手動セーブの枠の数(確認を出さずに上書きするので、戻せるように 3 枠。D §2)。
+    public static let manualSlots = 3
+}
+
+public enum SaveBookError: Error, Equatable {
+    case noSuchManualSlot(Int)
 }
 
 /// 一覧の 1 行(セーブ地点からロードの選択肢)。
@@ -43,12 +49,17 @@ public struct SaveBook: Sendable {
 
     // MARK: 書く
 
-    /// 続きを書く(アプリが背面に回るとき・閉じるとき)。失敗・結末の後の世界もそのまま書く(開き直すと 4 択に戻る)。
-    public func writeResume(_ w: WorldState, ui: Value? = nil) throws {
-        try write(SaveEnvelope(slot: .resume, world: w, content: content, ui: ui))
+    /// 続きを書く(背面に回る・閉じる・日没・夜明け・決断を出したとき。D §2)。失敗・結末の後の世界もそのまま書く
+    /// (開き直すと 4 択に戻る)。screen は画面側の途中の状態(置くモードの照準・設計の下書き)の JSON で、別に置く。
+    public func writeResume(_ w: WorldState, screen: Data? = nil) throws {
+        try write(SaveEnvelope(slot: .resume, world: w, content: content))
+        if let screen { try storage.write(screen, slot: .screen) } else { try storage.delete(slot: .screen) }
     }
 
     public func readResume() throws -> SaveEnvelope? { try load(.resume) }
+
+    /// 続きに添えた画面側の状態(本体は中身を見ない。画面が読めなければ捨ててよい)。
+    public func readScreen() throws -> Data? { try storage.read(slot: .screen) }
 
     /// 夜明けの自動セーブ(GameHost が DomainEvent.dawn を見たら呼ぶ)。進行中の世界だけ書く。
     /// 同じ日の夜明けは上書き(巻き戻した後の夜明けも、その日の戻り先になる)。
@@ -61,6 +72,7 @@ public struct SaveBook: Sendable {
     }
 
     public func saveManual(_ w: WorldState, index: Int) throws {
+        guard (0..<SavePolicy.manualSlots).contains(index) else { throw SaveBookError.noSuchManualSlot(index) }
         try write(SaveEnvelope(slot: .manual(index: index), world: w, content: content))
     }
 
@@ -68,7 +80,7 @@ public struct SaveBook: Sendable {
     public func startNew(_ w: WorldState) throws {
         for s in try storage.list() {
             switch s {
-            case .dawn, .resume: try storage.delete(slot: s)
+            case .dawn, .resume, .screen: try storage.delete(slot: s)
             case .manual: break
             }
         }
@@ -85,7 +97,7 @@ public struct SaveBook: Sendable {
 
     /// セーブ地点の一覧(夜明けの新しい順 → 手動の番号順)。続きは含めない。
     public func savePoints() throws -> [SavePoint] {
-        let slots = try storage.list().filter { $0 != .resume }.sorted(by: Self.order)
+        let slots = try storage.list().filter { $0 != .resume && $0 != .screen }.sorted(by: Self.order)
         return slots.map { s in
             do {
                 guard let e = try load(s) else { return SavePoint(slot: s, summary: nil, problem: "missing") }
@@ -96,16 +108,16 @@ public struct SaveBook: Sendable {
         }
     }
 
-    /// 記憶を持って巻き戻すときの戻り先: 同じ走行の、失敗した日以前で最新の夜明け。
-    public func rewindTarget(for failed: WorldState) throws -> SaveEnvelope? {
+    /// 記憶を持って巻き戻すときの戻り先の候補: 同じ走行の、失敗した日以前の夜明け(新しい順)。
+    /// 既定は先頭(最新)。最新の夜明けがすぐ失敗に落ちる場合のため、残っている夜明けから選べる(D §3)。
+    public func rewindTargets(for failed: WorldState) throws -> [SaveEnvelope] {
         let days = try storage.list().compactMap { s -> Int? in
             if case .dawn(let d) = s, d <= failed.clock.day { d } else { nil }
         }.sorted(by: >)
-        for d in days {
-            guard let e = try? load(.dawn(day: d)) else { continue }
-            if e.summary.seed == failed.seed, e.summary.active { return e }
+        return days.compactMap { d in
+            guard let e = try? load(.dawn(day: d)), e.summary.seed == failed.seed, e.summary.active else { return nil }
+            return e
         }
-        return nil
     }
 
     /// 時間軸を w に切り替えた(ロード・巻き戻し): 別の走行の夜明けと、w より先の日の夜明けを消す。
@@ -142,7 +154,7 @@ public struct SaveBook: Sendable {
         case (.manual(let x), .manual(let y)): x < y
         case (.manual, .dawn): false
         case (.manual, _): true
-        case (.resume, _): false
+        case (.resume, _), (.screen, _): false
         }
     }
 }

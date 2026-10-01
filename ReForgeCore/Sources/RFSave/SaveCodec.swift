@@ -14,18 +14,14 @@ public struct SaveEnvelope: Codable, Equatable, Sendable {
     public var slot: SaveSlot
     /// 一覧に出す要約(世界を全部読まずに「何日目・何周目」を出すため)。世界から作る。
     public var summary: SaveSummary
-    /// 画面側の途中の状態(置くモードの照準・設計画面の下書き…)。本体は中身を見ない(C-engine-ui.md §6)。
-    /// 続き(resume)にだけ添える。
-    public var ui: Value?
     public var world: WorldState
 
-    public init(slot: SaveSlot, world: WorldState, content: [ContentStamp], ui: Value? = nil) {
+    public init(slot: SaveSlot, world: WorldState, content: [ContentStamp]) {
         self.format = SaveCodec.format
         self.schemaVersion = SaveCodec.schemaVersion
         self.content = content
         self.slot = slot
         self.summary = SaveSummary(world)
-        self.ui = ui
         self.world = world
     }
 }
@@ -68,6 +64,9 @@ public struct ContentStamp: Codable, Equatable, Sendable {
 public enum SaveSlot: Codable, Hashable, Sendable {
     /// いまの続き(アプリを閉じる・背面に回るたびに上書き)。
     case resume
+    /// 続きに添える画面側の途中の状態(置くモードの照準・設計画面の下書き)。SaveEnvelope ではなく、画面が決めた
+    /// 小さな JSON をそのまま置く(本体は中身を見ない。読めなくても遊べる。C §6・D §2)。
+    case screen
     /// 夜明けの自動セーブ(直近いくつかを残す)。巻き戻しの戻り先。
     case dawn(day: Int)
     /// 手動セーブ。
@@ -77,6 +76,7 @@ public enum SaveSlot: Codable, Hashable, Sendable {
     public var fileStem: String {
         switch self {
         case .resume: "resume"
+        case .screen: "resume-ui"
         case .dawn(let d): "dawn-\(d)"
         case .manual(let i): "manual-\(i)"
         }
@@ -84,6 +84,7 @@ public enum SaveSlot: Codable, Hashable, Sendable {
 
     public init?(fileStem s: String) {
         if s == "resume" { self = .resume; return }
+        if s == "resume-ui" { self = .screen; return }
         if s.hasPrefix("dawn-"), let d = Int(s.dropFirst(5)) { self = .dawn(day: d); return }
         if s.hasPrefix("manual-"), let i = Int(s.dropFirst(7)) { self = .manual(index: i); return }
         return nil

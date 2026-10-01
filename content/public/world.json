@@ -41,7 +41,8 @@
     { "id": "counter.test.near", "kind": { "proximityMinutes": { "a": "person.noah", "b": "person.test_a", "radius": 3, "whileWorking": false } } }
   ],
   "failureRules": [
-    { "id": "failure.test.doom", "when": { "counter": { "id": "counter.test.doom", "cmp": "ge", "value": 1 } }, "cause": "text.test.cause" }
+    { "id": "failure.test.doom", "when": { "counter": { "id": "counter.test.doom", "cmp": "ge", "value": 1 } }, "cause": "text.test.cause",
+      "onContinue": [ { "setCounter": { "id": "counter.test.doom", "value": 0 } } ] }
   ],
   "sheets": [
     { "id": "sheet.test.record", "title": "sheet:sheet.test.record",
