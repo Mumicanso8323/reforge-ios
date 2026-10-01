@@ -504,6 +504,28 @@ final class CrewSystemTests: XCTestCase {
         XCTAssertEqual(r.warnings.filter { !$0.contains("断られた") }, [])
     }
 
+    /// 生存の規則があれば、効果・戦いからの傷は RFSurvival(survival.injure)が体に付け、引き金(cause)を来歴に残す。
+    /// 体力が尽きれば死に、死の来歴はその傷を指す(二重に減らさない)。
+    func testInjuryGoesThroughSurvivalWithCause() throws {
+        var content = try TestContent.publicOnly()
+        try ContentLoader.apply(json: Data(#"{"survival": {"consumables": [], "ailments": [ { "id": "ailment.wound", "recoveryPerDay": 0 } ]}}"#.utf8),
+                                to: &content)
+        let rig = TestRig(content: content)
+        var w = world(rig)
+        var ctx = StepContext(world: w, content: rig.content)
+        let cause = ctx.record(.fought, .none)
+        w = ctx.world
+        _ = rig.simulation.apply(.crew(.injureFromEffect(person: "person.test_a", amount: 30_000, cause: cause)), to: &w)
+        XCTAssertEqual(w.people["person.test_a"]!.body.health, Milli(70), "一度だけ減る")
+        let hurt = try XCTUnwrap(w.ledger.records.last { $0.act == .wasInjured && $0.subject == .person("person.test_a") })
+        XCTAssertTrue(hurt.inputs.contains(cause), "引き金を辿れる")
+        _ = rig.simulation.apply(.crew(.injureFromEffect(person: "person.test_a", amount: 70_000, cause: cause)), to: &w)
+        guard case .dead(_, let rec?) = w.people["person.test_a"]!.presence else { return XCTFail("体力が尽きて死ぬ") }
+        let death = try XCTUnwrap(w.ledger.record(rec))
+        let lastHurt = try XCTUnwrap(w.ledger.records.last { $0.act == .wasInjured && $0.subject == .person("person.test_a") })
+        XCTAssertEqual(death.inputs, [lastHurt.id])
+    }
+
     /// 体力が尽きた人は(どの仕組みで減っても)次のステップで死ぬ。
     func testHealthDepletedDies() throws {
         let rig = try TestRig.publicOnly()

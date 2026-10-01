@@ -367,8 +367,11 @@ enum HaulPath {
     }
 
     /// 共同の手の受け持ち: 配属の無い仲間(ノアを除く・人の順)を、道のりのある経路(ID 順)へ順に割り振る。
+    /// 運ぶ物が待っている経路(HaulRoute.waiting)があればそれだけに、1 本も無ければ全部の経路に均等に。
     static func sharedRoute(for id: PersonID, _ w: WorldState) -> EntityID? {
-        let routes = w.logistics.sortedRouteIDs.filter { w.logistics.routes[$0].map { !$0.path.isEmpty } ?? false }
+        let usable = w.logistics.sortedRouteIDs.filter { w.logistics.routes[$0].map { !$0.path.isEmpty } ?? false }
+        let waiting = usable.filter { w.logistics.routes[$0]?.waiting == true }
+        let routes = waiting.isEmpty ? usable : waiting
         guard !routes.isEmpty else { return nil }
         let hands = w.people.members.filter { pid in
             guard pid != .noah, let ps = w.people[pid], ps.position != nil, ps.override == nil else { return false }

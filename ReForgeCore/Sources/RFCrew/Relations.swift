@@ -164,7 +164,7 @@ enum Membership {
         guard let ps = ctx.world.people[id], ps.presence.isAlive else { return .rejected(Rejection("reason.person.unknown")) }
         guard amount > 0 else { return .done }
         if ctx.content.survival != nil {
-            ctx.queue(.survival(.injure(person: id, amount: (amount + 999) / 1000)))
+            ctx.queue(.survival(.injure(person: id, amount: (amount + 999) / 1000, cause: cause)))
             return .done
         }
         ctx.record(.wasInjured, .person(id), actor: id, place: ps.position, inputs: cause.map { [$0] } ?? [],
