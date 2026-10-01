@@ -10,49 +10,61 @@ enum Hauling {
     /// 人の作業の速さ(千分率)。U4 の survival.work が境界に入ったらそこを読む。それまでは 1000。
     static func workSpeed(_ p: PersonID, _ w: WorldState) -> Int { 1000 }
 
-    /// 経路に配属された一員(ID 順ではなく人の並び順)。
+    /// 経路に配属された一員(表示用。人の並び順)。
     static func dedicated(_ route: EntityID, _ w: WorldState) -> [PersonID] {
         w.people.members.filter { pid in
-            guard pid != .noah, let ps = w.people[pid] else { return false }
+            guard let ps = w.people[pid] else { return false }
             return (ps.override?.assignment ?? ps.assignment) == .haul(route: route)
         }
     }
 
-    /// 配属の無い一員(運搬が既定の役割)。ノアは入れない(プレイヤーが動かす)。
+    /// いまこの経路で運んでいる人(activity == .carrying(route:))。専任も、配属の無い一員(共同の手)も、
+    /// RFCrew が昼に経路を受け持たせて carrying にする。夜に眠っている人・戦っている人・上書きで連れて行かれた人は数えない。
+    static func carriers(_ route: EntityID, _ w: WorldState) -> [PersonID] {
+        w.people.order.filter { pid in
+            guard let ps = w.people[pid], ps.presence.isMember, ps.presence.isAlive else { return false }
+            return ps.activity == .carrying(route: route)
+        }
+    }
+
+    /// 配属の無い一員(運搬が既定の役割。RFCrew が昼に経路へ割り振る)。見込みの表示用。
     static func pool(_ w: WorldState) -> [PersonID] {
         let live = Set(w.logistics.routes.keys)
         return w.people.members.filter { pid in
             guard pid != .noah, let ps = w.people[pid] else { return false }
             switch ps.override?.assignment ?? ps.assignment {
             case .idle: return true
-            case .haul(let r): return !live.contains(r)   // 無くなった経路の運び手は共同の手に戻る
+            case .haul(let r): return !live.contains(r)
             default: return false
             }
         }
     }
 
+    /// 1 人が昼のあいだ運び続けて HaulRules.perPersonPerDay 個になる速さで、運んでいる人の数だけ進める。
     static func step(_ ctx: inout StepContext) {
         let ids = ctx.world.logistics.sortedRouteIDs
         guard !ids.isEmpty else { return }
-        let day = ctx.content.clock.dayGameSeconds + ctx.content.clock.nightGameSeconds
-        let poolMilli = pool(ctx.world).reduce(0) { $0 + workSpeed($1, ctx.world) }
-        var active: [EntityID] = []
+        let day = max(1, ctx.content.clock.dayGameSeconds)
         for id in ids {
-            guard let r = ctx.world.logistics.routes[id] else { continue }
-            let crew = dedicated(id, ctx.world)
-            if r.haulers != crew { ctx.world.logistics.routes[id]?.haulers = crew }
-            if r.distance != nil, pending(r, ctx.world, limit: 1) > 0 { active.append(id) }
-        }
-        let share = active.isEmpty ? 0 : poolMilli / active.count
-        for id in active {
             guard var r = ctx.world.logistics.routes[id] else { continue }
-            let crewMilli = r.haulers.reduce(0) { $0 + workSpeed($1, ctx.world) } + share
-            guard crewMilli > 0 else {
-                r.blocked = HaulRules.noHaulers
+            let assigned = dedicated(id, ctx.world)
+            if r.haulers != assigned { r.haulers = assigned }
+            guard r.distance != nil else {
+                ctx.world.logistics.routes[id] = r
+                continue
+            }
+            let crewMilli = carriers(id, ctx.world).reduce(0) { $0 + workSpeed($1, ctx.world) }
+            let waiting = pending(r, ctx.world, limit: 1) > 0
+            if crewMilli == 0 {
+                r.blocked = waiting ? HaulRules.noHaulers : nil
                 ctx.world.logistics.routes[id] = r
                 continue
             }
             r.blocked = nil
+            guard waiting else {
+                ctx.world.logistics.routes[id] = r
+                continue
+            }
             r.carryMicro += Int64(crewMilli) * HaulRules.perPersonPerDay * Int64(r.factorPermille) * SimStep.gameSeconds / day
             let n = Int(r.carryMicro / 1_000_000)
             ctx.world.logistics.routes[id] = r
@@ -148,7 +160,7 @@ enum Hauling {
 
 /// 画面とボットが読む運搬の見え方。
 public enum LogisticsQueries {
-    /// 経路の 1 日の流量(いまの運び手と距離から)。共同の手は経路の数で等分した見込み。
+    /// 経路の 1 日の流量の見込み(専任と、配属の無い一員を経路の数で等分した手、と距離から。昼のあいだ運ぶとして)。
     public static func perDay(_ route: EntityID, world w: WorldState) -> Int {
         guard let r = w.logistics.routes[route], let d = r.distance else { return 0 }
         let routes = max(1, w.logistics.routes.count)

@@ -108,4 +108,19 @@ public enum ProductionRules {
     /// 人の作業の速さ(千分率)。空腹・状態・精神力で下がる(U4 の生存が持つ値)。
     /// U4 の `survival.work` が境界に入ったらそこを読む。それまでは 1000。
     public static func workSpeed(_ p: PersonID, _ w: WorldState) -> Int { 1000 }
+
+    /// 付いている仲間がいるときのモジュールの速さ(千分率)。
+    /// U5 の `PersonState.workSpeed`(1000 + 専門一致 300 + 関係ランク 3 以上 100 + 思想と配属の印)が境界に入ったら
+    /// それに置き換える(二重に掛けないこと)。それまでは専門と関係ランクだけをここで数える。
+    /// 範囲の効果・空腹の掛け率はモジュールの側で掛ける。付いていないときより遅くはしない。
+    public static func operatorSpeed(_ op: PersonID, module kind: ModuleKindID, _ w: WorldState, _ content: ContentDB)
+        -> Int
+    {
+        var bonus = 0
+        if let sp = content.modules[kind]?.specialty, content.people[op]?.specialties.contains(sp) == true {
+            bonus += specialtyBonusPermille
+        }
+        if (w.people[op]?.relation.rank ?? 0) >= rankForBonus { bonus += rankBonusPermille }
+        return 1000 + bonus * workSpeed(op, w) / 1000
+    }
 }

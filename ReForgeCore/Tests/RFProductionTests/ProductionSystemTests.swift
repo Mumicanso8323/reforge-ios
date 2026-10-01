@@ -194,9 +194,9 @@ final class ProductionSystemTests: XCTestCase {
                               into: &ctx.world.placements.items[furnace]!.module!.input)
             w = ctx.world
             if withOperator {
-                // person.test_a の専門は smith(炉の専門と同じ)。配属して、炉のそばにいる
+                // person.test_a の専門は smith(炉の専門と同じ)。配属されて、炉で働いている(歩かせるのは RFCrew)
                 w.people["person.test_a"]?.assignment = .operate(placement: furnace)
-                w.people["person.test_a"]?.position = F.wp(15, 17)
+                w.people["person.test_a"]?.activity = .working(at: furnace)
             }
             // 試験用の炉は 1 回 480 秒。10 回ぶんの時間
             _ = fx.run(seconds: 480 * 10, &w)

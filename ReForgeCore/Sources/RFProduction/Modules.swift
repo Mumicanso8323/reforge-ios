@@ -33,16 +33,12 @@ enum Modules {
 
     // MARK: 付いている仲間
 
-    /// 配属が「このモジュールに付く」で、そばにいる(か、いまここで働いている)最初の一員。
+    /// いまこのモジュールで働いている一員(activity == .working(at:)。歩いている途中の人は数えない。
+    /// 配属に従ってそばへ歩かせ、着いたら working にするのは RFCrew)。人の並びで最初の 1 人。
     static func operatorOf(_ id: EntityID, _ w: WorldState) -> PersonID? {
-        guard let p = w.placements.items[id] else { return nil }
         for pid in w.people.order {
-            guard let ps = w.people[pid], ps.presence.isMember, pid != .noah else { continue }
-            let a = ps.override?.assignment ?? ps.assignment
-            guard a == .operate(placement: id) else { continue }
+            guard let ps = w.people[pid], ps.presence.isMember, ps.presence.isAlive else { continue }
             if ps.activity == .working(at: id) { return pid }
-            if let pos = ps.position, pos.layer == p.at.layer,
-               pos.point.chebyshev(to: p.at.point) <= ProductionRules.operatorReach { return pid }
         }
         return nil
     }
@@ -60,13 +56,8 @@ enum Modules {
     static func speed(_ id: EntityID, _ w: WorldState, _ content: ContentDB) -> Int {
         guard let p = w.placements.items[id], let m = p.module, let kind = p.moduleKind else { return 1000 }
         var s = 1000
-        if let op = m.operatorID ?? operatorOf(id, w), let ps = w.people[op] {
-            var bonus = 0
-            if let sp = content.modules[kind]?.specialty, content.people[op]?.specialties.contains(sp) == true {
-                bonus += ProductionRules.specialtyBonusPermille
-            }
-            if ps.relation.rank >= ProductionRules.rankForBonus { bonus += ProductionRules.rankBonusPermille }
-            s += bonus * ProductionRules.workSpeed(op, w) / 1000
+        if let op = m.operatorID ?? operatorOf(id, w) {
+            s = max(s, ProductionRules.operatorSpeed(op, module: kind, w, content))
         }
         if m.finite != nil, let f = content.modules[kind]?.finite { s = s * f.speedPermille / 1000 }
         for (mod, strength, _) in Auras.modifiers(at: p.at, in: w, content: content) {
