@@ -13,6 +13,8 @@ public struct ContentDB: Sendable {
     public var mapGen = MapGenConfig(size: GridSize(width: 96, height: 96))
     public var start = StartDef(members: [PersonID.noahID])
     public var rewind = RewindDef()
+    /// 生存の規則(消費・空腹・精神力・状態)。nil = 規則なし(公開の試験用の層は持たない)。持ち主: U4
+    public var survival: SurvivalDef?
     /// 発明の規則の表(RFMatter)。コンテンツに無ければ R1 の表。
     public var ruleBook: RuleBook = .r1
 
