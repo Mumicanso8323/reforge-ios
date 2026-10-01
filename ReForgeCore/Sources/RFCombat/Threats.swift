@@ -126,18 +126,23 @@ enum Threats {
         let target = foodTarget(ctx)
         for (kind, d) in ctx.content.enemies.sorted(by: { $0.key < $1.key }) {
             guard let raid = d.raid, ctx.world.clock.day >= (raid.fromDay ?? 1) else { continue }
+            let perNight = FactRate.rate(raid.perNight, requires: raid.requiresFact, until: raid.untilFact,
+                                         modifiers: raid.factModifiers, known: ctx.world.knowledge.factSet)
+            guard perNight > 0 else { continue }
             let roll = ctx.random(.combat) { $0.int(below: 10_000) }
-            guard roll < raid.perNight else { continue }
+            guard roll < perNight else { continue }
             let lo = max(1, raid.min ?? 1)
             let count = ctx.random(.combat) { $0.int(in: lo...max(lo, raid.max ?? lo)) }
             let hours = ctx.random(.combat) { $0.int(in: def.raidHours) }
+            let knownOnly = raid.requiresKnownNest == true
             let nest = nests(of: kind, ctx)
                 .filter { $0.1.at.chebyshev(to: target.point) <= def.nestReach }
+                .filter { !knownOnly || ctx.world.knowledge.discovered.contains($0.0) }
                 .min { a, b in
                     let da = a.1.at.chebyshev(to: target.point), db = b.1.at.chebyshev(to: target.point)
                     return da != db ? da < db : a.0 < b.0
                 }?.0
-            if raid.requiresNest == true && nest == nil { continue }
+            if (raid.requiresNest == true || knownOnly) && nest == nil { continue }
             ctx.world.combat.plannedRaids.append(
                 PlannedRaid(kind: kind, count: count, at: ctx.world.clock.now + .hours(hours), nest: nest))
         }
@@ -167,8 +172,13 @@ enum Threats {
 
     /// 昼に出会う地形(森の近道など)にいる人に、獣が寄って来る。
     static func encounters(_ ctx: inout StepContext) {
-        let defs = ctx.content.enemies.sorted { $0.key < $1.key }
-            .filter { ($0.value.encounterPerHour ?? 0) > 0 && !($0.value.habitats ?? []).isEmpty }
+        let known = ctx.world.knowledge.factSet
+        let defs: [(EnemyKindID, EnemyDef, Int)] = ctx.content.enemies.sorted { $0.key < $1.key }.compactMap { kind, d in
+            guard !(d.habitats ?? []).isEmpty else { return nil }
+            let rate = FactRate.rate(d.encounterPerHour ?? 0, requires: d.encounterRequiresFact,
+                                     until: d.encounterUntilFact, modifiers: d.encounterFactModifiers, known: known)
+            return rate > 0 ? (kind, d, rate) : nil
+        }
         guard !defs.isEmpty, let layer = ctx.world.map.layers[.surface] else { return }
         let stepsPerHour = 3600 / Int(SimStep.gameSeconds)
         for (p, pos) in fighters(ctx.world) where pos.layer == .surface && !busy(p, ctx.world) {
@@ -176,9 +186,9 @@ enum Threats {
             if Auras.repelsEnemies(at: pos, in: ctx.world, content: ctx.content) { continue }
             let hunted = ctx.world.combat.threats.values.contains { if case .hunt(let x) = $0.intent { x == p } else { false } }
             if hunted { continue }
-            for (kind, d) in defs where d.habitats?.contains(terrain) == true {
+            for (kind, d, rate) in defs where d.habitats?.contains(terrain) == true {
                 let roll = ctx.random(.combat) { $0.int(below: 10_000 * stepsPerHour) }
-                guard roll < d.encounterPerHour ?? 0 else { continue }
+                guard roll < rate else { continue }
                 let lo = max(1, d.encounterMin ?? 1)
                 let n = ctx.random(.combat) { $0.int(in: lo...max(lo, d.encounterMax ?? lo)) }
                 if let at = ringPoint(around: pos, radius: 3, &ctx) {

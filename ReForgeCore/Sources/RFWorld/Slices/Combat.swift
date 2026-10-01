@@ -77,6 +77,12 @@ public struct ThreatState: Codable, Equatable, Sendable {
         self.nest = nest
         self.origin = origin
     }
+
+    /// 骨組みの頃の形(他の担当のテストが使う)。体力は whole、狙いの文字列は読まずにうろつく。
+    public init(id: EntityID, kind: EnemyKindID, position: WorldPoint, count: Int, health: Milli, intent: String) {
+        self.init(id: id, kind: kind, position: position, count: count, hp: max(1, health.whole), intent: .roam,
+                  nocturnal: false)
+    }
 }
 
 /// 1 次元の自動戦闘(既定 6 マスの帯)。味方が左(0 側)、敵が右。プレイヤーが選ぶのは方針と撤退だけ。
@@ -146,6 +152,13 @@ public struct BattleState: Codable, Equatable, Sendable {
         self.origin = origin
         self.lethal = lethal
         self.beats = []
+    }
+
+    /// 骨組みの頃の形(他の担当のテストが使う)。帯の上に誰もいない戦闘は RFCombat が進めない(作った側が持つ)。
+    public init(id: EntityID, participants: [PersonID], enemies: [EntityID], origin: ProvenanceID) {
+        self.init(id: id, kind: .encounter, at: WorldPoint(.surface, GridPoint(0, 0)), laneSize: 6,
+                  participants: participants, enemies: enemies, units: [], stance: .keepDistance, startedAt: .zero,
+                  firstTurnAt: .zero, origin: origin)
     }
 }
 

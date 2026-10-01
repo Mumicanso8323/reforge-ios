@@ -57,7 +57,7 @@ public enum ResearchRules {
         guard ps.presence.isMember else { return false }
         switch ps.activity {
         case .working(let e): return e == desk.id
-        case .fighting, .sleeping, .talking, .walking, .carrying, .interacting: return false
+        case .fighting, .sleeping, .talking, .walking, .carrying, .interacting, .guarding, .interposing: return false
         case .idle: break
         }
         guard case .operate(let e) = ps.assignment, e == desk.id, ps.override == nil, ps.motion == nil,

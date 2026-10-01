@@ -38,6 +38,12 @@ public struct EnemyDef: ContentDef, Equatable {
     /// 出会ったときの数。既定 1...1。
     public var encounterMin: Int?
     public var encounterMax: Int?
+    /// 出会いはこの事実を知ってから起きる(日数でなく、プレイヤーが知ったことで始まる)。
+    public var encounterRequiresFact: FactExpr?
+    /// この事実を知ったら出会わなくなる。
+    public var encounterUntilFact: FactExpr?
+    /// 事実ごとの出会いの率の増減(例: 獣の行動の記録を読んだら下がる)。
+    public var encounterFactModifiers: [FactRateModifier]?
     /// 負けたときに奪われる物(拠点の蓄えから。足りなければある分だけ)。
     public var steals: [Ingredient]?
     /// 倒した記録に付ける印(狩り・倒した相手を後で指す)。
@@ -53,7 +59,9 @@ public struct EnemyDef: ContentDef, Equatable {
                 defense: Int? = nil, speed: Int? = nil, reachMin: Int? = nil, reachMax: Int? = nil,
                 mapSpeed: Int? = nil, nocturnal: Bool? = nil, nests: [POIKindID]? = nil, nestGuard: Int? = nil,
                 raid: RaidDef? = nil, habitats: [TerrainID]? = nil, encounterPerHour: Int? = nil,
-                encounterMin: Int? = nil, encounterMax: Int? = nil, steals: [Ingredient]? = nil,
+                encounterMin: Int? = nil, encounterMax: Int? = nil, encounterRequiresFact: FactExpr? = nil,
+                encounterUntilFact: FactExpr? = nil, encounterFactModifiers: [FactRateModifier]? = nil,
+                steals: [Ingredient]? = nil,
                 tags: [ProvenanceTag]? = nil, nestTags: [ProvenanceTag]? = nil, laneSize: Int? = nil,
                 growthPerKill: Int? = nil) {
         self.id = id
@@ -74,6 +82,9 @@ public struct EnemyDef: ContentDef, Equatable {
         self.encounterPerHour = encounterPerHour
         self.encounterMin = encounterMin
         self.encounterMax = encounterMax
+        self.encounterRequiresFact = encounterRequiresFact
+        self.encounterUntilFact = encounterUntilFact
+        self.encounterFactModifiers = encounterFactModifiers
         self.steals = steals
         self.tags = tags
         self.nestTags = nestTags
@@ -86,20 +97,65 @@ public struct EnemyDef: ContentDef, Equatable {
 public struct RaidDef: Codable, Equatable, Sendable {
     /// 一晩に来る確率(万分率)。
     public var perNight: Int
-    /// 何日目から来るか。既定 1。
+    /// 何日目から来るか。既定 1。日数の引き金は使わない方針(結合設計 §3.1)なので、新しいコンテンツは requiresFact で書く。
     public var fromDay: Int?
     /// 群れの数。既定 1...1。
     public var min: Int?
     public var max: Int?
     /// 巣が無いと来ない(巣を壊せば来なくなる)。既定 false(灯りの外の遠くから来る)。
     public var requiresNest: Bool?
+    /// 見つけた巣(knowledge.discovered に入った POI)からだけ来る。見つける前は来ない。既定 false。
+    public var requiresKnownNest: Bool?
+    /// この事実を知ってから来る(例: 最初の脅威の出来事のあと)。
+    public var requiresFact: FactExpr?
+    /// この事実を知ったら来なくなる。
+    public var untilFact: FactExpr?
+    /// 事実ごとの率の増減。
+    public var factModifiers: [FactRateModifier]?
 
-    public init(perNight: Int, fromDay: Int? = nil, min: Int? = nil, max: Int? = nil, requiresNest: Bool? = nil) {
+    public init(perNight: Int, fromDay: Int? = nil, min: Int? = nil, max: Int? = nil, requiresNest: Bool? = nil,
+                requiresKnownNest: Bool? = nil, requiresFact: FactExpr? = nil, untilFact: FactExpr? = nil,
+                factModifiers: [FactRateModifier]? = nil) {
         self.perNight = perNight
         self.fromDay = fromDay
         self.min = min
         self.max = max
         self.requiresNest = requiresNest
+        self.requiresKnownNest = requiresKnownNest
+        self.requiresFact = requiresFact
+        self.untilFact = untilFact
+        self.factModifiers = factModifiers
+    }
+}
+
+/// 事実による率の増減(万分率の率に)。知っている事実の式が成り立てば、permille を掛けてから add を足す。
+public struct FactRateModifier: Codable, Equatable, Sendable {
+    public var fact: FactExpr
+    /// 足す量(万分率。負で下がる)。
+    public var add: Int?
+    /// 掛ける量(千分率。500 = 半分)。
+    public var permille: Int?
+
+    public init(fact: FactExpr, add: Int? = nil, permille: Int? = nil) {
+        self.fact = fact
+        self.add = add
+        self.permille = permille
+    }
+}
+
+/// 事実で決まる率(日数を使わない引き金。結合設計 §3.1)。
+public enum FactRate {
+    /// requires が成り立たない・until が成り立つなら 0。そうでなければ base に modifiers を順に当てる(0 未満は 0)。
+    public static func rate(_ base: Int, requires: FactExpr?, until: FactExpr?, modifiers: [FactRateModifier]?,
+                            known: Set<FactID>) -> Int {
+        if let r = requires, !r.evaluate(known) { return 0 }
+        if let u = until, u.evaluate(known) { return 0 }
+        var v = base
+        for m in modifiers ?? [] where m.fact.evaluate(known) {
+            if let p = m.permille { v = v * p / 1000 }
+            if let a = m.add { v += a }
+        }
+        return max(0, v)
     }
 }
 
