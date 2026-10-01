@@ -27,6 +27,52 @@ public struct PeopleState: Codable, Equatable, Sendable {
 
     /// 拠点の一員(ノアを含む)。
     public var members: [PersonID] { order.filter { persons[$0]?.presence.isMember == true } }
+
+    // MARK: 他のシステムが読む問い合わせ(書くのは RFCrew だけ)
+
+    /// 地図の上にいる一員(位置がある・生きている)。
+    public var membersOnMap: [PersonID] {
+        order.filter { persons[$0].map { $0.presence.isMember && $0.position != nil } ?? false }
+    }
+
+    /// いま守られている配属(上書きがあればそちら)。
+    public func effectiveAssignment(_ id: PersonID) -> Assignment? {
+        persons[id].map { $0.override?.assignment ?? $0.assignment }
+    }
+
+    /// 置いた物(モジュール・研究机・建造中の建物)に実際に付いて働いている人(順は order)。
+    /// 着いて手を動かしている人だけ(歩いている途中は入らない)。速さは `PersonState.workSpeed`。
+    public func workers(at placement: EntityID) -> [PersonID] {
+        order.filter { id in
+            guard let p = persons[id], p.presence.isMember, case .working(let e) = p.activity else { return false }
+            return e == placement
+        }
+    }
+
+    /// 置いた物に付いている人の作業の速さの合計(千分率。誰もいなければ 0)。
+    /// モジュール・研究・建造はこれに範囲の効果(Auras.workSpeedPermille)などを掛ける。
+    public func workSpeedPermille(at placement: EntityID) -> Int {
+        workers(at: placement).reduce(0) { $0 + (persons[$1]?.workSpeed ?? 0) }
+    }
+
+    /// 見張りに立っている人(着いている人だけ)。
+    public var guards: [PersonID] {
+        order.filter { id in
+            guard let p = persons[id], p.presence.isMember else { return false }
+            switch p.activity {
+            case .guarding, .interposing: return true
+            default: return false
+            }
+        }
+    }
+
+    /// 運搬の経路を受け持っている人(配属で。歩いている途中も含む)。
+    public func haulers(of route: EntityID) -> [PersonID] {
+        order.filter { id in
+            guard let p = persons[id], p.presence.isMember, case .haul(let r) = effectiveAssignment(id) else { return false }
+            return r == route
+        }
+    }
 }
 
 public enum Presence: Codable, Equatable, Sendable {
@@ -71,6 +117,30 @@ public struct PersonState: Codable, Equatable, Sendable {
     /// 装備(枠 → 物)。R1 は武器 1 枠だけ使う。
     public var equipment: [String: EquippedItem] = [:]
 
+    // MARK: RFCrew が毎ステップ書く「いまの働き」(他のシステムは読むだけ)
+
+    /// 付いている所での作業の速さ(千分率。1000 = 普通)。working のときだけ値がある。
+    /// 専門の一致・関係のランク・思想と配属の向きの合い方から RFCrew が計算する(CrewRules)。
+    /// 範囲の効果・空腹などの掛け率は、読む側(生産・研究・建造)が掛ける。
+    public var workSpeed: Int?
+    /// 運搬の行き帰り(配属が haul のとき)。物の積み下ろしは RFLogistics が `arrived` を見て行う。
+    public var haulLeg: HaulLeg?
+    /// 着いてから次へ動くまで待つ時刻(積み下ろし・ひと休み)。
+    public var dwellUntil: GameTime?
+    /// 思想による賛否で関係が動いた最後の日(来歴の印 → 日)。同じ印で 1 日に何度も動かないように。
+    public var opinionDays: [ProvenanceTag: Int]?
+    /// 焚き火で最後に話した日(1 晩に 1 回だけ関係が深まる)。
+    public var talkedOnDay: Int?
+
+    // MARK: R2 以降が乗る場所(R1 では nil のまま)
+
+    /// 士気(千分率)。不満・離脱の元(R2)。
+    public var morale: Int?
+    /// 仲間どうしの関係(社交。R2)。
+    public var social: [PersonID: Int]?
+    /// この人だけが知っている地図(拠点の外から合流した人など)。nil なら一員で共有の既知(knowledge.mapKnown)。
+    public var personalKnown: [LayerID: GridBitset]?
+
     public init(id: PersonID, presence: Presence) {
         self.id = id
         self.presence = presence
@@ -112,11 +182,25 @@ public struct Motion: Codable, Equatable, Sendable {
     public var path: [GridPoint]
     /// 次のマスへの進み具合(千分率)。描画の補間にも使う。
     public var progress: Int
+    /// 行き先(経路を引き直すとき使う。path の最後と違うことがある: 通れないマスをタップしたらその手前まで)。
+    public var goal: GridPoint?
+    /// 霧の先(まだ見ていないマス)を仮定で通っている。歩いて霧が晴れたら引き直す。
+    public var throughFog: Bool?
 
-    public init(path: [GridPoint], progress: Int = 0) {
+    public init(path: [GridPoint], progress: Int = 0, goal: GridPoint? = nil, throughFog: Bool? = nil) {
         self.path = path
         self.progress = progress
+        self.goal = goal
+        self.throughFog = throughFog
     }
+}
+
+/// 運搬の行き帰り。
+public enum HaulLeg: String, Codable, Sendable {
+    /// 積みに行く(経路の from へ)。
+    case pickup
+    /// 下ろしに行く(経路の to へ)。
+    case dropoff
 }
 
 /// プレイヤーが仲間に与える役割。
@@ -146,6 +230,10 @@ public enum Activity: Codable, Equatable, Sendable {
     case fighting(battle: EntityID)
     case sleeping
     case talking(with: PersonID)
+    /// 見張りの場所に立っている。
+    case guarding(center: WorldPoint)
+    /// 見張りの途中で、敵と守る人の間に出ている(得意分野の振る舞い。PersonDef.behaviors の interpose)。
+    case interposing(threat: EntityID)
 }
 
 /// 体。値は千分率の固定小数。
@@ -163,12 +251,39 @@ public struct BodyState: Codable, Equatable, Sendable {
     public init() {}
 }
 
-/// ノアとの関係。ランク 0...10、次のランクまでの点はコンテンツの式。
+/// ノアとの関係。ランク 0...10。点はいまのランクの中での貯まり(原作 Survivor.AddAffinity):
+/// 次のランクまで (ランク + 1) × 50 点。届けば点を差し引いてランクが上がる。点は 0 より下がらない(ランクは下がらない。
+/// 不満・離脱は R2 の士気で扱う)。
 public struct RelationState: Codable, Equatable, Sendable {
     public var points: Int = 0
     public var rank: Int = 0
 
     public init() {}
+
+    public static let maxRank = 10
+
+    /// rank から次のランクへ上がるのに要る点(原作 Survivor.cs:47-62)。
+    public static func threshold(rank: Int) -> Int { (rank + 1) * 50 }
+
+    /// 点を足す(負なら減らす)。上がったランクの数を返す。効果 relation・会話・賛否はすべてこれを通す。
+    @discardableResult
+    public mutating func add(_ delta: Int) -> Int {
+        points = max(0, points + delta)
+        return normalize()
+    }
+
+    /// 貯まった点でランクを上げる(他から点だけ足された後にも呼べる)。上がった数を返す。
+    @discardableResult
+    public mutating func normalize() -> Int {
+        var up = 0
+        while rank < Self.maxRank, points >= Self.threshold(rank: rank) {
+            points -= Self.threshold(rank: rank)
+            rank += 1
+            up += 1
+        }
+        if rank >= Self.maxRank { points = min(points, Self.threshold(rank: Self.maxRank)) }
+        return up
+    }
 }
 
 /// 仲間の記憶 1 つ。about で来歴(あのとき起きたこと)を指す。

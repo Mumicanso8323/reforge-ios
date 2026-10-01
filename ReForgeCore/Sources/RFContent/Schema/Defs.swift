@@ -195,9 +195,11 @@ public struct PersonDef: ContentDef, Equatable {
     public var name: SubjectID
     public var specialties: [String]
     public var ideology: [IdeologyAxisID: Int]
-    /// 人が持つ範囲の効果(R3 の声など)。
+    /// 人が持つ範囲の効果(R3 の声・そばの人の精神力の戻りを早めるなど)。
     public var auras: [AuraKindID]?
     public var parameters: Value?
+    /// 得意分野の振る舞い(能力ではなく、配属の効きの範囲。見張りで間に出る、など)。持ち主: U5。
+    public var behaviors: [CrewBehavior]?
 }
 
 public struct IdeologyAxisDef: ContentDef, Equatable {
