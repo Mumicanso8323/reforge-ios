@@ -1,96 +1,55 @@
 import RFKernel
 
 // =====================================================================================
-// RFMap の境界(設計担当が置いた骨組み)。
+// RFMap の境界(他の層が使う形)。
 //
-// 地図の実装担当(葉)はこのモジュールの持ち主。ここにある型の「形」は他の層が使う約束だが、
-// 担当が先に作った型があればそちらを正とし、統合のときにこのファイルを合わせる/消す。
-// 他の層が当てにしているのは次だけ(docs/architecture/B-data-model.md §3):
-//   - MapState は値型で Codable・Equatable・Sendable。層(LayerID)ごとに MapLayer を持つ。
-//   - マスの地形は真実の ID(TerrainID)。表示の文字・色・名前は持たない(RFPerception / RFPresent が引く)。
-//   - 鉱脈は有限で、位置・種類(ItemKindID)・純度・残り回数を持つ。
+// 地図の型の正は RFMap の WorldMap / MapLayer(地図の担当)。設計担当が仮に置いた境界の形は、
+// ここで RFMap の型への薄い適合にした:
+//   - MapState は WorldMap の別名。層(LayerID)ごとに MapLayer を持つ。baseArea・spawn も持つ。
+//   - マスの地形は真実の ID(TerrainID)で引ける(`MapLayer.terrain(at:)`)。中では Biome で持つ。
+//   - POI は配置物(MapPlacement)。世界の実体 ID(EntityID)を振ったものを `MapLayer.pois` で引ける。
+//   - 鉱脈は有限で、位置・種類・組成(純度)・残り回数を持つ(Deposit)。
 //   - 生成・視界・経路は純粋関数で、乱数は渡された SeededRandom だけを使う。
 // =====================================================================================
 
-/// 地図全体。層を将来足せる(地表 LayerID.surface から始める)。
-public struct MapState: Codable, Equatable, Sendable {
-    public var layers: [LayerID: MapLayer]
-    /// 拠点の整地済みの範囲(地表)。
-    public var baseArea: GridRect?
-    /// ノアが目覚めた場所。
-    public var spawn: WorldPoint
+/// 世界状態が持つ地図(RFMap の WorldMap)。
+public typealias MapState = WorldMap
 
-    public init(layers: [LayerID: MapLayer], baseArea: GridRect?, spawn: WorldPoint) {
-        self.layers = layers
-        self.baseArea = baseArea
-        self.spawn = spawn
-    }
-
-    public subscript(layer: LayerID) -> MapLayer? {
-        get { layers[layer] }
-        set { layers[layer] = newValue }
-    }
-}
-
-/// 層 1 枚。
-public struct MapLayer: Codable, Equatable, Sendable {
-    public var size: GridSize
-    /// 地形の種類の表(terrain の値はこの表の添字)。
-    public var palette: [TerrainID]
-    /// 行優先。値は palette の添字。
-    public var terrain: [UInt16]
-    /// 有限の鉱脈。
-    public var deposits: [EntityID: DepositState]
-    /// 生成時に置いた地点(残骸・遺跡・水場など)。調べた進み具合は RFWorld の探索の切れ端が持つ。
-    public var pois: [EntityID: POIState]
-
-    public init(size: GridSize, palette: [TerrainID], terrain: [UInt16],
-                deposits: [EntityID: DepositState] = [:], pois: [EntityID: POIState] = [:]) {
+extension MapLayer {
+    /// 地形の ID の表と、その添字の並びから層を作る(試験用の平らな地図など)。
+    /// palette の ID は Biome.terrainID のどれか(知らない ID は作れない)。
+    public init(size: GridSize, palette: [TerrainID], terrain: [UInt16]) {
         precondition(terrain.count == size.count, "terrain は size.count 個")
-        self.size = size
-        self.palette = palette
-        self.terrain = terrain
-        self.deposits = deposits
-        self.pois = pois
-    }
-
-    public func terrain(at p: GridPoint) -> TerrainID? {
-        guard size.contains(p) else { return nil }
-        return palette[Int(terrain[size.index(p)])]
-    }
-
-    public mutating func setTerrain(_ t: TerrainID, at p: GridPoint) {
-        guard size.contains(p) else { return }
-        if let i = palette.firstIndex(of: t) {
-            terrain[size.index(p)] = UInt16(i)
-        } else {
-            palette.append(t)
-            terrain[size.index(p)] = UInt16(palette.count - 1)
+        let biomes = palette.map { id -> Biome in
+            guard let b = Biome(terrainID: id) else { preconditionFailure("地図の知らない地形: \(id)") }
+            return b
         }
+        self.init(id: .surface, terrain: TerrainGrid(size: size, cells: terrain.map { biomes[Int($0)] }))
     }
 
-    public func deposit(at p: GridPoint) -> (EntityID, DepositState)? {
-        deposits.first { $0.value.at == p }.map { ($0.key, $0.value) }
+    /// マスの地形の ID(地図の外は nil)。
+    public func terrain(at p: GridPoint) -> TerrainID? {
+        terrain.biome(at: p)?.terrainID
+    }
+
+    /// マスの地形を ID で書き換える(試験用)。知らない ID は書けない。
+    public mutating func setTerrain(_ t: TerrainID, at p: GridPoint) {
+        guard let b = Biome(terrainID: t) else { preconditionFailure("地図の知らない地形: \(t)") }
+        terrain.set(p, b)
+    }
+
+    /// 世界の実体 ID を振った POI(残骸・遺跡・巣など)。
+    public var pois: [EntityID: POIState] {
+        var out: [EntityID: POIState] = [:]
+        for p in placements.all {
+            guard let e = p.entity, p.kind != .module else { continue }
+            out[e] = POIState(kind: POIKindID(p.templateID), at: p.anchor, footprint: p.footprint.offsets)
+        }
+        return out
     }
 }
 
-/// 鉱脈(有限・枯れる)。
-public struct DepositState: Codable, Equatable, Sendable {
-    public var at: GridPoint
-    /// 出てくる鉱石の種類(真実。原作の item_id 例: "iron_ore")。見た目の名前は認識の層が引く。
-    public var ore: ItemID
-    public var purity: Purity
-    public var remainingExtractions: Int
-
-    public init(at: GridPoint, ore: ItemID, purity: Purity, remainingExtractions: Int) {
-        self.at = at
-        self.ore = ore
-        self.purity = purity
-        self.remainingExtractions = remainingExtractions
-    }
-}
-
-/// 生成時に置いた地点。
+/// POI の見え方(世界状態から引く形)。中身は MapPlacement から作る。
 public struct POIState: Codable, Equatable, Sendable {
     public var kind: POIKindID
     public var at: GridPoint
@@ -104,9 +63,9 @@ public struct POIState: Codable, Equatable, Sendable {
     }
 }
 
-// MARK: - コンテンツの定義(RFContent が読み込む。形は地図の担当が決める)
+// MARK: - コンテンツの定義(RFContent が読み込む)
 
-/// 地形の性質(表示は持たない)。
+/// 地形の性質(表示は持たない)。id は Biome.terrainID と同じ。
 public struct TerrainDef: Codable, Equatable, Sendable {
     public var id: TerrainID
     public var passable: Bool
@@ -126,10 +85,22 @@ public struct TerrainDef: Codable, Equatable, Sendable {
     }
 }
 
-/// 地図の生成の設定(大きさ・バイオーム・POI・鉱脈の配り方)。中身は地図の担当が決める。
+extension MoveCostTable {
+    /// コンテンツの地形の定義から作る。定義の無い地形は原作の値のまま。
+    public init(terrains: [TerrainID: TerrainDef]) {
+        var c = MoveCostTable.original.costs
+        for b in Biome.allCases {
+            guard let d = terrains[b.terrainID] else { continue }
+            c[b] = d.passable && d.moveCost.raw > 0 ? Int(d.moveCost.raw) : nil
+        }
+        self.init(c)
+    }
+}
+
+/// 地図の生成の設定(コンテンツに書く形)。大きさだけを読み、残りは R1 の既定(MapGenerationConfig)。
 public struct MapGenConfig: Codable, Equatable, Sendable {
     public var size: GridSize
-    /// 担当が形を決めるまでの入れ物。
+    /// 予備(いまは読まない)。
     public var parameters: Value
 
     public init(size: GridSize, parameters: Value = .null) {
@@ -138,12 +109,33 @@ public struct MapGenConfig: Codable, Equatable, Sendable {
     }
 }
 
-// MARK: - 計算の約束(実装は地図の担当)
+// MARK: - 計算の約束
 
 /// 地図の生成。同じ設定と seed からは同じ地図。
 public protocol MapGenerating: Sendable {
     func generate(config: MapGenConfig, terrains: [TerrainID: TerrainDef], rng: inout SeededRandom,
                   allocate: () -> EntityID) -> MapState
+}
+
+/// RFMap の生成(本番の地図)。POI に世界の実体 ID を振る。
+/// この約束は投げられないので、位置関係の保証を満たせないときは未検証の地図を返し、
+/// `generationReport.verified == false` に残す(100 seed のテストで 0 件を確かめている)。
+/// 目印を置けないほど小さい大きさはコンテンツの誤りとして止める。
+public struct RFMapGenerator: MapGenerating {
+    public init() {}
+
+    public func generate(config: MapGenConfig, terrains: [TerrainID: TerrainDef], rng: inout SeededRandom,
+                         allocate: () -> EntityID) -> MapState {
+        var c = MapGenerationConfig(size: config.size)
+        c.allowUnverifiedFallback = true
+        do {
+            var map = try WorldMap.generate(config: c, rng: &rng)
+            map.assignEntities(allocate)
+            return map
+        } catch {
+            preconditionFailure("地図を作れない(コンテンツの地図の大きさを見直す): \(error)")
+        }
+    }
 }
 
 /// 経路探索。通れない・届かないなら nil。
@@ -152,7 +144,27 @@ public protocol PathFinding: Sendable {
               blocked: Set<GridPoint>) -> [GridPoint]?
 }
 
+/// RFMap の経路探索(霧を見ない。コストはコンテンツの地形の定義から)。
+public struct RFMapPathFinder: PathFinding {
+    public init() {}
+
+    public func path(on layer: MapLayer, terrains: [TerrainID: TerrainDef], from: GridPoint, to: GridPoint,
+                     blocked: Set<GridPoint>) -> [GridPoint]? {
+        Pathfinder.route(in: layer, from: from, to: to, costs: MoveCostTable(terrains: terrains),
+                         options: PathOptions(fog: .ignore, blocked: blocked)).path?.steps
+    }
+}
+
 /// 視界。見えているマスを返す(既知への書き込みは呼び出し側)。
 public protocol VisibilityComputing: Sendable {
     func visible(on layer: MapLayer, terrains: [TerrainID: TerrainDef], from: GridPoint, radius: Int) -> [GridPoint]
+}
+
+/// RFMap の視界(半径の円。遮るものは見ない = 原作どおり)。
+public struct RFMapVisibility: VisibilityComputing {
+    public init() {}
+
+    public func visible(on layer: MapLayer, terrains: [TerrainID: TerrainDef], from: GridPoint, radius: Int) -> [GridPoint] {
+        VisionRule.cells(center: from, radius: radius, in: layer.size)
+    }
 }
