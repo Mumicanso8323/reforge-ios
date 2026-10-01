@@ -137,6 +137,17 @@ public enum NarrativeCommand: Codable, Equatable, Sendable {
     case advanceScene
     /// 効果から: 出来事をすぐ起こす(効果 fire)。
     case fireFromEffect(event: EventID, cause: ProvenanceID?)
+    // 工程表(U15)
+    /// 工程表を開く(slot nil = 表 / 番号 = 記録の 1 件。空いた席も開ける)。開いたことは来歴に残る。
+    case openSheet(sheet: SheetID, slot: Int?)
+    /// 装置で技能を書き足す(skill nil = この人には使わないと決める)。
+    case imprint(sheet: SheetID, person: PersonID, skill: SkillID?)
+    /// 行に自分の来歴を答えとして置く(置き直せる)。
+    case placeAnswer(sheet: SheetID, row: String, record: ProvenanceID)
+    /// 名簿で「乗る / 残る」を決める(ノアも)。
+    case setBoarding(sheet: SheetID, person: PersonID, aboard: Bool)
+    /// 名簿を締める(出発)。
+    case lockManifest(sheet: SheetID)
 }
 
 public enum SurvivalCommand: Codable, Equatable, Sendable {

@@ -75,6 +75,10 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     case chance(basisPoints: Int)
     /// 何周目以降か(巻き戻しの後だけ起きる出来事)。
     case runAtLeast(index: Int)
+    /// 工程表(記録・答え・装置・名簿)の進み(U15)。
+    case sheet(id: SheetID, test: SheetTest)
+    /// 拠点の格が atLeast 以上(BaseDef.grades と拠点の格の大きい方)。
+    case baseGrade(atLeast: Int)
 }
 
 /// 目標の状態の名前(RFWorld の ObjectiveStatus と同じ値。RFContent は RFWorld に依存しないので写しを持つ)。
@@ -113,6 +117,26 @@ public enum POITest: Codable, Hashable, Sendable {
     case flag(name: String)
     /// その状態の部品の数。
     case partsInState(state: PartStateName, atLeast: Int)
+}
+
+/// 工程表の進みの調べ方。
+public enum SheetTest: Codable, Hashable, Sendable {
+    /// 開いた(slot nil = 表そのもの / 番号 = その記録)。
+    case opened(slot: Int?)
+    /// 空いた席を開いた数。
+    case emptySlotsSeen(atLeast: Int)
+    /// 行に答えを置いた(query があれば、置いた来歴がそれに合う)。
+    case answered(row: String, query: ProvenanceQuery?)
+    /// 装置で書き足した(person nil = 誰でも。atLeast 既定 1 人)。
+    case imprinted(person: PersonID?, atLeast: Int?)
+    /// 使わなかった(プレイヤーが使わないと決めたか、本人が拒んだ)。
+    case declined(person: PersonID?, atLeast: Int?)
+    /// 乗る人(person nil = 人数)。
+    case aboard(person: PersonID?, atLeast: Int?)
+    /// 残る人。
+    case staying(person: PersonID?, atLeast: Int?)
+    /// 名簿を締めた(出発した)。
+    case locked
 }
 
 /// 来歴の問い合わせ。指定した項目だけで絞る(nil は問わない)。
@@ -230,6 +254,7 @@ extension ContentValidator {
             for e in c.referencedEvents where db.events[e] == nil { missing("出来事", e.rawValue, origin) }
             c.walk { x in
                 if case .inAura(_, let k) = x, db.auras[k] == nil { missing("範囲の効果", k.rawValue, origin) }
+                if case .sheet(let s, _) = x, db.sheets[s] == nil { missing("工程表", s.rawValue, origin) }
             }
         }
         func checkEffects(_ es: [Effect]?, _ origin: String) {
@@ -277,5 +302,34 @@ extension ContentValidator {
         for (id, d) in db.people.sorted(by: { $0.key < $1.key }) {
             for k in d.auras ?? [] where db.auras[k] == nil { missing("範囲の効果", k.rawValue, "person \(id)") }
         }
+        // 工程表(U15): 記録の席・答えの行・装置・名簿
+        for (id, sh) in db.sheets.sorted(by: { $0.key < $1.key }) {
+            let o = "sheet \(id)"
+            checkCondition(sh.when, o)
+            for r in sh.rows + (sh.entryRows ?? []) { checkCondition(r.when, o) }
+            var rowIDs = Set<String>()
+            for r in sh.rows {
+                if r.answer != nil, r.id == nil {
+                    out.append(Issue(level: .error, rule: "sheet.answer-id", message: "\(o) の答えの行に id が無い"))
+                }
+                if let rid = r.id, !rowIDs.insert(rid).inserted {
+                    out.append(Issue(level: .error, rule: "sheet.row-id", message: "\(o) の行 \(rid) が重なっている"))
+                }
+            }
+            var slots = Set<Int>()
+            for e in sh.entries ?? [] {
+                checkCondition(e.when, o)
+                if let p = e.person, db.people[p] == nil { missing("人", p.rawValue, o) }
+                if !slots.insert(e.slot).inserted || e.slot < 1 || e.slot > (sh.slots ?? Int.max) {
+                    out.append(Issue(level: .error, rule: "sheet.slot", message: "\(o) の席 \(e.slot) が重なるか範囲の外"))
+                }
+            }
+            if let im = sh.imprint {
+                checkCondition(im.when, o)
+                for k in im.skills where db.skills[k] == nil { missing("技能", k.rawValue, o) }
+            }
+            if let m = sh.manifest { checkCondition(m.when, o) }
+        }
+        for g in db.base.grades ?? [] { checkCondition(g.when, "base grade \(g.grade)") }
     }
 }

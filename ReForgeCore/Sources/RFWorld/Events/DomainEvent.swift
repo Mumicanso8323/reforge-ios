@@ -80,6 +80,12 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case endingReached(ending: EndingID)
     /// 仲間が一言いった(画面は認識の層で文字にして帯に出す)。
     case lineSpoken(person: PersonID, line: LineID)
+    // 工程表(U15)
+    case sheetOpened(sheet: SheetID, slot: Int?, empty: Bool, record: ProvenanceID)
+    case answerPlaced(sheet: SheetID, row: String, record: ProvenanceID)
+    case imprintDeclined(sheet: SheetID, person: PersonID, refused: Bool, record: ProvenanceID)
+    case boardingDeclared(sheet: SheetID, person: PersonID, aboard: Bool, record: ProvenanceID)
+    case manifestLocked(sheet: SheetID, record: ProvenanceID)
     // 失敗
     case runFailed(cause: TextID)
     /// 巻き戻した・失って続けたあとの最初のステップで出す(act = .rewound / .continuedWithLoss)。
@@ -142,6 +148,11 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .chapterEnded: "chapter.ended"
         case .endingReached: "ending"
         case .lineSpoken: "line"
+        case .sheetOpened: "sheet.opened"
+        case .answerPlaced: "sheet.answered"
+        case .imprintDeclined: "imprint.declined"
+        case .boardingDeclared: "boarding.declared"
+        case .manifestLocked: "manifest.locked"
         case .runFailed: "failed"
         case .runResumed: "run.resumed"
         }
@@ -164,6 +175,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .itemGained(_, _, _, let r): r
         case .hintHeard(_, _, let r): r
         case .opinion(_, let r, _): r
+        case .sheetOpened(_, _, _, let r), .answerPlaced(_, _, let r), .imprintDeclined(_, _, _, let r),
+             .boardingDeclared(_, _, _, let r), .manifestLocked(_, let r): r
         default: nil
         }
     }
