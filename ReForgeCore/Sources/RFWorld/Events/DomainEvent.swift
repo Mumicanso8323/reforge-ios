@@ -55,6 +55,10 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case researchCompleted(research: ResearchID, record: ProvenanceID)
     case skillAcquired(person: PersonID, skill: SkillID, record: ProvenanceID)
     case unlocked(what: String)
+    /// 研究パッケージの中の段が終わった(node = 段の番号。0 から)。
+    case researchNode(research: ResearchID, node: Int, record: ProvenanceID)
+    // 力
+    case abilityUsed(person: PersonID, ability: AbilityID, record: ProvenanceID)
     // 物語
     case eventFired(event: EventID, record: ProvenanceID)
     case decisionOpened(decision: EntityID, event: EventID)
@@ -111,6 +115,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .researchCompleted: "research.completed"
         case .skillAcquired: "skill"
         case .unlocked: "unlocked"
+        case .researchNode: "research.node"
+        case .abilityUsed: "ability.used"
         case .eventFired: "event"
         case .decisionOpened: "decision.opened"
         case .decided: "decided"
@@ -132,7 +138,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .placed(_, let r), .dismantled(_, let r), .built(_, let r), .interacted(_, _, _, let r),
              .finiteUsed(let r), .personMet(_, let r), .personJoined(_, let r), .personLeft(_, let r),
              .personDied(_, let r), .battleStarted(_, let r), .battleEnded(_, _, _, let r),
-             .researchCompleted(_, let r), .skillAcquired(_, _, let r), .eventFired(_, let r),
+             .researchCompleted(_, let r), .skillAcquired(_, _, let r), .researchNode(_, _, let r),
+             .abilityUsed(_, _, let r), .eventFired(_, let r),
              .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r):
             r
         case .itemGained(_, _, _, let r): r

@@ -127,6 +127,8 @@ public enum SubjectRef: Codable, Hashable, Sendable {
     case part(EntityID, String)
     case sheet(SheetID)
     case aura(AuraKindID, EntityID?)
+    /// 特別な力(使った・効いた)。
+    case ability(AbilityID)
 
     /// 種類の鍵(「初めて」の判定用。実体の番号を除く)。
     public var kindKey: String {
@@ -150,6 +152,7 @@ public enum SubjectRef: Codable, Hashable, Sendable {
         case .part(_, let name): "part:\(name)"
         case .sheet(let s): "sheet:\(s)"
         case .aura(let k, _): "aura:\(k)"
+        case .ability(let a): "ability:\(a)"
         }
     }
 }
