@@ -47,6 +47,13 @@ struct PathPlanner {
         return !blocked(layer).contains(p)
     }
 
+    /// 隣のマスへ入る移動コスト(千分の一の体力。斜めは 1.4 倍。通れなければ 0)。
+    func enterCost(from a: GridPoint, to b: GridPoint, _ layer: LayerID) -> Int {
+        guard let biome = world.map[layer]?.biome(at: b) else { return 0 }
+        let diagonal = a.x != b.x && a.y != b.y
+        return (diagonal ? costs.diagonalCost(biome) : costs.cost(biome)) ?? 0
+    }
+
     /// 人が知っている範囲で通れると思えるマスか(未知は通れると仮定)。
     mutating func passableBelief(_ p: GridPoint, _ layer: LayerID, known: GridBitset?) -> Bool {
         guard let l = world.map[layer], l.size.contains(p) else { return false }
@@ -132,6 +139,8 @@ enum Walking {
         m.progress += speed
         var here = pos
         var replan = false
+        var tiles = 0
+        var cost = 0
         while m.progress >= 1000, let next = m.path.first {
             if !planner.passableTruth(next, here.layer) {
                 // 着いてみたら通れない(霧の先が水だった・その間にモジュールが置かれた)
@@ -141,11 +150,14 @@ enum Walking {
             }
             m.path.removeFirst()
             m.progress -= 1000
+            tiles += 1
+            cost += planner.enterCost(from: here.point, to: next, here.layer)
             ps.facing = facing(from: here.point, to: next, current: ps.facing)
             here = WorldPoint(here.layer, next)
         }
         ps.position = here
         if here != pos { ctx.changes.mark(.people) }
+        if tiles > 0 { ctx.emit(.walked(person: id, tiles: tiles, staminaCost: cost)) }
         if m.path.isEmpty && !replan {
             ps.motion = nil
             ctx.world.people[id] = ps

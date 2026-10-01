@@ -104,6 +104,22 @@ final class CrewSystemTests: XCTestCase {
         XCTAssertEqual(w.people[.noah]!.activity, .idle)
     }
 
+    /// 歩いたマス数と地形の移動コストを walked で知らせる(体力を減らすのは RFSurvival)。草地 1 マス 10、斜めは 1.4 倍。
+    func testWalkedEventCarriesTerrainCost() throws {
+        let rig = try TestRig.publicOnly()
+        var w = world(rig)
+        _ = apply(rig, &w, .walk(to: at(w, 3, 0)))
+        var r = walkUntilStopped(rig, &w)
+        var tiles = 0, cost = 0
+        for case .walked(.noah, let t, let c) in r.events { tiles += t; cost += c }
+        XCTAssertEqual([tiles, cost], [3, 30])
+        _ = apply(rig, &w, .walk(to: at(w, 5, 2)))
+        r = walkUntilStopped(rig, &w)
+        cost = 0
+        for case .walked(.noah, _, let c) in r.events { cost += c }
+        XCTAssertEqual(cost, 28, "斜め 2 マス")
+    }
+
     /// 歩いている途中に別の行き先を送ると、いまの次のマスを経て新しい行き先へ向かう(戻らない・飛ばない)。
     func testChangesDestinationWhileWalking() throws {
         let rig = try TestRig.publicOnly()

@@ -293,12 +293,12 @@ enum WorkSpeed {
         return max(0, v)
     }
 
-    /// 置いた物の専門(モジュールの specialty。建造物は parameters の "specialty")。
+    /// 置いた物の専門(モジュール・建造物の specialty。古い建造物の定義は parameters の "specialty")。
     static func specialty(of e: EntityID, _ w: WorldState, _ c: ContentDB) -> String? {
         guard let p = w.placements.items[e] else { return nil }
         switch p.kind {
         case .module(let k): return c.modules[k]?.specialty
-        case .structure(let k): return c.structures[k]?.parameters?["specialty"]?.stringValue
+        case .structure(let k): return c.structures[k].flatMap { $0.specialty ?? $0.parameters?["specialty"]?.stringValue }
         }
     }
 }
