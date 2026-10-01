@@ -32,7 +32,11 @@ var targets: [Target] = [
     .target(name: "RFMatter", dependencies: ["RFKernel"], exclude: ["README.md"]),
     // L2
     .target(name: "RFWorld", dependencies: ["RFKernel", "RFMap", "RFMatter"]),
-    .target(name: "RFContent", dependencies: ["RFKernel", "RFMap", "RFMatter"]),
+    // 封をした非公開の層(E-content.md §4.5)を開くのに AES-GCM を使う。Apple では CryptoKit、Linux では swift-crypto
+    .target(name: "RFContent", dependencies: [
+        "RFKernel", "RFMap", "RFMatter",
+        .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
+    ]),
     // L3
     .target(name: "RFRules", dependencies: ["RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent"]),
     .target(name: "RFPerception", dependencies: ["RFKernel", "RFMatter", "RFWorld", "RFContent"]),
@@ -49,6 +53,8 @@ var targets: [Target] = [
         "RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception",
         "RFSave", "RFFailure", "RFSim", "RFPresent",
     ] + systems.map { .target(name: $0) }),
+    // 非公開の層に封をして、アプリに埋める鍵の Swift ファイルを書く道具(CI の ios ジョブで使う。U3)
+    .executableTarget(name: "rf-seal", dependencies: ["RFContent"]),
     // テストの道具(公開の試験用コンテンツの場所・ボットの枠)。アプリには入れない
     .target(name: "RFTestSupport", dependencies: ["ReForgeEngine"]),
 
@@ -81,5 +87,7 @@ let package = Package(
         /// 旧版 b7(現在のアプリが使う)。新しい UI に替わったら消す。
         .library(name: "ReForgeCore", targets: ["ReForgeCore", "ReForgeContent"]),
     ],
+    // 外部依存はこれ 1 つだけ(Linux の swift test で暗号を使うため。Apple では使わない)
+    dependencies: [.package(url: "https://github.com/apple/swift-crypto.git", "3.0.0"..<"5.0.0")],
     targets: targets
 )
