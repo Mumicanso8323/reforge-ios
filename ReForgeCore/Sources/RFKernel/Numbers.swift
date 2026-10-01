@@ -37,7 +37,7 @@ public struct Purity: Hashable, Comparable, Codable, Sendable, CustomStringConve
     }
 }
 
-/// 千分の 1 単位の固定小数(体力・精神力・大気・関係の点など)。
+/// 千分の 1 単位の固定小数(体力・精神力・拠点全体の数値・関係の点など)。
 public struct Milli: Hashable, Comparable, Codable, Sendable, AdditiveArithmetic, CustomStringConvertible {
     public var raw: Int64
 

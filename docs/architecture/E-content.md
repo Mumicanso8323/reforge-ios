@@ -71,8 +71,9 @@ reforge-content/
 ### 4.3 CI での取り込み(既定値)
 - secret の名前: **`REFORGE_CONTENT_TOKEN`**(非公開リポジトリの contents を読むだけの fine-grained PAT)。
 - `core` ジョブ: (1) 公開の層だけで `swift test`(公開版だけで通ることを毎回確かめる)→ (2) secret があれば `actions/checkout` で `Mumicanso8323/reforge-content` を `content/private` に取り込み、もう一度 `swift test`(非公開の層を重ねた検証・監査・受け入れテスト)。
-- `ios` ジョブ: secret があれば同じく取り込んでからビルドする(アプリの束に公開 + 非公開を入れる)。secret が無い(fork からの PR など)ときは公開の層だけでビルドする。
-- secret はジョブの環境変数で有無を見る(`if:` に secrets を直接書けないため)。`ci.yml` に入れてある。
+- secret はジョブの環境変数 `HAS_CONTENT_TOKEN` で有無を見る(`if:` に secrets を直接書けないため)。`core` ジョブの (1)(2) は `ci.yml` に入れてある。
+- **公開リポジトリの Actions のログとアーティファクトは誰でも読める。** 非公開の層を重ねたテストは出力をファイルに伏せ、失敗したテストの名前(公開のコード)だけを出す。ログをアーティファクトに上げない。テストの失敗の文面に本文を入れない(`XCTAssertEqual(文字列, …)` で本文を比べるテストは非公開の層では書かない。件数や ID で比べる)。
+- `ios` ジョブ(U13 でアプリがコンテンツの束を読むようになってから): 公開リポジトリのアーティファクトと Releases(更新ショートカット用の `dev` を含む)は誰でも落とせるので、**非公開の層を入れた ipa をそこに置かない**。既定: 公開リポジトリの ipa は公開の層だけで作る(物語の無い試遊版)。非公開の層を入れた ipa は、同じ secret(書き込みも許したトークン)で非公開リポジトリの Releases に上げる。ショートカットの取得先をどうするかはオーナーの判断(報告の質問)。
 ### 4.4 手元での開発(非公開リポジトリが無い間も)
 - `content/private/` にディレクトリを置けば、テストもアプリも自動で重ねる(gitignore 済み)。
 - 別の場所に置くなら環境変数 `REFORGE_PRIVATE_CONTENT=/path/to/dir`(`ContentLoader.privateLayerEnv`)。docker では `-e REFORGE_PRIVATE_CONTENT=/w/…` か、`content/private` へのコピー。

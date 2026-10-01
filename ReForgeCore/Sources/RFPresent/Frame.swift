@@ -54,7 +54,7 @@ public struct ClockView: Equatable, Sendable {
     public var running: Bool
 }
 
-/// 上の帯の 1 項目(食料あと 3 日・大気の濁り・次の目標…)。
+/// 上の帯の 1 項目(食料あと 3 日・数値の段階・次の目標…)。
 public struct StatusItem: Equatable, Sendable {
     public var key: String
     public var label: String
