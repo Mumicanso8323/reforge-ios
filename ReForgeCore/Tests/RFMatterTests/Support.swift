@@ -10,10 +10,8 @@ struct TestNameRenderer: NameRendering {
             switch part {
             case .extreme(.poor): s += "粗悪な"
             case .grade(let g, let c): s += Self.gradeWord(g, c)
-            case .temper(.hard): s += "剛"
-            case .temper(.soft): s += "柔"
-            case .temper(.cracked): cracked = true
-            case .temper(.none): break
+            case .temper(let t):
+                if t == .hard { s += "剛" } else if t == .soft { s += "柔" } else if t == .cracked { cracked = true }
             case .proper(let id): s += Self.proper[id] ?? id.rawValue
             case .substance(let id): s += Self.substance[id] ?? id.rawValue
             case .shape(let sh): s += Self.shape[sh] ?? sh.rawValue
@@ -55,13 +53,31 @@ extension Matter {
     static func iron(_ bp: Int, _ shape: Shape = .lump, temper: Temper = .none) -> Matter {
         Matter(substance: .iron, purity: Purity(basisPoints: bp), stage: .metal, shape: shape, temper: temper)
     }
+
+    /// 精鉄板: 純度 85% 以上の板(割れていない。剛・柔は問わない)。
+    var isFinePlate: Bool {
+        stage == .metal && shape == .plate && temper != .cracked && purity >= Purity(percent: 85)
+    }
+
+    /// 剛鉄板: 剛の板。
+    var isHardPlate: Bool { stage == .metal && shape == .plate && temper == .hard }
 }
 
-/// 6 種の工程(採掘口は並びの先頭に固定)。炉は燃料 2 通り。
+extension ChainResult {
+    var isFinePlate: Bool { product.isFinePlate }
+    var isHardPlate: Bool { product.isHardPlate }
+    /// 効果のない段を除いた並び(採掘口は残す)。
+    var reducedSteps: [ProcessStep] {
+        trace.enumerated().filter { $0.offset == 0 || $0.element.changed }.map(\.element.step)
+    }
+}
+
+/// 6 種の工程(採掘口は並びの先頭に固定)。炉は燃料 2 通りで、段の種類は 7。
 enum ChainSpace {
     static let kinds: [[ProcessStep]] = [
         [.millstone], [.sluice], [.lime], [.woodFurnace, .charcoalFurnace], [.anvil], [.quench],
     ]
+    static let variants = kinds.flatMap { $0 }
 
     /// 各種類を高々 1 回ずつ、順番を問う並び(長さ 1〜6)。採掘口を先頭に付けて返す。
     static func distinctOrders() -> [[ProcessStep]] {
@@ -76,29 +92,54 @@ enum ChainSpace {
         return out
     }
 
-    /// 同じ種類の繰り返しも許す並び(長さ 1〜maxLength)。
-    static func withRepeats(maxLength: Int) -> [[ProcessStep]] {
-        let variants = kinds.flatMap { $0 }
-        var out: [[ProcessStep]] = []
-        var frontier: [[ProcessStep]] = [[]]
-        for _ in 1...maxLength {
-            frontier = frontier.flatMap { p in variants.map { p + [$0] } }
-            out += frontier.map { [.minehead] + $0 }
+    struct Count {
+        var total = 0
+        var fine = 0
+        var hard = 0
+        var both = 0
+    }
+
+    /// 繰り返しを許す並び(長さ 1〜maxLength、7^1 + … + 7^maxLength 通り)を、物の状態ごとにまとめて数える。
+    static func countWithRepeats(maxLength: Int, ore: Matter) -> Count {
+        var states: [Matter: Int] = [ProcessChain.advance(ore, through: .minehead, at: 0).matter: 1]
+        var c = Count()
+        for len in 1...maxLength {
+            var next: [Matter: Int] = [:]
+            for (m, n) in states {
+                for v in variants { next[ProcessChain.advance(m, through: v, at: len).matter, default: 0] += n }
+            }
+            states = next
+            for (m, n) in states {
+                let p = ProcessChain.finish(m).matter
+                c.total += n
+                if p.isFinePlate { c.fine += n }
+                if p.isHardPlate { c.hard += n }
+                if p.isFinePlate && p.isHardPlate { c.both += n }
+            }
         }
-        return out
-    }
-}
-
-extension ChainResult {
-    /// 精鉄板: 純度 85% 以上の板(割れていない。剛・柔は問わない)。
-    var isFinePlate: Bool {
-        product.stage == .metal && product.shape == .plate && product.temper != .cracked
-            && product.purity >= Purity(percent: 85)
+        return c
     }
 
-    /// 剛鉄板: 剛の板。
-    var isHardPlate: Bool {
-        product.stage == .metal && product.shape == .plate && product.temper == .hard
+    /// 精鉄板に届く「本質的に違う道」: 効果のある段だけでできた並びのうち、どの 1 段を抜いても届かなくなるもの。
+    /// 効果のない段を挟んだ変種や、届いた後に余計な段を足した変種は数えない。
+    static func essentialFinePaths(maxLength: Int, ore: Matter) -> [[ProcessStep]] {
+        var reaching: [[ProcessStep]] = []
+        func walk(_ m: Matter, _ path: [ProcessStep]) {
+            if ProcessChain.finish(m).matter.isFinePlate { reaching.append(path) }
+            guard path.count - 1 < maxLength else { return }
+            for v in variants {
+                let next = ProcessChain.advance(m, through: v, at: path.count).matter
+                if next != m { walk(next, path + [v]) }
+            }
+        }
+        walk(ProcessChain.advance(ore, through: .minehead, at: 0).matter, [.minehead])
+        return reaching.filter { path in
+            (1..<path.count).allSatisfy { i in
+                var shorter = path
+                shorter.remove(at: i)
+                return !ProcessChain.run(shorter, input: ore).isFinePlate
+            }
+        }
     }
 }
 
@@ -109,7 +150,7 @@ func shorthand(_ steps: [ProcessStep]) -> String {
         case .millstone: "砕"
         case .sluice: "洗"
         case .mixingBowl: "混"
-        case .furnace: s.input == .wood ? "熱(薪)" : "熱(炭)"
+        case .furnace: s.inputItems == [.wood] ? "熱(薪)" : "熱(炭)"
         case .anvil: "叩"
         case .quenchTank: "冷"
         default: s.module.rawValue
