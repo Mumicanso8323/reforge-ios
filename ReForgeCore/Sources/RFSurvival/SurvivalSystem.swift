@@ -3,20 +3,61 @@ import RFKernel
 import RFRules
 import RFWorld
 
-/// 生存の圧(CORE-07)。食料・水の消費、空腹・脱水、精神力(外で減り、シェルターで戻る)、拠点全体の数値
-/// (内訳と合計。見せない値を含む)、天候と季節(R2)。範囲の効果の bodyPerHour / statPerHour を足す。
+/// 生存の圧(CORE-07)。食料・水の消費、空腹・渇き、生水の中毒、精神力(外で減り、シェルターで戻る)、体の状態と回復、
+/// 拠点全体の数値(内訳と合計・暦などの見せない値)、範囲の効果の bodyPerHour / statPerHour。
 ///
-/// 書いてよい切れ端: survival。乱数の流れ: .survival。受けるコマンド: .survival(.consume)。
-/// 骨組み(中身は担当が入れる)。受け入れテストは docs/architecture/F-work-units.md。
+/// - どれも固定ステップの中で、秒 × 率を整数の端数つきで足す。だから昼をリアルタイムで過ごしても、寝るで一括にしても、
+///   刻みの大きさによらず同じ結果になる(1 人 1 日 食料 1・水 1)。
+/// - 体の規則は全員に共通(REQ-S5)。人ごとに違うのは、その人がいる場所としていること(外か中か・学んでいるか)だけ。
+/// - 餓死・脱水・期限は日数で判定しない。値(survival.stats)を書き、失敗の規則(FailureRuleDef)がその値を見る。
+/// - 作業の速さ(空腹 −50% など)は survival.work に書き、他のシステムが SurvivalState.workPermille(for:) で読む。
+///
+/// 書いてよい切れ端: survival・人の body。乱数の流れ: .survival。受けるコマンド: .survival。
 public struct SurvivalSystem: SimSystem {
     public let name = "survival"
-    public init() {}
+    /// テストや道具から規則を差し替えるとき(nil ならコンテンツの規則)。
+    public let rulesOverride: SurvivalDef?
 
-    public func handle(_ command: Command, _ ctx: inout StepContext) -> CommandResult {
-        .notMine
+    public init(rules: SurvivalDef? = nil) {
+        rulesOverride = rules
     }
 
-    public func step(_ ctx: inout StepContext) {}
+    /// 使う規則。nil なら食料・水・体の規則は動かない(拠点全体の数値だけ進む)。
+    public func rules(_ content: ContentDB) -> SurvivalDef? {
+        rulesOverride ?? content.survival
+    }
 
-    public func react(to event: DomainEvent, _ ctx: inout StepContext) {}
+    // MARK: - コマンド
+
+    public func handle(_ command: Command, _ ctx: inout StepContext) -> CommandResult {
+        guard case .survival(let c) = command else { return .notMine }
+        guard let r = rules(ctx.content) else { return .rejected(Rejection("reason.survival.no_rules")) }
+        switch c {
+        case .consume(let person, let stock):
+            return Body.consume(person: person, stock: stock, r, &ctx)
+        case .afflict(let person, let ailment, let severity):
+            guard ctx.world.people[person]?.presence.isAlive == true else {
+                return .rejected(Rejection("reason.survival.no_person"))
+            }
+            Body.afflict(person, ailment, severity, r, &ctx)
+            return .done
+        case .injure(let person, let amount):
+            guard ctx.world.people[person]?.presence.isAlive == true else {
+                return .rejected(Rejection("reason.survival.no_person"))
+            }
+            ctx.record(.wasInjured, .person(person), actor: person, place: ctx.world.people[person]?.position,
+                       detail: ["amount": .int(Int64(amount))])
+            Body.adjust(person, "health", -Int64(amount) * 1000, &ctx)
+            Body.afflict(person, r.wound, amount, r, &ctx)
+            return .done
+        }
+    }
+
+    // MARK: - ステップ
+
+    public func step(_ ctx: inout StepContext) {
+        Stats.step(&ctx)
+        if let r = rules(ctx.content) { Body.step(r, &ctx) }
+        Stats.markCrossings(&ctx)
+    }
 }

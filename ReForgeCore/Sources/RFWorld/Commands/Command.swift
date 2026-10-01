@@ -102,6 +102,10 @@ public enum NarrativeCommand: Codable, Equatable, Sendable {
 }
 
 public enum SurvivalCommand: Codable, Equatable, Sendable {
-    /// 食べる・飲む(生水か煮沸かは物の種類で選ぶ)。
+    /// 食べる・飲む(生水か煮沸かは物の種類で選ぶ)。自動の消費とは別に、プレイヤーが選んで口にする。
     case consume(person: PersonID, stock: StockSelector)
+    /// 効果から: 体に状態を付ける(中毒・病気…)。重さは状態の定義の単位。
+    case afflict(person: PersonID, ailment: StatID, severity: Int)
+    /// 効果から: 傷を負う(体力が amount 減り、傷の状態が amount 付く)。効果 injure・戦いの負けが出す。
+    case injure(person: PersonID, amount: Int)
 }
