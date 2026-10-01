@@ -27,6 +27,14 @@ public struct BaseSystem: SimSystem {
             return Construction.demolish(e, &ctx)
         case .welcome(let person):
             return Welcome.welcome(person, &ctx)
+        case .destroyFromEffect(let near, let radius, let structure, let max, let cause):
+            for id in Destruction.targets(near: near, radius: radius, max: max, in: ctx.world, where: { p in
+                guard case .structure(let k) = p.kind else { return false }
+                return structure.map { $0 == k } ?? true
+            }) { Destruction.destroy(id, cause: cause, &ctx) }
+            return .done
+        case .repair(let placement):
+            return Construction.repair(placement, &ctx)
         }
     }
 

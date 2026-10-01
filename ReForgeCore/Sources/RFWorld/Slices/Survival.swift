@@ -26,6 +26,8 @@ public struct SurvivalState: Codable, Equatable, Sendable {
     public var daysWithoutWater: Int = 0
     /// 天候(R2)。季節は暦(stats の wrap つきの値)から進む。
     public var environment: EnvironmentState = EnvironmentState()
+    /// 掘った量の項(StatDef.mined)で、もう足した掘った回数(数値 → 回数)。U16。
+    public var minedSeen: [StatID: Int]?
 
     public init() {}
 

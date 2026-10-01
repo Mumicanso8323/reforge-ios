@@ -10,16 +10,23 @@ public struct LogisticsState: Codable, Equatable, Sendable {
     public var power: [String: Int] = [:]
     /// 自動の経路を作ったときの置き場所の番号(PlacementsState.topologyVersion。違えば作り直す)。
     public var builtForTopology: Int = -1
+    /// 発電機の燃料の端数(置いた物 → 燃料の数 × ゲーム秒。1 日の秒で 1 個。U16)。発電機が無ければ nil。
+    public var fuelCarry: [EntityID: Int64]?
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case routes, power, builtForTopology }
+    /// 電力の供給と需要(W。RFProduction の Power が毎ステップ書く。U16)。
+    public var powerSupply: Int { power["supply"] ?? 0 }
+    public var powerDemand: Int { power["demand"] ?? 0 }
+
+    private enum CodingKeys: String, CodingKey { case routes, power, builtForTopology, fuelCarry }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         routes = try c.decodeIfPresent([EntityID: HaulRoute].self, forKey: .routes) ?? [:]
         power = try c.decodeIfPresent([String: Int].self, forKey: .power) ?? [:]
         builtForTopology = try c.decodeIfPresent(Int.self, forKey: .builtForTopology) ?? -1
+        fuelCarry = try c.decodeIfPresent([EntityID: Int64].self, forKey: .fuelCarry)
     }
 
     /// ID 順の経路。

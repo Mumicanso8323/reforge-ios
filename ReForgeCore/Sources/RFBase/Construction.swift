@@ -122,6 +122,11 @@ enum Construction {
                     helping = false
                 }
                 guard helping else { continue }
+                // 距離の縛り(PersonDef.tether。U16): 縛る人から遠い間は手伝えない
+                if let t = ctx.content.people[pid]?.tether {
+                    guard let other = ctx.world.people[t.person]?.position, other.layer == pos.layer,
+                          other.point.chebyshev(to: pos.point) <= t.radius else { continue }
+                }
                 var rate = 1000
                 if let sp = ctx.content.structures[kind]?.specialty,
                    ctx.content.people[pid]?.specialties.contains(sp) == true {
@@ -188,5 +193,28 @@ enum Construction {
     static func markCells(_ p: Placement, _ ctx: inout StepContext) {
         ctx.changes.mark(.placements)
         for off in p.footprint { ctx.changes.markTile(WorldPoint(p.at.layer, p.at.point + off), .placements) }
+    }
+
+    /// 壊れた建造物を直す(U16)。建てるときと同じ材料を払う(足りなければ何も取らない)。払った物は spent に足す。
+    static func repair(_ id: EntityID, _ ctx: inout StepContext) -> CommandResult {
+        guard let p = ctx.world.placements.items[id], case .structure(let kind) = p.kind,
+              let def = ctx.content.structures[kind] else { return .rejected(Rejection("reason.base.unknown")) }
+        guard p.status == .broken else { return .rejected(Rejection("reason.placement.not_broken")) }
+        for ing in def.cost where have(ing, ctx.world) < ing.quantity { return .rejected(Rejection("reason.base.missing_cost")) }
+        var lots: [CostLot] = []
+        for ing in def.cost {
+            var left = ing.quantity
+            for e in ctx.world.inventory.entries(.base) where left > 0 && ing.matches(e) && e.unique == nil {
+                let k = min(left, e.quantity)
+                if let took = ctx.takeStock(k, from: .base, where: { $0.stuff == e.stuff && $0.unique == nil }) {
+                    lots.append(CostLot(stuff: e.stuff, origins: took))
+                    left -= k
+                }
+            }
+        }
+        ctx.world.base.spent[id, default: []] += lots
+        Destruction.repair(id, paidOrigins: Set(lots.flatMap { $0.origins.keys }).sorted(), &ctx)
+        ctx.changes.mark(.inventory)
+        return .done
     }
 }

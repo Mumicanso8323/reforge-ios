@@ -20,7 +20,20 @@ public struct NarrativeState: Codable, Equatable, Sendable {
     /// 直近の仲間の一言(新しい順でなく言った順。上限 lineLogLimit)。同じ一言を続けて言わないためと、画面の帯のため。
     public var lineLog: [SpokenLine] = []
 
+    /// 工程表の進み(記録を開いた・答えを置いた・装置を使った・名簿)。無い保存は空として読む。
+    public var sheets: [SheetID: SheetProgress]?
+
     public static let lineLogLimit = 16
+
+    public func sheet(_ id: SheetID) -> SheetProgress { sheets?[id] ?? SheetProgress() }
+
+    public mutating func updateSheet(_ id: SheetID, _ body: (inout SheetProgress) -> Void) {
+        var all = sheets ?? [:]
+        var p = all[id] ?? SheetProgress()
+        body(&p)
+        all[id] = p
+        sheets = all
+    }
 
     public init() {}
 }
@@ -103,4 +116,31 @@ public struct SceneProgress: Codable, Equatable, Sendable {
         self.lineSince = lineSince
         self.origin = origin
     }
+}
+
+/// 工程表 1 つの進み(U15。BEAT-05・06・07・29)。来歴の ID だけを持つ(文字は持たない)。
+public struct SheetProgress: Codable, Equatable, Sendable {
+    /// 表そのものを開いた。
+    public var openedIndex = false
+    /// 開いた記録の席。
+    public var openedSlots: Set<Int> = []
+    /// 開いた空いた席。
+    public var emptySeen: Set<Int> = []
+    /// 行 → 置いた答えの来歴。
+    public var answers: [String: ProvenanceID] = [:]
+    /// 装置で書き足した技能(人 → 技能)。
+    public var imprinted: [PersonID: [SkillID]] = [:]
+    /// 使わなかった人(人 → 本人が拒んだか)。
+    public var declined: [PersonID: Bool] = [:]
+    /// 仲間が自分で言った「乗る(true)/ 残る(false)」。
+    public var declared: [PersonID: Bool] = [:]
+    /// プレイヤーが決めた「乗る / 残る」。
+    public var chosen: [PersonID: Bool] = [:]
+    /// 名簿を締めた来歴。
+    public var locked: ProvenanceID?
+
+    public init() {}
+
+    /// 乗るか(プレイヤーの決定 → 本人の言い分 → 残る)。
+    public func aboard(_ p: PersonID) -> Bool { chosen[p] ?? declared[p] ?? false }
 }

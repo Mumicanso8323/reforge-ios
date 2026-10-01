@@ -154,6 +154,7 @@ public struct CrewSystem: SimSystem {
     public func step(_ ctx: inout StepContext) {
         Relations.normalizeAll(&ctx)
         Membership.deathsFromHealth(&ctx)
+        Residence.placeIfDue(&ctx)
         let order = ctx.world.people.order
         guard order.contains(where: { ctx.world.people[$0]?.position != nil }) else { return }
         let workspace = PathWorkspace()

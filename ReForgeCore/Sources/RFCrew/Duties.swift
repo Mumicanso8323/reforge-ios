@@ -320,6 +320,8 @@ enum WorkSpeed {
         let a = w.people.effectiveAssignment(id) ?? .idle
         let stance = Ideology.stance(ps.ideology, tags: AssignmentTags.tags(for: a, in: w), content: c)
         v += max(-CrewRules.ideologySpeedCap, min(CrewRules.ideologySpeedCap, stance * CrewRules.ideologySpeedPerPoint))
+        // 距離の縛り(PersonDef.tether。U16): 縛る人から遠い間は働けない
+        if let t = c.people[id]?.tether, !Tethers.holds(t, for: ps, w) { return 0 }
         return max(0, v)
     }
 
@@ -379,5 +381,14 @@ enum HaulPath {
         }
         guard let k = hands.firstIndex(of: id) else { return nil }
         return routes[k % routes.count]
+    }
+}
+
+/// 人の距離の縛り(PersonDef.tether。U16)。
+enum Tethers {
+    /// その人が縛る人から radius マス以内にいるか(どちらかが地図にいない・別の層なら false)。
+    static func holds(_ t: Tether, for ps: PersonState, _ w: WorldState) -> Bool {
+        guard let me = ps.position, let other = w.people[t.person]?.position, me.layer == other.layer else { return false }
+        return me.point.chebyshev(to: other.point) <= t.radius
     }
 }

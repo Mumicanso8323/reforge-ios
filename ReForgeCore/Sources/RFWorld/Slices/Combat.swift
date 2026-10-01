@@ -102,6 +102,8 @@ public struct BattleState: Codable, Equatable, Sendable {
         case encounter
         /// 巣を守る獣と(勝てば巣が壊れる)。
         case nest(poi: EntityID)
+        /// 拠点の外の集団と(U16。相手は人。lethal なら死者が出る)。
+        case group(GroupID)
     }
 
     public enum Outcome: String, Codable, Sendable { case won, lost, fled }

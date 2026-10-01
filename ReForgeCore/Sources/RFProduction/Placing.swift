@@ -141,6 +141,7 @@ enum Placing {
         var aux: [ItemID: Int] = [:]
         for lot in m.step?.inputs ?? [] { aux[lot.item, default: 0] += lot.quantity }
         for ing in def.consumes ?? [] { if let i = ing.item { aux[i, default: 0] += ing.quantity } }
+        if let fuel = def.power?.fuel { aux[fuel, default: 0] += 1 }  // 発電機の燃料(U16)
         m.auxPerUnit = aux
         if let layer = w.map[at.layer], PlacementCheck.touchesWater(at.point, layer: layer, content: content) {
             m.freeItems = [.water]
@@ -340,5 +341,20 @@ enum Placing {
                            detail: ["module": .string(kinds.sorted().first!.rawValue)])
             }
         }
+    }
+
+    /// 壊れたモジュールを直す(U16)。置くときと同じ材料を払う(足りなければ何も取らない)。払った物は paid に足す
+    /// (片付ければ全部戻る)。
+    static func repair(_ id: EntityID, _ ctx: inout StepContext) -> CommandResult {
+        guard let p = ctx.world.placements.items[id] else { return .rejected(Rejection(ProductionText.noSuchPlacement)) }
+        guard let kind = p.moduleKind, let def = ctx.content.modules[kind] else {
+            return .rejected(Rejection(ProductionText.notAModule))
+        }
+        guard p.status == .broken else { return .rejected(Rejection(ProductionText.notBroken)) }
+        guard let paid = pay(def.cost, &ctx) else { return .rejected(Rejection(ProductionText.noMaterials)) }
+        for e in paid { ModuleRuntime.put(e, into: &ctx.world.placements.items[id]!.module!.paid) }
+        Destruction.repair(id, paidOrigins: paid.flatMap { $0.origins.keys }.sorted(), &ctx)
+        ctx.changes.mark(.inventory)
+        return .done
     }
 }

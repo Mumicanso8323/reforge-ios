@@ -45,6 +45,7 @@ public enum ActKind: String, Codable, CaseIterable, Sendable {
     // 末尾に足す(保存は名前で持つので順番は効かないが、並びは足した順に保つ)
     case raided             // 蓄えを奪われた(獣など。U9)
     case achieved           // 目標を果たした・結末に着いた(U11)
+    case destroyed          // 置いた物が壊された(爆発・襲撃など。U16。直せば repaired)
 }
 
 /// 数の比較(条件で使う)。
