@@ -236,10 +236,63 @@ public struct FrameBuilder: Sendable {
         case .record(let sid):
             guard let def = content.sheets[sid],
                   ConditionEvaluator.evaluatePure(def.when, world: w, content: content) == true else { return nil }
-            return ProcessSheet(source: source, title: p.name(def.title), rows: def.rows.compactMap { r in
-                if let c = r.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) != true { return nil }
-                return ProcessSheet.Row(title: p.name(r.subject), note: r.note.map { p.text($0) })
-            }, result: nil)
+            let prog = w.narrative.sheet(sid)
+            var out = recordRows(def.rows, p, w, prog)
+            var tally: ProcessSheet.Tally?
+            if let n = def.slots {
+                // 記録の並び: 席の順に、記録のある席と空いた席が同じ形で並ぶ
+                let entries = Dictionary(uniqueKeysWithValues: SheetRules.entries(def, w, content).map { ($0.slot, $0) })
+                for slot in 1...max(n, 1) {
+                    if let e = entries[slot] {
+                        out.append(ProcessSheet.Row(title: p.name(e.subject), note: nil, slot: slot, person: e.person))
+                    } else {
+                        out.append(ProcessSheet.Row(title: p.text("text.sheet.slot_empty"), note: nil, slot: slot, empty: true))
+                    }
+                }
+                tally = ProcessSheet.Tally(filled: entries.count, slots: n)
+            }
+            if let m = def.manifest, m.when.map({ ConditionEvaluator.evaluatePure($0, world: w, content: content) == true }) ?? true {
+                for person in SheetRules.candidates(w) {
+                    out.append(ProcessSheet.Row(title: p.name(Subject.person(person)), note: nil,
+                                                aboard: prog.chosen[person] ?? prog.declared[person],
+                                                declared: prog.declared[person], person: person))
+                }
+            }
+            return ProcessSheet(source: source, title: p.name(def.title), rows: out, result: nil, tally: tally)
+        case .recordEntry(let sid, let slot):
+            guard let def = content.sheets[sid],
+                  ConditionEvaluator.evaluatePure(def.when, world: w, content: content) == true else { return nil }
+            let prog = w.narrative.sheet(sid)
+            if let e = SheetRules.entries(def, w, content).first(where: { $0.slot == slot }) {
+                return ProcessSheet(source: source, title: p.name(def.title),
+                                    rows: recordRows(e.rows ?? def.entryRows ?? [], p, w, prog),
+                                    result: p.name(e.subject))
+            }
+            // 空いた席: 行も結果も無い(それ自体が見えるもの)
+            guard SheetRules.emptySlots(def, w, content).contains(slot) else { return nil }
+            return ProcessSheet(source: source, title: p.name(def.title), rows: [], result: nil)
+        }
+    }
+
+    private func recordRows(_ rows: [SheetDef.Row], _ p: Perceiver, _ w: WorldState, _ prog: SheetProgress) -> [ProcessSheet.Row] {
+        rows.compactMap { r in
+            if let c = r.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) != true { return nil }
+            var row = ProcessSheet.Row(title: p.name(r.subject), note: r.note.map { p.text($0) })
+            row.figure = r.measure.map { SheetRules.measure($0, w) }
+            if r.answer != nil, let id = r.id {
+                row.answerRow = id
+                row.answer = prog.answers[id].flatMap { w.ledger.record($0) }.flatMap { p.journalLine($0) }
+            }
+            return row
+        }
+    }
+
+    /// 行に置ける答えの候補(自分の来歴から。新しい順)。
+    public func answerCandidates(_ sid: SheetID, row: String, in w: WorldState) -> [AnswerCandidate] {
+        guard let r = content.sheets[sid]?.rows.first(where: { $0.id == row }) else { return [] }
+        let p = Perceiver(content: content, world: w)
+        return SheetRules.answerCandidates(r, w).compactMap { rec in
+            p.journalLine(rec).map { AnswerCandidate(record: rec.id, label: $0) }
         }
     }
 }

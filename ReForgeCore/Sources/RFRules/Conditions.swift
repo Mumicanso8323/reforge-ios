@@ -129,6 +129,8 @@ public enum ConditionEvaluator {
             return n >= (atLeast ?? 1)
         case .objective(let id, let st): return w.narrative.objectives[id]?.rawValue == st.rawValue
         case .runAtLeast(let i): return w.run.index >= i
+        case .sheet(let id, let t): return SheetRules.test(t, w.narrative.sheet(id), w)
+        case .baseGrade(let n): return BaseGrades.current(w, content) >= n
         }
     }
 

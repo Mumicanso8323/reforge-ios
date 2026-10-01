@@ -93,6 +93,17 @@ public struct ExplorationDef: Codable, Equatable, Sendable {
 }
 
 /// 拠点の設定(1 つだけ)。
+/// 拠点の格 1 段。
+public struct BaseGradeDef: Codable, Equatable, Sendable {
+    public var grade: Int
+    public var when: Condition
+
+    public init(grade: Int, when: Condition) {
+        self.grade = grade
+        self.when = when
+    }
+}
+
 public struct BaseDef: Codable, Equatable, Sendable {
     /// 生存者を迎えるのに拠点の蓄えに要る物(「食料と寝床」の食料)。
     public var welcomeRequires: [Ingredient]?
@@ -100,6 +111,8 @@ public struct BaseDef: Codable, Equatable, Sendable {
     public var welcomeConsumes: Bool?
     /// 収容のタグ(既定 "housing")。迎えられる人数 = 完成した建造物のこの値の合計。
     public var housingTag: String?
+    /// 拠点の格(低い順。格 n は、それより下の格の条件も全部成り立つときに付く)。結末の条件 baseGrade が読む。
+    public var grades: [BaseGradeDef]?
 
     public init(welcomeRequires: [Ingredient]? = nil, welcomeConsumes: Bool? = nil, housingTag: String? = nil) {
         self.welcomeRequires = welcomeRequires
