@@ -385,11 +385,14 @@ final class EventMechanicsTests: XCTestCase {
         XCTAssertEqual(r.warnings, [])
         XCTAssertTrue(ctx2.world.people["person.test_c"]?.presence.isMember == true)
 
-        // 標準のシステム(まだ処理の無い持ち主)では警告で見える
+        // 受け手(持ち主のシステム)がいなければ警告で見える。どの担当が処理を入れたかに左右されないよう、
+        // 出来事のシステムだけの本体で確かめる(持ち主の処理の確かめは各担当のテスト)。
+        let narrativeOnly = Simulation(content: rig.content, systems: [NarrativeSystem()])
         var ctx3 = StepContext(world: w, content: rig.content)
         EffectApplier.apply([.setTerrain(at: .base, terrain: "rock")], &ctx3, cause: nil)
-        let r3 = { () -> StepReport in var r = StepReport(); rig.simulation.settle(&ctx3, &r); return r }()
-        XCTAssertFalse(r3.warnings.isEmpty)
+        var r3 = StepReport()
+        narrativeOnly.settle(&ctx3, &r3)
+        XCTAssertTrue(r3.warnings.contains { $0.contains("setTerrain") })
     }
 
     /// 効果 fire は選択肢から別の筋へ進むときに使う(trigger.when を見ず、一度きりなら二度は起きない)。
