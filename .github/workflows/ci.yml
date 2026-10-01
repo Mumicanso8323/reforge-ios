@@ -35,11 +35,31 @@ jobs:
     name: ReForgeCore (Linux)
     runs-on: ubuntu-latest
     container: swift:6.1-noble
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      # 非公開のコンテンツ(物語の本文)を読むトークン。無い(fork の PR など)ときは公開の層だけで回す。
+      # secrets は if: に直接書けないので、有無だけを環境変数にする。docs/architecture/E-content.md §4.3
+      HAS_CONTENT_TOKEN: ${{ secrets.REFORGE_CONTENT_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v5
-      - name: swift test
+      - name: swift test(公開の層だけ)
         run: swift test --package-path ReForgeCore
+      - name: 非公開のコンテンツを取り込む
+        if: env.HAS_CONTENT_TOKEN == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: Mumicanso8323/reforge-content
+          token: ${{ secrets.REFORGE_CONTENT_TOKEN }}
+          path: content/private
+      # 公開リポジトリのログは誰でも読めるので、非公開の層を重ねたテストは出力を出さない。
+      # 失敗したときはテストの名前(公開のコード)だけを出す。ログをアーティファクトにも上げない。
+      - name: swift test(非公開の層を重ねて・出力は伏せる)
+        if: env.HAS_CONTENT_TOKEN == 'true'
+        run: |
+          swift test --package-path ReForgeCore > private-test.log 2>&1 && echo "passed" && exit 0
+          grep -oE "Test Case '[^']+' failed" private-test.log | sort -u | head -50
+          grep -qE "error: (emit|compile|link)" private-test.log && echo "ビルドに失敗(詳細は手元で)"
+          exit 1
 
   ios:
     name: iOS (テスト + ipa)

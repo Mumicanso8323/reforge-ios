@@ -16,26 +16,38 @@ public enum NamePart: Codable, Hashable, Sendable {
     case substance(SubstanceID)
     /// 形の接尾辞。
     case shape(Shape)
+
+    // 保存のキーを固定する(ケース名を変えてもセーブが壊れないように)。
+    enum CodingKeys: String, CodingKey {
+        case extreme = "extreme", grade = "grade", temper = "temper", proper = "proper"
+        case substance = "substance", shape = "shape"
+    }
+    enum ExtremeCodingKeys: String, CodingKey { case _0 = "modifier" }
+    enum GradeCodingKeys: String, CodingKey { case _0 = "grade", _1 = "category" }
+    enum TemperCodingKeys: String, CodingKey { case _0 = "temper" }
+    enum ProperCodingKeys: String, CodingKey { case _0 = "name" }
+    enum SubstanceCodingKeys: String, CodingKey { case _0 = "substance" }
+    enum ShapeCodingKeys: String, CodingKey { case _0 = "shape" }
 }
 
 /// 異常時の修飾。
 public enum ExtremeModifier: String, Codable, Hashable, Sendable, CaseIterable {
     /// 粗悪な(純度 20% 未満。原作は 10% 未満も同じ語)。
-    case poor
+    case poor = "poor"
 }
 
 /// 純度の段。境目は原作 `NameGenerator.GetCategoryPrefix`(以上で上の段)。
 public enum PurityGrade: String, Codable, Hashable, Sendable, CaseIterable {
     /// 20% 未満(接頭辞なし。異常時の修飾が付く)。
-    case belowCrude
+    case belowCrude = "below_crude"
     /// 金属なら「粗」(20〜45%)。
-    case crude
+    case crude = "crude"
     /// 無修飾(45〜85%)。
-    case standard
+    case standard = "standard"
     /// 金属なら「精」(85〜98%)。
-    case fine
+    case fine = "fine"
     /// 金属なら「純」(98% 以上)。
-    case pure
+    case pure = "pure"
 
     /// 純度とカテゴリから段を決める。
     public static func of(_ p: Purity, category: MaterialCategory = .metal) -> PurityGrade {
@@ -64,7 +76,8 @@ public enum PurityGrade: String, Codable, Hashable, Sendable, CaseIterable {
 
 /// 接頭辞の語を分けるカテゴリ(原作 `MaterialCategory` のうち判定のあるもの)。
 public enum MaterialCategory: String, Codable, Hashable, Sendable, CaseIterable {
-    case metal, organic, granular, liquid, chemical, other
+    case metal = "metal", organic = "organic", granular = "granular", liquid = "liquid"
+    case chemical = "chemical", other = "other"
 
     /// 原作 `GetMaterialCategory` の判定(物質 ID と、粒状は密度 < 3・硬度 < 3)。
     public static func of(_ id: SubstanceID, substances: SubstanceTable = .r1) -> MaterialCategory {

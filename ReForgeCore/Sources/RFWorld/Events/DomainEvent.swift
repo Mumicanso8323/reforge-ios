@@ -63,6 +63,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case endingReached(ending: EndingID)
     // 失敗
     case runFailed(cause: TextID)
+    /// 巻き戻した・失って続けたあとの最初のステップで出す(act = .rewound / .continuedWithLoss)。
+    case runResumed(act: ActKind, record: ProvenanceID)
 
     /// 物語の出来事の引き金に書く名前。
     public var hook: String {
@@ -112,6 +114,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .chapterEnded: "chapter.ended"
         case .endingReached: "ending"
         case .runFailed: "failed"
+        case .runResumed: "run.resumed"
         }
     }
 
@@ -124,7 +127,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .finiteUsed(let r), .personMet(_, let r), .personJoined(_, let r), .personLeft(_, let r),
              .personDied(_, let r), .battleStarted(_, let r), .battleEnded(_, _, _, let r),
              .researchCompleted(_, let r), .skillAcquired(_, _, let r), .eventFired(_, let r),
-             .decided(_, _, let r), .chapterEnded(_, let r):
+             .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r):
             r
         case .itemGained(_, _, _, let r): r
         case .opinion(_, let r, _): r

@@ -35,7 +35,7 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     /// 拠点の外の集団との関係。
     case group(id: GroupID, relationAtLeast: Int)
     case counter(id: CounterID, cmp: Comparison, value: Int)
-    /// 数値(大気など。千分率)。
+    /// 数値(千分率)。
     case stat(id: StatID, cmp: Comparison, value: Int)
     case phase(is: DayPhase)
     /// 日数(物語の引き金には使わない。仕組みの都合のときだけ)。

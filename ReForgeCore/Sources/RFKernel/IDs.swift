@@ -120,7 +120,7 @@ public typealias EndingID = TypedID<EndingTag>
 public typealias ChapterID = TypedID<ChapterTag>
 /// 地図の層(地表・地下…)。
 public typealias LayerID = TypedID<LayerTag>
-/// 数値の種類(大気・精神力…)。認識の層で「見せ方」を切り替える単位にもなる。
+/// 数値の種類(精神力・拠点全体の数値…)。認識の層で「見せ方」を切り替える単位にもなる。
 public typealias StatID = TypedID<StatTag>
 /// 来歴に付ける印(コンテンツが決める)。後の開示が「この印の付いた行為」を指す。
 public typealias ProvenanceTag = TypedID<ProvenanceTagTag>

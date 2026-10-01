@@ -79,11 +79,16 @@ public struct Simulation: Sendable {
 
     /// 昼の実時間を進める(画面のタイマーから。アプリが非アクティブ・一時停止・止める決断の間は呼ばない)。
     /// 昼でなければ何もしない(日没で時計は止まる)。
+    /// 1 回の advance で受け取る実時間の上限(秒)。裏から戻った直後の大きな dt で、閉じていた間の分まで
+    /// 昼が進まないようにする(閉じている間は進まない)。
+    public static let maxRealSecondsPerAdvance = 1.0
+
     public func advance(_ world: inout WorldState, realSeconds: Double) -> StepReport {
         guard world.run.isActive, world.clock.phase == .day, realSeconds > 0, realSeconds.isFinite,
               !world.narrative.pending.contains(where: \.blocking)
         else { return StepReport() }
-        let micros = Int64((realSeconds * 1_000_000).rounded())
+        let dt = min(realSeconds, Self.maxRealSecondsPerAdvance)
+        let micros = Int64((dt * 1_000_000).rounded())
         let unit = Int64(content.clock.dayRealSeconds) * 1_000_000 * SimStep.gameSeconds
         world.clock.realCarry += micros * content.clock.dayGameSeconds
         let steps = Int(world.clock.realCarry / unit)

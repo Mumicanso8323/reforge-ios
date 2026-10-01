@@ -35,7 +35,7 @@ public struct WorldState: Codable, Equatable, Sendable {
     public var knowledge: KnowledgeState
     /// 来歴(誰が・いつ・何を・どこで)。持ち主: 共通(StepContext.record)
     public var ledger: ProvenanceLedger
-    /// 拠点全体の生存の圧・大気・天候・季節。持ち主: RFSurvival
+    /// 拠点全体の生存の圧・数値・天候・季節。持ち主: RFSurvival
     public var survival: SurvivalState
     /// POI を調べた進み具合・道筋。持ち主: RFExploration
     public var exploration: ExplorationState
