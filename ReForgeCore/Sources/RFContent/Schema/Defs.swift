@@ -117,6 +117,8 @@ public struct ModuleDef: ContentDef, Equatable {
     /// 置いている間に周りに出す範囲の効果(炉の排気など)。
     public var auras: [AuraKindID]?
     public var parameters: Value?
+    /// この工程の段を試作で使うのに要る条件(省略時は RFInvention の既定: 炉は置いた炉、水槽は置いた水槽か水辺)。
+    public var trial: TrialRequirement?
 }
 
 public struct PlacementRule: Codable, Equatable, Sendable {
@@ -221,16 +223,38 @@ public struct LineDef: ContentDef, Equatable {
     public var when: Condition?
     public var text: TextID
     public var weight: Int?
+    /// 同じ一言を次に言えるまでのゲーム時間(既定: 直近に言った 3 つとは重ねない)。
+    public var cooldownHours: Int?
 }
 
+/// 推理の手がかり(端末の断片・仲間の知識・手が知っていた手順・図鑑の空欄の命名の手がかり)。
+/// 条件が成り立つとノートに出典つきで載る(RFInvention)。出典は中立の見出し("source:hand" など)で、
+/// 見え方は認識の層が引く(後で「誰の・何の知識だったか」の見え方が変わる)。
 public struct HintDef: ContentDef, Equatable {
     public var id: HintID
     public var from: PersonID?
+    /// 載る条件(乱数 chance は使わない: 評価は乱数を引かない evaluatePure で、chance は成り立たない扱い)。
     public var when: Condition
     public var about: SubjectID
     public var text: TextID
     /// 出典(認識の表の見出し)。
     public var source: SubjectID
+    /// 何を言っているか(機械が読める形。RFContent/Schema/Invention.swift)。省略可。
+    public var claims: [HintClaim]?
+    /// 図鑑の空欄(命名からの類推)に付く手がかりなら、その名前。載ると図鑑に影の行が出る。省略可。
+    public var target: MatterName?
+
+    public init(id: HintID, from: PersonID? = nil, when: Condition, about: SubjectID, text: TextID, source: SubjectID,
+                claims: [HintClaim]? = nil, target: MatterName? = nil) {
+        self.id = id
+        self.from = from
+        self.when = when
+        self.about = about
+        self.text = text
+        self.source = source
+        self.claims = claims
+        self.target = target
+    }
 }
 
 // MARK: - 研究・力・敵
@@ -342,8 +366,10 @@ public struct AuraDef: ContentDef, Equatable {
 
     public var id: AuraKindID
     public var modifiers: [Modifier]
-    /// 誰に効くか(nil は全員)。
+    /// 誰に効くか(nil は全員。ただし drawTowardSource はノアと中心の人には、ここで名指ししない限り効かない)。
     public var affects: [PersonID]?
+    /// 置いた物・人の定義から付くときの半径(マス)。効果 addAura で半径を書かないときもこれ。
+    public var radius: Int?
 }
 
 /// 拠点全体の数値(内訳と合計・暦…)。見せない値もここ。見せ方は認識の表。
@@ -354,6 +380,25 @@ public struct StatDef: ContentDef, Equatable {
     public var perDay: Int?
     /// 合計として他の数値を足し合わせる(内訳を内部に持ち、開示で内訳を見せる)。
     public var sumOf: [StatID]?
+    /// この値を越えたら(上りでも下りでも)出来事 statCrossed を出す(警告・期限の引き金。raw)。
+    public var marks: [Int]?
+    /// 回る値(暦など): この値で割った余りにする(raw)。
+    public var wrap: Int?
+    /// 画面で赤く出す範囲(raw。isAlert を使う)。
+    public var alertBelow: Int?
+    public var alertAtLeast: Int?
+
+    public init(id: StatID, initial: Int, perDay: Int? = nil, sumOf: [StatID]? = nil, marks: [Int]? = nil,
+                wrap: Int? = nil, alertBelow: Int? = nil, alertAtLeast: Int? = nil) {
+        self.id = id
+        self.initial = initial
+        self.perDay = perDay
+        self.sumOf = sumOf
+        self.marks = marks
+        self.wrap = wrap
+        self.alertBelow = alertBelow
+        self.alertAtLeast = alertAtLeast
+    }
 }
 
 /// 失敗の規則。期限は日数でなく値で判定する。
@@ -375,6 +420,10 @@ public struct TrackerDef: ContentDef, Equatable {
         case nightsWhere(condition: Condition)
         /// 来歴の数(問い合わせに合う記録の count の合計)。
         case ledgerCount(query: ProvenanceQuery)
+        /// 条件が成り立っていたゲーム分(毎ステップ判定)。
+        case minutesWhere(condition: Condition)
+        /// 拠点の中心から最も遠くまで行ったマス数(チェビシェフ距離の最大。person が nil なら一員の誰か)。探索の届いた範囲。
+        case farthestFromBase(person: PersonID?)
     }
 
     public var id: CounterID
@@ -401,20 +450,25 @@ public struct FactDef: ContentDef, Equatable {
 /// 出来事。日数でなく、行動(hook)と世界の状態(when)で起きる。
 public struct EventDef: ContentDef, Equatable {
     public struct Trigger: Codable, Equatable, Sendable {
-        /// どの DomainEvent の後に調べるか(hook の名前)。nil なら夜明けと毎時。
+        /// どの DomainEvent の後に調べるか(hook の名前)。nil なら夜明けと毎時("hour")。
+        /// 空の配列なら自分からは起きない(効果 fire / schedule でだけ起きる)。
         public var on: [String]?
         public var when: Condition
     }
 
     public enum Repeat: Codable, Equatable, Sendable {
         case once
+        /// 前に起きてから hours ゲーム時間たてば、また起きる。
         case cooldown(hours: Int)
+        /// 1 日(夜明けから次の夜明けまで)に 1 回まで。
+        case oncePerDay
         case always
     }
 
     public var id: EventID
     public var trigger: Trigger
     public var repeats: Repeat?
+    /// 同じ hook で複数が成り立つとき、大きい方から調べる(既定 0。同じなら ID 順)。
     public var priority: Int?
     public var effects: [Effect]
     /// 添え物の場面(下の帯に 3 行まで)。
@@ -469,6 +523,8 @@ public struct ObjectiveDef: ContentDef, Equatable {
     public var text: TextID
     public var completeWhen: Condition
     public var effects: [Effect]?
+    /// これが成り立てば失敗(達成より先に調べない。達成が先)。
+    public var failWhen: Condition?
 }
 
 public struct ChapterDef: ContentDef, Equatable {
@@ -478,8 +534,11 @@ public struct ChapterDef: ContentDef, Equatable {
 
 public struct EndingDef: ContentDef, Equatable {
     public var id: EndingID
+    /// 自分から届く条件(効果 ending で直接届くこともある)。
     public var when: Condition
     public var scene: SceneID?
+    /// 届いたときの効果(帰る人・残る人が分かれる、など)。
+    public var effects: [Effect]?
 }
 
 /// 所見(RFMatter の FindingID)の文。引数(燃料の名前など)は {0} {1} で埋める。

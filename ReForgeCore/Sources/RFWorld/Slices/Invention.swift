@@ -16,12 +16,15 @@ public struct LineDesign: Codable, Equatable, Sendable {
     public var origin: ProvenanceID
     /// 試作で確かめた結果(未確認なら nil)。
     public var expected: Matter?
+    /// 同じ並びを確かめた試作(あれば。札の工程表から試作の結果カードへ辿る)。
+    public var trial: ProvenanceID?
 
-    public init(id: EntityID, steps: [ProcessStep], origin: ProvenanceID, expected: Matter?) {
+    public init(id: EntityID, steps: [ProcessStep], origin: ProvenanceID, expected: Matter?, trial: ProvenanceID? = nil) {
         self.id = id
         self.steps = steps
         self.origin = origin
         self.expected = expected
+        self.trial = trial
     }
 }
 
@@ -44,19 +47,26 @@ public struct NoteEntry: Codable, Equatable, Sendable {
     public var about: SubjectID
     /// 本文のキー(文字列表)。
     public var text: TextID
-    /// 出典(人・端末・ノアの手…)。表示は認識の層。
+    /// 出典(人・端末・ノアの手…)。表示は認識の層。R1 は中立の見出しだけ("source:hand" など)。
     public var source: SubjectID
     public var record: ProvenanceID?
     public var at: GameTime
     public var run: Int
+    /// どの手がかり(HintDef)から載ったか。手がかり以外の書き留めは nil。
+    public var hint: HintID?
+    /// 本文の {0} {1} を埋める値(物・純度の見当など)。
+    public var args: [FindingArg]
 
-    public init(about: SubjectID, text: TextID, source: SubjectID, record: ProvenanceID?, at: GameTime, run: Int) {
+    public init(about: SubjectID, text: TextID, source: SubjectID, record: ProvenanceID?, at: GameTime, run: Int,
+                hint: HintID? = nil, args: [FindingArg] = []) {
         self.about = about
         self.text = text
         self.source = source
         self.record = record
         self.at = at
         self.run = run
+        self.hint = hint
+        self.args = args
     }
 }
 
@@ -69,10 +79,15 @@ public struct TrialRecord: Codable, Equatable, Sendable {
     public var quantity: Int
     public var steps: [ProcessStep]
     /// 結果(物・名前の部品・硬さ・粘り・副産物・所見・使った物)。RFMatter の ChainResult。
+    /// 使った物(consumed)は 1 単位ぶん。実際に在庫から使ったのは quantity 倍。
     public var outcome: ChainResult
+    /// できた物を入れた所。
+    public var holder: HolderID
+    /// できた物が唯一品になったとき(最初の鉄)、その実体 ID。
+    public var unique: EntityID?
 
     public init(record: ProvenanceID, at: GameTime, run: Int, input: Matter, quantity: Int,
-                steps: [ProcessStep], outcome: ChainResult) {
+                steps: [ProcessStep], outcome: ChainResult, holder: HolderID = .base, unique: EntityID? = nil) {
         self.record = record
         self.at = at
         self.run = run
@@ -80,6 +95,8 @@ public struct TrialRecord: Codable, Equatable, Sendable {
         self.quantity = quantity
         self.steps = steps
         self.outcome = outcome
+        self.holder = holder
+        self.unique = unique
     }
 }
 

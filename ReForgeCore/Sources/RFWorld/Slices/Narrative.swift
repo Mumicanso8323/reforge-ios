@@ -17,8 +17,25 @@ public struct NarrativeState: Codable, Equatable, Sendable {
     /// いま流れている場面(会話の定型文の並び)。画面の下の帯で流し、地図を止めない。
     public var scene: SceneProgress?
     public var ending: EndingID?
+    /// 直近の仲間の一言(新しい順でなく言った順。上限 lineLogLimit)。同じ一言を続けて言わないためと、画面の帯のため。
+    public var lineLog: [SpokenLine] = []
+
+    public static let lineLogLimit = 16
 
     public init() {}
+}
+
+/// 仲間の一言 1 つ(文字は持たない。LineDef の ID だけ)。
+public struct SpokenLine: Codable, Equatable, Sendable {
+    public var person: PersonID
+    public var line: LineID
+    public var at: GameTime
+
+    public init(person: PersonID, line: LineID, at: GameTime) {
+        self.person = person
+        self.line = line
+        self.at = at
+    }
 }
 
 public struct FiredRecord: Codable, Equatable, Sendable {
@@ -26,11 +43,14 @@ public struct FiredRecord: Codable, Equatable, Sendable {
     public var lastAt: GameTime
     /// 発火の来歴(効果で起きた変化の inputs になる)。
     public var lastRecord: ProvenanceID?
+    /// 最後に起きた日(1 日 1 回までの判定)。
+    public var lastDay: Int?
 
-    public init(count: Int, lastAt: GameTime, lastRecord: ProvenanceID?) {
+    public init(count: Int, lastAt: GameTime, lastRecord: ProvenanceID?, lastDay: Int? = nil) {
         self.count = count
         self.lastAt = lastAt
         self.lastRecord = lastRecord
+        self.lastDay = lastDay
     }
 }
 
@@ -57,10 +77,13 @@ public struct PendingDecision: Codable, Equatable, Sendable {
 public struct ScheduledEvent: Codable, Equatable, Sendable {
     public var event: EventID
     public var at: GameTime
+    /// 予約した効果の引き金(起きたときの来歴の inputs に入る)。
+    public var cause: ProvenanceID?
 
-    public init(event: EventID, at: GameTime) {
+    public init(event: EventID, at: GameTime, cause: ProvenanceID? = nil) {
         self.event = event
         self.at = at
+        self.cause = cause
     }
 }
 
@@ -69,9 +92,15 @@ public enum ObjectiveStatus: String, Codable, Sendable { case active, done, fail
 public struct SceneProgress: Codable, Equatable, Sendable {
     public var scene: SceneID
     public var line: Int
+    /// いまの行を出し始めた時刻(押さなくても時間で次の行へ流れる)。
+    public var lineSince: GameTime?
+    /// 場面を始めた出来事の来歴(行の条件の引き金)。
+    public var origin: ProvenanceID?
 
-    public init(scene: SceneID, line: Int = 0) {
+    public init(scene: SceneID, line: Int = 0, lineSince: GameTime? = nil, origin: ProvenanceID? = nil) {
         self.scene = scene
         self.line = line
+        self.lineSince = lineSince
+        self.origin = origin
     }
 }

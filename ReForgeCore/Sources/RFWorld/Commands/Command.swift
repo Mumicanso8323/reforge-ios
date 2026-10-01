@@ -39,6 +39,15 @@ public enum CrewCommand: Codable, Equatable, Sendable {
     case talk(person: PersonID)
     /// 装備を替える。
     case equip(person: PersonID, slot: String, stock: StockSelector)
+    // 効果から(持ち主 U5 が処理する。cause = 引き金の来歴。自分の来歴の inputs に入れる)
+    /// 人に会う(at があればそこに現れる)。
+    case meetFromEffect(person: PersonID, at: WorldPoint?, cause: ProvenanceID?)
+    case joinFromEffect(person: PersonID, cause: ProvenanceID?)
+    case leaveFromEffect(person: PersonID, cause: ProvenanceID?)
+    /// 死ぬ(戻らない)。reason は死因の文字列表のキー。
+    case dieFromEffect(person: PersonID, reason: TextID, cause: ProvenanceID?)
+    /// 傷を負う(amount は体力の千分率の raw)。
+    case injureFromEffect(person: PersonID, amount: Int, cause: ProvenanceID?)
 }
 
 public enum InventionCommand: Codable, Equatable, Sendable {
@@ -61,6 +70,9 @@ public enum ProductionCommand: Codable, Equatable, Sendable {
     case handwork(id: HandworkID, input: StockSelector?, holding: Bool)
     /// 有限の品をモジュールに使う(使わなければ取っておいたことになる)。
     case useFinite(placement: EntityID, stock: StockSelector)
+    // 効果から(持ち主 U7 が処理する。cause = 引き金の来歴)
+    /// 置いてあるモジュールの種類を変える(過去に置いた物も含めて意味が変わる)。
+    case convertPlacements(from: ModuleKindID, to: ModuleKindID, cause: ProvenanceID?)
 }
 
 public enum LogisticsCommand: Codable, Equatable, Sendable {
@@ -71,6 +83,13 @@ public enum LogisticsCommand: Codable, Equatable, Sendable {
 public enum ExplorationCommand: Codable, Equatable, Sendable {
     /// マス・POI・置いた物に対する行為(漁る・汲む・掘る…)。押し続ける行為は holding で始め・終える。
     case interact(interaction: InteractionID, at: WorldPoint, holding: Bool)
+    // 効果から(持ち主 U8 が処理する。cause = 引き金の来歴)
+    /// 周りの地図を既知にする。
+    case revealMap(around: WorldPoint, radius: Int, cause: ProvenanceID?)
+    /// 地形を変える。
+    case setTerrain(at: WorldPoint, terrain: TerrainID, cause: ProvenanceID?)
+    /// 有限の部品の状態を変える(来歴は出来事の側で作って state に入れてある)。
+    case setPart(poi: EntityID, part: String, state: PartState)
 }
 
 public enum BaseCommand: Codable, Equatable, Sendable {
@@ -83,6 +102,9 @@ public enum CombatCommand: Codable, Equatable, Sendable {
     case retreat(battle: EntityID)
     /// 効果から: 戦闘を始める。
     case startBattle(enemy: EnemyKindID, count: Int, near: WorldPoint)
+    // 効果から(持ち主 U9 が処理する。cause = 引き金の来歴)
+    /// 地図の上に敵を出す。
+    case spawnEnemy(kind: EnemyKindID, count: Int, near: WorldPoint, cause: ProvenanceID?)
 }
 
 public enum ResearchCommand: Codable, Equatable, Sendable {
@@ -105,9 +127,15 @@ public enum NarrativeCommand: Codable, Equatable, Sendable {
     case decide(decision: EntityID, choice: ChoiceID)
     /// 場面の次の行へ(読み終えた)。押さなくても時間で流れる。
     case advanceScene
+    /// 効果から: 出来事をすぐ起こす(効果 fire)。
+    case fireFromEffect(event: EventID, cause: ProvenanceID?)
 }
 
 public enum SurvivalCommand: Codable, Equatable, Sendable {
-    /// 食べる・飲む(生水か煮沸かは物の種類で選ぶ)。
+    /// 食べる・飲む(生水か煮沸かは物の種類で選ぶ)。自動の消費とは別に、プレイヤーが選んで口にする。
     case consume(person: PersonID, stock: StockSelector)
+    /// 効果から: 体に状態を付ける(中毒・病気…)。重さは状態の定義の単位。
+    case afflict(person: PersonID, ailment: StatID, severity: Int)
+    /// 効果から: 傷を負う(体力が amount 減り、傷の状態が amount 付く)。効果 injure・戦いの負けが出す。
+    case injure(person: PersonID, amount: Int)
 }
