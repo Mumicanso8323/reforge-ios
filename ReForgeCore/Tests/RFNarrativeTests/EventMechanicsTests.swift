@@ -286,7 +286,8 @@ final class EventMechanicsTests: XCTestCase {
         var base = rig.factory.newWorld(seed: 1)
         // 部品のある POI を 1 つ置く(平らな地図には POI が無い)
         let poi = base.newEntityID()
-        base.map.layers[.surface]?.pois[poi] = POIState(kind: "poi.test.wreck", at: GridPoint(3, 3))
+        _ = base.map[.surface]?.placements.place(MapPlacement(id: "poi.test", kind: .wreck, templateID: "poi.test.wreck",
+                                                              anchor: GridPoint(3, 3), entity: poi))
         let c = base.people[.noah]!.position!
         let effects: [Effect] = [
             .learn(fact: "fact.test.revealed"),

@@ -28,7 +28,7 @@ var targets: [Target] = [
     // L0
     .target(name: "RFKernel"),
     // L1(葉)
-    .target(name: "RFMap", dependencies: ["RFKernel"]),
+    .target(name: "RFMap", dependencies: ["RFKernel"], exclude: ["README.md"]),
     .target(name: "RFMatter", dependencies: ["RFKernel"], exclude: ["README.md"]),
     // L2
     .target(name: "RFWorld", dependencies: ["RFKernel", "RFMap", "RFMatter"]),
