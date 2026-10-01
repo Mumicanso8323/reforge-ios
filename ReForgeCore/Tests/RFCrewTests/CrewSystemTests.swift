@@ -407,12 +407,15 @@ final class CrewSystemTests: XCTestCase {
         let rig = try TestRig.publicOnly()
         var w = world(rig)
         var ctx = StepContext(world: w, content: rig.content)
+        // 効果 relation は RelationState.add を通る(U11)。ランクは効果の時点で直り、知らせも効果が出す
         EffectApplier.apply([.relation(person: "person.test_a", add: 60)], &ctx, cause: nil)
+        XCTAssertEqual(ctx.world.people["person.test_a"]!.relation.rank, 1)
+        XCTAssertEqual(ctx.world.people["person.test_a"]!.relation.points, 10)
+        XCTAssertTrue(ctx.drainEvents().contains(.relationChanged(person: "person.test_a", rank: 1, delta: 60)))
         w = ctx.world
-        let r = rig.simulation.runSteps(1, &w)
+        // 次のステップで RFCrew が直し直すことはない(二重に上がらない)
+        _ = rig.simulation.runSteps(1, &w)
         XCTAssertEqual(w.people["person.test_a"]!.relation.rank, 1)
-        XCTAssertEqual(w.people["person.test_a"]!.relation.points, 10)
-        XCTAssertTrue(r.events.contains(.relationChanged(person: "person.test_a", rank: 1, delta: 0)))
     }
 
     /// 焚き火で話す(夜作業): 1 時間かかり、1 晩に 1 回だけ関係が深まる。昼は話せない。

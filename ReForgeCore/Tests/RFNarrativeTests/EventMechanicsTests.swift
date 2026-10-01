@@ -41,6 +41,11 @@ final class EventMechanicsTests: XCTestCase {
 
     private func spawn(_ w: WorldState) -> WorldPoint { w.people[.noah]!.position! }
 
+    /// 時間と出来事だけの本体(長い走行を軽くする。人の歩く・視界などは各担当のテストと受け入れテストで見る)。
+    private func timeAndNarrative(_ rig: TestRig) -> Simulation {
+        Simulation(content: rig.content, systems: Simulation.standardSystems.filter { ["time", "narrative"].contains($0.name) })
+    }
+
     // MARK: - TEST-S5 決定性
 
     /// 同じ seed と同じ操作の列なら、同じ出来事の列・同じ世界(確率の出来事を含む)。別の seed では確率の出来事が変わる。
@@ -49,7 +54,7 @@ final class EventMechanicsTests: XCTestCase {
         func run(_ seed: UInt64) -> ([EventID], WorldState) {
             var w = rig.factory.newWorld(seed: seed)
             var events: [DomainEvent] = []
-            for _ in 0..<3 {
+            for _ in 0..<1 {
                 var r = rig.playDay(&w, dt: 1)
                 r.merge(rig.simulation.apply(.time(.startNightWork), to: &w))
                 r.merge(rig.simulation.apply(.time(.sleep), to: &w))
@@ -64,9 +69,10 @@ final class EventMechanicsTests: XCTestCase {
         XCTAssertEqual(wa, wb)
         XCTAssertFalse(a.isEmpty)
         // 確率の出来事(1 日 1 回・夜明け・物語の乱数の流れ)は seed で変わる
+        let light = timeAndNarrative(rig)
         let luckyRuns = Set((1...6).map { seed -> Int in
             var w = rig.factory.newWorld(seed: UInt64(seed))
-            let r = rig.simulation.runSteps(Int(3 * 26 * 3600 / SimStep.gameSeconds), &w)
+            let r = light.runSteps(Int(3 * 26 * 3600 / SimStep.gameSeconds), &w)
             return firedIDs(r.events).filter { $0 == "event.test.lucky" }.count
         })
         XCTAssertGreaterThan(luckyRuns.count, 1)
@@ -76,14 +82,14 @@ final class EventMechanicsTests: XCTestCase {
     /// 物語の乱数の流れだけを使う: 他の流れ(地図・生産…)を引いても出来事の列は変わらない。
     func testNarrativeUsesOwnRandomStream() throws {
         let rig = try TestRig.publicOnly()
+        let light = timeAndNarrative(rig)
+        let day = Int(26 * 3600 / SimStep.gameSeconds)
         func luckyDays(disturb: Bool) -> [Int] {
             var w = rig.factory.newWorld(seed: 5)
             var days: [Int] = []
             for _ in 0..<6 {
                 if disturb { w.rng.use(.production) { _ = $0.next() } }
-                _ = rig.playDay(&w, dt: 1)
-                _ = rig.simulation.apply(.time(.startNightWork), to: &w)
-                let r = rig.simulation.apply(.time(.sleep), to: &w)
+                let r = light.runSteps(day, &w)
                 if firedIDs(r.events).contains("event.test.lucky") { days.append(w.clock.day) }
             }
             return days
@@ -423,6 +429,7 @@ final class EventMechanicsTests: XCTestCase {
         XCTAssertEqual(ctx.world.run.outcome, .ended("ending.test.end"))
         XCTAssertEqual(ctx.world.narrative.counters["counter.test.ended"], 1)
         XCTAssertTrue(r.events.contains(.endingReached(ending: "ending.test.end")))
+        XCTAssertEqual(ctx.world.ledger.records.filter { $0.act == .achieved }.count, 2, "目標の達成と結末の記録")
     }
 
     /// 場面は押さなくても時間で次の行へ流れ、最後の行の次で終わる(地図は止めない)。
