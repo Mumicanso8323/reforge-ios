@@ -18,6 +18,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case trialed(record: ProvenanceID)
     case crafted(quantity: Int, record: ProvenanceID)
     case designed(design: EntityID, record: ProvenanceID)
+    /// 推理の手がかり(HintDef)がノートに載った。from は仲間の知識なら仲間。
+    case hintHeard(hint: HintID, from: PersonID?, record: ProvenanceID)
     case produced(placement: EntityID, quantity: Int)
     case moduleStopped(placement: EntityID, reason: TextID)
     case moduleResumed(placement: EntityID)
@@ -32,6 +34,10 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case itemGained(holder: HolderID, stuff: Stuff, quantity: Int, record: ProvenanceID?)
     case itemSpent(holder: HolderID, stuff: Stuff, quantity: Int)
     case finiteUsed(record: ProvenanceID)
+    /// 探索の出来事の表から 1 件起きた(event は ExploreEventDef の ID)。
+    case explored(person: PersonID, event: EventID, record: ProvenanceID)
+    /// 有限の部品の状態・修理の段階が変わった。
+    case partChanged(poi: EntityID, part: String, record: ProvenanceID)
     // 人
     case personMet(person: PersonID, record: ProvenanceID)
     case personJoined(person: PersonID, record: ProvenanceID)
@@ -53,6 +59,10 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case researchCompleted(research: ResearchID, record: ProvenanceID)
     case skillAcquired(person: PersonID, skill: SkillID, record: ProvenanceID)
     case unlocked(what: String)
+    /// 研究パッケージの中の段が終わった(node = 段の番号。0 から)。
+    case researchNode(research: ResearchID, node: Int, record: ProvenanceID)
+    // 力
+    case abilityUsed(person: PersonID, ability: AbilityID, record: ProvenanceID)
     // 物語
     case eventFired(event: EventID, record: ProvenanceID)
     case decisionOpened(decision: EntityID, event: EventID)
@@ -79,6 +89,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .trialed: "trialed"
         case .crafted: "crafted"
         case .designed: "designed"
+        case .hintHeard: "hint"
         case .produced: "produced"
         case .moduleStopped: "module.stopped"
         case .moduleResumed: "module.resumed"
@@ -91,6 +102,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .itemGained: "item.gained"
         case .itemSpent: "item.spent"
         case .finiteUsed: "finite.used"
+        case .explored: "explored"
+        case .partChanged: "part"
         case .personMet: "person.met"
         case .personJoined: "person.joined"
         case .personLeft: "person.left"
@@ -108,6 +121,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .researchCompleted: "research.completed"
         case .skillAcquired: "skill"
         case .unlocked: "unlocked"
+        case .researchNode: "research.node"
+        case .abilityUsed: "ability.used"
         case .eventFired: "event"
         case .decisionOpened: "decision.opened"
         case .decided: "decided"
@@ -129,10 +144,13 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .placed(_, let r), .dismantled(_, let r), .built(_, let r), .interacted(_, _, _, let r),
              .finiteUsed(let r), .personMet(_, let r), .personJoined(_, let r), .personLeft(_, let r),
              .personDied(_, let r), .battleStarted(_, let r), .battleEnded(_, _, _, let r),
-             .researchCompleted(_, let r), .skillAcquired(_, _, let r), .eventFired(_, let r),
-             .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r):
+             .researchCompleted(_, let r), .skillAcquired(_, _, let r), .researchNode(_, _, let r),
+             .abilityUsed(_, _, let r), .eventFired(_, let r),
+             .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r),
+             .explored(_, _, let r), .partChanged(_, _, let r):
             r
         case .itemGained(_, _, _, let r): r
+        case .hintHeard(_, _, let r): r
         case .opinion(_, let r, _): r
         default: nil
         }

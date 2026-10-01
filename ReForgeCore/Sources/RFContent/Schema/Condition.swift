@@ -25,8 +25,9 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     /// 物の数を比べる(拠点の蓄え+ノアの持ち物)。what.quantity が比べる値。
     /// perMember = true なら「一員の人数 × quantity」と比べる(一人あたりの備え)。
     case stock(of: Ingredient, cmp: Comparison, perMember: Bool? = nil)
-    /// モジュール・建造物が置かれている数。
-    case placedCount(module: ModuleKindID?, structure: StructureKindID?, atLeast: Int)
+    /// モジュール・建造物が置かれている数。既定は建て終わった物だけ(建造中は数えない。リーダー決定)。
+    /// includeUnfinished = true なら建造中も数える。
+    case placedCount(module: ModuleKindID?, structure: StructureKindID?, atLeast: Int, includeUnfinished: Bool? = nil)
     /// 来歴の問い合わせ(「炉を置いたことがある」「この印の付いた物を 10 個以上作った」)。
     case ledger(query: ProvenanceQuery, atLeast: Int)
     /// 「工業の初めて」: 引き金になった記録が、この問い合わせに合う最初の記録である。
@@ -64,6 +65,9 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     case unlocked(target: UnlockTarget)
     /// ノア(または誰か)がある場所にいる。
     case at(person: PersonID, place: PlaceSelector)
+    /// 場所の近く(チェビシェフ距離 radius 以内)に、この印の地形がある。印 "water" は TerrainDef.isWater の地形にも当たる。
+    /// 例: 冷やす段の試作は水辺に接していればできる(radius 1)。
+    case nearTerrain(place: PlaceSelector, tag: String, radius: Int)
     /// POI の種類を見つけている(atLeast 個以上。既定 1)。
     case discoveredPOI(kind: POIKindID, atLeast: Int? = nil)
     case objective(id: ObjectiveID, status: ObjectiveStatusName)

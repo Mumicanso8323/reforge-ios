@@ -126,7 +126,10 @@ public struct RFMapGenerator: MapGenerating {
 
     public func generate(config: MapGenConfig, terrains: [TerrainID: TerrainDef], rng: inout SeededRandom,
                          allocate: () -> EntityID) -> MapState {
-        var c = MapGenerationConfig(size: config.size)
+        // 生成器の最小の一辺より小さい指定は最小まで広げる(コンテンツの数で落ちない。公開の試験用の層は小さい)
+        let side = MapGenerationConfig.minimumSide
+        let size = GridSize(width: max(side, config.size.width), height: max(side, config.size.height))
+        var c = MapGenerationConfig(size: size)
         c.allowUnverifiedFallback = true
         do {
             var map = try WorldMap.generate(config: c, rng: &rng)

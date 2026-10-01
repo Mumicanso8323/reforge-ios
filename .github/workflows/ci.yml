@@ -75,8 +75,23 @@ jobs:
       VERSION: 0.1.0
       BUILD: ${{ github.run_number }}
       TAG: v0.1.0-b${{ github.run_number }}
+      HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: 非公開のコンテンツを取り込む
+        if: env.HAS_CONTENT_KEY == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: Mumicanso8323/reforge-content
+          ssh-key: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY }}
+          path: content/private
+          persist-credentials: false
+
+      # 公開の層の写しと、封をした非公開の層(private.sealed)と鍵の Swift ファイルを作る(E-content.md §4.5)。
+      # 非公開の層が無ければ鍵 nil で、公開の層だけのアプリになる。鍵・本文はログに出さない。
+      - name: コンテンツの束を作る
+        run: tools/content/stage.sh
 
       - name: Xcode
         run: |
@@ -131,6 +146,14 @@ jobs:
             -c "Print :CFBundleShortVersionString" -c "Print :CFBundleVersion" "$APP/Info.plist"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = com.yusukedoi.reforge
           lipo -info "$APP/ReForge"
+          # 平文の非公開の層が ipa に入っていないこと。見張りの文字列(値はログに出さない)が平文で現れないこと
+          test ! -e "$APP/content/private" || { echo "平文の非公開の層が ipa に入っている"; exit 1; }
+          if [ -f content/private/bundle.json ]; then
+            canary=$(python3 -c 'import json; print(json.load(open("content/private/bundle.json"))["bundle"].get("canary") or "")')
+            if [ -n "$canary" ] && grep -rqF -- "$canary" Payload; then
+              echo "見張りの文字列が ipa の中に平文で見つかった(封が効いていない)"; exit 1
+            fi
+          fi
           zip -qry ReForge.ipa Payload
           ls -la ReForge.ipa
 

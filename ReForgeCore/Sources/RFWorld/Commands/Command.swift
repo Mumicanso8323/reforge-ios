@@ -95,6 +95,8 @@ public enum ExplorationCommand: Codable, Equatable, Sendable {
 public enum BaseCommand: Codable, Equatable, Sendable {
     case build(structure: StructureKindID, at: WorldPoint, facing: Direction)
     case demolish(placement: EntityID)
+    /// 会った生存者を拠点に迎える(拠点の蓄えの食料と、空いている寝床が要る。人数はシェルターの収容で決まる)。
+    case welcome(person: PersonID)
 }
 
 public enum CombatCommand: Codable, Equatable, Sendable {
@@ -108,8 +110,14 @@ public enum CombatCommand: Codable, Equatable, Sendable {
 }
 
 public enum ResearchCommand: Codable, Equatable, Sendable {
+    /// 進める研究パッケージを選ぶ(研究机に付いた人が昼に進める)。別のを選べば切り替わる(進みは残る)。
     case select(research: ResearchID)
+    /// スキルを習い始める(習得の時間のあいだは「学ぶ時期」。BEAT-15)。
     case learnSkill(person: PersonID, skill: SkillID)
+    /// 習うのをやめる(進みは残る。同じスキルを選び直せば続きから)。
+    case stopLearning(person: PersonID)
+    /// 夜作業: 研究机で研究する(ResearchRules.nightStudyHours だけ時間が進む)。
+    case nightStudy(person: PersonID)
 }
 
 public enum AbilitiesCommand: Codable, Equatable, Sendable {
@@ -126,6 +134,10 @@ public enum NarrativeCommand: Codable, Equatable, Sendable {
 }
 
 public enum SurvivalCommand: Codable, Equatable, Sendable {
-    /// 食べる・飲む(生水か煮沸かは物の種類で選ぶ)。
+    /// 食べる・飲む(生水か煮沸かは物の種類で選ぶ)。自動の消費とは別に、プレイヤーが選んで口にする。
     case consume(person: PersonID, stock: StockSelector)
+    /// 効果から: 体に状態を付ける(中毒・病気…)。重さは状態の定義の単位。
+    case afflict(person: PersonID, ailment: StatID, severity: Int)
+    /// 効果から: 傷を負う(体力が amount 減り、傷の状態が amount 付く)。効果 injure・戦いの負けが出す。
+    case injure(person: PersonID, amount: Int)
 }
