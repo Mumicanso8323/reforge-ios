@@ -17,6 +17,8 @@ public enum ContentLoader {
         case duplicate(file: String, keys: [String])
         /// remove に知らない集まりの名前。
         case unknownCollection(file: String, name: String)
+        /// 封をした非公開の層を開けない(鍵違い・壊れている・形式が違う)。
+        case sealed(String)
 
         public var description: String {
             switch self {
@@ -25,6 +27,7 @@ public enum ContentLoader {
             case .decode(let f, let m): "\(f): \(m)"
             case .duplicate(let f, let k): "\(f): 同じ層の中で ID が重なっている \(k)"
             case .unknownCollection(let f, let n): "\(f): remove の集まり \(n) を知らない"
+            case .sealed(let m): "封をした非公開の層: \(m)"
             }
         }
     }
@@ -51,27 +54,71 @@ public enum ContentLoader {
         return isDirectory(sibling) ? sibling : nil
     }
 
-    /// アプリの束から読む: <root>/public → <root>/private(あれば)。
-    /// アプリはコンテンツのディレクトリ(content/)をそのまま束に入れ、ここに渡す(U13)。
-    public static func loadBundled(root: URL) throws -> ContentDB {
+    /// アプリの束から読む(E-content.md §4.5): <root>/public → <root>/private(平文。手元の開発)があれば重ねる →
+    /// 無くて <root>/private.sealed と鍵があれば、開封してメモリ上の層として重ねる(開いた本文はファイルに書かない)。
+    /// 鍵違い・壊れた封はエラー(黙って公開だけにしない。アプリは受けて公開だけで起動し、帯に 1 行出す)。
+    public static func loadBundled(root: URL, key: Data? = nil) throws -> ContentDB {
         let pub = root.appendingPathComponent("public", isDirectory: true)
         let priv = root.appendingPathComponent("private", isDirectory: true)
-        return try load(layers: isDirectory(priv) ? [pub, priv] : [pub])
+        let sealed = root.appendingPathComponent(ContentSeal.fileName)
+        if isDirectory(priv) { return try load(layers: [pub, priv]) }
+        if let key, FileManager.default.fileExists(atPath: sealed.path) {
+            let files = try ContentSeal.open(Data(contentsOf: sealed), key: key)
+            return try load(sources: [.directory(pub), .memory(name: "private", files: files)])
+        }
+        return try load(layers: [pub])
+    }
+
+    /// 層の出どころ: ディレクトリか、開封したメモリ上のファイル(層の中の相対パス → 中身)。
+    public enum LayerSource: Sendable {
+        case directory(URL)
+        case memory(name: String, files: [String: Data])
     }
 
     public static func load(layers: [URL]) throws -> ContentDB {
+        try load(sources: layers.map { .directory($0) })
+    }
+
+    public static func load(sources: [LayerSource]) throws -> ContentDB {
         var db = ContentDB()
-        for layer in layers {
-            guard isDirectory(layer) else { throw LoadError.missingLayer(layer.path) }
-            let root = layer.resolvingSymlinksInPath()
+        for source in sources {
             var seen = LayerKeys()
-            for file in jsonFiles(in: root) {
-                let data = try Data(contentsOf: file)
-                let name = layer.lastPathComponent + String(file.path.dropFirst(root.path.count))
+            for (name, data) in try files(of: source) {
                 try apply(json: data, to: &db, name: name, seen: &seen)
             }
         }
         return db
+    }
+
+    /// 層の中の *.json を(名前, 中身)で、相対パスの昇順に。ディレクトリでもメモリでも同じ順・同じ名前。
+    static func files(of source: LayerSource) throws -> [(String, Data)] {
+        switch source {
+        case .directory(let layer):
+            let root = layer.resolvingSymlinksInPath()
+            return try relativeJSONPaths(in: layer).map { rel in
+                ("\(layer.lastPathComponent)/\(rel)", try Data(contentsOf: root.appendingPathComponent(rel)))
+            }
+        case .memory(let name, let files):
+            return files.keys.filter(isContentPath).sorted().map { ("\(name)/\($0)", files[$0]!) }
+        }
+    }
+
+    /// 層の中で読むファイルの相対パス(昇順)。封をする側もこれを使う(読むものと封をするものを一致させる)。
+    public static func relativeJSONPaths(in layer: URL) throws -> [String] {
+        guard isDirectory(layer) else { throw LoadError.missingLayer(layer.path) }
+        let root = layer.resolvingSymlinksInPath()
+        // 隠しの判定は層の中の相対パスで(層そのものが隠しディレクトリの下にあってもよい)
+        return jsonFiles(in: root).map { String($0.resolvingSymlinksInPath().path.dropFirst(root.path.count + 1)) }
+            .filter(isContentPath).sorted()
+    }
+
+    /// コンテンツとして読む相対パスか: *.json で、隠し(. で始まる)と materials/・tools/ の下を除く
+    /// (資料と変換スクリプトの置き場に JSON があっても読まない)。
+    public static func isContentPath(_ rel: String) -> Bool {
+        let parts = rel.split(separator: "/")
+        guard rel.hasSuffix(".json"), let first = parts.first else { return false }
+        if parts.contains(where: { $0.hasPrefix(".") }) { return false }
+        return first != "materials" && first != "tools"
     }
 
     /// 1 つの JSON(テストやツールから)。
@@ -102,7 +149,7 @@ public enum ContentLoader {
         guard let e = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: nil,
                                                      options: [.skipsHiddenFiles]) else { return [] }
         return e.compactMap { $0 as? URL }
-            .filter { $0.pathExtension == "json" && !$0.pathComponents.contains { $0.hasPrefix(".") } }
+            .filter { $0.pathExtension == "json" }
             .sorted { $0.path < $1.path }
     }
 

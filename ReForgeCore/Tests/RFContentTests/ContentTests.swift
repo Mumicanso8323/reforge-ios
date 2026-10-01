@@ -130,6 +130,86 @@ final class ContentTests: XCTestCase {
         XCTAssertEqual(try ContentLoader.loadBundled(root: dir).texts["text.a"], "非公開")
     }
 
+    // MARK: 封をした非公開の層(E §4.5)
+
+    private func makeSealTestLayer() throws -> (root: URL, priv: URL) {
+        let root = try makeTempDir()
+        let pub = root.appendingPathComponent("public")
+        try FileManager.default.createSymbolicLink(at: pub, withDestinationURL: TestContent.publicLayer)
+        let priv = root.appendingPathComponent("private-src")
+        try write(#"{"bundle": {"id": "private", "visibility": "private", "version": "t", "canary": "zqcanary0123456789"}}"#,
+                  "bundle.json", in: priv)
+        try write(#"{"texts": {"text.name.test_a": "封の中の名前"}, "facts": [{"id": "fact.sealed"}]}"#, "text/ja/a.json", in: priv)
+        try write(#"{"evnets": []}"#, "materials/not-content.json", in: priv)
+        try write(#"{"evnets": []}"#, "tools/out.json", in: priv)
+        try write("資料", "materials/note.md", in: priv)
+        return (root, priv)
+    }
+
+    /// 封じて開くと同じ束。読み込みと同じファイル(*.json。materials/・tools/ は除く)だけが入る。
+    func testSealRoundTrip() throws {
+        let (_, priv) = try makeSealTestLayer()
+        let files = try ContentSeal.collect(layer: priv)
+        XCTAssertEqual(files.keys.sorted(), ["bundle.json", "text/ja/a.json"])
+        let key = ContentSeal.newKey()
+        let sealed = try ContentSeal.seal(files, key: key)
+        XCTAssertEqual(sealed.prefix(4), Data("RFS1".utf8))
+        XCTAssertNil(sealed.range(of: Data("zqcanary0123456789".utf8)), "見張りの文字列が平文で見えない")
+        XCTAssertNil(sealed.range(of: Data("封の中の名前".utf8)))
+        XCTAssertEqual(try ContentSeal.open(sealed, key: key), files)
+        XCTAssertNotEqual(try ContentSeal.seal(files, key: key), sealed, "nonce は毎回変わる")
+    }
+
+    /// 1 バイト変える・鍵違い・合図違い・短すぎるは、すべてエラー。
+    func testSealRejectsTamperingAndWrongKey() throws {
+        let (_, priv) = try makeSealTestLayer()
+        let key = ContentSeal.newKey()
+        let sealed = try ContentSeal.seal(try ContentSeal.collect(layer: priv), key: key)
+        for i in [0, 5, 20, sealed.count - 1] {
+            var bad = sealed
+            bad[bad.startIndex + i] ^= 0x01
+            XCTAssertThrowsError(try ContentSeal.open(bad, key: key), "位置 \(i)")
+        }
+        XCTAssertThrowsError(try ContentSeal.open(sealed, key: ContentSeal.newKey()))
+        XCTAssertThrowsError(try ContentSeal.open(sealed.prefix(20), key: key))
+        XCTAssertThrowsError(try ContentSeal.open(sealed, key: key.prefix(16)))
+    }
+
+    /// ディレクトリから読んだ層と、封から開いた層が同じ ContentDB になる。鍵が無ければ公開だけ、鍵違いはエラー。
+    func testBundledSealedLayerEqualsDirectoryLayer() throws {
+        let (root, priv) = try makeSealTestLayer()
+        let key = ContentSeal.newKey()
+        try ContentSeal.seal(try ContentSeal.collect(layer: priv), key: key)
+            .write(to: root.appendingPathComponent(ContentSeal.fileName))
+        let fromDir = try ContentLoader.load(sources: [.directory(TestContent.publicLayer),
+                                                       .memory(name: "private", files: try ContentSeal.collect(layer: priv))])
+        let direct = try ContentLoader.load(layers: [TestContent.publicLayer, priv])
+        let bundled = try ContentLoader.loadBundled(root: root, key: key)
+        XCTAssertEqual(bundled, direct)
+        XCTAssertEqual(bundled, fromDir)
+        XCTAssertEqual(bundled.texts["text.name.test_a"], "封の中の名前")
+        XCTAssertEqual(bundled.layers.last?.canary, "zqcanary0123456789")
+        XCTAssertEqual(try ContentLoader.loadBundled(root: root, key: nil), try TestContent.publicOnly())
+        XCTAssertThrowsError(try ContentLoader.loadBundled(root: root, key: ContentSeal.newKey())) { e in
+            guard case .sealed? = e as? ContentLoader.LoadError else { return XCTFail("\(e)") }
+        }
+    }
+
+    /// アプリに埋める鍵のファイルは、鍵の並びをそのまま書かず、2 つの配列の XOR で鍵に戻る。
+    func testKeySourceSplitsKey() throws {
+        let key = ContentSeal.newKey()
+        let src = ContentSeal.keySource(key)
+        let hex = key.map { String(format: "0x%02x", $0) }.joined(separator: ", ")
+        XCTAssertFalse(src.contains(hex))
+        let arrays = try NSRegularExpression(pattern: #"\[UInt8\] = \[([^\]]*)\]"#)
+            .matches(in: src, range: NSRange(src.startIndex..., in: src))
+            .map { m in (src as NSString).substring(with: m.range(at: 1)).split(separator: ",")
+                .map { UInt8($0.trimmingCharacters(in: .whitespaces).dropFirst(2), radix: 16)! } }
+        XCTAssertEqual(arrays.count, 2)
+        XCTAssertEqual(Data(zip(arrays[0], arrays[1]).map { $0 ^ $1 }), key)
+        XCTAssertTrue(ContentSeal.keySource(nil).contains("static let key: Data? = nil"))
+    }
+
     // MARK: 検証(認識の層)
 
     func testValidatorCatchesPerceptionMistakes() throws {

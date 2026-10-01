@@ -4,7 +4,7 @@ import RFMatter
 
 /// 読み込んだコンテンツの全部(不変)。公開の層と非公開の層を重ねたもの(E-content.md)。
 /// 本体・認識の層・画面はこれだけを見る。JSON を直接読まない。
-public struct ContentDB: Sendable {
+public struct ContentDB: Equatable, Sendable {
     /// 重ねた層(順番どおり)。セーブに版を残すのに使う。
     public var layers: [LayerManifest] = []
 
