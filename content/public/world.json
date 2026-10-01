@@ -1,0 +1,54 @@
+{
+  "terrains": [
+    { "id": "grass", "passable": true, "moveCost": 10, "isWater": false, "tags": ["ground"] },
+    { "id": "water", "passable": false, "moveCost": 0, "isWater": true, "tags": ["water"] },
+    { "id": "rock", "passable": true, "moveCost": 30, "isWater": false, "tags": ["rock"] }
+  ],
+  "pois": [
+    { "id": "poi.test.wreck", "parts": ["part.a", "part.b"], "parameters": null }
+  ],
+  "modules": [
+    {
+      "id": "furnace", "cost": [ { "item": "wood", "quantity": 2 } ],
+      "placement": { "terrainTags": ["ground", "rock"] },
+      "ports": [ { "side": "south", "flow": "input" }, { "side": "north", "flow": "output" } ],
+      "cycleSeconds": 480, "specialty": "smith", "auras": ["aura.test.smoke"]
+    }
+  ],
+  "structures": [
+    { "id": "structure.test.shelter", "cost": [ { "item": "wood", "quantity": 1 } ], "buildSeconds": 3600,
+      "provides": { "shelter": 1, "housing": 2 } }
+  ],
+  "people": [
+    { "id": "person.noah", "name": "person:person.noah", "specialties": [], "ideology": {} },
+    { "id": "person.test_a", "name": "person:person.test_a", "specialties": ["smith"], "ideology": { "axis.test.make": 3 } },
+    { "id": "person.test_b", "name": "person:person.test_b", "specialties": ["study"], "ideology": { "axis.test.guard": 2 } },
+    { "id": "person.test_c", "name": "person:person.test_c", "specialties": [], "ideology": {} }
+  ],
+  "ideologyAxes": [
+    { "id": "axis.test.make", "weights": { "tag.test.build": 2 } },
+    { "id": "axis.test.guard", "weights": { "tag.test.build": -1 } }
+  ],
+  "memoryKinds": [ { "id": "memory.test.saw", "persistsAcrossRewind": true } ],
+  "auras": [
+    { "id": "aura.test.smoke", "modifiers": [ { "bodyPerHour": { "stat": "mind", "amount": -1 } } ] }
+  ],
+  "stats": [
+    { "id": "stat.test.air", "initial": 800, "perDay": 5 },
+    { "id": "stat.test.hidden", "initial": 0 }
+  ],
+  "trackers": [
+    { "id": "counter.test.near", "kind": { "proximityMinutes": { "a": "person.noah", "b": "person.test_a", "radius": 3, "whileWorking": false } } }
+  ],
+  "failureRules": [
+    { "id": "failure.test.doom", "when": { "counter": { "id": "counter.test.doom", "cmp": "ge", "value": 1 } }, "cause": "text.test.cause" }
+  ],
+  "sheets": [
+    { "id": "sheet.test.record", "title": "sheet:sheet.test.record",
+      "rows": [ { "subject": "module:furnace", "note": "text.test.row" } ],
+      "when": { "known": { "expr": "fact.test.alpha" } } }
+  ],
+  "objectives": [
+    { "id": "objective.test.first", "text": "text.test.objective", "completeWhen": { "placedCount": { "module": "furnace", "atLeast": 1 } } }
+  ]
+}
