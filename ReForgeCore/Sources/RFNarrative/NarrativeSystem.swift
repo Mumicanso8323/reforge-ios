@@ -154,7 +154,7 @@ public struct NarrativeSystem: SimSystem {
             if ConditionEvaluator.evaluatePure(def.completeWhen, world: w, content: ctx.content) == true {
                 ctx.world.narrative.objectives[id] = .done
                 // 達成の来歴(後で「あの目標を果たしたこと」を指せる)
-                let rec = ctx.record(.chose, .none, detail: ["objective": .string(id.rawValue), "status": .string("done")])
+                let rec = ctx.record(.achieved, .none, detail: ["objective": .string(id.rawValue), "status": .string("done")])
                 ctx.emit(.objectiveChanged(objective: id, status: .done))
                 EffectApplier.apply(def.effects ?? [], &ctx, cause: rec)
                 ctx.changes.mark(.narrative)
@@ -167,7 +167,7 @@ public struct NarrativeSystem: SimSystem {
         guard ctx.world.narrative.ending == nil else { return }
         for (id, def) in ctx.content.endings.sorted(by: { $0.key < $1.key }) {
             guard ConditionEvaluator.evaluatePure(def.when, world: ctx.world, content: ctx.content) == true else { continue }
-            let rec = ctx.record(.chose, .none, detail: ["ending": .string(id.rawValue)])
+            let rec = ctx.record(.achieved, .none, detail: ["ending": .string(id.rawValue)])
             EffectApplier.apply(def.effects ?? [], &ctx, cause: rec)
             if let s = def.scene { EffectApplier.apply([.startScene(scene: s)], &ctx, cause: rec) }
             EffectApplier.apply([.ending(id: id)], &ctx, cause: rec)

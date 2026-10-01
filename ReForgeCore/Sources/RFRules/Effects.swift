@@ -66,10 +66,12 @@ public enum EffectApplier {
 
         // MARK: 人
         case .relation(let p, let add):
-            guard var ps = w.people[p] else { return missing(&ctx, e) }
-            ps.relation.points += add
-            ctx.world.people[p] = ps
-            ctx.emit(.relationChanged(person: p, rank: ps.relation.rank, delta: add))
+            guard w.people[p] != nil else { return missing(&ctx, e) }
+            // 点の増減とランクの直しは RelationState.add の 1 か所。ランクが上がったら、その場で知らせる
+            let up = ctx.world.people[p]?.relation.add(add) ?? 0
+            if up > 0, let rank = ctx.world.people[p]?.relation.rank {
+                ctx.emit(.relationChanged(person: p, rank: rank, delta: add))
+            }
             ctx.changes.mark(.people)
         case .ideology(let p, let axis, let add):
             guard var ps = w.people[p] else { return missing(&ctx, e) }
