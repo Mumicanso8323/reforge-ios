@@ -16,8 +16,8 @@ public struct ExplorationSystem: SimSystem {
     public func handle(_ command: Command, _ ctx: inout StepContext) -> CommandResult {
         guard case .exploration(let c) = command else { return .notMine }
         switch c {
-        case .interact(let id, let at, let holding):
-            return Interactions.command(id, at: at, holding: holding, actor: .noah, &ctx)
+        case .interact(let id, let at, let holding, let person):
+            return Interactions.command(id, at: at, holding: holding, actor: person ?? .noah, &ctx)
         case .revealMap(let around, let radius, let cause):
             return MapEffects.reveal(around: around, radius: radius, cause: cause, &ctx)
         case .setTerrain(let at, let terrain, let cause):
