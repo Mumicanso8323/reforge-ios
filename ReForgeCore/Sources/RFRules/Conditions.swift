@@ -50,11 +50,12 @@ public enum ConditionEvaluator {
         case .stock(let ing, let cmp, let perMember):
             let target = perMember == true ? ing.quantity * w.people.members.count : ing.quantity
             return cmp.test(Int64(stockCount(ing, w)), Int64(target))
-        case .placedCount(let m, let s, let atLeast):
+        case .placedCount(let m, let s, let atLeast, let unfinished):
             let n = w.placements.items.values.filter { p in
+                if unfinished != true, case .underConstruction = p.status { return false }
                 switch p.kind {
-                case .module(let k): m == k || (m == nil && s == nil)
-                case .structure(let k): s == k || (m == nil && s == nil)
+                case .module(let k): return m == k || (m == nil && s == nil)
+                case .structure(let k): return s == k || (m == nil && s == nil)
                 }
             }.count
             return n >= atLeast
@@ -111,6 +112,16 @@ public enum ConditionEvaluator {
         case .at(let person, let place):
             guard let pos = w.people[person]?.position else { return false }
             return Places.contains(place, pos, world: w, trigger: trigger)
+        case .nearTerrain(let place, let tag, let radius):
+            guard let c = Places.resolve(place, world: w, trigger: trigger), let layer = w.map[c.layer] else { return false }
+            for dy in -radius...radius {
+                for dx in -radius...radius {
+                    guard let t = layer.terrain(at: GridPoint(c.point.x + dx, c.point.y + dy)) else { continue }
+                    let def = content.terrains[t]
+                    if def?.tags.contains(tag) == true || (tag == "water" && def?.isWater == true) { return true }
+                }
+            }
+            return false
         case .discoveredPOI(let kind, let atLeast):
             let n = w.map.layers.values.reduce(0) { acc, layer in
                 acc + layer.pois.filter { $0.value.kind == kind && w.knowledge.discovered.contains($0.key) }.count

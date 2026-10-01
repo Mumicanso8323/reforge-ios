@@ -30,6 +30,21 @@ final class RulesTests: XCTestCase {
         XCTAssertEqual(ConditionEvaluator.evaluatePure(pure, world: ctx.world, content: rig.content), false)
     }
 
+    /// 置いた数の条件は、既定では建て終わった物だけを数える(組みかけの炉では試作できない)。
+    func testPlacedCountIgnoresUnfinishedByDefault() throws {
+        let rig = try TestRig.publicOnly()
+        var w = rig.factory.newWorld(seed: 1)
+        let id = w.newEntityID()
+        w.placements.items[id] = Placement(id: id, kind: .module("furnace"), at: w.map.spawn, facing: .north,
+                                           origin: ProvenanceLedger.unknownOrigin, status: .underConstruction(progress: 0))
+        let done = Condition.placedCount(module: "furnace", structure: nil, atLeast: 1)
+        let any = Condition.placedCount(module: "furnace", structure: nil, atLeast: 1, includeUnfinished: true)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(done, world: w, content: rig.content), false)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(any, world: w, content: rig.content), true)
+        w.placements.items[id]?.status = .running
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(done, world: w, content: rig.content), true)
+    }
+
     /// 条件・効果の JSON は Swift の列挙の既定の形で書ける。
     func testConditionJSONShape() throws {
         let json = #"{"all": {"of": [{"known": {"expr": "fact.a"}}, {"ledger": {"query": {"act": "placed", "module": "furnace"}, "atLeast": 1}}]}}"#
