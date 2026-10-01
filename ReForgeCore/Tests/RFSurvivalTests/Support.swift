@@ -28,6 +28,7 @@ enum Fixture {
           { "id": "ailment.wound", "recoveryPerDay": 20 }
         ]
       },
+      "skills": [ { "id": "skill.test.long", "hours": 1000 } ],
       "structures": [
         { "id": "structure.test.desk", "cost": [], "buildSeconds": 60, "provides": { "research": 1 } }
       ],

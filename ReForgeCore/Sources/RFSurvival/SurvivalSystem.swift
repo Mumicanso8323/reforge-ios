@@ -60,4 +60,19 @@ public struct SurvivalSystem: SimSystem {
         if let r = rules(ctx.content) { Body.step(r, &ctx) }
         Stats.markCrossings(&ctx)
     }
+
+    // MARK: - 出来事
+
+    public func react(to event: DomainEvent, _ ctx: inout StepContext) {
+        guard let r = rules(ctx.content) else { return }
+        switch event {
+        case .walked(let person, _, let cost):
+            // 歩いた分だけスタミナが減る(全員に共通)。RFCrew が 1 ステップに 1 回、マスに入った人ごとに出す。
+            // staminaCost = 入ったマスの地形の移動コストの合計(草地 10・森 20・岩 30、斜めは 1.4 倍)
+            guard cost > 0, ctx.world.people[person]?.presence.isAlive == true else { return }
+            Body.adjust(person, "stamina", Int64(cost) * Int64(r.staminaPerCost), &ctx)
+        default:
+            break
+        }
+    }
 }

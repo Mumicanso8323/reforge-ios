@@ -60,6 +60,7 @@ enum Body {
                 for (stat, amount) in r.ailment(id)?.bodyPerHour ?? [:] { perHour[stat, default: 0] += Int64(amount) }
             }
             if ps.body.conditions.isEmpty { perHour["health", default: 0] += Int64(r.healthRegen) }
+            perHour["stamina", default: 0] += Int64(r.staminaRegen)
             for (stat, rate) in perHour.sorted(by: { $0.key < $1.key }) where rate != 0 {
                 let d = Rates.advance(&v.carry[stat, default: 0], perHour: rate, seconds: seconds)
                 if d != 0 { add(&ps.body, stat, d) }
@@ -90,6 +91,7 @@ enum Body {
                 if let w = r.ailment(id)?.workPermille { work = work * Int64(w) / 1000 }
             }
             if ps.body.mind.raw < Int64(r.mindLow) { work = work * Int64(r.mindLowWork) / 1000 }
+            if ps.body.stamina.raw < Int64(r.staminaLow) { work = work * Int64(r.staminaLowWork) / 1000 }
             ctx.world.survival.work[p] = work == 1000 ? nil : Int(work)
 
             let hungry = v.hungrySince.map { (now - $0).seconds } ?? 0
@@ -278,8 +280,10 @@ enum Body {
         }
     }
 
-    /// 学んでいるか(研究の建造物に付いている)。BEAT-15: 学ぶ時期は食料の消費が増える(全員に共通)。
+    /// 学んでいるか(研究の建造物に付いている・研究を進めた・スキルを習っている)。BEAT-15: 学ぶ時期は食料の消費が増える
+    /// (全員に共通)。スキルは机の外でも時間で進むので、研究の担当の isLearning も見る。
     static func isStudying(_ ps: PersonState, _ r: SurvivalDef, _ ctx: StepContext) -> Bool {
+        if ctx.world.research.isLearning(ps.id) { return true }
         var targets: [EntityID] = []
         if case .operate(let e) = ps.assignment { targets.append(e) }
         if case .working(let e) = ps.activity { targets.append(e) }

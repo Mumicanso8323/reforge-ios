@@ -282,6 +282,48 @@ final class SurvivalSystemTests: XCTestCase {
         XCTAssertEqual(rig.count(w, "test.ration", in: .person(b)), 14)  // 1.5 倍
     }
 
+    /// スキルを習っている人は、研究の机の外にいても学ぶ時期として食料の消費が増える(BEAT-15。研究の担当の isLearning)。
+    func testLearningASkillEatsMoreAwayFromTheDesk() throws {
+        let rig = try Fixture.rig(Fixture.survival)
+        var w = rig.factory.newWorld(seed: 16)
+        rig.stock(&w, "test.water_pack", 100)
+        for p in [noah, a] { rig.stock(&w, "test.ration", 20, to: .person(p)) }
+        w.research.learning[a] = SkillLearning(skill: "skill.test.long", since: w.clock.now)
+        XCTAssertTrue(w.research.isLearning(a))
+        _ = rig.simulation.runSteps(rig.stepsPerDay * 4, &w)
+        XCTAssertEqual(rig.count(w, "test.ration", in: .person(noah)), 16)
+        XCTAssertEqual(rig.count(w, "test.ration", in: .person(a)), 14)
+        XCTAssertNotNil(w.research.learning[a])  // まだ習っている途中
+    }
+
+    // MARK: - スタミナ: 歩いた分だけ減り、時間で戻る
+
+    func testWalkingDrainsStaminaForEveryoneAlike() throws {
+        let rig = try Fixture.rig(Fixture.survival)
+        var w = rig.factory.newWorld(seed: 17)
+        var ctx = StepContext(world: w, content: rig.content)
+        let sys = SurvivalSystem()
+        // 平地 10 マスぶん(moveCost 10 × 10)を、ノアと仲間が同じだけ歩いた
+        for p in [noah, a] { sys.react(to: .walked(person: p, tiles: 10, staminaCost: 100), &ctx) }
+        w = ctx.world
+        XCTAssertEqual(w.people[noah]?.body.stamina.raw, 100_000 - 500)
+        XCTAssertEqual(w.people[noah]?.body.stamina, w.people[a]?.body.stamina)
+        // 大きく歩くと作業が遅くなる
+        ctx = StepContext(world: w, content: rig.content)
+        sys.react(to: .walked(person: noah, tiles: 1900, staminaCost: 19_000), &ctx)
+        w = ctx.world
+        rig.stock(&w, "test.ration", 100)
+        rig.stock(&w, "test.water_pack", 100)
+        _ = rig.simulation.runSteps(1, &w)
+        XCTAssertLessThan(w.people[noah]!.body.stamina.raw, 10_000)
+        XCTAssertEqual(w.survival.workPermille(for: noah), 750)
+        // 時間で戻る(+1.5 / 時)
+        let before = w.people[noah]!.body.stamina.raw
+        _ = rig.simulation.runSteps(rig.stepsPerHour * 4, &w)
+        XCTAssertEqual(w.people[noah]!.body.stamina.raw, before + 6000)
+        XCTAssertEqual(w.survival.workPermille(for: noah), 1000)
+    }
+
     // MARK: - 拠点全体の数値: 内訳(基礎の上昇 + 上積み)と合計・暦・期限
 
     func testStatBreakdownAndSum() throws {
