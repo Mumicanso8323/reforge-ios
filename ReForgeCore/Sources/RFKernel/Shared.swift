@@ -42,6 +42,9 @@ public enum ActKind: String, Codable, CaseIterable, Sendable {
     case salvagedPart       // 有限の部品(残骸の区画など)を取り外した・解体した
     case rebuiltPart        // 取り外した部品を自分の工業で作り直した
     case overridden         // 出来事が仲間の配属などを上書きした
+    // 末尾に足す(保存は名前で持つので順番は効かないが、並びは足した順に保つ)
+    case raided             // 蓄えを奪われた(獣など。U9)
+    case achieved           // 目標を果たした・結末に着いた(U11)
 }
 
 /// 数の比較(条件で使う)。

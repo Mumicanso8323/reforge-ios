@@ -261,6 +261,150 @@
           "name": "text.unit.structure.structure.test.desk"
         }
       ]
+    },
+    {
+      "subject": "interaction:interaction.dismantle_part",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.dismantle_part"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.draw_water",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.draw_water"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.mine_by_hand",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.mine_by_hand"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.pick_sticks",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.pick_sticks"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.rebuild_part",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.rebuild_part"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.repair_part",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.repair_part"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.salvage_part",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.salvage_part"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.scavenge",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.scavenge"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.search_far_wreck",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.search_far_wreck"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.test.decode",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.test.decode"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.test.observe",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.test.observe"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.test.u_forest",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.test.u_forest"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.test.u_plain",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.test.u_plain"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.test.u_relic",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.test.u_relic"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.test.u_river",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.test.u_river"
+        }
+      ]
+    },
+    {
+      "subject": "interaction:interaction.test.u_rock",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.interaction.interaction.test.u_rock"
+        }
+      ]
     }
   ],
   "texts": {
@@ -292,6 +436,22 @@
     "text.unit.structure.structure.research_desk": "研究机",
     "text.unit.structure.structure.shelter": "小屋",
     "text.unit.structure.structure.storage": "物置",
-    "text.unit.structure.structure.test.desk": "試験の机"
+    "text.unit.structure.structure.test.desk": "試験の机",
+    "text.unit.interaction.interaction.dismantle_part": "解体する",
+    "text.unit.interaction.interaction.draw_water": "水を汲む",
+    "text.unit.interaction.interaction.mine_by_hand": "手で掘る",
+    "text.unit.interaction.interaction.pick_sticks": "枝を拾う",
+    "text.unit.interaction.interaction.rebuild_part": "作り直す",
+    "text.unit.interaction.interaction.repair_part": "直す",
+    "text.unit.interaction.interaction.salvage_part": "取り外す",
+    "text.unit.interaction.interaction.scavenge": "漁る",
+    "text.unit.interaction.interaction.search_far_wreck": "遠くを探す",
+    "text.unit.interaction.interaction.test.decode": "試験の行為その1",
+    "text.unit.interaction.interaction.test.observe": "試験の行為その2",
+    "text.unit.interaction.interaction.test.u_forest": "試験の行為その3",
+    "text.unit.interaction.interaction.test.u_plain": "試験の行為その4",
+    "text.unit.interaction.interaction.test.u_relic": "試験の行為その5",
+    "text.unit.interaction.interaction.test.u_river": "試験の行為その6",
+    "text.unit.interaction.interaction.test.u_rock": "試験の行為その7"
   }
 }

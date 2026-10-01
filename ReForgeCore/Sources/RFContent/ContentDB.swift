@@ -43,6 +43,8 @@ public struct ContentDB: Equatable, Sendable {
     public var events: [EventID: EventDef] = [:]
     public var scenes: [SceneID: SceneDef] = [:]
     public var sheets: [SheetID: SheetDef] = [:]
+    /// 記録から開ける資料。
+    public var documents: [DocumentID: DocumentDef] = [:]
     public var objectives: [ObjectiveID: ObjectiveDef] = [:]
     public var chapters: [ChapterID: ChapterDef] = [:]
     public var endings: [EndingID: EndingDef] = [:]

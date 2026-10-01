@@ -89,10 +89,16 @@ final class ResearchSystemTests: XCTestCase {
         w.people[Self.plainA]?.override = nil
         w.placements.items[desk]?.status = .underConstruction(progress: 500)
         _ = rig.simulation.runSteps(Self.hour, &w)
-        XCTAssertEqual(w.research.points(of: Self.basics), 0, "建造中の机")
+        // 配属された人は組みかけの机を建て進める(人・拠点の担当)。建ち終えるまでは研究は進まない
+        if w.placements.items[desk]?.status == .running {
+            XCTAssertLessThan(w.research.points(of: Self.basics), 10, "建ち終えてから進んだ分だけ")
+        } else {
+            XCTAssertEqual(w.research.points(of: Self.basics), 0, "建造中の机")
+        }
         w.placements.items[desk]?.status = .running
+        let before = w.research.points(of: Self.basics)
         _ = rig.simulation.runSteps(Self.hour, &w)
-        XCTAssertEqual(w.research.points(of: Self.basics), 10, "専門でない人は机の速さのまま")
+        XCTAssertEqual(w.research.points(of: Self.basics) - before, 10, "専門でない人は机の速さのまま")
     }
 
     /// 研究は昼の間だけ進む(寝て夜を越しても進まない)。

@@ -30,7 +30,8 @@ final class NarrativeTests: XCTestCase {
         let r = rig.simulation.apply(.narrative(.decide(decision: decision.id, choice: "choice.test.yes")), to: &w)
         XCTAssertNil(r.rejection)
         XCTAssertTrue(w.knowledge.knows("fact.test.revealed"))
-        XCTAssertEqual(w.people["person.test_a"]?.relation.points, 5)
+        // 選択の効果 +5 に、印 tag.test.build への test_a の賛成(重み 2 × 3)+6 が乗る(U5 の賛否)
+        XCTAssertEqual(w.people["person.test_a"]?.relation.points, 11)
         // 来歴: 選んだ記録 → それを inputs に持つ「知った」記録
         let chose = try XCTUnwrap(w.ledger.records.last { $0.act == .chose && $0.subject == .choice("event.test.decision", "choice.test.yes") })
         XCTAssertTrue(chose.tags.contains("tag.test.build"))
