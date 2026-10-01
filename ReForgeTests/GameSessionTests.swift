@@ -91,9 +91,11 @@ final class GameSessionTests: XCTestCase {
         }
         XCTAssertEqual(session.gameOverReason, .dehydration)
         XCTAssertEqual(session.recoveryChoices().count, 4)
+        // 毎朝の自動セーブで、セーブ地点は倒れる前の朝(6 日目)まで進んでいる
+        XCTAssertEqual(session.savePoint?.day, 6)
         session.recover(.loadSavePoint)
         XCTAssertTrue(session.state.isActive)
-        XCTAssertEqual(session.state.day, s.savePoint?.day)
+        XCTAssertEqual(session.state.day, 6)
     }
 
     func testAdLayoutReservesFixedHeights() {
