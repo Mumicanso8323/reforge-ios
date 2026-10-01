@@ -14,7 +14,6 @@
 //   L6 RFPresent                      画面向けの射影(スナップショット・差分)
 //   ReForgeEngine                     アプリが import する傘(全部を再公開)
 //
-// 旧版(b7): ReForgeCore / ReForgeContent ターゲットは凍結。新しい UI に置き換わったら消す(A-modules.md §5)。
 import PackageDescription
 
 /// L4 のシステム。互いには依存しない(連携は RFWorld のコマンドと出来事を通す)。
@@ -57,11 +56,6 @@ var targets: [Target] = [
     .executableTarget(name: "rf-seal", dependencies: ["RFContent"]),
     // テストの道具(公開の試験用コンテンツの場所・ボットの枠)。アプリには入れない
     .target(name: "RFTestSupport", dependencies: ["ReForgeEngine"]),
-
-    // 旧版 b7(凍結)
-    .target(name: "ReForgeCore"),
-    .target(name: "ReForgeContent", dependencies: ["ReForgeCore"], resources: [.copy("Resources")]),
-    .testTarget(name: "ReForgeCoreTests", dependencies: ["ReForgeCore", "ReForgeContent"]),
 ]
 
 targets += systems.map { .target(name: $0, dependencies: systemDeps) }
@@ -84,8 +78,6 @@ let package = Package(
     products: [
         /// 新しい本体。新しい UI はこれだけを import する。
         .library(name: "ReForgeEngine", targets: ["ReForgeEngine"]),
-        /// 旧版 b7(現在のアプリが使う)。新しい UI に替わったら消す。
-        .library(name: "ReForgeCore", targets: ["ReForgeCore", "ReForgeContent"]),
     ],
     // 外部依存はこれ 1 つだけ(Linux の swift test で暗号を使うため。Apple では使わない)
     dependencies: [.package(url: "https://github.com/apple/swift-crypto.git", "3.0.0"..<"5.0.0")],

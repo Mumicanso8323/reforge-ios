@@ -57,6 +57,11 @@ struct SettingsView: View {
                     } label: {
                         Text("ライセンス")
                     }
+                    LabeledContent {
+                        Text("BIZ UDGothic(SIL Open Font License 1.1)")
+                    } label: {
+                        Text("フォント")
+                    }
                 } header: {
                     Text("このアプリについて")
                 }

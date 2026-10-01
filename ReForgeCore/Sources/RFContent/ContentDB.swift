@@ -48,6 +48,16 @@ public struct ContentDB: Equatable, Sendable {
     public var endings: [EndingID: EndingDef] = [:]
     public var findings: [FindingID: FindingDef] = [:]
 
+    // 探索と拠点(持ち主: U8。RFContent/Schema/Exploration.swift)
+    /// 探索の場(地形・POI → 出来事の表)。
+    public var fields: [FieldID: FieldDef] = [:]
+    /// 探索の出来事の表(原作 ExplorationEventDatabase)。
+    public var exploreEvents: [EventID: ExploreEventDef] = [:]
+    /// 探索の設定(区画の大きさ・探索範囲の段)。
+    public var exploration = ExplorationDef()
+    /// 拠点の設定(生存者を迎える条件など)。
+    public var base = BaseDef()
+
     // 認識の層
     public var perception: [SubjectID: SubjectDef] = [:]
     public var forbidden: [ForbiddenRule] = []

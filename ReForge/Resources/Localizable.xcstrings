@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "ja",
   "strings": {
+    "◎": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "◎"
+          }
+        }
+      }
+    },
     "いまの状態とセーブ地点がすべて消えます。元には戻せません。": {
       "localizations": {
         "ja": {
@@ -31,12 +41,12 @@
         }
       }
     },
-    "ここまでを記録する": {
+    "ここまで": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "ここまでを記録する"
+            "value": "ここまで"
           }
         }
       }
@@ -71,16 +81,6 @@
         }
       }
     },
-    "つづける": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "つづける"
-          }
-        }
-      }
-    },
     "はじめから": {
       "localizations": {
         "ja": {
@@ -101,12 +101,52 @@
         }
       }
     },
+    "セーブ地点からロード": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "セーブ地点からロード"
+          }
+        }
+      }
+    },
     "タイトルへ": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "タイトルへ"
+          }
+        }
+      }
+    },
+    "データを読み込めませんでした": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "データを読み込めませんでした"
+          }
+        }
+      }
+    },
+    "ノアに戻る": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ノアに戻る"
+          }
+        }
+      }
+    },
+    "ノート": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ノート"
           }
         }
       }
@@ -121,12 +161,12 @@
         }
       }
     },
-    "メニュー": {
+    "フォント": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "メニュー"
+            "value": "フォント"
           }
         }
       }
@@ -141,12 +181,42 @@
         }
       }
     },
-    "一時停止": {
+    "・": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "一時停止"
+            "value": "・"
+          }
+        }
+      }
+    },
+    "一": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "一"
+          }
+        }
+      }
+    },
+    "七": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "七"
+          }
+        }
+      }
+    },
+    "三": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "三"
           }
         }
       }
@@ -161,42 +231,112 @@
         }
       }
     },
-    "休む": {
+    "九": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "休む"
+            "value": "九"
           }
         }
       }
     },
-    "作る": {
+    "二": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "作る"
+            "value": "二"
           }
         }
       }
     },
-    "再開": {
+    "五": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "再開"
+            "value": "五"
           }
         }
       }
     },
-    "取り消す": {
+    "仲間": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "取り消す"
+            "value": "仲間"
+          }
+        }
+      }
+    },
+    "八": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "八"
+          }
+        }
+      }
+    },
+    "六": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "六"
+          }
+        }
+      }
+    },
+    "割くらい": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "割くらい"
+          }
+        }
+      }
+    },
+    "十": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "十"
+          }
+        }
+      }
+    },
+    "四": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "四"
+          }
+        }
+      }
+    },
+    "回": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "回"
+          }
+        }
+      }
+    },
+    "地図": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地図"
           }
         }
       }
@@ -221,22 +361,22 @@
         }
       }
     },
+    "失って続ける": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "失って続ける"
+          }
+        }
+      }
+    },
     "寝る": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "寝る"
-          }
-        }
-      }
-    },
-    "崩壊した地球で、拠点を立て直す": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "崩壊した地球で、拠点を立て直す"
           }
         }
       }
@@ -271,36 +411,6 @@
         }
       }
     },
-    "建てる": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "建てる"
-          }
-        }
-      }
-    },
-    "建てる(1 行動)": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "建てる(1 行動)"
-          }
-        }
-      }
-    },
-    "建設済み": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "建設済み"
-          }
-        }
-      }
-    },
     "復元できる購入はありません": {
       "localizations": {
         "ja": {
@@ -311,32 +421,22 @@
         }
       }
     },
-    "拠点が自立した": {
+    "手ざわり: ": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "拠点が自立した"
+            "value": "手ざわり: "
           }
         }
       }
     },
-    "拠点は持ちこたえられなかった": {
+    "拠点": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "拠点は持ちこたえられなかった"
-          }
-        }
-      }
-    },
-    "採取": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "採取"
+            "value": "拠点"
           }
         }
       }
@@ -351,32 +451,32 @@
         }
       }
     },
-    "日誌": {
+    "日目": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "日誌"
+            "value": "日目"
           }
         }
       }
     },
-    "日誌を開く": {
+    "最初から": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "日誌を開く"
+            "value": "最初から"
           }
         }
       }
     },
-    "昼の残り": {
+    "残り": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "昼の残り"
+            "value": "残り"
           }
         }
       }
@@ -387,6 +487,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "消す"
+          }
+        }
+      }
+    },
+    "目標": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "目標"
+          }
+        }
+      }
+    },
+    "素材から、作り直す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "素材から、作り直す"
+          }
+        }
+      }
+    },
+    "縦の工程表で並びを決め、試したり札にしたりする画面です。まだできていません。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "縦の工程表で並びを決め、試したり札にしたりする画面です。まだできていません。"
+          }
+        }
+      }
+    },
+    "蓄え・建てた物・セーブが載ります。まだできていません。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "蓄え・建てた物・セーブが載ります。まだできていません。"
+          }
+        }
+      }
+    },
+    "記憶を持って巻き戻す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "記憶を持って巻き戻す"
           }
         }
       }
@@ -427,6 +577,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "設定"
+          }
+        }
+      }
+    },
+    "設計": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設計"
+          }
+        }
+      }
+    },
+    "試したこと・所見・素材の図鑑が載ります。まだできていません。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "試したこと・所見・素材の図鑑が載ります。まだできていません。"
           }
         }
       }

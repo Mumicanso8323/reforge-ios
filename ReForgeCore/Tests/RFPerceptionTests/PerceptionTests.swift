@@ -168,7 +168,7 @@ final class PerceptionTests: XCTestCase {
             var strings = Self.strings(of: f)
             let size = f.map.size
             for y in 0..<size.height {
-                for x in 0..<size.width { strings.append(fb.tile(w, p, layer: f.map.layer, at: GridPoint(x, y)).glyph) }
+                for x in 0..<size.width { strings.append(fb.tile(w, at: GridPoint(x, y)).glyph) }
             }
             for r in w.ledger.records { _ = p.journalLine(r) }
             for (_, list) in w.inventory.holders { for s in list { _ = p.name(of: s.stuff) } }

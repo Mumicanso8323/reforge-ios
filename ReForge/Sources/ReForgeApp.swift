@@ -1,6 +1,5 @@
 import SwiftUI
-import ReForgeCore
-import ReForgeContent
+import ReForgeEngine
 
 @main
 struct ReForgeApp: App {
@@ -14,91 +13,136 @@ struct ReForgeApp: App {
     }
 }
 
-/// アプリ全体の状態: 規則・保存・購入と、いまのプレイ。
+/// アプリ全体の状態: コンテンツ・保存・購入と、いまのプレイ(GameStore)。
 @MainActor
 @Observable
 final class AppModel {
-    let game: Game
-    let store: SaveStore
+    /// 同梱のコンテンツ(読めなければ nil。画面は理由を出す)。
+    let content: ContentDB?
+    let loadError: String?
+    /// 封をした非公開の層を開けず、公開の層だけで起動したとき true(画面の帯に 1 行出す。U13)。
+    let sealedContentFailed: Bool
+    let saves: FileSaveStorage
     let storeService: any StoreService
     let adProvider: any AdProvider
-    /// 広告除去の権利(正は StoreService。保存ファイルはキャッシュ)。
-    var adsRemoved: Bool
-    var session: GameSession? = nil
-    /// 保存の有無(タイトルの「つづきから」)。
-    private(set) var hasSave: Bool
+    /// 広告除去の権利(正は StoreService。UserDefaults はキャッシュ)。
+    private(set) var adsRemoved: Bool
+    private(set) var game: GameStore?
+    /// 「つづきから」があるか。
+    private(set) var hasResume: Bool
 
-    init(store: SaveStore = SaveStore(),
+    static let adsRemovedKey = "adsRemoved"
+
+    init(saves: FileSaveStorage = FileSaveStorage(),
          storeService: any StoreService = UnavailableStoreService(),
-         adProvider: any AdProvider = NoopAdProvider()) {
-        let content: ContentDB
+         adProvider: any AdProvider = NoopAdProvider(),
+         bundle: Bundle = .main) {
+        FontBook.register(bundle: bundle)
+        var content: ContentDB?
+        var loadError: String?
+        var sealedFailed = false
         do {
-            content = try ContentLoader.bundled()
+            let r = try AppModel.loadBundledContentFallingBack(bundle: bundle)
+            content = r.content
+            sealedFailed = r.sealedFailed
         } catch {
-            fatalError("bundled content failed to load: \(error)")
+            loadError = String(describing: error)
         }
-        self.game = Game(content: content)
-        self.store = store
+        self.content = content
+        self.loadError = loadError
+        self.sealedContentFailed = sealedFailed
+        self.saves = saves
         self.storeService = storeService
         self.adProvider = adProvider
-        let cached = store.loadResume()
-        self.adsRemoved = cached?.purchases.adsRemoved ?? false
-        self.hasSave = cached != nil
+        self.adsRemoved = UserDefaults.standard.bool(forKey: Self.adsRemovedKey)
+        self.hasResume = (try? saves.read(slot: .resume)) != nil
     }
 
-    private var purchases: () -> Purchases {
-        { [weak self] in Purchases(adsRemoved: self?.adsRemoved ?? false) }
+    /// アプリの束に同梱した `content/`(公開の層と、あれば封をした非公開の層)を読む。鍵は rf-seal が生成した ContentKey。
+    static func loadBundledContent(bundle: Bundle) throws -> ContentDB {
+        try GameBootstrap.loadContent(contentDirectory: contentDirectory(bundle), key: ContentKey.key)
+    }
+
+    /// 封を開けなければ公開の層だけで読む(アプリを落とさない)。
+    static func loadBundledContentFallingBack(bundle: Bundle) throws -> (content: ContentDB, sealedFailed: Bool) {
+        try GameBootstrap.loadContentFallingBack(contentDirectory: contentDirectory(bundle), key: ContentKey.key)
+    }
+
+    private static func contentDirectory(_ bundle: Bundle) throws -> URL {
+        guard let dir = bundle.url(forResource: "content", withExtension: nil) else {
+            throw ContentLoader.LoadError.missingLayer("content")
+        }
+        return dir
     }
 
     func startNewGame() {
-        session = GameSession.newGame(game: game, store: store, purchases: purchases)
-        hasSave = true
+        guard let content else { return }
+        let world = GameBootstrap.newWorld(content: content, seed: UInt64.random(in: .min ... .max))
+        let g = GameStore(content: content, world: world, saves: saves)
+        game = g
+        hasResume = true
+        Task { await g.saveResume() }
     }
 
+    /// 「つづきから」。読めない保存なら始めない(理由は出さずにタイトルに残る)。
     func continueGame() {
-        session = GameSession.resume(game: game, store: store, purchases: purchases)
-        hasSave = session != nil
+        guard let content, let data = try? saves.read(slot: .resume),
+              let env = try? SaveCodec.decode(data) else {
+            hasResume = false
+            return
+        }
+        game = GameStore(content: content, world: env.world, saves: saves)
     }
 
-    func backToTitle() {
-        session?.pause()
-        session = nil
-        hasSave = store.hasResume
+    func backToTitle() async {
+        await game?.saveResume()
+        game = nil
+        hasResume = (try? saves.read(slot: .resume)) != nil
     }
 
+    /// 記録を消す(取り返しがつかないので、画面は確認ダイアログを出してから呼ぶ)。
     func deleteSave() {
-        session = nil
-        store.deleteAll()
-        hasSave = false
+        game = nil
+        try? saves.deleteAll()
+        hasResume = false
     }
 
-    /// 起動時に権利を確かめる(P1 では常に false が返る)。
+    /// 背面に回る・戻る。閉じている間は進まない(時計を止めて「つづきから」を書く)。
+    func scenePhaseChanged(active: Bool) {
+        game?.isActive = active
+        if !active, let g = game { Task { await g.saveResume() } }
+    }
+
     func refreshEntitlements() async {
         guard storeService.isAvailable else { return }
-        adsRemoved = await storeService.adsRemovedEntitlement()
+        setAdsRemoved(await storeService.adsRemovedEntitlement())
+    }
+
+    private func setAdsRemoved(_ v: Bool) {
+        adsRemoved = v
+        UserDefaults.standard.set(v, forKey: Self.adsRemovedKey)
     }
 
     func purchaseRemoveAds() async {
-        if await storeService.purchase(ProductID.removeAds) { adsRemoved = true }
-        session?.persist()
+        if await storeService.purchase(ProductID.removeAds) { setAdsRemoved(true) }
     }
 
     func restorePurchases() async {
-        if await storeService.restore() { adsRemoved = true }
-        session?.persist()
+        if await storeService.restore() { setAdsRemoved(true) }
     }
 }
 
 /// 全画面の共通の土台。広告枠コンテナの内側に画面を置くので、どの画面でも上下の枠は残る。
-/// ゲームオーバー・勝利は全画面で出し、広告枠を見せない(§8.2)。
 struct RootView: View {
     @Bindable var app: AppModel
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         AdBannerContainer(adsRemoved: app.adsRemoved) {
-            if let session = app.session {
-                BaseView(session: session, app: app)
+            if let message = app.loadError {
+                ContentErrorView(message: message)
+            } else if let game = app.game {
+                GameScreen(app: app, store: game)
             } else {
                 TitleView(app: app)
             }
@@ -106,13 +150,24 @@ struct RootView: View {
         .background(Color.black)
         .task { await app.refreshEntitlements() }
         .onChange(of: scenePhase) { _, phase in
-            // 離れたら自動で ⏸ にして保存し、戻ったら自動で再開する(手で止めた時計は止めたまま)
-            if phase == .active { app.session?.didBecomeActive() } else { app.session?.didBecomeInactive() }
+            app.scenePhaseChanged(active: phase == .active)
         }
     }
 }
 
-#Preview {
-    RootView(app: AppModel())
-        .preferredColorScheme(.dark)
+/// コンテンツが読めなかったとき(ビルドの不具合。出荷しない)。
+struct ContentErrorView: View {
+    let message: String
+
+    var body: some View {
+        VStack(spacing: 12) {
+            Text("データを読み込めませんでした")
+                .font(.headline)
+            Text(verbatim: message)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
 }
