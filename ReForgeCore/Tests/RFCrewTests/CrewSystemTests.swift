@@ -304,6 +304,52 @@ final class CrewSystemTests: XCTestCase {
         XCTAssertEqual(w.people["person.test_a"]!.activity, .carrying(route: route))
     }
 
+    /// 運搬の人は、経路の道のり(HaulRoute.path。画面の点線と同じ)の上を往復する。
+    func testHaulWalksAlongRoutePath() throws {
+        let rig = try TestRig.publicOnly()
+        var w = world(rig)
+        let a = place(&w, module: "furnace", at: at(w, -4, 2))
+        let b = place(&w, module: "furnace", at: at(w, 6, -3))
+        let route = w.newEntityID()
+        w.logistics.routes[route] = HaulRoute(id: route, from: .placement(a), to: .placement(b))
+        _ = apply(rig, &w, .assign(person: "person.test_a", assignment: .haul(route: route)))
+        var onPath: [Bool] = []
+        var arrived = 0
+        for _ in 0..<400 {
+            let r = rig.simulation.runSteps(1, &w)
+            if r.events.contains(where: { if case .arrived("person.test_a", _) = $0 { true } else { false } }) { arrived += 1 }
+            let path = w.logistics.routes[route]!.path
+            XCTAssertFalse(path.isEmpty, "物流が道のりを測っている")
+            if arrived >= 1, w.people["person.test_a"]!.motion != nil {
+                onPath.append(path.contains(w.people["person.test_a"]!.position!.point))
+            }
+        }
+        XCTAssertGreaterThanOrEqual(arrived, 3)
+        XCTAssertFalse(onPath.isEmpty)
+        XCTAssertTrue(onPath.allSatisfy { $0 }, "最初に端へ着いた後は道のりの上だけを歩く")
+    }
+
+    /// 配属の無い仲間は、昼は運搬の共同の手(carrying)になり、夜は眠る。ノアは含めない。
+    func testIdleCompanionsHaulByDayAndSleepAtNight() throws {
+        let rig = try TestRig.publicOnly()
+        var w = world(rig)
+        let a = place(&w, module: "furnace", at: at(w, -4, 0))
+        let b = place(&w, module: "furnace", at: at(w, 5, 0))
+        let route = w.newEntityID()
+        w.logistics.routes[route] = HaulRoute(id: route, from: .placement(a), to: .placement(b))
+        _ = rig.simulation.runSteps(40, &w)
+        XCTAssertEqual(w.people["person.test_a"]!.activity, .carrying(route: route))
+        XCTAssertEqual(w.people["person.test_b"]!.activity, .carrying(route: route))
+        XCTAssertFalse({ if case .carrying = w.people[.noah]!.activity { true } else { false } }())
+        w.clock.phase = .nightWork
+        _ = rig.simulation.runSteps(40, &w)
+        XCTAssertEqual(w.people["person.test_a"]!.activity, .sleeping)
+        // 専任は夜も運ぶ
+        _ = apply(rig, &w, .assign(person: "person.test_b", assignment: .haul(route: route)))
+        _ = rig.simulation.runSteps(40, &w)
+        XCTAssertEqual(w.people["person.test_b"]!.activity, .carrying(route: route))
+    }
+
     // MARK: - 上書き(範囲の効果)
 
     /// 範囲の効果(drawTowardSource)の中の仲間は、配属に従わず中心へ歩く。範囲が消えれば配属に戻る。
@@ -456,6 +502,16 @@ final class CrewSystemTests: XCTestCase {
         r = rig.simulation.apply(.crew(.joinFromEffect(person: "person.test_c", cause: nil)), to: &w)
         XCTAssertFalse(w.people["person.test_c"]!.presence.isAlive)
         XCTAssertEqual(r.warnings.filter { !$0.contains("断られた") }, [])
+    }
+
+    /// 体力が尽きた人は(どの仕組みで減っても)次のステップで死ぬ。
+    func testHealthDepletedDies() throws {
+        let rig = try TestRig.publicOnly()
+        var w = world(rig)
+        w.people["person.test_b"]?.body.health = .zero
+        let r = rig.simulation.runSteps(1, &w)
+        XCTAssertFalse(w.people["person.test_b"]!.presence.isAlive)
+        XCTAssertTrue(r.events.contains { if case .personDied("person.test_b", _) = $0 { true } else { false } })
     }
 
     func testInjuryToZeroKills() throws {
