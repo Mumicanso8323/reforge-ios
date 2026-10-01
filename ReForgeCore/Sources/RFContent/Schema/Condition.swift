@@ -1,12 +1,16 @@
 import RFKernel
 import RFMatter
 
-/// 世界の状態を見る条件(出来事の引き金・選択肢の出る条件・研究の前提・目標の達成…)。
+/// 世界の状態を見る条件(出来事の引き金・選択肢の出る条件・研究の前提・目標の達成・失敗の規則・一言の選び方…)。
 /// 宣言的なデータで、評価は RFRules.ConditionEvaluator。
 ///
 /// JSON は Swift の列挙の既定の形(case 名がキー、ラベルが中のキー)。例:
-///   {"all": {"of": [ {"known": {"expr": "fact.x"}}, {"hasItem": {"kind": "item.iron", "atLeast": 3}} ]}}
-///   {"ledger": {"query": {"act": "placed", "module": "module.furnace"}, "atLeast": 1}}
+///   {"all": {"of": [ {"known": {"expr": "fact.x"}}, {"has": {"what": {"item": "wood", "quantity": 3}}} ]}}
+///   {"ledger": {"query": {"act": "placed", "module": "furnace"}, "atLeast": 1}}
+/// 省略可能(`?`)なラベルは JSON で書かなくてよい。
+///
+/// 引き金は日数でなく、工業の行為(初めて作った・建てた・配属した・解体した・観測した = firstTime / trigger / ledger)・
+/// 世界の状態・前の出来事(eventFired / sinceFired)・追跡カウンタ(counter。TrackerDef が数える)・来歴で書く。
 /// 「日数」で引く条件(dayAtLeast)は持っているが、物語の引き金には使わない(検証で警告する)。
 public indirect enum Condition: Codable, Hashable, Sendable {
     case always
@@ -14,26 +18,37 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     case any(of: [Condition])
     case not(that: Condition)
 
-    /// 知っている事実(認識の層と同じ式)。
+    /// 知っている事実(認識の層と同じ式)。時代の区切りも事実の 1 つ。
     case known(expr: FactExpr)
-    /// 物を持っている(拠点の蓄え+ノアの持ち物)。
+    /// 物を持っている(拠点の蓄え+ノアの持ち物)。quantity 個以上。
     case has(what: Ingredient)
-    /// モジュール・建造物が動いている数。
+    /// 物の数を比べる(拠点の蓄え+ノアの持ち物)。what.quantity が比べる値。
+    /// perMember = true なら「一員の人数 × quantity」と比べる(一人あたりの備え)。
+    case stock(of: Ingredient, cmp: Comparison, perMember: Bool? = nil)
+    /// モジュール・建造物が置かれている数。
     case placedCount(module: ModuleKindID?, structure: StructureKindID?, atLeast: Int)
     /// 来歴の問い合わせ(「炉を置いたことがある」「この印の付いた物を 10 個以上作った」)。
     case ledger(query: ProvenanceQuery, atLeast: Int)
     /// 「工業の初めて」: 引き金になった記録が、この問い合わせに合う最初の記録である。
     case firstTime(query: ProvenanceQuery)
-    /// 有限の部品の状態(残骸の区画を解体したか、など)。
+    /// 引き金になった記録がこの問い合わせに合う(初めてでなくてよい)。
+    case trigger(query: ProvenanceQuery)
+    /// 有限の部品の状態(ある区画を解体したか、など)。
     case part(poiKind: POIKindID, part: String, state: PartStateName)
+    /// POI の進み(漁った回数・印・部品の状態の数)。その種類の POI のどれか 1 つが合えば成り立つ。
+    case poi(kind: POIKindID, test: POITest)
     /// 範囲の効果の中にいる。
     case inAura(person: PersonID, kind: AuraKindID)
     /// 人の状態。
     case person(id: PersonID, test: PersonTest)
+    /// 条件(全部)に合う人が atLeast 人(既定 1)以上いる。既定は一員だけを数える。
+    case someone(where: [PersonTest], atLeast: Int? = nil, includeNonMembers: Bool? = nil)
     /// 一員の人数。
     case members(atLeast: Int)
     /// 拠点の外の集団との関係。
     case group(id: GroupID, relationAtLeast: Int)
+    /// 拠点の外の集団の印(コンテンツの ID 文字列)。
+    case groupFlag(id: GroupID, flag: String)
     case counter(id: CounterID, cmp: Comparison, value: Int)
     /// 数値(千分率)。
     case stat(id: StatID, cmp: Comparison, value: Int)
@@ -41,15 +56,18 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     /// 日数(物語の引き金には使わない。仕組みの都合のときだけ)。
     case dayAtLeast(day: Int)
     case eventFired(id: EventID)
+    /// 出来事が最後に起きてから hours ゲーム時間以上たった(起きていなければ成り立たない)。
+    /// 「会ってから移動と準備の時間がたった」のような、行為の後の間合いに使う。
+    case sinceFired(event: EventID, hours: Int)
     case choiceMade(event: EventID, choice: ChoiceID)
     case researchDone(id: ResearchID)
     case unlocked(target: UnlockTarget)
     /// ノア(または誰か)がある場所にいる。
     case at(person: PersonID, place: PlaceSelector)
-    /// POI の種類を見つけている。
-    case discoveredPOI(kind: POIKindID)
+    /// POI の種類を見つけている(atLeast 個以上。既定 1)。
+    case discoveredPOI(kind: POIKindID, atLeast: Int? = nil)
     case objective(id: ObjectiveID, status: ObjectiveStatusName)
-    /// 決定的な確率(物語の乱数の流れ)。
+    /// 決定的な確率(物語の乱数の流れ)。万分率。
     case chance(basisPoints: Int)
     /// 何周目以降か(巻き戻しの後だけ起きる出来事)。
     case runAtLeast(index: Int)
@@ -64,11 +82,33 @@ public enum PersonTest: Codable, Hashable, Sendable {
     case alive
     case dead
     case met
+    /// 一時的にいない(離脱・遠征)。
+    case away
     case relationAtLeast(rank: Int)
     case ideologyAtLeast(axis: IdeologyAxisID, value: Int)
     case hasMemory(kind: MemoryKindID)
     case assignedToModule(kind: ModuleKindID?)
     case hasSkill(skill: SkillID)
+    /// 体の数値(health・stamina・satiety・hydration・mind)を比べる。value は千分率の raw(30 = 30000)。
+    case body(stat: String, cmp: Comparison, value: Int)
+    /// 得意分野(PersonDef.specialties)。
+    case specialty(tag: String)
+    /// ある人から半径 radius マス以内にいる(同じ層)。
+    case near(person: PersonID, radius: Int)
+    /// いま働いている(モジュールに付いている・運んでいる・行為の途中)。
+    case working
+    /// 拠点の外の集団に属している(id が nil ならどれか)。
+    case inGroup(id: GroupID?)
+}
+
+/// POI についての条件。
+public enum POITest: Codable, Hashable, Sendable {
+    /// 調べた・漁った回数。
+    case visitsAtLeast(count: Int)
+    /// 印(調べ尽くした・何かを取った、など。コンテンツの ID 文字列)。
+    case flag(name: String)
+    /// その状態の部品の数。
+    case partsInState(state: PartStateName, atLeast: Int)
 }
 
 /// 来歴の問い合わせ。指定した項目だけで絞る(nil は問わない)。
@@ -83,7 +123,8 @@ public struct ProvenanceQuery: Codable, Hashable, Sendable {
     public var poi: POIKindID?
     public var event: EventID?
     public var tag: ProvenanceTag?
-    /// 今の周回だけを見るか(既定 true。前の周回は RunState.pastLives を見る)。
+    /// false なら、今の来歴に加えて前の周回で覚えておいた記録(RunState.pastLives)も数える(既定は今の来歴だけ。
+    /// 巻き戻しの後も、夜明けより前の記録は今の来歴に残っている)。
     public var currentRunOnly: Bool?
 
     public init(act: ActKind? = nil, actor: PersonID? = nil, item: ItemID? = nil, module: ModuleKindID? = nil,
@@ -105,12 +146,14 @@ public struct ProvenanceQuery: Codable, Hashable, Sendable {
 
 /// 場所の指し方。
 public enum PlaceSelector: Codable, Hashable, Sendable {
-    /// 引き金の出来事の場所(来歴の place)。
+    /// 引き金の出来事の場所(来歴の place)。範囲の効果では、引き金が置いた物の記録ならその置いた物が中心になる。
     case trigger
     case person(id: PersonID)
     case poiKind(kind: POIKindID)
     case base
     case point(at: WorldPoint)
+    /// 置いた物(その種類のうち最も早く置いたもの)。範囲の効果の中心にすると、置いた物と一緒に動き・消える。
+    case placement(module: ModuleKindID?, structure: StructureKindID?)
     /// 半径つき。
     indirect case near(place: PlaceSelector, radius: Int)
 }
@@ -122,4 +165,113 @@ public enum UnlockTarget: Codable, Hashable, Sendable {
     case handwork(id: HandworkID)
     case interaction(id: InteractionID)
     case research(id: ResearchID)
+}
+
+// MARK: - 走査(検証と参照の確かめに使う)
+
+extension Condition {
+    /// この条件と、その中の条件を全部たどる(深さ優先・前順)。
+    public func walk(_ visit: (Condition) -> Void) {
+        visit(self)
+        switch self {
+        case .all(let xs), .any(let xs): for x in xs { x.walk(visit) }
+        case .not(let x): x.walk(visit)
+        default: break
+        }
+    }
+
+    /// 中で参照している出来事。
+    public var referencedEvents: [EventID] {
+        var out: [EventID] = []
+        walk { c in
+            switch c {
+            case .eventFired(let e), .sinceFired(let e, _), .choiceMade(let e, _): out.append(e)
+            default: break
+            }
+        }
+        return out
+    }
+
+    /// 日数を見ているか。
+    public var usesDay: Bool {
+        var found = false
+        walk { if case .dayAtLeast = $0 { found = true } }
+        return found
+    }
+}
+
+// MARK: - 出来事まわりの検証(ContentValidator.validate から呼ぶ。持ち主: U11)
+
+extension ContentValidator {
+    static func narrativeRules(_ db: ContentDB, _ out: inout [Issue]) {
+        sceneLineBudget(db, &out)
+        narrativeReferencesExist(db, &out)
+    }
+
+    /// 場面は地図の上に 3 行まで(長い本文は資料の側に置く)。
+    static func sceneLineBudget(_ db: ContentDB, _ out: inout [Issue]) {
+        for (id, s) in db.scenes.sorted(by: { $0.key < $1.key }) where s.lines.count > 3 {
+            out.append(Issue(level: .warning, rule: "scene.max-lines",
+                             message: "\(id) は \(s.lines.count) 行(地図の上に出す文は 3 行まで)"))
+        }
+    }
+
+    /// 出来事・場面・範囲の効果・目標の参照先が定義にある。
+    static func narrativeReferencesExist(_ db: ContentDB, _ out: inout [Issue]) {
+        func missing(_ what: String, _ id: String, _ origin: String) {
+            out.append(Issue(level: .error, rule: "narrative.ref", message: "\(origin) が指す\(what) \(id) が無い"))
+        }
+        func checkCondition(_ c: Condition?, _ origin: String) {
+            guard let c else { return }
+            for e in c.referencedEvents where db.events[e] == nil { missing("出来事", e.rawValue, origin) }
+            c.walk { x in
+                if case .inAura(_, let k) = x, db.auras[k] == nil { missing("範囲の効果", k.rawValue, origin) }
+            }
+        }
+        func checkEffects(_ es: [Effect]?, _ origin: String) {
+            for e in es ?? [] {
+                switch e {
+                case .startScene(let s): if db.scenes[s] == nil { missing("場面", s.rawValue, origin) }
+                case .schedule(let ev, _), .fire(let ev), .unschedule(let ev):
+                    if db.events[ev] == nil { missing("出来事", ev.rawValue, origin) }
+                case .addAura(let k, _, _, _, _), .scaleAura(let k, _, _), .removeAura(let k):
+                    if db.auras[k] == nil { missing("範囲の効果", k.rawValue, origin) }
+                case .objective(let o, _): if db.objectives[o] == nil { missing("目標", o.rawValue, origin) }
+                default: break
+                }
+            }
+        }
+        for (id, e) in db.events.sorted(by: { $0.key < $1.key }) {
+            let o = "event \(id)"
+            checkCondition(e.trigger.when, o)
+            checkEffects(e.effects, o)
+            if let s = e.scene, db.scenes[s] == nil { missing("場面", s.rawValue, o) }
+            for ch in e.choices ?? [] {
+                checkCondition(ch.when, "\(o) / \(ch.id)")
+                checkEffects(ch.effects, "\(o) / \(ch.id)")
+            }
+        }
+        for (id, ob) in db.objectives.sorted(by: { $0.key < $1.key }) {
+            checkCondition(ob.completeWhen, "objective \(id)")
+            checkCondition(ob.failWhen, "objective \(id)")
+            checkEffects(ob.effects, "objective \(id)")
+        }
+        for (id, en) in db.endings.sorted(by: { $0.key < $1.key }) {
+            checkCondition(en.when, "ending \(id)")
+            checkEffects(en.effects, "ending \(id)")
+        }
+        for (id, l) in db.lines.sorted(by: { $0.key < $1.key }) {
+            checkCondition(l.when, "line \(id)")
+            if db.people[l.speaker] == nil { missing("人", l.speaker.rawValue, "line \(id)") }
+        }
+        for (id, d) in db.modules.sorted(by: { $0.key < $1.key }) {
+            for k in d.auras ?? [] where db.auras[k] == nil { missing("範囲の効果", k.rawValue, "module \(id)") }
+        }
+        for (id, d) in db.structures.sorted(by: { $0.key < $1.key }) {
+            for k in d.auras ?? [] where db.auras[k] == nil { missing("範囲の効果", k.rawValue, "structure \(id)") }
+        }
+        for (id, d) in db.people.sorted(by: { $0.key < $1.key }) {
+            for k in d.auras ?? [] where db.auras[k] == nil { missing("範囲の効果", k.rawValue, "person \(id)") }
+        }
+    }
 }
