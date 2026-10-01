@@ -377,8 +377,7 @@ enum Threats {
         if !took.isEmpty {
             var detail: [String: Value] = [:]
             for (k, v) in took { detail[k.rawValue] = .int(Int64(v)) }
-            // ActKind に「奪われた」が入るまでは consumed(食べられた)で残す
-            let rec = ctx.record(.consumed, .enemy(t.kind, t.id), place: target, inputs: cause.map { [$0] } ?? [],
+            let rec = ctx.record(.raided, .enemy(t.kind, t.id), place: target, inputs: cause.map { [$0] } ?? [],
                                  detail: detail)
             for (k, v) in took { ctx.world.combat.night.stolen[k, default: 0] += v }
             ctx.emit(.raided(threat: id, record: rec))
