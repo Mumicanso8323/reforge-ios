@@ -48,6 +48,20 @@ public actor GameHost {
         return frame
     }
 
+    // MARK: - 画面からの引き出し(世界状態は渡さない)
+
+    /// 区画の中身(画面が版の変わった区画だけ引く)。
+    public func chunks(_ indices: [Int]) -> [MapChunk] { builder.chunks(world, indices, map: frame.map) }
+
+    /// 長押しで調べる。
+    public func inspect(at p: GridPoint) -> TileInspection? { builder.inspect(world, at: p) }
+
+    /// 足元カード。
+    public func footCard(at p: GridPoint) -> FootCard? { builder.footCard(world, at: p) }
+
+    /// 工程表。
+    public func sheet(_ s: ProcessSheet.Source) -> ProcessSheet? { builder.sheet(s, in: world) }
+
     private func rebuild(_ r: StepReport) -> Frame {
         revision += 1
         frame = builder.build(world, revision: revision, previous: frame, report: r)
