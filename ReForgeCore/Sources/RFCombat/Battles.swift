@@ -12,6 +12,8 @@ enum Battles {
                       _ ctx: inout StepContext, def: CombatDef) -> EntityID? {
         let w = ctx.world
         let ts = threats.compactMap { w.combat.threats[$0] }
+        // 定義の無い敵とは戦えない(戦闘にしない)
+        guard ts.allSatisfy({ ctx.content.enemies[$0.kind] != nil }) else { return nil }
         // 倒れるほど傷んでいる人は戦いに出ない(R1 の獣との戦いで死なないように)
         let persons = persons.filter { (w.people[$0]?.body.health.raw ?? 0) / 1000 >= Int64(def.down) }
         guard !ts.isEmpty, !persons.isEmpty else { return nil }
@@ -82,6 +84,11 @@ enum Battles {
     static func tick(_ id: EntityID, _ ctx: inout StepContext, def: CombatDef) {
         guard var b = ctx.world.combat.battles[id] else { return }
         b.elapsed += SimStep.gameSeconds
+        // 帯の上に誰もいない戦闘(他の仕組みが作った枠)は進めない
+        if b.units.isEmpty {
+            ctx.world.combat.battles[id] = b
+            return
+        }
         // いなくなった人(死んだ・失って続けるで外れた)は帯から抜ける
         for i in b.units.indices where b.units[i].isActive {
             guard let p = b.units[i].person else { continue }

@@ -139,10 +139,12 @@ public struct CombatSystem: SimSystem {
             let kind: BattleState.Kind
             if case .guardNest(let poi) = t.intent { kind = .nest(poi: poi) } else { kind = .encounter }
             if !calm {
-                // 2. 見張りが見つける(見張りの火の近くなら遠くまで)
+                // 2. 持ち場に着いて立っている見張り(人の担当の PeopleState.guards)が見つける。見張りの火の近くなら遠くまで
                 let watches = Threats.structures("watch", ctx)
+                let standing = Set(ctx.world.people.guards)
                 let guards = free.filter { p, pos in
-                    guard let ps = ctx.world.people[p], case .guardArea(_, let radius) = ps.override?.assignment ?? ps.assignment
+                    guard standing.contains(p), let ps = ctx.world.people[p],
+                          case .guardArea(_, let radius) = ps.override?.assignment ?? ps.assignment
                     else { return false }
                     let bonus = watches.filter { $0.0.at.layer == pos.layer && $0.0.at.point.chebyshev(to: pos.point) <= $0.1 }
                         .map(\.1).max() ?? 0
