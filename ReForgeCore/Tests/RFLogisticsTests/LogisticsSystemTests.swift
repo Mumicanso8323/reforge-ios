@@ -53,6 +53,7 @@ final class LogisticsSystemTests: XCTestCase {
         XCTAssertEqual(route.distance, 11)
         XCTAssertEqual(route.factorPermille, 640)
         XCTAssertTrue(route.waiting, "運ぶ物がある(共同の手を回す目安)")
+        restAll(&w)   // 配属の無い仲間は昼に共同の手として運ぶ(RFCrew)ので、1 人分を見るため休ませる
         w.people["person.test_a"]?.assignment = .haul(route: route.id)
         _ = rig.simulation.runSteps(Int(8 * 3600 / SimStep.gameSeconds), &w)
         XCTAssertTrue((12...13).contains(w.logistics.routes[route.id]!.movedToday), "1 人 × 20 個 × 0.64 ≒ 12.8")
@@ -81,7 +82,9 @@ final class LogisticsSystemTests: XCTestCase {
         // 拠点の中の炉は燃料を蓄えから直に取る(経路は要らない)
         XCTAssertFalse(w.logistics.routes.values.contains { $0.to == .placement(furnace) && $0.from == .base })
 
-        // 運ぶ人がいなければ運ばない(運んでいる人 = activity が carrying の一員。RFCrew が歩かせる)
+        // 運ぶ人がいなければ運ばない(運んでいる人 = activity が carrying の一員。RFCrew が歩かせる。
+        // 配属の無い仲間は昼に共同の手になるので、全員休ませておく)
+        restAll(&w)
         _ = rig.simulation.runSteps(Int(2 * 9600 / SimStep.gameSeconds), &w)
         XCTAssertEqual(w.logistics.routes[route.id]!.movedToday, 0)
         XCTAssertEqual(w.logistics.routes[route.id]!.blocked, HaulRules.noHaulers)
@@ -180,6 +183,11 @@ final class LogisticsSystemTests: XCTestCase {
         ctx.addStock(.item(.charcoal), 20, to: .base)
         w = ctx.world
         return w
+    }
+
+    /// ノア以外の一員を休ませる(.rest は眠るので運ばない。配属の無い仲間は RFCrew が昼に共同の手として経路へ回す)。
+    func restAll(_ w: inout WorldState) {
+        for p in w.people.members where p != .noah { w.people[p]?.assignment = .rest }
     }
 
     func wp(_ x: Int, _ y: Int) -> WorldPoint { WorldPoint(.surface, GridPoint(x, y)) }
