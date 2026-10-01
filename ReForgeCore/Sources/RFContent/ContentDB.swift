@@ -57,6 +57,9 @@ public struct ContentDB: Equatable, Sendable {
     public var texts: [TextID: String] = [:]
     /// 地図の文字(見出し → 1 文字)。認識の表の glyph が優先。
     public var glyphs: [SubjectID: String] = [:]
+    /// 画面に出してよいラテン文字の語(固有名・題名など)。英語の ID の検査はこの語を除いてから判定する。
+    /// 層をまたいで足し合わせる。語がネタバレなら非公開の層に置き、禁止語の規則で until まで伏せる。
+    public var latinAllowed: [String] = []
 
     public init() {}
 }

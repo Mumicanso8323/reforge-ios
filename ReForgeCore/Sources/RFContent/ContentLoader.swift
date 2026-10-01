@@ -219,7 +219,7 @@ struct ContentFile: Codable {
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
         case memoryKinds, lines, hints, research, skills, abilities, enemies, auras, stats, failureRules
         case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings
-        case perception, forbidden, auditStages, textGates, texts, glyphs
+        case perception, forbidden, auditStages, textGates, texts, glyphs, latinAllowed
         case remove
     }
 
@@ -267,6 +267,8 @@ struct ContentFile: Codable {
     var textGates: [TextGate]?
     var texts: [String: String]?
     var glyphs: [String: String]?
+    /// 画面に出してよいラテン文字の語(足し合わせ)。
+    var latinAllowed: [String]?
     /// 前の層の定義を消す(集まりの名前 → ID の並び)。
     var remove: [String: [String]]?
 
@@ -339,6 +341,10 @@ struct ContentFile: Codable {
             seen.insert("glyphs", k, dups: &dups)
             db.glyphs[SubjectID(k)] = v
         }
+        for w in latinAllowed ?? [] {
+            seen.insert("latinAllowed", w, dups: &dups)
+            if !db.latinAllowed.contains(w) { db.latinAllowed.append(w) }
+        }
         if !dups.isEmpty { throw ContentLoader.LoadError.duplicate(file: file, keys: dups.sorted()) }
         for (collection, ids) in (remove ?? [:]).sorted(by: { $0.key < $1.key }) {
             guard Self.remove(collection, ids, from: &db) else {
@@ -386,6 +392,7 @@ struct ContentFile: Codable {
         case "texts": drop(&db.texts)
         case "glyphs": drop(&db.glyphs)
         case "auditStages": db.auditStages.removeAll { ids.contains($0.id) }
+        case "latinAllowed": db.latinAllowed.removeAll { ids.contains($0) }
         // 禁止語の規則は名札(id)で消す(名札の無い規則は消せない)
         case "forbidden": db.forbidden.removeAll { $0.id.map(ids.contains) ?? false }
         default: return false

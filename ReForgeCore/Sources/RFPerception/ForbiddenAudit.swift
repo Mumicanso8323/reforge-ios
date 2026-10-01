@@ -50,7 +50,7 @@ public enum ForbiddenAudit {
     public static func check(_ text: String, content: ContentDB, known: Set<FactID>, stage: String = "run",
                              origin: String = "") -> [Violation]
     {
-        check(text, rules: activeRules(content, known: known), stage: stage, origin: origin)
+        check(text, rules: activeRules(content, known: known), allowed: content.latinAllowed, stage: stage, origin: origin)
     }
 
     /// 文字列の並びを調べる(Frame の全文字列など)。
@@ -58,10 +58,10 @@ public enum ForbiddenAudit {
                              origin: String = "") -> [Violation]
     {
         let rules = activeRules(content, known: known)
-        return texts.flatMap { check($0, rules: rules, stage: stage, origin: origin) }
+        return texts.flatMap { check($0, rules: rules, allowed: content.latinAllowed, stage: stage, origin: origin) }
     }
 
-    static func check(_ text: String, rules: [(index: Int, rule: ForbiddenRule)], stage: String,
+    static func check(_ text: String, rules: [(index: Int, rule: ForbiddenRule)], allowed: [String], stage: String,
                       origin: String) -> [Violation]
     {
         var out: [Violation] = []
@@ -70,15 +70,21 @@ public enum ForbiddenAudit {
                 out.append(Violation(stage: stage, rule: ruleName(i, r), word: w, text: text, origin: origin))
             }
         }
-        if looksLikeInternalID(text) {
+        if looksLikeInternalID(text, allowed: allowed) {
             out.append(Violation(stage: stage, rule: latinRule, word: "(英語の ID)", text: text, origin: origin))
         }
         return out
     }
 
     /// 英語の内部 ID・アンダーバー付きの識別子らしき文字列か。埋め込みの {名前} は文の型の一部なので除いて見る。
-    public static func looksLikeInternalID(_ text: String) -> Bool {
-        let body = text.replacingOccurrences(of: #"\{[^}]*\}"#, with: "", options: .regularExpression)
+    /// 許す語(ContentDB.latinAllowed: 固有名・題名)は長いものから、語の境目でだけ取り除いてから判定する。
+    public static func looksLikeInternalID(_ text: String, allowed: [String] = []) -> Bool {
+        var body = text.replacingOccurrences(of: #"\{[^}]*\}"#, with: "", options: .regularExpression)
+        // 語の境目でだけ取り除く(許した語に英字が続く・前に付くものは別の語として調べる)
+        for w in allowed.sorted(by: { $0.count > $1.count }) where !w.isEmpty {
+            let pattern = "(?<![A-Za-z])" + NSRegularExpression.escapedPattern(for: w) + "(?![A-Za-z])"
+            body = body.replacingOccurrences(of: pattern, with: " ", options: .regularExpression)
+        }
         return body.range(of: #"[a-z]{3,}|_"#, options: .regularExpression) != nil
     }
 
@@ -98,7 +104,7 @@ public enum ForbiddenAudit {
             var rules = activeRules(content, known: known)
             if let only = st.onlyRule { rules = rules.filter { $0.index == only } }
             for (text, origin) in visibleTexts(content, known: known) {
-                add(check(text, rules: rules, stage: st.id, origin: origin))
+                add(check(text, rules: rules, allowed: content.latinAllowed, stage: st.id, origin: origin))
             }
         }
         return out
@@ -109,7 +115,8 @@ public enum ForbiddenAudit {
         var out = Set<Violation>()
         for st in stages(content) {
             let known = closure(Set(st.facts), content)
-            for s in strings { out.formUnion(check(s, rules: activeRules(content, known: known), stage: st.id, origin: origin)) }
+            for s in strings { out.formUnion(check(s, rules: activeRules(content, known: known), allowed: content.latinAllowed, stage: st.id,
+                                                 origin: origin)) }
         }
         return out.sorted { ($0.origin, $0.text, $0.rule) < ($1.origin, $1.text, $1.rule) }
     }
