@@ -76,6 +76,9 @@ public enum ProductionCommand: Codable, Equatable, Sendable {
 }
 
 public enum LogisticsCommand: Codable, Equatable, Sendable {
+    /// 端と端を運搬の経路で結ぶ(拠点の蓄えも端にできる)。同じ端の組がもうあれば何もしない。
+    case link(from: HaulEndpoint, to: HaulEndpoint)
+    /// モジュールとモジュールを運搬の経路で結ぶ(link の短い書き方)。
     case connect(from: EntityID, to: EntityID)
     case disconnect(route: EntityID)
 }

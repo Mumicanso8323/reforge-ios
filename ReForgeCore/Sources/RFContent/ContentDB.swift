@@ -17,6 +17,8 @@ public struct ContentDB: Equatable, Sendable {
     public var survival: SurvivalDef?
     /// 戦闘の数(帯の長さ・1 手の時間・素手の強さ・間合い・見張り…)。nil = RFCombat の既定(R1)。持ち主: U9
     public var combat: CombatDef?
+    /// 運搬の数(1 人 1 日の数・距離の落ち)。nil なら R1 の仮の値。持ち主: U7
+    public var hauling: HaulingDef?
     /// 発明の規則の表(RFMatter)。コンテンツに無ければ R1 の表。
     public var ruleBook: RuleBook = .r1
 
