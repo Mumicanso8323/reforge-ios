@@ -223,14 +223,34 @@ public struct LineDef: ContentDef, Equatable {
     public var weight: Int?
 }
 
+/// 推理の手がかり(端末の断片・仲間の知識・手が知っていた手順・図鑑の空欄の命名の手がかり)。
+/// 条件が成り立つとノートに出典つきで載る(RFInvention)。出典は中立の見出し("source:hand" など)で、
+/// 見え方は認識の層が引く(後で「誰の・何の知識だったか」の見え方が変わる)。
 public struct HintDef: ContentDef, Equatable {
     public var id: HintID
     public var from: PersonID?
+    /// 載る条件(乱数 chance は使わない: 評価は乱数を引かない evaluatePure で、chance は成り立たない扱い)。
     public var when: Condition
     public var about: SubjectID
     public var text: TextID
     /// 出典(認識の表の見出し)。
     public var source: SubjectID
+    /// 何を言っているか(機械が読める形。RFContent/Schema/Invention.swift)。省略可。
+    public var claims: [HintClaim]?
+    /// 図鑑の空欄(命名からの類推)に付く手がかりなら、その名前。載ると図鑑に影の行が出る。省略可。
+    public var target: MatterName?
+
+    public init(id: HintID, from: PersonID? = nil, when: Condition, about: SubjectID, text: TextID, source: SubjectID,
+                claims: [HintClaim]? = nil, target: MatterName? = nil) {
+        self.id = id
+        self.from = from
+        self.when = when
+        self.about = about
+        self.text = text
+        self.source = source
+        self.claims = claims
+        self.target = target
+    }
 }
 
 // MARK: - 研究・力・敵
