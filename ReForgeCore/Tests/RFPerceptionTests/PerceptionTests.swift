@@ -206,6 +206,19 @@ final class PerceptionTests: XCTestCase {
         XCTAssertEqual(ForbiddenAudit.check("{actor}が{subject}を置いた", content: db, known: []), [])
     }
 
+    /// 許すラテン文字の語(固有名・題名)は英語の ID とみなさない。それ以外の ID は引き続き捕まえる。
+    func testLatinAllowedWordsAreNotInternalIDs() throws {
+        var db = try TestContent.publicOnly()
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeの朝", content: db, known: []).map(\.rule), [ForbiddenAudit.latinRule])
+        try ContentLoader.apply(json: Data(#"{"latinAllowed": ["Re:Forge"]}"#.utf8), to: &db)
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeの朝", content: db, known: []), [])
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeとiron_ore", content: db, known: []).count, 1)
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgedの朝", content: db, known: []).count, 1, "許した語の続きは別の語")
+        XCTAssertEqual(ContentValidator.validate(db).filter { $0.rule == "latinAllowed.id" }, [])
+        db.latinAllowed += ["iron_ore", "fact.x"]
+        XCTAssertEqual(ContentValidator.validate(db).filter { $0.rule == "latinAllowed.id" }.count, 2)
+    }
+
     /// 手で書いた段に無い事実の組み合わせでも、規則が解ける前に出うる漏れを自動の段が捕まえる。
     func testDerivedStageCatchesLeakNotCoveredByWrittenStages() throws {
         var db = try TestContent.publicOnly()

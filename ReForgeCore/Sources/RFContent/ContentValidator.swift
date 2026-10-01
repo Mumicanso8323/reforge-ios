@@ -28,6 +28,7 @@ public enum ContentValidator {
         auditStagesWellFormed(db, &out)
         textGatesWellFormed(db, &out)
         factsWellFormed(db, &out)
+        latinAllowedIsNotAnID(db, &out)
         // 出来事・始まり
         startMembersExist(db, &out)
         eventsChangeTheWorld(db, &out)
@@ -243,6 +244,16 @@ public enum ContentValidator {
         case .all(let xs), .any(let xs): xs.reduce(into: Set()) { $0.formUnion(knownFacts($1)) }
         case .not(let x): knownFacts(x)
         default: []
+        }
+    }
+
+    /// 許すラテン文字の語は固有名・題名だけ。ID らしい語(アンダーバー・小文字と記号だけ)を許すと、
+    /// 英語の ID の漏れの検査がその語で素通りになる。
+    static func latinAllowedIsNotAnID(_ db: ContentDB, _ out: inout [Issue]) {
+        for (i, w) in db.latinAllowed.enumerated() {
+            if w.isEmpty || w.contains("_") || w.range(of: #"^[a-z0-9.:\-]+$"#, options: .regularExpression) != nil {
+                out.append(Issue(level: .error, rule: "latinAllowed.id", message: "許す語 #\(i) が ID のように見える(大文字を含む固有名だけ許す)"))
+            }
         }
     }
 
