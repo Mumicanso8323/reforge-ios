@@ -247,6 +247,21 @@ final class ProductionSystemTests: XCTestCase {
         XCTAssertEqual(s1, 1300)
     }
 
+    /// 付いている人の速さは RFCrew の workSpeed(無ければ専門・関係ランクから)に、生存の作業の速さ(空腹など)を掛ける。
+    func testOperatorSpeedUsesCrewSpeedAndSurvivalWork() throws {
+        let fx = try F()
+        var w = fx.world()
+        let op: PersonID = "person.test_a"
+        XCTAssertEqual(ProductionRules.operatorSpeed(op, module: .furnace, w, fx.content), 1300, "RFCrew が無ければ専門一致 +30%")
+        w.people[op]?.workSpeed = 900   // 思想が配属と合わない(RFCrew の計算)
+        XCTAssertEqual(ProductionRules.operatorSpeed(op, module: .furnace, w, fx.content), 900, "1000 を下回ってよい")
+        w.survival.work[op] = 500       // 空腹(U4)
+        XCTAssertEqual(ProductionRules.operatorSpeed(op, module: .furnace, w, fx.content), 450)
+        XCTAssertEqual(ProductionRules.workSpeed(.noah, w), 1000)
+        w.survival.work[.noah] = 500
+        XCTAssertEqual(ProductionRules.workSpeed(.noah, w), 500, "手作業も遅くなる")
+    }
+
     // MARK: 手作業と T1 への昇格
 
     func testHandworkHoldToFillAndPromotionByT1() throws {

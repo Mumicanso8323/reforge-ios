@@ -107,22 +107,28 @@ public enum ProductionRules {
     /// 有限の品の残りの満タン(千分率)。
     public static let finiteFull = Milli(raw: 1000)
 
-    /// 人の作業の速さ(千分率)。空腹・状態・精神力で下がる(U4 の生存が持つ値)。
-    /// U4 の `survival.work` が境界に入ったらそこを読む。それまでは 1000。
-    public static func workSpeed(_ p: PersonID, _ w: WorldState) -> Int { 1000 }
+    /// 人の作業の速さ(千分率)。空腹・状態・精神力で下がる(U4 の survival.work。手作業と付いている仲間に掛かる)。
+    public static func workSpeed(_ p: PersonID, _ w: WorldState) -> Int { w.survival.workPermille(for: p) }
 
     /// 付いている仲間がいるときのモジュールの速さ(千分率)。
-    /// U5 の `PersonState.workSpeed`(1000 + 専門一致 300 + 関係ランク 3 以上 100 + 思想と配属の印)が境界に入ったら
-    /// それに置き換える(二重に掛けないこと)。それまでは専門と関係ランクだけをここで数える。
-    /// 範囲の効果・空腹の掛け率はモジュールの側で掛ける。思想が配属と合わない人は 1000 を下回ってよい(MECH-05)。
+    /// 本体は RFCrew の PersonState.workSpeed(1000 + 専門一致 300 + 関係ランク 3 以上 100 + 思想と配属の印)。
+    /// それが無いとき(RFCrew を回さない試験など)は、専門と関係ランクだけをここで数える。
+    /// それに作業の速さ(空腹など)を掛ける。範囲の効果はモジュールの側で掛ける。
+    /// 思想が配属と合わない人・空腹の人は 1000 を下回ってよい(MECH-05)。
     public static func operatorSpeed(_ op: PersonID, module kind: ModuleKindID, _ w: WorldState, _ content: ContentDB)
         -> Int
     {
-        var bonus = 0
-        if let sp = content.modules[kind]?.specialty, content.people[op]?.specialties.contains(sp) == true {
-            bonus += specialtyBonusPermille
+        let base: Int
+        if let s = w.people[op]?.workSpeed {
+            base = s
+        } else {
+            var bonus = 0
+            if let sp = content.modules[kind]?.specialty, content.people[op]?.specialties.contains(sp) == true {
+                bonus += specialtyBonusPermille
+            }
+            if (w.people[op]?.relation.rank ?? 0) >= rankForBonus { bonus += rankBonusPermille }
+            base = 1000 + bonus
         }
-        if (w.people[op]?.relation.rank ?? 0) >= rankForBonus { bonus += rankBonusPermille }
-        return 1000 + bonus * workSpeed(op, w) / 1000
+        return base * workSpeed(op, w) / 1000
     }
 }

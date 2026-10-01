@@ -57,6 +57,10 @@ final class LogisticsSystemTests: XCTestCase {
         w.people["person.test_a"]?.assignment = .haul(route: route.id)
         _ = rig.simulation.runSteps(Int(8 * 3600 / SimStep.gameSeconds), &w)
         XCTAssertTrue((12...13).contains(w.logistics.routes[route.id]!.movedToday), "1 人 × 20 個 × 0.64 ≒ 12.8")
+        // 空腹など(U4 の作業の速さ)で運ぶ量も落ちる
+        XCTAssertEqual(LogisticsQueries.perDay(route.id, world: w, content: c), 12)
+        w.survival.work["person.test_a"] = 500
+        XCTAssertEqual(LogisticsQueries.perDay(route.id, world: w, content: c), 6)
     }
 
     /// 札の次の段を離して置くと、その間が自動で運搬の経路になり、仲間が運ぶ。
