@@ -15,21 +15,11 @@ struct FileSaveStorage: SaveStorage {
         }
     }
 
-    static func fileName(_ slot: SaveSlot) -> String {
-        switch slot {
-        case .resume: "resume.json"
-        case .dawn(let day): "dawn-\(day).json"
-        case .manual(let index): "manual-\(index).json"
-        }
-    }
+    static func fileName(_ slot: SaveSlot) -> String { slot.fileStem + ".json" }
 
     static func slot(fileName name: String) -> SaveSlot? {
         guard name.hasSuffix(".json") else { return nil }
-        let stem = String(name.dropLast(5))
-        if stem == "resume" { return .resume }
-        if stem.hasPrefix("dawn-"), let d = Int(stem.dropFirst(5)) { return .dawn(day: d) }
-        if stem.hasPrefix("manual-"), let i = Int(stem.dropFirst(7)) { return .manual(index: i) }
-        return nil
+        return SaveSlot(fileStem: String(name.dropLast(5)))
     }
 
     private func url(_ slot: SaveSlot) -> URL { directory.appendingPathComponent(Self.fileName(slot)) }
