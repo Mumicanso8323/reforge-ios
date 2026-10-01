@@ -220,6 +220,16 @@
       ]
     },
     {
+      "subject": "structure:structure.test.beacon",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.structure.beacon",
+          "glyph": "♦"
+        }
+      ]
+    },
+    {
       "subject": "structure:structure.test.shelter",
       "variants": [
         {
@@ -366,6 +376,7 @@
   },
   "texts": {
     "text.unknown": "？",
+    "text.structure.beacon": "のろし台",
     "text.name.noah": "ノア",
     "text.name.test_a": "試験の仲間A",
     "text.name.test_b": "試験の仲間B",

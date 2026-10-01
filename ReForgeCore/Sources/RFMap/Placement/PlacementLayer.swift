@@ -5,9 +5,9 @@ public enum PlacementTag {}
 public typealias PlacementID = TypedID<PlacementTag>
 
 extension TypedID where Tag == PlacementTag {
-    /// 自分たちの残骸(拠点の中央)。
+    /// 拠点の中央の残骸。
     public static let homeWreck = PlacementID("wreck.home")
-    /// 先に来た誰かの残骸(川沿いの道の途中)。
+    /// 遠くの残骸(川沿いの道の途中)。
     public static let farWreck = PlacementID("wreck.far")
 }
 
@@ -33,7 +33,7 @@ extension TypedID where Tag == PlacementKindTag {
     public static let aquifer = PlacementKind("aquifer")
     /// 汚れた区域
     public static let contamination = PlacementKind("contamination")
-    /// 残骸(自分たちのもの・先に来た誰かのもの)
+    /// 残骸(拠点のもの・遠くのもの)
     public static let wreck = PlacementKind("wreck")
 
     /// この版が知っている種類。

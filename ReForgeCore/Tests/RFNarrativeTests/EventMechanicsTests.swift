@@ -283,10 +283,7 @@ final class EventMechanicsTests: XCTestCase {
     /// どの効果も世界を変えるか、持ち主のシステムへのコマンドになる(未実装として捨てられる効果は無い)。
     func testEveryEffectChangesTheWorldOrBecomesACommand() throws {
         let rig = try TestRig.publicOnly()
-        var base = rig.factory.newWorld(seed: 1)
-        // 部品のある POI を 1 つ置く(平らな地図には POI が無い)
-        let poi = base.newEntityID()
-        base.map.layers[.surface]?.pois[poi] = POIState(kind: "poi.test.wreck", at: GridPoint(3, 3))
+        let base = rig.factory.newWorld(seed: 1)
         let c = base.people[.noah]!.position!
         let effects: [Effect] = [
             .learn(fact: "fact.test.revealed"),
@@ -313,7 +310,6 @@ final class EventMechanicsTests: XCTestCase {
             .addAura(kind: "aura.test.pull", at: .point(at: c), radius: 3, hours: 1),
             .scaleAura(kind: "aura.test.smoke", permille: 500),
             .removeAura(kind: "aura.test.smoke"),
-            .setPart(poiKind: "poi.test.wreck", part: "part.a", state: .dismantled),
             .revealMap(around: .base, radius: 5),
             .setTerrain(at: .point(at: c), terrain: "rock"),
             .spawnEnemy(kind: "enemy.test", count: 2, near: .base),
@@ -348,7 +344,14 @@ final class EventMechanicsTests: XCTestCase {
             XCTAssertTrue(changed != before || retagged || !ctx.followUps.isEmpty, "世界を変えない効果: \(e)")
             if let label = Mirror(reflecting: e).children.first?.label { covered.insert(label) }
         }
-        XCTAssertEqual(covered.count, 38, "Effect の case を全部ためす(case を足したらここにも足す)")
+        XCTAssertEqual(covered.count, 37, "Effect の case を setPart 以外全部ためす(case を足したらここにも足す)")
+
+        // setPart は POI が要る。平らな地図には POI が無いので、対象が無いことが警告で見える(黙って捨てない)。
+        // POI を置いた世界での確かめは、地図の担当の型(MapPlacement)が境界に入ってから足す。
+        var ctx = StepContext(world: base, content: rig.content)
+        EffectApplier.apply([.setPart(poiKind: "poi.test.wreck", part: "part.a", state: .dismantled)], &ctx, cause: nil)
+        XCTAssertTrue(ctx.followUps.isEmpty)
+        XCTAssertEqual(ctx.warnings.count, 1)
     }
 
     /// 他のシステムの切れ端を変える効果は、引き金の来歴を持ったコマンドになる。持ち主が処理すれば世界が変わり、
@@ -382,11 +385,14 @@ final class EventMechanicsTests: XCTestCase {
         XCTAssertEqual(r.warnings, [])
         XCTAssertTrue(ctx2.world.people["person.test_c"]?.presence.isMember == true)
 
-        // 標準のシステム(まだ処理の無い持ち主)では警告で見える
+        // 受け手(持ち主のシステム)がいなければ警告で見える。どの担当が処理を入れたかに左右されないよう、
+        // 出来事のシステムだけの本体で確かめる(持ち主の処理の確かめは各担当のテスト)。
+        let narrativeOnly = Simulation(content: rig.content, systems: [NarrativeSystem()])
         var ctx3 = StepContext(world: w, content: rig.content)
         EffectApplier.apply([.setTerrain(at: .base, terrain: "rock")], &ctx3, cause: nil)
-        let r3 = { () -> StepReport in var r = StepReport(); rig.simulation.settle(&ctx3, &r); return r }()
-        XCTAssertFalse(r3.warnings.isEmpty)
+        var r3 = StepReport()
+        narrativeOnly.settle(&ctx3, &r3)
+        XCTAssertTrue(r3.warnings.contains { $0.contains("setTerrain") })
     }
 
     /// 効果 fire は選択肢から別の筋へ進むときに使う(trigger.when を見ず、一度きりなら二度は起きない)。

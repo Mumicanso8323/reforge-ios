@@ -49,7 +49,7 @@ public struct Landmarks: Codable, Equatable, Sendable {
     public var forestEnds: [GridPoint]
     /// 森の帯の半分の厚み(マス)。
     public var forestHalfThickness: Int
-    /// 先に来た誰かの残骸の位置(川沿いの道の途中、川の内側の岸)。
+    /// 遠くの残骸の位置(川沿いの道の途中、川の内側の岸)。
     public var farWreck: GridPoint
     /// 岩山の手前の露頭(鉄の鉱脈)の位置。
     public var outcrop: GridPoint

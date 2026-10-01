@@ -114,7 +114,7 @@ final class InventionSystemTests: XCTestCase {
 
         // ノアのとなりのマスが水辺なら冷やせる(水槽なしで)
         let noah = try XCTUnwrap(w.people[.noah]?.position)
-        w.map.layers[noah.layer]?.setTerrain("water", at: GridPoint(noah.point.x + 1, noah.point.y))
+        w.map[noah.layer]?.setTerrain("water", at: GridPoint(noah.point.x + 1, noah.point.y))
         XCTAssertNil(fx.trial([.charcoalFurnace, .anvil, .quench], &w).rejection)
         XCTAssertEqual(w.notebook.trials.last?.outcome.product.temper, .hard)
 
