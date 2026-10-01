@@ -22,11 +22,17 @@ targets:
     type: application
     platform: iOS
     sources:
-      # Sources(SwiftUI)と Resources(Localizable.xcstrings)
+      # Sources(SwiftUI)と Resources(Localizable.xcstrings・同梱フォント BIZ UDGothic と OFL のライセンス文)
       - path: ReForge
+      # コンテンツの束(content/public と、CI・手元にあれば content/private)をフォルダのまま同梱する。
+      # アプリは束の中の content/ を GameBootstrap.loadContent で読む(docs/architecture/E-content.md)。
+      - path: content
+        type: folder
+        buildPhase: resources
     dependencies:
-      # ReForgeCore 製品にはロジック(ReForgeCore)とコンテンツ(ReForgeContent)の両方が入る
+      # 新しい本体の傘(全部の層を再公開)。旧版 b7 の ReForgeCore 製品は使わない
       - package: ReForgeCore
+        product: ReForgeEngine
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.yusukedoi.reforge

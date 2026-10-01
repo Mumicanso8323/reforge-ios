@@ -1,5 +1,7 @@
 import RFContent
 import RFKernel
+import RFPerception
+import RFRules
 import RFSim
 import RFWorld
 
@@ -46,6 +48,17 @@ public actor GameHost {
         revision += 1
         frame = builder.build(w, revision: revision, previous: nil, report: nil)
         return frame
+    }
+
+    /// 意図を送り、断られたらその理由(認識の層を通した 1 行)も返す。画面は足元カードに出す。
+    public func perform(_ command: Command) -> (frame: Frame, rejection: String?) {
+        let (f, r) = send(command)
+        return (f, r.rejection.map { describe($0) })
+    }
+
+    /// 断った理由の 1 行(英語の ID は出さない)。
+    public func describe(_ r: Rejection) -> String {
+        Perceiver(content: simulation.content, world: world).text(r.reason)
     }
 
     // MARK: - 画面からの引き出し(世界状態は渡さない)

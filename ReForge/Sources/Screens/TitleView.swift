@@ -11,13 +11,13 @@ struct TitleView: View {
             Spacer()
             Text(verbatim: "Re:Forge")
                 .font(.system(size: 52, weight: .bold, design: .serif))
-            Text("崩壊した地球で、拠点を立て直す")
+            Text("素材から、作り直す")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .padding(.top, 8)
             Spacer()
             VStack(spacing: 12) {
-                if app.hasSave {
+                if app.hasResume {
                     Button {
                         app.continueGame()
                     } label: {
@@ -26,7 +26,7 @@ struct TitleView: View {
                     .buttonStyle(.borderedProminent)
                     .accessibilityIdentifier("continueButton")
                 }
-                if app.hasSave {
+                if app.hasResume {
                     Button {
                         confirmRestart = true
                     } label: {

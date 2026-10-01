@@ -323,4 +323,11 @@ final class MapPresentTests: XCTestCase {
         XCTAssertEqual(l.terrain(at: w.map.spawn.point), "grass", "目覚める場所は歩ける地面")
         XCTAssertEqual(w, GameBootstrap.newWorld(content: content, seed: 7), "同じ seed で同じ世界")
     }
+
+    /// 断られた操作は理由の 1 行になる(ダイアログは出さない)。
+    func testPerformReturnsReadableRejection() async throws {
+        let host = GameHost(simulation: rig.simulation, world: world())
+        let (_, reason) = await host.perform(.time(.sleep))
+        XCTAssertEqual(reason, "まだ昼だ")
+    }
 }
