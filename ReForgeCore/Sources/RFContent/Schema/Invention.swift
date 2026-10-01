@@ -72,3 +72,15 @@ public struct HintClaim: Codable, Hashable, Sendable {
         self.toward = toward
     }
 }
+
+/// 工程の段を試作で使うのに要る条件(ModuleDef.trial)。設備が世界(置いた物・建てた物・地形)にあるかを Condition で書く。
+/// 満たさないとき、試作は reason で断る(画面は足元カードに 1 行)。条件なしにするなら when に always を書く。
+public struct TrialRequirement: Codable, Hashable, Sendable {
+    public var when: Condition
+    public var reason: TextID
+
+    public init(when: Condition, reason: TextID) {
+        self.when = when
+        self.reason = reason
+    }
+}

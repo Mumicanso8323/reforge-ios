@@ -46,6 +46,9 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     case unlocked(target: UnlockTarget)
     /// ノア(または誰か)がある場所にいる。
     case at(person: PersonID, place: PlaceSelector)
+    /// 場所の近く(チェビシェフ距離 radius 以内)に、この印の地形がある。印 "water" は TerrainDef.isWater の地形にも当たる。
+    /// 例: 冷やす段の試作は水辺に接していればできる(radius 1)。
+    case nearTerrain(place: PlaceSelector, tag: String, radius: Int)
     /// POI の種類を見つけている。
     case discoveredPOI(kind: POIKindID)
     case objective(id: ObjectiveID, status: ObjectiveStatusName)

@@ -64,6 +64,11 @@ struct InventionFixture {
         rig = TestRig(content: c)
     }
 
+    init(content: ContentDB) {
+        self.content = content
+        rig = TestRig(content: content)
+    }
+
     /// 露頭の鉱石の純度(seed で 20〜35% に決める。地図の担当が露頭を作るときと同じ範囲)。
     static func orePurity(seed: UInt64) -> Purity {
         var r = SeededRandom(state: seed ^ 0x5EED_0E0E)
@@ -72,7 +77,8 @@ struct InventionFixture {
     }
 
     /// 新しい世界に、鉱石 ore 個と燃料・水・石灰石を足し、工程のモジュールを解禁する。
-    func world(seed: UInt64, ore: Int = 8, charcoal: Int = 60, wood: Int = 20, limestone: Int = 20, water: Int = 40)
+    func world(seed: UInt64, ore: Int = 8, charcoal: Int = 60, wood: Int = 20, limestone: Int = 20, water: Int = 40,
+               equipped: Bool = true)
         -> WorldState
     {
         var ctx = StepContext(world: rig.factory.newWorld(seed: seed), content: content)
@@ -82,7 +88,20 @@ struct InventionFixture {
         ctx.addStock(.item(.limestone), limestone, to: .base)
         ctx.addStock(.item(.water), water, to: .base)
         ctx.world.research.unlocked.modules.formUnion(Self.unlocked)
+        if equipped {
+            for k in [ModuleKindID.furnace, .quenchTank] { Self.place(k, &ctx) }
+        }
         return ctx.world
+    }
+
+    /// 拠点のそばにモジュールを置いた状態にする(生産の担当の配置の代わり)。
+    static func place(_ kind: ModuleKindID, _ ctx: inout StepContext) {
+        let id = ctx.world.newEntityID()
+        let rec = ctx.record(.placed, .module(kind, id), actor: .noah)
+        let at = ctx.world.map.spawn
+        ctx.world.placements.items[id] = Placement(
+            id: id, kind: .module(kind), at: WorldPoint(at.layer, GridPoint(at.point.x + id.raw % 5, at.point.y + 2)),
+            facing: .north, origin: rec, status: .running)
     }
 
     /// 拠点の鉱石(掘ったままの塊)の山を指す。

@@ -93,6 +93,39 @@ final class InventionSystemTests: XCTestCase {
                        InventionReasons.moduleLocked)
     }
 
+    /// 試作に要る設備は世界の物で満たす: 熱する段は置いた炉、冷やす段は置いた水槽か水辺。ほかの段は手でできる。
+    /// 満たさなければ理由の ID で断り、何も使わない。コンテンツのモジュールの定義で条件を書き換えられる。
+    func testTrialNeedsEquipmentInTheWorld() throws {
+        let fx = try InventionFixture()
+        var w = fx.world(seed: 10, equipped: false)
+        let before = w.inventory
+        XCTAssertEqual(fx.trial([.millstone, .charcoalFurnace], &w).rejection?.reason, TrialRequirements.needsFurnace)
+        XCTAssertEqual(w.inventory, before)
+        XCTAssertNil(fx.trial([.millstone, .sluice, .lime, .anvil], &w).rejection)  // 手と道具でできる段だけ
+
+        // 炉を置くと熱せる。水槽が無く水辺からも離れていれば冷やせない
+        var ctx = StepContext(world: w, content: fx.content)
+        InventionFixture.place(.furnace, &ctx)
+        w = ctx.world
+        XCTAssertNil(fx.trial([.charcoalFurnace, .anvil], &w).rejection)
+        let r = fx.trial([.charcoalFurnace, .anvil, .quench], &w)
+        XCTAssertEqual(r.rejection?.reason, TrialRequirements.needsQuench)
+        XCTAssertEqual(r.rejection?.detail["module"], .string("quench_tank"))
+
+        // ノアのとなりのマスが水辺なら冷やせる(水槽なしで)
+        let noah = try XCTUnwrap(w.people[.noah]?.position)
+        w.map.layers[noah.layer]?.setTerrain("water", at: GridPoint(noah.point.x + 1, noah.point.y))
+        XCTAssertNil(fx.trial([.charcoalFurnace, .anvil, .quench], &w).rejection)
+        XCTAssertEqual(w.notebook.trials.last?.outcome.product.temper, .hard)
+
+        // コンテンツが条件を書き換える(例: 炉は焚き火台の上位の建造物でもよい → ここでは条件なし)
+        var content = fx.content
+        content.modules[.furnace]?.trial = TrialRequirement(when: .always, reason: "reason.test.never")
+        let fx2 = InventionFixture(content: content)
+        var w2 = fx2.world(seed: 10, equipped: false)
+        XCTAssertNil(fx2.trial([.charcoalFurnace], &w2).rejection)
+    }
+
     /// 夜に試作すると 2 時間進む。日没に試せば夜作業が始まる。昼はリアルタイムのまま(試作で時間を飛ばさない)。
     func testNightTrialAdvancesTime() throws {
         let fx = try InventionFixture()

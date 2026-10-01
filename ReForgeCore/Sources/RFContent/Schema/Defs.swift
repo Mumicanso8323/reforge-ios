@@ -117,6 +117,8 @@ public struct ModuleDef: ContentDef, Equatable {
     /// 置いている間に周りに出す範囲の効果(炉の排気など)。
     public var auras: [AuraKindID]?
     public var parameters: Value?
+    /// この工程の段を試作で使うのに要る条件(省略時は RFInvention の既定: 炉は置いた炉、水槽は置いた水槽か水辺)。
+    public var trial: TrialRequirement?
 }
 
 public struct PlacementRule: Codable, Equatable, Sendable {

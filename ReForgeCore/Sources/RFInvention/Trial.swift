@@ -20,6 +20,8 @@ enum Trials {
     {
         guard quantity > 0 else { return .rejected(Rejection(InventionReasons.badQuantity)) }
         if let r = InventionChecks.steps(steps, ctx.world) { return .rejected(r) }
+        // 段ごとに要る設備(置いた炉・水槽か水辺など)
+        if let r = TrialRequirements.check(steps, world: ctx.world, content: ctx.content) { return .rejected(r) }
         guard case .matter(let ore) = sel.stuff else {
             return .rejected(Rejection(InventionReasons.notMaterial))
         }
