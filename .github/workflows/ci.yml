@@ -26,7 +26,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: ci-${{ github.ref }}
+  # 手動起動(リリース)が後続の push で取り消されないよう、イベント種別ごとに分ける
+  group: ci-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
@@ -36,7 +37,7 @@ jobs:
     container: swift:6.1-noble
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: swift test
         run: swift test --package-path ReForgeCore
 
@@ -50,7 +51,7 @@ jobs:
       BUILD: ${{ github.run_number }}
       TAG: v0.1.0-b${{ github.run_number }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Xcode
         run: |
@@ -87,7 +88,7 @@ jobs:
             || { grep -B2 -A8 "error:" build.log | head -200; tail -60 build.log; exit 1; }
           grep -E "\*\* BUILD" build.log || true
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: failure()
         with:
           name: logs
@@ -108,7 +109,7 @@ jobs:
           zip -qry ReForge.ipa Payload
           ls -la ReForge.ipa
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: ReForge-${{ env.VERSION }}-${{ env.BUILD }}
           path: ReForge.ipa
