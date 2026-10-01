@@ -40,7 +40,6 @@
 本質的に違う道(効果のある段だけで、どの 1 段を抜いても届かない並び)は 5 本、入れ替えても効きが同じ段の違いをまとめると 4 通り:
 石灰の道(砕→洗→混→熱→叩)、叩き重ねの道(砕→洗→熱→叩→熱→叩→熱→叩)、石灰と叩き重ね(砕→混→熱→叩→熱→叩 / 混→熱→叩→熱→叩→熱→叩)。
 
-## 他のモジュールへの依頼(未了)
+## 保存の読み込み
 
-- RFKernel の `Purity` の decode は範囲外を丸める。RFMatter の `Matter` の decode では throw している。Kernel 側も throw にするかは設計担当の判断
-- Package.swift の RFMatter ターゲットに `exclude: ["README.md"]` が要る(無いと SwiftPM が未処理ファイルの警告を出す)
+純度が 0...10000 の外なら throw する(RFKernel の `Purity` の decode と、`Matter` の decode の両方)。

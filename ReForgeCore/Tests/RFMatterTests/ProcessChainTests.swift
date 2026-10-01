@@ -337,7 +337,9 @@ final class ProcessChainTests: XCTestCase {
     }
 
     func testDecodingRejectsBadPurityAndNormalizesAdditives() throws {
-        // Purity 単体の decode は RFKernel の型(丸めるか throw するかは設計担当に依頼済み)。物の読み込みでは throw する
+        XCTAssertThrowsError(try JSONDecoder().decode(Purity.self, from: Data("10001".utf8)))
+        XCTAssertThrowsError(try JSONDecoder().decode(Purity.self, from: Data("-1".utf8)))
+        // 物の読み込みでも throw する
         func matterJSON(purity: Int) -> Data {
             Data(#"{"additives":[],"components":[],"purity":\#(purity),"shape":"lump","stage":"ore","substance":"Fe2O3","temper":"none","thermal":"ambient","traits":{},"worked":0}"#.utf8)
         }
