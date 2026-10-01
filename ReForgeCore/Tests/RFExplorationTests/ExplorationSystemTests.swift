@@ -4,6 +4,7 @@ import RFKernel
 import RFMap
 import RFMatter
 import RFRules
+import RFSim
 import RFTestSupport
 import RFWorld
 import XCTest
@@ -251,6 +252,20 @@ final class ExplorationSystemTests: XCTestCase {
     }
 
     // MARK: 効果から
+
+    /// 出来事の効果 setTerrain は、標準の本体を通すと警告なしで地形を変える(U11 の効果 → U8 のコマンド)。
+    func testSetTerrainEffectThroughStandardSystems() throws {
+        let rig = try ExploreRig()
+        var ctx = StepContext(world: rig.world, content: rig.content)
+        let cause = ctx.record(.chose, .none)
+        EffectApplier.apply([.setTerrain(at: .base, terrain: "rock")], &ctx, cause: cause)
+        var r = StepReport()
+        rig.sim.settle(&ctx, &r)
+        XCTAssertEqual(r.warnings, [])
+        let center = try XCTUnwrap(Places.resolve(.base, world: ctx.world, trigger: nil))
+        XCTAssertEqual(ctx.world.map[.surface]?.terrain(at: center.point), "rock")
+        XCTAssertTrue(ctx.world.ledger.records.last!.inputs.contains(cause))
+    }
 
     func testEffectCommandsChangeMapAndParts() throws {
         var rig = try ExploreRig()
