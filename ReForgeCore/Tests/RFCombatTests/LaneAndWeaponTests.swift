@@ -153,6 +153,16 @@ final class LaneAndWeaponTests: XCTestCase {
                        "reason.combat.no_battle")
     }
 
+    /// 戦闘の規則はコンテンツの "combat"(ContentDB.combat)で変えられる。
+    func testCombatRulesComeFromContent() throws {
+        let rig = try Fixture.rig("{\"combat\": {\"laneSize\": 8, \"turnSeconds\": 60}}")
+        var w = rig.factory.newWorld(seed: 1)
+        let r = rig.simulation.apply(.combat(.startBattle(enemy: "enemy.test.small", count: 1, near: w.people[.noah]!.position!)), to: &w)
+        let b = try XCTUnwrap(w.combat.battles[Fixture.started(r.events)[0]])
+        XCTAssertEqual(b.laneSize, 8)
+        XCTAssertEqual(b.nextTurnAt, b.startedAt + GameDuration(seconds: 60))
+    }
+
     // MARK: - 勝ち負けが来歴に残る
 
     func testVictoryIsRecorded() throws {
