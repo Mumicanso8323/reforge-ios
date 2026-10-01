@@ -68,7 +68,7 @@ public enum ResearchRules {
         }
     }
 
-    /// 1 人の研究の速さ(千分率): 建造物の専門 × 身につけたスキルと力の効き × 範囲の効果の workSpeed。
+    /// 1 人の研究の速さ(千分率): 建造物の専門 × 身につけたスキルと力の効き × 体の作業の速さ × 範囲の効果の workSpeed。
     public static func personPermille(_ ps: PersonState, desk: Placement, kind: StructureKindID, _ w: WorldState,
                                       _ c: ContentDB) -> Int
     {
@@ -76,6 +76,8 @@ public enum ResearchRules {
         let spec = c.researchSpecialty(of: kind)
         if c.people[ps.id]?.specialties.contains(spec.tag) == true { p = p * spec.permille / 1000 }
         p = p * c.speedPermille(person: ps.id, skills: ps.skills, work: WorkKey.research) / 1000
+        // 体(空腹・渇き・状態・精神力の低さ)の作業の速さ。生存の担当が書く。
+        p = p * w.survival.workPermille(for: ps.id) / 1000
         for m in Auras.modifiers(at: desk.at, in: w, content: c) {
             if case .workSpeed(let s) = m.modifier {
                 // 強さ(千分率)で効きを薄める: 1000 + (s − 1000) × 強さ
