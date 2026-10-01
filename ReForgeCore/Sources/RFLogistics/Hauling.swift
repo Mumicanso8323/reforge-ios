@@ -51,11 +51,13 @@ enum Hauling {
             let assigned = dedicated(id, ctx.world)
             if r.haulers != assigned { r.haulers = assigned }
             guard r.distance != nil else {
+                r.waiting = false
                 ctx.world.logistics.routes[id] = r
                 continue
             }
             let crewMilli = carriers(id, ctx.world).reduce(0) { $0 + workSpeed($1, ctx.world) }
             let waiting = pending(r, ctx.world, limit: 1) > 0
+            r.waiting = waiting
             if crewMilli == 0 {
                 r.blocked = waiting ? HaulRules.noHaulers : nil
                 ctx.world.logistics.routes[id] = r

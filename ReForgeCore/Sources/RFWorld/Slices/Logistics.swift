@@ -81,6 +81,8 @@ public struct HaulRoute: Codable, Equatable, Sendable {
     public var movedToday: Int = 0
     /// 運べない理由(届かない・運び手がいない)。運べていれば nil。
     public var blocked: TextID?
+    /// いま運ぶ物があるか(毎ステップ RFLogistics が書く。RFCrew が共同の手を待ちのある経路へ回す・画面が「待ち」を出すのに使う)。
+    public var waiting: Bool = false
 
     public init(id: EntityID, from: HaulEndpoint, to: HaulEndpoint, origin: Origin = .manual, haulers: [PersonID] = [],
                 distance: Int? = nil, path: [GridPoint] = [], factorPermille: Int = 1000) {
@@ -95,7 +97,7 @@ public struct HaulRoute: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case id, from, to, origin, haulers, distance, path, factorPermille, carryMicro, movedYesterday, movedToday, blocked
+        case id, from, to, origin, haulers, distance, path, factorPermille, carryMicro, movedYesterday, movedToday, blocked, waiting
     }
 
     public init(from decoder: Decoder) throws {
@@ -112,6 +114,7 @@ public struct HaulRoute: Codable, Equatable, Sendable {
         movedYesterday = try c.decodeIfPresent(Int.self, forKey: .movedYesterday) ?? 0
         movedToday = try c.decodeIfPresent(Int.self, forKey: .movedToday) ?? 0
         blocked = try c.decodeIfPresent(TextID.self, forKey: .blocked)
+        waiting = try c.decodeIfPresent(Bool.self, forKey: .waiting) ?? false
     }
 }
 

@@ -14,6 +14,9 @@ import XCTest
 ///
 /// 歩くのは RFCrew の担当なので、ここでは 1 秒 4 マスの時間を進めてからノアを移す(歩いた時間は同じ)。
 /// 仲間の運搬の配属と activity(.carrying)も RFCrew の代わりにボットが付ける(専任の運び手は夜も運ぶ)。
+///
+/// 走らせるシステムは、時間・生産・運搬・発明(ライン札)だけに絞る(Bot.systems)。人の歩く・見る・出来事の計算は
+/// この受け入れ条件(ラインと手作業の量の比べ)に関わらず、debug ビルドで 100 走が重くなるため。
 final class ProductionBotTests: XCTestCase {
     /// 試験用の重ね(R1 の値: 1 回の処理 = ゲーム 9600 秒、手作業 塊 8 / 板 16 回、採掘 12 回で鉱脈 1 回)。
     /// 採掘口は鉄板 6 枚と薪、叩き台は最初の鉄の塊 1 つと薪で作る。仲間 4 人(R1 の初期の人数)。
@@ -73,8 +76,11 @@ final class ProductionBotTests: XCTestCase {
         static let walkTilesPerSecond = 4.0
         static let pressRealSeconds = 1.0
 
-        init(rig: TestRig, seed: UInt64) {
-            sim = rig.simulation
+        /// 量の比べに要るシステムだけ(本体の並びの順を保つ)。
+        static var systems: [any SimSystem] { [TimeSystem(), ProductionSystem(), LogisticsSystem(), InventionSystem()] }
+
+        init(rig: TestRig, seed: UInt64, systems: [any SimSystem] = Bot.systems) {
+            sim = Simulation(content: rig.content, systems: systems)
             w = rig.factory.newWorld(seed: seed)
             home = w.map.spawn.point
             // 鉄の露頭(純度 20〜35%、30〜70 回)を、拠点の西 8〜20 マスに置く(seed で変わる)
@@ -218,8 +224,8 @@ final class ProductionBotTests: XCTestCase {
     }
 
     /// ラインを最短で置く: 叩き台の塊 1 つと採掘口の鉄板 6 枚を手で作り、そろったらすぐに置く。
-    static func line(rig: TestRig, seed: UInt64, days: Int) -> DayLog {
-        var b = Bot(rig: rig, seed: seed)
+    static func line(rig: TestRig, seed: UInt64, days: Int, systems: [any SimSystem] = Bot.systems) -> DayLog {
+        var b = Bot(rig: rig, seed: seed, systems: systems)
         var placed = false
         let furnaceAt = WorldPoint(.surface, b.home)
         let anvilAt = WorldPoint(.surface, GridPoint(b.home.x + 1, b.home.y))

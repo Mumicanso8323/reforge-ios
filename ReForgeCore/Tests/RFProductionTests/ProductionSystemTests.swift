@@ -169,6 +169,41 @@ final class ProductionSystemTests: XCTestCase {
         XCTAssertTrue(r.events.contains { if case .dismantled(let p, _) = $0 { p == furnace } else { false } })
     }
 
+    /// 効果 convertPlacements: 置いてある物の種類が変わる(置き場所・来歴・払った材料・待ちはそのまま、範囲の効果は付け直す)。
+    func testConvertPlacementsChangesKindOfPlacedModules() throws {
+        let fx = try F()
+        var w = fx.world(wood: 20, charcoal: 0)
+        let a = fx.place(.millstone, 14, 16, &w)
+        let b = fx.place(.millstone, 18, 16, &w)
+        let other = fx.place(.anvil, 16, 18, &w)
+        var ctx = StepContext(world: w, content: fx.content)
+        ModuleRuntime.put(StockEntry(stuff: .matter(.ironOre(purity: Purity(percent: 25))), quantity: 2),
+                          into: &ctx.world.placements.items[a]!.module!.input)
+        let cause = ctx.record(.chose, .person(.noah))
+        w = ctx.world
+        let before = w.placements.items[a]!
+        let version = w.placements.topologyVersion
+        let r = fx.apply(.production(.convertPlacements(from: .millstone, to: .furnace, cause: cause)), &w)
+        XCTAssertNil(r.rejection)
+        XCTAssertEqual(r.warnings, [], "受け手のあるコマンド")
+        for id in [a, b] {
+            let p = try XCTUnwrap(w.placements.items[id])
+            XCTAssertEqual(p.moduleKind, .furnace)
+            XCTAssertTrue(w.auras.active.values.contains { $0.source == .placement(id) }, "炉の範囲の効果が付く")
+            let rec = try XCTUnwrap(w.ledger.records.last { $0.act == .overridden && $0.subject == .module(.furnace, id) })
+            XCTAssertEqual(rec.inputs, [cause, p.origin])
+        }
+        let after = w.placements.items[a]!
+        XCTAssertEqual(after.at, before.at)
+        XCTAssertEqual(after.origin, before.origin)
+        XCTAssertEqual(after.module?.paid, before.module?.paid, "片付ければ置いたときの材料が戻る")
+        XCTAssertEqual(after.module?.input, before.module?.input)
+        XCTAssertEqual(w.placements.items[other]?.moduleKind, .anvil, "ほかの種類は変わらない")
+        XCTAssertGreaterThan(w.placements.topologyVersion, version)
+        XCTAssertEqual(fx.apply(.production(.convertPlacements(from: .millstone, to: "module.nope", cause: nil)), &w)
+            .rejection?.reason, ProductionText.unknownModule)
+    }
+
     func testMoveKeepsBuffersAndChecksRules() throws {
         let fx = try F()
         var w = fx.world()
