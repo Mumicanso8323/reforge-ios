@@ -106,7 +106,8 @@ struct RootView: View {
         .background(Color.black)
         .task { await app.refreshEntitlements() }
         .onChange(of: scenePhase) { _, phase in
-            if phase != .active { app.session?.didBecomeInactive() }
+            // 離れたら自動で ⏸ にして保存し、戻ったら自動で再開する(手で止めた時計は止めたまま)
+            if phase == .active { app.session?.didBecomeActive() } else { app.session?.didBecomeInactive() }
         }
     }
 }

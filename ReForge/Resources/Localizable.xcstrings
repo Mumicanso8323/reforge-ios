@@ -11,16 +11,6 @@
         }
       }
     },
-    "いまの状態は保存されます。": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "いまの状態は保存されます。"
-          }
-        }
-      }
-    },
     "いまの記録を消して最初からはじめますか?": {
       "localizations": {
         "ja": {
@@ -121,16 +111,6 @@
         }
       }
     },
-    "タイトルへ戻りますか?": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "タイトルへ戻りますか?"
-          }
-        }
-      }
-    },
     "バージョン": {
       "localizations": {
         "ja": {
@@ -211,22 +191,22 @@
         }
       }
     },
+    "取り消す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取り消す"
+          }
+        }
+      }
+    },
     "夜": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "夜"
-          }
-        }
-      }
-    },
-    "夜は長い。火のそばで作業を続けるか、朝まで眠るか。": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "夜は長い。火のそばで作業を続けるか、朝まで眠るか。"
           }
         }
       }
@@ -351,22 +331,22 @@
         }
       }
     },
-    "採取する": {
+    "採取": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "採取する"
+            "value": "採取"
           }
         }
       }
     },
-    "日が沈んだ": {
+    "日没": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "日が沈んだ"
+            "value": "日没"
           }
         }
       }
@@ -381,22 +361,22 @@
         }
       }
     },
+    "日誌を開く": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "日誌を開く"
+          }
+        }
+      }
+    },
     "昼の残り": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "昼の残り"
-          }
-        }
-      }
-    },
-    "朝をむかえる": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "朝をむかえる"
           }
         }
       }
@@ -477,16 +457,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "購入を復元しました"
-          }
-        }
-      }
-    },
-    "長い夜が明けた": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "長い夜が明けた"
           }
         }
       }

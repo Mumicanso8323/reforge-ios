@@ -41,19 +41,95 @@ final class GameSessionTests: XCTestCase {
         XCTAssertEqual(resumed?.state, s.state)
     }
 
-    func testDuskShowsNightfallAndSleepShowsDawn() {
+    func testSunsetChangesInPlaceAndDawnNeedsNoTap() {
         let s = newSession()
+        s.sheet = .craft
         s.advanceClock(by: 180)
         XCTAssertEqual(s.state.phase, .dusk)
-        XCTAssertEqual(s.sheet, .nightfall)
-        s.sleep()
+        XCTAssertNil(s.sheet, "日没に開いていた「作る」は黙って閉じ、別のシートは出さない")
+        XCTAssertTrue(s.rest())
         XCTAssertEqual(s.state.day, 2)
-        XCTAssertEqual(s.sheet, .dawn)
-        XCTAssertFalse(s.clockRunning, "結果シートの間は時計を止める")
+        XCTAssertNil(s.sheet, "夜明けの結果シートは出さない")
+        XCTAssertEqual(s.toast?.lines.first?.hasPrefix("夜が明けた"), true, "短い要約を出す")
         XCTAssertEqual(store.loadSavePoint()?.day, 2, "毎朝の自動セーブ")
-        s.beginMorning()
-        XCTAssertNil(s.sheet)
+        XCTAssertTrue(s.state.log.contains { if case .dawn = $0.event { true } else { false } }, "内訳は日誌")
+        // 取り消しの数秒が過ぎたら、何も押さなくても時計が動き出し、知らせも消える
+        XCTAssertFalse(s.clockRunning)
+        s.advanceClock(by: GameSession.undoSeconds)
+        XCTAssertFalse(s.canUndoRest)
         XCTAssertTrue(s.clockRunning)
+        s.advanceClock(by: GameSession.dawnToastSeconds)
+        XCTAssertNil(s.toast)
+    }
+
+    func testJournalStaysOpenAtSunset() {
+        let s = newSession()
+        s.sheet = .journal
+        s.advanceClock(by: 180)
+        XCTAssertEqual(s.sheet, .journal)
+    }
+
+    func testRestRunsWithoutConfirmationAndCanBeUndone() {
+        let s = newSession()
+        s.perform(.gather(.wood))
+        s.advanceClock(by: 30)
+        let before = s.state
+        XCTAssertTrue(s.rest())
+        XCTAssertEqual(s.state.phase, .dusk)
+        XCTAssertTrue(s.canUndoRest)
+        s.undoRest()
+        XCTAssertEqual(s.state, before, "休む前と完全に同じ")
+        XCTAssertNil(s.toast)
+        XCTAssertEqual(store.loadResume()?.state, before)
+    }
+
+    func testSleepUndoAlsoRestoresSavePoint() {
+        let s = newSession()
+        s.advanceClock(by: 180)
+        let dusk = s.state
+        let savePoint = s.savePoint
+        s.rest()
+        XCTAssertEqual(s.savePoint?.day, 2)
+        s.undoRest()
+        XCTAssertEqual(s.state, dusk)
+        XCTAssertEqual(s.savePoint, savePoint)
+        XCTAssertEqual(store.loadSavePoint(), savePoint)
+    }
+
+    func testDoubleTapRestThenSleepUndoesBoth() {
+        let s = newSession()
+        let before = s.state
+        let savePoint = s.savePoint
+        s.rest()
+        s.rest()
+        XCTAssertEqual(s.state.day, 2)
+        s.undoRest()
+        XCTAssertEqual(s.state, before, "休む前まで戻る")
+        XCTAssertEqual(s.savePoint, savePoint)
+    }
+
+    func testUndoIsGoneAfterAnotherAction() {
+        let s = newSession()
+        s.advanceClock(by: 180)
+        s.rest()
+        s.perform(.gather(.water))
+        XCTAssertFalse(s.canUndoRest)
+        let after = s.state
+        s.undoRest()
+        XCTAssertEqual(s.state, after)
+        XCTAssertNotNil(s.toast, "夜明けの要約は残る")
+    }
+
+    func testAutoPauseResumesWhenBackButManualPauseStays() {
+        let s = newSession()
+        s.didBecomeInactive()
+        XCTAssertTrue(s.isPaused)
+        s.didBecomeActive()
+        XCTAssertFalse(s.isPaused, "戻ったら ▶ を押さなくても再開")
+        s.pause()
+        s.didBecomeInactive()
+        s.didBecomeActive()
+        XCTAssertTrue(s.isPaused, "手で止めた時計は止めたまま")
     }
 
     func testGatherFlashAndAutosave() {
@@ -74,8 +150,7 @@ final class GameSessionTests: XCTestCase {
         let s = newSession()
         for _ in 0..<3 {
             s.advanceClock(by: 180)
-            s.sleep()
-            s.beginMorning()
+            s.rest()
         }
         XCTAssertNil(s.gameOverReason)
         XCTAssertEqual(s.savePoint?.day, 4)
@@ -86,8 +161,7 @@ final class GameSessionTests: XCTestCase {
                                   store: store, purchases: { Purchases() })
         for _ in 0..<3 where session.state.isActive {
             session.advanceClock(by: 180)
-            session.sleep()
-            session.beginMorning()
+            session.rest()
         }
         XCTAssertEqual(session.gameOverReason, .dehydration)
         XCTAssertEqual(session.recoveryChoices().count, 4)

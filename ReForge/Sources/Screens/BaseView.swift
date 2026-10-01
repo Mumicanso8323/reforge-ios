@@ -2,16 +2,20 @@ import SwiftUI
 import ReForgeCore
 
 /// S1 拠点(MVP の主画面)。
+/// プレイヤーを止めるのは本当の選択(ゲームオーバーの 4 方針)のときだけ。休む・寝るは確認なしで即実行して
+/// 数秒「取り消す」を出し、夜明けの結果は数秒で消える知らせと日誌に出す。日没・夜明けで画面は切り替えず、
+/// この画面の色・ボタン・できることがその場で変わる。
 struct BaseView: View {
     @Bindable var session: GameSession
     let app: AppModel
-    @State private var confirmRest = false
-    @State private var confirmTitle = false
     @Environment(\.scenePhase) private var scenePhase
 
     private var s: GameState { session.state }
     private var t: GameText { session.text }
+    private var isDusk: Bool { s.phase == .dusk }
     private var isNight: Bool { s.phase == .night }
+    /// 日没・夜作業中(「休む」が「寝る」になる)。
+    private var isDark: Bool { isDusk || isNight }
     private var outdoorOK: Bool { s.phase == .day }
 
     var body: some View {
@@ -23,20 +27,22 @@ struct BaseView: View {
             Divider()
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    if let notice = session.notice {
-                        NoticeBanner(text: notice.text, id: notice.id)
-                    }
+                    GatherSection(session: session)
                     warnings
                     buildingChips
                     inventoryGrid
                 }
                 .padding(16)
             }
+            // 知らせは下に重ねて出す(差し込むと行がずれて、連打中に押し間違える)
+            .overlay(alignment: .bottom) { toasts }
             actionButtons
                 .padding(.horizontal, 16)
                 .padding(.top, 8)
                 .padding(.bottom, AdLayout.bottomButtonGap)
         }
+        .background(nightTint)
+        .animation(.easeInOut(duration: 0.8), value: s.phase)
         .task(id: scenePhase) { await runClock() }
         .sheet(item: $session.sheet) { sheet in
             sheetView(sheet)
@@ -47,21 +53,20 @@ struct BaseView: View {
         .fullScreenCover(isPresented: Binding(get: { session.isVictory }, set: { _ in })) {
             VictoryView(session: session, app: app)
         }
-        .confirmationDialog(Text(verbatim: t.restConfirm(s)), isPresented: $confirmRest, titleVisibility: .visible) {
-            Button("休む") { session.perform(.rest) }
-            Button("やめる", role: .cancel) {}
-        }
-        .alert("タイトルへ戻りますか?", isPresented: $confirmTitle) {
-            Button("タイトルへ") { app.backToTitle() }
-            Button("やめる", role: .cancel) {}
-        } message: {
-            Text("いまの状態は保存されます。")
+    }
+
+    /// 日没・夜の色。画面を切り替える代わりに、拠点の画面そのものを暗くする。
+    private var nightTint: Color {
+        switch s.phase {
+        case .day, .dawn: Color.clear
+        case .dusk: Color.indigo.opacity(0.16)
+        case .night: Color.indigo.opacity(0.26)
         }
     }
 
     // MARK: 時計
 
-    /// 昼の時計。アクティブな間だけ回り、実時間の経過を Game に渡す。
+    /// 昼の時計。アクティブな間だけ回り、実時間の経過を Game に渡す。知らせの残り時間もここで減る。
     private func runClock() async {
         guard scenePhase == .active else { return }
         let clock = ContinuousClock()
@@ -107,12 +112,15 @@ struct BaseView: View {
                 .buttonStyle(.bordered)
                 .accessibilityLabel(session.isPaused ? Text("再開") : Text("一時停止"))
                 .accessibilityIdentifier("pauseButton")
-            } else if isNight {
-                Text("夜")
-                    .font(.subheadline.bold())
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.indigo.opacity(0.5)))
+            } else if isDark {
+                Group {
+                    if isNight { Text("夜") } else { Text("日没") }
+                }
+                .font(.subheadline.bold())
+                .padding(.horizontal, 10)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Color.indigo.opacity(0.5)))
+                .accessibilityIdentifier("phaseBadge")
             }
             Menu {
                 Button {
@@ -126,8 +134,9 @@ struct BaseView: View {
                 } label: {
                     Label("設定", systemImage: "gearshape")
                 }
+                // 行動のたびに保存し、戻るときも保存するので失うものはない。確認は出さない
                 Button {
-                    confirmTitle = true
+                    app.backToTitle()
                 } label: {
                     Label("タイトルへ", systemImage: "house")
                 }
@@ -193,49 +202,73 @@ struct BaseView: View {
         }
     }
 
+    // MARK: 知らせ(押さなくても消える)
+
+    private var toasts: some View {
+        VStack(spacing: 8) {
+            if let notice = session.notice {
+                NoticeBanner(text: notice.text, id: notice.id)
+            }
+            if let toast = session.toast {
+                RestToastView(toast: toast, canUndo: session.canUndoRest,
+                              onOpenJournal: { session.sheet = .journal },
+                              onUndo: { session.undoRest() })
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 8)
+        .animation(.easeOut(duration: 0.2), value: session.toast?.id)
+    }
+
     // MARK: 下段
 
     private var actionButtons: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             HStack(spacing: 8) {
-                actionButton("採取する", enabled: outdoorOK) { session.sheet = .gather }
-                    .accessibilityIdentifier("gatherButton")
-                actionButton("作る", enabled: s.phase == .day || isNight) { session.sheet = .craft }
-                    .accessibilityIdentifier("craftButton")
-            }
-            HStack(spacing: 8) {
+                actionButton("作る", enabled: s.phase == .day || isNight,
+                             reason: isDusk ? t.duskHint(canWorkAtNight: session.canStartNightWork) : nil) {
+                    session.sheet = .craft
+                }
+                .accessibilityIdentifier("craftButton")
                 actionButton("建てる", enabled: outdoorOK) { session.sheet = .build }
                     .accessibilityIdentifier("buildButton")
                 actionButton("日誌", enabled: true) { session.sheet = .journal }
                     .accessibilityIdentifier("journalButton")
             }
-            Button {
-                if isNight || s.phase == .dusk {
-                    session.perform(.rest)
-                } else if s.actionPointsLeft > 0 {
-                    confirmRest = true
-                } else {
-                    session.perform(.rest)
+            HStack(spacing: 8) {
+                if isDusk && session.canStartNightWork {
+                    Button {
+                        session.startNightWork()
+                    } label: {
+                        Text("夜作業をする").frame(maxWidth: .infinity, minHeight: 32)
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("nightWorkButton")
                 }
-            } label: {
-                Group {
-                    if isNight || s.phase == .dusk { Text("寝る") } else { Text("休む") }
+                // 確認は出さずにすぐ実行する。押し間違いは数秒出る「取り消す」で戻せる
+                Button {
+                    session.rest()
+                } label: {
+                    Group {
+                        if isDark { Text("寝る") } else { Text("休む") }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 32)
                 }
-                .frame(maxWidth: .infinity, minHeight: 32)
+                .buttonStyle(.borderedProminent)
+                .disabled(!s.isActive)
+                .accessibilityIdentifier("restButton")
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(!s.isActive)
-            .accessibilityIdentifier("restButton")
         }
     }
 
     /// 押せない時間帯でも押せる形にしておき、押したら理由を出す(「暗くて外には出られない」)。
-    private func actionButton(_ title: LocalizedStringKey, enabled: Bool, action: @escaping () -> Void) -> some View {
+    private func actionButton(_ title: LocalizedStringKey, enabled: Bool, reason: String? = nil,
+                              action: @escaping () -> Void) -> some View {
         Button {
             if enabled {
                 action()
             } else {
-                session.show(t.message(for: .notAllowed(s.phase)))
+                session.show(reason ?? t.message(for: .notAllowed(s.phase)))
             }
         } label: {
             Text(title).frame(maxWidth: .infinity, minHeight: 32)
@@ -248,13 +281,10 @@ struct BaseView: View {
     @ViewBuilder
     private func sheetView(_ sheet: ActiveSheet) -> some View {
         switch sheet {
-        case .gather: GatherSheet(session: session)
         case .craft: CraftSheet(session: session)
         case .build: BuildSheet(session: session)
         case .journal: JournalView(session: session)
         case .settings: SettingsView(app: app)
-        case .nightfall: NightfallSheet(session: session)
-        case .dawn: DawnSheet(session: session)
         }
     }
 }
@@ -272,7 +302,7 @@ struct NoticeBanner: View {
                     .font(.subheadline)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(10)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.3)))
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.regularMaterial))
                     .transition(.opacity)
             }
         }
@@ -282,5 +312,43 @@ struct NoticeBanner: View {
             withAnimation { visible = false }
         }
         .accessibilityIdentifier("notice")
+    }
+}
+
+/// 休む・寝るの直後の知らせ。夜明けの要約(数行)と「取り消す」。何も押さなくても数秒で消える。
+/// 要約をタップすると日誌を開く(開かなくてもよい)。
+struct RestToastView: View {
+    let toast: RestToast
+    let canUndo: Bool
+    let onOpenJournal: () -> Void
+    let onUndo: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button(action: onOpenJournal) {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(Array(toast.lines.enumerated()), id: \.offset) { index, line in
+                        Text(verbatim: line)
+                            .font(index == 0 ? .subheadline.bold() : .footnote)
+                            .foregroundStyle(index == 0 ? Color.primary : Color.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint(Text("日誌を開く"))
+            .accessibilityIdentifier("restToast")
+            if canUndo {
+                Button(action: onUndo) {
+                    Text("取り消す")
+                }
+                .buttonStyle(.bordered)
+                .accessibilityIdentifier("undoRestButton")
+            }
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(.regularMaterial))
+        .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 }
