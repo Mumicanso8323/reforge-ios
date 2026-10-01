@@ -1,0 +1,52 @@
+{
+  "_comment": "MVP 用の差し替え。items/recipes/blueprints.json は原本の該当項目をそのまま抜き出したもので、編集しない。原本へ戻す差分はここに集める。",
+  "items": {
+    "order": ["food", "water", "wood", "plant_fiber", "stone", "clay", "iron_ore", "coal", "charcoal", "iron_ingot", "iron_plate", "ration"],
+    "rename": {
+      "ration": "保存食"
+    }
+  },
+  "recipes": [
+    {
+      "id": "charcoal_burn",
+      "from": ["charcoal_burn"],
+      "name": "木炭焼成",
+      "stations": ["campfire", "charcoal_pit"],
+      "journal": "木炭を焼いた"
+    },
+    {
+      "id": "smelt_iron",
+      "from": ["basic_smelt", "cast_iron_ingot"],
+      "name": "鉄の製錬",
+      "inputs": [
+        [{"item_id": "iron_ore", "quantity": 1}],
+        [{"item_id": "coal", "quantity": 1}, {"item_id": "charcoal", "quantity": 1}]
+      ],
+      "output": {"item_id": "iron_ingot", "quantity": 1},
+      "stations": ["campfire", "basic_furnace"],
+      "journal": "鉄を製錬した"
+    },
+    {
+      "id": "iron_plate_pound",
+      "from": ["iron_plate_pound"],
+      "name": "叩き板金",
+      "stations": ["campfire"],
+      "journal": "鉄を叩いて板にした"
+    },
+    {
+      "id": "ration",
+      "from": ["ration"],
+      "name": "携行食",
+      "stations": [],
+      "journal": "携行食をこしらえた"
+    }
+  ],
+  "blueprints": [
+    {"id": "campfire", "effect": "火が使える。食べ物を安全に調理できる"},
+    {"id": "simple_farm", "effect": "毎日 水 1 で食料 2"},
+    {"id": "well", "requirements": [{"item_id": "stone", "quantity": 4}, {"item_id": "wood", "quantity": 4}], "effect": "毎日 水 +2"},
+    {"id": "charcoal_pit", "effect": "毎日 木材 3 を木炭 2 に"},
+    {"id": "basic_furnace", "requirements": [{"item_id": "stone", "quantity": 3}, {"item_id": "iron_plate", "quantity": 2}], "effect": "鉄を製錬できる"},
+    {"id": "storage_crate", "effect": "食料と水を 120 まで蓄えられる"}
+  ]
+}
