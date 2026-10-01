@@ -491,6 +491,16 @@
         }
       }
     },
+    "物語のデータを読めなかったので、試遊用のデータで動いています": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "物語のデータを読めなかったので、試遊用のデータで動いています"
+          }
+        }
+      }
+    },
     "目標": {
       "localizations": {
         "ja": {
