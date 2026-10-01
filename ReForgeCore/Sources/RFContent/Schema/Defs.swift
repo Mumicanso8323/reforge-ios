@@ -117,6 +117,8 @@ public struct ModuleDef: ContentDef, Equatable {
     /// 置いている間に周りに出す範囲の効果(炉の排気など)。
     public var auras: [AuraKindID]?
     public var parameters: Value?
+    /// この工程の段を試作で使うのに要る条件(省略時は RFInvention の既定: 炉は置いた炉、水槽は置いた水槽か水辺)。
+    public var trial: TrialRequirement?
 }
 
 public struct PlacementRule: Codable, Equatable, Sendable {
@@ -225,14 +227,34 @@ public struct LineDef: ContentDef, Equatable {
     public var cooldownHours: Int?
 }
 
+/// 推理の手がかり(端末の断片・仲間の知識・手が知っていた手順・図鑑の空欄の命名の手がかり)。
+/// 条件が成り立つとノートに出典つきで載る(RFInvention)。出典は中立の見出し("source:hand" など)で、
+/// 見え方は認識の層が引く(後で「誰の・何の知識だったか」の見え方が変わる)。
 public struct HintDef: ContentDef, Equatable {
     public var id: HintID
     public var from: PersonID?
+    /// 載る条件(乱数 chance は使わない: 評価は乱数を引かない evaluatePure で、chance は成り立たない扱い)。
     public var when: Condition
     public var about: SubjectID
     public var text: TextID
     /// 出典(認識の表の見出し)。
     public var source: SubjectID
+    /// 何を言っているか(機械が読める形。RFContent/Schema/Invention.swift)。省略可。
+    public var claims: [HintClaim]?
+    /// 図鑑の空欄(命名からの類推)に付く手がかりなら、その名前。載ると図鑑に影の行が出る。省略可。
+    public var target: MatterName?
+
+    public init(id: HintID, from: PersonID? = nil, when: Condition, about: SubjectID, text: TextID, source: SubjectID,
+                claims: [HintClaim]? = nil, target: MatterName? = nil) {
+        self.id = id
+        self.from = from
+        self.when = when
+        self.about = about
+        self.text = text
+        self.source = source
+        self.claims = claims
+        self.target = target
+    }
 }
 
 // MARK: - 研究・力・敵
@@ -299,6 +321,25 @@ public struct StatDef: ContentDef, Equatable {
     public var perDay: Int?
     /// 合計として他の数値を足し合わせる(内訳を内部に持ち、開示で内訳を見せる)。
     public var sumOf: [StatID]?
+    /// この値を越えたら(上りでも下りでも)出来事 statCrossed を出す(警告・期限の引き金。raw)。
+    public var marks: [Int]?
+    /// 回る値(暦など): この値で割った余りにする(raw)。
+    public var wrap: Int?
+    /// 画面で赤く出す範囲(raw。isAlert を使う)。
+    public var alertBelow: Int?
+    public var alertAtLeast: Int?
+
+    public init(id: StatID, initial: Int, perDay: Int? = nil, sumOf: [StatID]? = nil, marks: [Int]? = nil,
+                wrap: Int? = nil, alertBelow: Int? = nil, alertAtLeast: Int? = nil) {
+        self.id = id
+        self.initial = initial
+        self.perDay = perDay
+        self.sumOf = sumOf
+        self.marks = marks
+        self.wrap = wrap
+        self.alertBelow = alertBelow
+        self.alertAtLeast = alertAtLeast
+    }
 }
 
 /// 失敗の規則。期限は日数でなく値で判定する。

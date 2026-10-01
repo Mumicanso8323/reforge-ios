@@ -196,10 +196,8 @@ final class FailureTests: XCTestCase {
         XCTAssertEqual(ConditionEvaluator.evaluatePure(placedFurnace, world: w, content: s.rig.content), true)
         fail(&w, s.rig)
         let r = try s.recovery.perform(.rewindWithMemory, failed: w, newSeed: 0).world
-        if ConditionEvaluator.evaluatePure(placedFurnace, world: r, content: s.rig.content) != true {
-            throw XCTSkip("RFRules.ProvenanceQueries が来歴の run で絞るため、夜明け前の行為が巻き戻し後に数えられない" +
-                          "(U11 に依頼済み。直ればこの skip は外れる)")
-        }
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(placedFurnace, world: r, content: s.rig.content), true,
+                       "夜明け前の行為は巻き戻し後も来歴の条件で数えられる")
     }
 
     /// 失って続ける: 関係の最も低い仲間が去り(away)、拠点の蓄えを半分失い、失敗の原因の値が戻って、その場から続く。

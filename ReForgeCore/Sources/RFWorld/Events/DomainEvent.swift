@@ -18,6 +18,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case trialed(record: ProvenanceID)
     case crafted(quantity: Int, record: ProvenanceID)
     case designed(design: EntityID, record: ProvenanceID)
+    /// 推理の手がかり(HintDef)がノートに載った。from は仲間の知識なら仲間。
+    case hintHeard(hint: HintID, from: PersonID?, record: ProvenanceID)
     case produced(placement: EntityID, quantity: Int)
     case moduleStopped(placement: EntityID, reason: TextID)
     case moduleResumed(placement: EntityID)
@@ -79,6 +81,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .trialed: "trialed"
         case .crafted: "crafted"
         case .designed: "designed"
+        case .hintHeard: "hint"
         case .produced: "produced"
         case .moduleStopped: "module.stopped"
         case .moduleResumed: "module.resumed"
@@ -133,6 +136,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r):
             r
         case .itemGained(_, _, _, let r): r
+        case .hintHeard(_, _, let r): r
         case .opinion(_, let r, _): r
         default: nil
         }
