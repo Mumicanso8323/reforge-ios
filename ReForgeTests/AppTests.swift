@@ -71,6 +71,12 @@ final class AppTests: XCTestCase {
         await app.backToTitle()
         XCTAssertNil(app.game)
         XCTAssertTrue(app.hasResume)
+        do {
+            let data = try XCTUnwrap(try saves.read(slot: .resume))
+            _ = try SaveCodec.decode(data)
+        } catch {
+            XCTFail("つづきからが読めない: \(error)")
+        }
         app.continueGame()
         let resumed = try XCTUnwrap(app.game)
         let world = await resumed.host.world
