@@ -68,9 +68,19 @@ jobs:
           grep -qE "error: (emit|compile|link)" private-test.log && echo "ビルドに失敗(詳細は手元で)"
           exit 1
 
+  # アプリ(ReForge/)は Linux でコンパイルされないので、本体の enum に足した case でアプリの switch が
+  # 網羅でなくなっても core では気づけない。iOS のジョブより先に静的に確かめる(数秒)。
+  app-switches:
+    name: アプリの switch の網羅(静的)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 tools/check-app-switches.py
+
   ios:
     name: iOS (テスト + ipa)
-    needs: core
+    needs: [core, app-switches]
     runs-on: macos-26
     timeout-minutes: 60
     env:
