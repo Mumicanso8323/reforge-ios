@@ -2,7 +2,7 @@
   "//": "研究と力(U10)の仕組みのテスト用。試験用の ID と一般語だけ。本物の研究パッケージ・スキル・力の表は非公開の層。",
   "structures": [
     { "id": "structure.test.desk", "cost": [ { "item": "wood", "quantity": 1 } ], "buildSeconds": 600,
-      "provides": { "research": 10 }, "parameters": { "specialty": "study", "specialtyPermille": 1500 } }
+      "provides": { "research": 10 }, "parameters": { "specialty": "study" } }
   ],
   "research": [
     { "id": "research.test.basics", "points": 0, "unlocks": [ { "structure": { "id": "structure.test.campfire" } } ],

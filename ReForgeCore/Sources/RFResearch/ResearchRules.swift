@@ -68,22 +68,16 @@ public enum ResearchRules {
         }
     }
 
-    /// 1 人の研究の速さ(千分率): 建造物の専門 × 身につけたスキルと力の効き × 体の作業の速さ × 範囲の効果の workSpeed。
-    public static func personPermille(_ ps: PersonState, desk: Placement, kind: StructureKindID, _ w: WorldState,
-                                      _ c: ContentDB) -> Int
-    {
-        var p = 1000
-        let spec = c.researchSpecialty(of: kind)
-        if c.people[ps.id]?.specialties.contains(spec.tag) == true { p = p * spec.permille / 1000 }
+    /// 1 人の研究の速さ(千分率):
+    /// 付いた人の働き(PersonState.workSpeed = 専門の一致・関係・思想。人の担当が working の間だけ書く)
+    /// × 身につけたスキルと力の効き × 体の作業の速さ(空腹など)× 範囲の効果の workSpeed。
+    /// workSpeed が無いとき(隣に立っているだけ・夜作業の研究)は 1000(専門の上乗せなし)。
+    public static func personPermille(_ ps: PersonState, desk: Placement, _ w: WorldState, _ c: ContentDB) -> Int {
+        var p = ps.workSpeed ?? 1000
         p = p * c.speedPermille(person: ps.id, skills: ps.skills, work: WorkKey.research) / 1000
         // 体(空腹・渇き・状態・精神力の低さ)の作業の速さ。生存の担当が書く。
         p = p * w.survival.workPermille(for: ps.id) / 1000
-        for m in Auras.modifiers(at: desk.at, in: w, content: c) {
-            if case .workSpeed(let s) = m.modifier {
-                // 強さ(千分率)で効きを薄める: 1000 + (s − 1000) × 強さ
-                p = p * max(0, 1000 + (s - 1000) * m.strength / 1000) / 1000
-            }
-        }
+        p = p * Auras.workSpeedPermille(at: desk.at, in: w, content: c) / 1000
         return max(0, p)
     }
 
@@ -105,7 +99,7 @@ public enum ResearchRules {
                 at = deskIDs.first
             }
             guard let e = at, let desk = w.placements.items[e], case .structure(let k) = desk.kind else { continue }
-            let units = c.researchRate(of: k) * Int(SimStep.gameSeconds) * personPermille(ps, desk: desk, kind: k, w, c)
+            let units = c.researchRate(of: k) * Int(SimStep.gameSeconds) * personPermille(ps, desk: desk, w, c)
             if units > 0 { out.append((pid, e, units)) }
         }
         return out

@@ -54,15 +54,17 @@ final class ResearchSystemTests: XCTestCase {
 
     // MARK: 研究机に付いた仲間が昼に進める
 
-    /// 研究机に付いた仲間が昼の間に研究を進める(研究の専門の人は 1.5 倍)。付いていない人は進めない。
+    /// 研究机に付いた仲間が昼の間に研究を進める。1 人の速さは人の担当の workSpeed(専門の一致 +30% など)を使い、
+    /// 研究の側では専門を掛け直さない(二重にしない)。付いていない人は進めない。
     func testDeskWorkerAdvancesResearchDuringDay() throws {
         let rig = try TestRig.publicOnly()
         var w = newWorld(rig)
         seatAtDesk(&w, [Self.studyB])
         XCTAssertNil(apply(rig, .select(research: Self.basics), &w).rejection)
         _ = rig.simulation.runSteps(Self.hour, &w)
-        // 机の速さ 10 点/時 × 専門 1.5 = 15 点
-        XCTAssertEqual(w.research.points(of: Self.basics), 15)
+        // 机の速さ 10 点/時 × 人の担当の働き 1.3(専門の一致)= 13 点
+        XCTAssertEqual(w.people[Self.studyB]?.workSpeed, 1300)
+        XCTAssertEqual(w.research.points(of: Self.basics), 13)
         XCTAssertEqual(w.research.studying, [Self.studyB])
         XCTAssertTrue(w.research.isLearning(Self.studyB), "研究している人は学ぶ時期(BEAT-15)")
         XCTAssertFalse(w.research.isLearning(.noah))
@@ -130,8 +132,8 @@ final class ResearchSystemTests: XCTestCase {
         seatAtDesk(&w, [Self.plainA, Self.studyB])
         XCTAssertNil(apply(rig, .select(research: Self.basics), &w).rejection)
         _ = rig.simulation.runSteps(Self.hour, &w)
-        // 速い人(15)から重み 1000、次(10)に 500 → 20 点
-        XCTAssertEqual(w.research.points(of: Self.basics), 20)
+        // 速い人(13)から重み 1000、次(10)に 500 → 18 点
+        XCTAssertEqual(w.research.points(of: Self.basics), 18)
     }
 
     /// 夜作業の研究: 研究机があれば、行為の時間(2 時間)だけ進む。昼にはできない。
@@ -158,15 +160,15 @@ final class ResearchSystemTests: XCTestCase {
         var w = newWorld(rig)
         seatAtDesk(&w, [Self.studyB])
         XCTAssertNil(apply(rig, .select(research: Self.basics), &w).rejection)
-        // 20 点(1 段目)= 80 分
-        var r = rig.simulation.runSteps(80 * 60 / Int(SimStep.gameSeconds), &w)
+        // 13 点/時: 2 時間で 26 点(1 段目の 20 点を越え、2 段目の 40 点には届かない)
+        var r = rig.simulation.runSteps(2 * Self.hour, &w)
         XCTAssertEqual(w.research.nodesDone[Self.basics], 1)
         XCTAssertTrue(w.research.unlocked.handwork.contains("handwork.test.cord"))
         XCTAssertFalse(w.research.unlocked.handwork.contains("handwork.test.charcoal"))
         XCTAssertTrue(r.events.contains { if case .researchNode(Self.basics, 0, _) = $0 { true } else { false } })
         XCTAssertFalse(w.research.completed.contains(Self.basics))
 
-        r = rig.simulation.runSteps(80 * 60 / Int(SimStep.gameSeconds), &w)
+        r = rig.simulation.runSteps(2 * Self.hour, &w)
         XCTAssertTrue(w.research.completed.contains(Self.basics))
         XCTAssertNil(w.research.active, "終わったら次を選ぶまで空く")
         XCTAssertTrue(w.research.unlocked.handwork.contains("handwork.test.charcoal"))

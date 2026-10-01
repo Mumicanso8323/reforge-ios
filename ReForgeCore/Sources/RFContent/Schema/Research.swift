@@ -79,14 +79,6 @@ extension ContentDB {
         max(0, structures[kind]?.provides["research"] ?? 0)
     }
 
-    /// 研究の建造物の専門(parameters.specialty。既定 "research")と、その専門の人の速さ(千分率。既定 1500)。
-    public func researchSpecialty(of kind: StructureKindID) -> (tag: String, permille: Int) {
-        let p = structures[kind]?.parameters
-        let tag = p?["specialty"]?.stringValue ?? "research"
-        let permille = p?["specialtyPermille"]?.intValue.map(Int.init) ?? 1500
-        return (tag, permille)
-    }
-
     /// その人に効く作業の効き(身につけたスキル + 生まれつきの力)。順番は決定的(スキル ID 順 → 力 ID 順)。
     public func workModifiers(person: PersonID, skills: Set<SkillID>) -> [WorkModifier] {
         var out: [WorkModifier] = []
