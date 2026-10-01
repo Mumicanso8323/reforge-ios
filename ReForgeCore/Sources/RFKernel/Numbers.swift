@@ -12,6 +12,10 @@ public struct Purity: Hashable, Comparable, Codable, Sendable, CustomStringConve
     public init(basisPoints: Int) { self.basisPoints = min(Self.scale, max(0, basisPoints)) }
     /// 百分率で作る(例: Purity(percent: 30) = 30.00%)。
     public init(percent: Int, hundredths: Int = 0) { self.init(basisPoints: percent * 100 + hundredths) }
+    /// 整数の百分率から(地図の担当の書き方)。
+    public static func percent(_ p: Int) -> Purity { Purity(basisPoints: p * 100) }
+    /// 0.0〜1.0 の割合(表示・生成用)。
+    public var fraction: Double { Double(basisPoints) / 10000 }
 
     public static func + (a: Purity, b: Purity) -> Purity { Purity(basisPoints: a.basisPoints + b.basisPoints) }
 

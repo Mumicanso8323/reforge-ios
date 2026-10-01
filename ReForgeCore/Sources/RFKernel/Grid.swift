@@ -21,6 +21,27 @@ public struct GridPoint: Hashable, Comparable, Codable, Sendable, CustomStringCo
     public func manhattan(to o: GridPoint) -> Int { abs(x - o.x) + abs(y - o.y) }
     /// チェビシェフ距離(視界の半径など)。
     public func chebyshev(to o: GridPoint) -> Int { max(abs(x - o.x), abs(y - o.y)) }
+
+    public static func + (a: GridPoint, b: GridPoint) -> GridPoint { GridPoint(a.x + b.x, a.y + b.y) }
+    public static func - (a: GridPoint, b: GridPoint) -> GridPoint { GridPoint(a.x - b.x, a.y - b.y) }
+
+    /// ユークリッド距離の 2 乗(整数。視界の円の判定はこちらで)。
+    public func distanceSquared(to o: GridPoint) -> Int {
+        let dx = x - o.x, dy = y - o.y
+        return dx * dx + dy * dy
+    }
+
+    /// ユークリッド距離(表示・生成用。世界状態の判定には distanceSquared を使う)。
+    public func distance(to o: GridPoint) -> Double { Double(distanceSquared(to: o)).squareRoot() }
+
+    /// 8 方向の隣(directions8 の順)。
+    public var neighbors8: [GridPoint] { GridPoint.directions8.map { self + $0 } }
+
+    /// 上下左右 → 斜めの順(経路探索の展開順を固定して決定的にする)。
+    public static let directions8: [GridPoint] = [
+        GridPoint(0, -1), GridPoint(0, 1), GridPoint(-1, 0), GridPoint(1, 0),
+        GridPoint(-1, -1), GridPoint(1, -1), GridPoint(-1, 1), GridPoint(1, 1),
+    ]
 }
 
 /// 層を含めた位置。層は将来足せる(地表 "layer.surface" から始める)。
