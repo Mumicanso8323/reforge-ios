@@ -8,12 +8,12 @@
 | 単位 | 名前 | 持ちディレクトリ(`ReForgeCore/…`) | 書いてよい切れ端(B §1) | 先に要るもの | 最初の受け入れテスト(`swift test`) |
 |---|---|---|---|---|---|
 | U0 | 統合(設計担当) | `Package.swift`・`Sources/RFKernel`・`RFWorld/WorldState.swift`・`RFRules/{SimSystem,StepContext}.swift`・`RFSim`・`Tests/AcceptanceTests`・ブランチのマージ | `ids`・`ledger`・`inventory`・`knowledge` の共通操作 | — | 全ターゲットのビルド、決定性(同じ seed と操作 → 同じ世界と出来事)、昼の刻みによらない一致 |
-| U1 | 地図(走行中) | `Sources/RFMap`・`Tests/RFMapTests` | `map`(生成) | — | 同じ seed で同じ地図 / 拠点・川・岩山・遺品の残骸の距離の範囲を 100 seed で保証 / 経路は通れないマスを通らない / 視界の半径(昼 8・夜 5・灯り +4) |
+| U1 | 地図(走行中) | `Sources/RFMap`・`Tests/RFMapTests` | `map`(生成) | — | 同じ seed で同じ地図 / 拠点・川・岩山・残骸の距離の範囲を 100 seed で保証 / 経路は通れないマスを通らない / 視界の半径(昼 8・夜 5・灯り +4) |
 | U2 | 物質(レビュー対応中) | `Sources/RFMatter`・`Tests/RFMatterTests` | — | — | 既存(推理で届く・総当たりで届かない)+ 山の合わせ方の規則 |
 | U3 | 認識とコンテンツ | `Sources/RFPerception`・`RFContent/{ContentLoader,ContentValidator}.swift`・`RFContent/Schema/Perception.swift`・`content/public`・`tools/content/`・CI の取り込み | — | — | 遡る書き換え(事実を知ると、作った物・置いた物・図鑑・ノートの出典・地図のラベル・過去の日誌が新しい名前に。保存データは同じ)/ 静的な監査が全段で 0 件 / 走行中の監査つき Perceiver / 非公開の層を重ねても公開だけでも検証エラー 0 |
-| U4 | 時間と生存 | `Sources/RFTime`・`Sources/RFSurvival`・`RFWorld/Slices/{Clock,Survival}.swift` | `clock`・`survival`・人の `body` | U0 | 1 人 1 日 食料 1・水 1 の消費が昼のリアルタイムと寝るの一括で一致 / 食料切れ 5 日・水切れ 3 日で失敗の規則が成り立つ / 外で精神力が減りシェルターで戻る / 大気の内訳(基礎+上積み)と合計 |
+| U4 | 時間と生存 | `Sources/RFTime`・`Sources/RFSurvival`・`RFWorld/Slices/{Clock,Survival}.swift` | `clock`・`survival`・人の `body` | U0 | 1 人 1 日 食料 1・水 1 の消費が昼のリアルタイムと寝るの一括で一致 / 食料切れ 5 日・水切れ 3 日で失敗の規則が成り立つ / 外で精神力が減りシェルターで戻る / 拠点全体の数値の内訳(基礎+上積み)と合計 |
 | U5 | 人(ノアと仲間) | `Sources/RFCrew`・`RFWorld/Slices/People.swift` | `people`・`knowledge.mapKnown` | U1(経路・視界) | 歩く(1 秒 4 マス・経路どおり・行き先の変更)/ 視界で地図の既知が増える / 配属の実行(モジュールに付く・見張り)/ 上書きの間は配属に従わず範囲の中心へ歩く / 来歴の印 × 思想の重みで賛否が出て関係が動く |
-| U6 | 発明 | `Sources/RFInvention`・`RFWorld/Slices/Invention.swift` | `invention`・`notebook` | U2 | 試作は手持ちの材料を実際に使い、所見と結果がノートに載る / 出典つきの書き留め / シリカのランク 3 のヒント(HintDef)/ TEST-R1-01 推理ボット(鉱石 8 回分で精鉄板と剛鉄板、総当たり・無作為は 2 割以下) |
+| U6 | 発明 | `Sources/RFInvention`・`RFWorld/Slices/Invention.swift` | `invention`・`notebook` | U2 | 試作は手持ちの材料を実際に使い、所見と結果がノートに載る / 出典つきの書き留め / 仲間の関係ランクで出るヒント(HintDef)/ TEST-R1-01 推理ボット(鉱石 8 回分で精鉄板と剛鉄板、総当たり・無作為は 2 割以下) |
 | U7 | 生産と物流 | `Sources/RFProduction`・`Sources/RFLogistics`・`RFWorld/Slices/{Placements,Logistics}.swift` | `placements`(モジュール)・`logistics`・`map` の鉱脈の残り | U1・U2・U5(運ぶ人) | 置ける場所の規則(鉱脈の上・水に接する)/ 隣接と向きでつながる / 1 回の処理が RuleBook の 1 工程 / 片付けると材料が全部戻る / 止まった理由 / TEST-R1-02 自動化ボット(3 日目にラインが手作業の最良日の 3 倍) |
 | U8 | 探索と拠点 | `Sources/RFExploration`・`Sources/RFBase`・`RFWorld/Slices/{Exploration,Base}.swift` | `exploration`・`placements`(建造物)・`base`・`map` の地形の変化 | U1・U5 | 残骸を漁る(10 回まで・得られる物の表)/ 有限の部品の取り外し・解体・作り直しが来歴に残る / 建造物を建てる(仲間が手伝うと速い)/ 迎えられる人数はシェルターの数 / TEST-R1-04 道筋の複数性 |
 | U9 | 脅威と戦闘 | `Sources/RFCombat`・`RFWorld/Slices/Combat.swift` | `combat` | U5・U8(灯り・柵) | 夜、灯りの外から食料を狙う / 範囲 repelEnemies の中に入らない / 1 次元の帯で自動に進み、方針と撤退だけ選べる / 武器の強さ = 素材の純度と硬さ / 勝ち負けが来歴に残る |
@@ -43,16 +43,16 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 |---|---|---|
 | R2 | 地下の層 | `MapState.layers` に層を足す(U1)・`WorldPoint.layer` |
 | R2 | 電力・溶融金属・自動行動プラン | `logistics.power`(U7)・`Assignment` の case(U5) |
-| R2 | 季節・天候・26 時間の意味 | `survival.environment`・`StatDef`(暦は隠れた値)・認識の表 |
+| R2 | 季節・天候 | `survival.environment`・`StatDef`(暦は隠れた値)・認識の表 |
 | R2 | 士気・不満・離脱・社交・キーパーソンの合流 | `PersonState`(U5)・`Presence`・`Effect.join/leave` |
 | R2 | DesignLab(部品から機械を設計) | `ProcessSheet`・`invention`(U6) |
 | R2 | 期限が研究で見える | `StatDisplay` の切り替え(認識の表)・`FailureRuleDef`(値で判定) |
 | R3 | 拠点の外の集団との対立と和解 | `people.groups`・`Condition.group`(U5・U11) |
-| R3 | 遺跡の奥・先住の遺構・ドローン・ボス | 地図の層・POI・`InteractionDef`・`EnemyDef`(U1・U8・U9) |
-| R3 | 特別な力の体系・未知の元素 | `RFAbilities`・`abilities`・RFMatter の物質の表・認識の表 |
-| R3 | 端末の修理・記録を工程表で開く | 有限の部品(`parts`)・`SheetDef`・`ProcessSheet` |
-| R4 | 大きな反転・最後の場面に自分の記録を並べる | 来歴の問い合わせ(`ProvenanceQueries`)・`tagRecords`・認識の表 |
-| R4 | 4 つのエンディング・帰還か留まるか | `EndingDef`・`Effect.ending`・`run.outcome` |
+| R3 | 後半の場所・後半の敵とボス | 地図の層・POI・`InteractionDef`・`EnemyDef`(U1・U8・U9) |
+| R3 | 特別な力の体系・後半の物質 | `RFAbilities`・`abilities`・RFMatter の物質の表・認識の表 |
+| R3 | 有限の部品の修理・記録を工程表で開く | 有限の部品(`parts`)・`SheetDef`・`ProcessSheet` |
+| R4 | 意味の反転・最後の場面に自分の記録を並べる | 来歴の問い合わせ(`ProvenanceQueries`)・`tagRecords`・認識の表 |
+| R4 | 4 つのエンディング | `EndingDef`・`Effect.ending`・`run.outcome` |
 
 ## 4. 進め方の約束(全単位)
 - A §3 の約束(持ちディレクトリの外を触らない・他の切れ端はコマンドか出来事で・共通操作は StepContext・自分の乱数の流れ・文章を作らない・定義の項目は省略可能)。

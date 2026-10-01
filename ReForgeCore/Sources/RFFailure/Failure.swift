@@ -5,7 +5,7 @@ import RFSave
 import RFWorld
 
 /// 失敗の判定(CORE-12)。コンテンツの失敗の規則(FailureRuleDef)を毎ステップ調べ、成り立ったら周回を失敗にする。
-/// 期限も日数でなく値(大気など)の規則として書く。餓死・脱水も規則(survival の日数の数値)で書く。
+/// 期限も日数でなく値の規則として書く。餓死・脱水も規則(survival の日数の数値)で書く。
 /// 骨組みとして規則の評価だけを入れてある。
 public struct FailureSystem: SimSystem {
     public let name = "failure"
