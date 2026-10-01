@@ -247,6 +247,34 @@ enum Placing {
         return .done
     }
 
+    /// 置いてある from のモジュールを全部 to に変える(U11 の効果 convertPlacements から。過去に置いた物も意味が変わる)。
+    /// 置き場所・向き・来歴・払った材料・入口と出口の待ち・有限の品はそのまま。入出口・段の物・範囲の効果は to の定義で付け直す。
+    /// to の置ける場所の規則(鉱脈の上など)は問わない。合わなければ止まった理由が出る。
+    /// 来歴: 変わった 1 つごとに overridden(subject = 新しい種類、inputs = [引き金, 置いたときの来歴])。
+    static func convert(from: ModuleKindID, to: ModuleKindID, cause: ProvenanceID?, _ ctx: inout StepContext) -> CommandResult {
+        guard let def = ctx.content.modules[to] else { return .rejected(Rejection(ProductionText.unknownModule)) }
+        guard from != to else { return .done }
+        let ids = ctx.world.placements.moduleIDs.filter { ctx.world.placements.items[$0]?.moduleKind == from }
+        for id in ids {
+            guard var p = ctx.world.placements.items[id], var m = p.module else { continue }
+            configure(&m, def: def, at: p.at, facing: p.facing, ctx.world, ctx.content)
+            m.progress = 0
+            p.kind = .module(to)
+            p.module = m
+            ctx.world.placements.items[id] = p
+            ctx.world.auras.active = ctx.world.auras.active.filter { $0.value.source != .placement(id) }
+            attachAuras(def, placement: id, origin: p.origin, &ctx)
+            ctx.record(.overridden, .module(to, id), place: p.at, inputs: [cause, p.origin].compactMap { $0 },
+                       detail: ["from": .string(from.rawValue), "to": .string(to.rawValue)])
+            ctx.changes.markTile(p.at, .placements)
+        }
+        if !ids.isEmpty {
+            ctx.world.placements.topologyVersion += 1
+            ctx.changes.mark([.placements, .people])
+        }
+        return .done
+    }
+
     // MARK: 有限の品
 
     /// 有限の品をモジュールに使う。使うと速いが、減ったら戻らない(BEAT-08)。使ったことは来歴に残る。
