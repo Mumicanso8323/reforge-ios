@@ -7,8 +7,8 @@ import RFWorld
 
 /// 運び手が経路の物を運ぶ(量で進める。歩く絵は RFCrew が経路の path で描く)。
 enum Hauling {
-    /// 人の作業の速さ(千分率)。U4 の survival.work が境界に入ったらそこを読む。それまでは 1000。
-    static func workSpeed(_ p: PersonID, _ w: WorldState) -> Int { 1000 }
+    /// 人の作業の速さ(千分率。空腹・状態などで下がる U4 の survival.work)。
+    static func workSpeed(_ p: PersonID, _ w: WorldState) -> Int { w.survival.workPermille(for: p) }
 
     /// 経路に配属された一員(表示用。人の並び順)。
     static func dedicated(_ route: EntityID, _ w: WorldState) -> [PersonID] {

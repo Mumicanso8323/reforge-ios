@@ -60,6 +60,7 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 - テストのコンテンツは `content/public`(ネタバレの無い試験用)に足す。本物のコンテンツが要るテストは `XCTSkipUnless(TestContent.hasPrivateLayer)`。
 - 他の担当のブランチを取り込んだ後(enum の case が増えた後など)に、増分ビルドのテストが signal 11 で落ちることがある。`swift package clean --package-path ReForgeCore` してから回し直す(clean build で通れば、コードの問題ではない)。
 - コミットの前に `docker run --rm -v "$PWD":/w -w /w swift:6.1-noble swift test --package-path ReForgeCore` が緑。
+- 本体の公開の enum に case を足したら `python3 tools/check-app-switches.py` も通す。アプリ(`ReForge/`)は Linux でコンパイルされないので、アプリの switch が網羅でなくなっても swift test では気づけない(b821798 で iOS のジョブが `SaveSlot.screen` で落ちた)。CI では `app-switches` のジョブが iOS の前に回る。統合担当はマージのたびに回す。
 - 効果から来るコマンド(U11 が各枝の末尾に `…FromEffect` などを足す。cause = 引き金の来歴で、自分の来歴の inputs に入れる)は持ち主が処理する: U5 = meet・join・leave・die・injure / U8 = revealMap・setTerrain・setPart / U9 = spawnEnemy / U7 = convertPlacements。処理を入れるまでは「どのシステムも受けないコマンド」の警告が出る。
 - 世界状態の形を変えたら D §4 の手順(版を上げて移行を 1 つ足す)。ただし最初のリリースまでは版 1 のまま形を変えてよい(セーブの互換は R1 のリリースから守る)。
 
