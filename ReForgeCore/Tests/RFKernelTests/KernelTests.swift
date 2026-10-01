@@ -55,4 +55,11 @@ final class KernelTests: XCTestCase {
         XCTAssertEqual(Purity(basisPoints: 12_000), .full)
         XCTAssertEqual(Purity(percent: 30, hundredths: 5).description, "30.05%")
     }
+
+    /// 読むときは範囲外を丸めずエラーにする。
+    func testPurityDecodeRejectsOutOfRange() throws {
+        XCTAssertEqual(try JSONDecoder().decode([Purity].self, from: Data("[0, 10000]".utf8)), [.zero, .full])
+        XCTAssertThrowsError(try JSONDecoder().decode([Purity].self, from: Data("[10001]".utf8)))
+        XCTAssertThrowsError(try JSONDecoder().decode([Purity].self, from: Data("[-1]".utf8)))
+    }
 }

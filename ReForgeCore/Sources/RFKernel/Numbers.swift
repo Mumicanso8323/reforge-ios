@@ -22,7 +22,15 @@ public struct Purity: Hashable, Comparable, Codable, Sendable, CustomStringConve
     }
     public static func < (a: Self, b: Self) -> Bool { a.basisPoints < b.basisPoints }
 
-    public init(from decoder: Decoder) throws { self.init(basisPoints: try decoder.singleValueContainer().decode(Int.self)) }
+    /// 保存・コンテンツから読むときは範囲外を丸めずにエラーにする(壊れたデータで始めない)。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        let v = try c.decode(Int.self)
+        guard (0...Self.scale).contains(v) else {
+            throw DecodingError.dataCorruptedError(in: c, debugDescription: "純度は 0...10000 の万分率(\(v))")
+        }
+        self.init(basisPoints: v)
+    }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
         try c.encode(basisPoints)
