@@ -29,8 +29,6 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case built(placement: EntityID, record: ProvenanceID)
     // 動く・探す
     case arrived(person: PersonID, at: WorldPoint)
-    /// 歩いた(1 ステップぶんのまとめ)。tiles = 進んだマス数、staminaCost = 地形の移動コストの合計
-    /// (千分の一の体力。原作 MapScreen.GetMoveCost、斜めは 1.4 倍)。体力を減らすのは RFSurvival。
     case walked(person: PersonID, tiles: Int, staminaCost: Int)
     case entered(person: PersonID, poi: EntityID)
     case interacted(person: PersonID, interaction: InteractionID, at: WorldPoint, record: ProvenanceID)
