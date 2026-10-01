@@ -88,6 +88,16 @@ public enum ConditionEvaluator {
         case .at(let person, let place):
             guard let pos = w.people[person]?.position else { return false }
             return Places.contains(place, pos, world: w, trigger: trigger)
+        case .nearTerrain(let place, let tag, let radius):
+            guard let c = Places.resolve(place, world: w, trigger: trigger), let layer = w.map[c.layer] else { return false }
+            for dy in -radius...radius {
+                for dx in -radius...radius {
+                    guard let t = layer.terrain(at: GridPoint(c.point.x + dx, c.point.y + dy)) else { continue }
+                    let def = content.terrains[t]
+                    if def?.tags.contains(tag) == true || (tag == "water" && def?.isWater == true) { return true }
+                }
+            }
+            return false
         case .discoveredPOI(let kind):
             return w.map.layers.values.contains { layer in
                 layer.pois.contains { $0.value.kind == kind && w.knowledge.discovered.contains($0.key) }
