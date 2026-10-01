@@ -32,6 +32,8 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     case person(id: PersonID, test: PersonTest)
     /// 一員の人数。
     case members(atLeast: Int)
+    /// 拠点の外の集団との関係。
+    case group(id: GroupID, relationAtLeast: Int)
     case counter(id: CounterID, cmp: Comparison, value: Int)
     /// 数値(大気など。千分率)。
     case stat(id: StatID, cmp: Comparison, value: Int)
