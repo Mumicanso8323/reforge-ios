@@ -76,6 +76,7 @@ public enum SubjectTag {}
 public enum RecipeTag {}
 public enum AuraKindTag {}
 public enum HandworkTag {}
+public enum GroupTag {}
 public enum SheetTag {}
 public enum FailureRuleTag {}
 
@@ -119,7 +120,7 @@ public typealias EndingID = TypedID<EndingTag>
 public typealias ChapterID = TypedID<ChapterTag>
 /// 地図の層(地表・地下…)。
 public typealias LayerID = TypedID<LayerTag>
-/// 数値の種類(大気・精神力…)。認識の層で「見せ方」を切り替える単位にもなる。
+/// 数値の種類(精神力・拠点全体の数値…)。認識の層で「見せ方」を切り替える単位にもなる。
 public typealias StatID = TypedID<StatTag>
 /// 来歴に付ける印(コンテンツが決める)。後の開示が「この印の付いた行為」を指す。
 public typealias ProvenanceTag = TypedID<ProvenanceTagTag>
@@ -127,6 +128,8 @@ public typealias ProvenanceTag = TypedID<ProvenanceTagTag>
 public typealias SubjectID = TypedID<SubjectTag>
 /// レシピ(原作 recipes.json の id と同じ綴り)。RFMatter の Recipe の ID。
 public typealias RecipeID = TypedID<RecipeTag>
+/// 人の集団(拠点の外の生存者のまとまり。R2〜R3 の接触・対立・和解)。
+public typealias GroupID = TypedID<GroupTag>
 /// 手作業(押し続けて 1 単位。原作 HandCraft)。工程 1 つを手でやる。
 public typealias HandworkID = TypedID<HandworkTag>
 /// 範囲の効果の種類(ある点・人・置いた物から半径 r の中で、振る舞いや数値が変わる)。

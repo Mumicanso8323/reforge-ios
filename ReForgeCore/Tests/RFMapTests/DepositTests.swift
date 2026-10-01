@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import RFKernel
 @testable import RFMap
 
 /// 鉱脈: 組成と純度の幅、有限の採掘回数、枯渇、決定的な産出。
@@ -86,7 +87,7 @@ final class DepositTests: XCTestCase {
         for m in MapFixture.r1Seeds.prefix(20) {
             for d in m.surface.deposits.all {
                 let b = m.biome(at: d.position)!
-                if d.id.rawValue == "deposit.claybank" {
+                if d.id == .clayBank {
                     XCTAssertTrue(b == .plain || b == .forest)
                 } else {
                     XCTAssertTrue(b == .rock || b == .ruins, "\(d.id) が \(b) の上")

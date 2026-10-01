@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 2D Perlin ノイズ(原作 `PerlinNoise`)。256 の置換表を SeededRandom で混ぜる。出力は [0, 1]。
 /// 原作は .NET の `Random(seed)` で表を混ぜていたが、端末と版で同じ列になるよう SplitMix64 に置き換えた。
 public struct PerlinNoise: Equatable, Sendable {

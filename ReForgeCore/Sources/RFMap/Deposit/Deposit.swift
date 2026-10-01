@@ -1,15 +1,34 @@
-/// 鉱脈の ID(層の中で一意)。
-public struct DepositID: RawRepresentable, Codable, Equatable, Hashable, Comparable, Sendable, CustomStringConvertible {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ raw: String) { self.rawValue = raw }
-    public static func < (a: DepositID, b: DepositID) -> Bool { a.rawValue < b.rawValue }
-    public var description: String { rawValue }
-    public init(from decoder: Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
-    public func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(rawValue) }
+import RFKernel
 
+public enum DepositTag {}
+/// 鉱脈の ID(層の中で一意)。
+public typealias DepositID = TypedID<DepositTag>
+
+extension TypedID where Tag == DepositTag {
     /// 岩山の手前の露頭(最初に触れる鉄の鉱脈)。
     public static let outcrop = DepositID("deposit.outcrop")
+    /// 川岸の土石(粘土)。
+    public static let clayBank = DepositID("deposit.claybank")
+}
+
+public enum MineralTag {}
+/// 物質の ID(化学式。例 "Fe2O3")。
+public typealias MineralID = TypedID<MineralTag>
+
+extension TypedID where Tag == MineralTag {
+    public static let fe2o3 = MineralID("Fe2O3")
+    public static let feS = MineralID("FeS")
+    public static let fe = MineralID("Fe")
+    public static let cu = MineralID("Cu")
+    public static let cuS = MineralID("CuS")
+    public static let cu2o = MineralID("Cu2O")
+    public static let sio2 = MineralID("SiO2")
+    public static let carbon = MineralID("C")
+    public static let sno2 = MineralID("SnO2")
+    public static let znS = MineralID("ZnS")
+    public static let ag = MineralID("Ag")
+    public static let au = MineralID("Au")
+    public static let pt = MineralID("Pt")
 }
 
 /// 鉱脈の種類(原作 `Deposit.Category`)。R1 の地図に出るのは表層〜混合・希少まで。
@@ -19,37 +38,12 @@ public enum DepositCategory: String, Codable, CaseIterable, Equatable, Hashable,
     case quarry
 }
 
-/// 物質の ID(化学式。例 "Fe2O3")。
-public struct SubstanceID: RawRepresentable, Codable, Equatable, Hashable, Comparable, Sendable, CustomStringConvertible {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ raw: String) { self.rawValue = raw }
-    public static func < (a: SubstanceID, b: SubstanceID) -> Bool { a.rawValue < b.rawValue }
-    public var description: String { rawValue }
-    public init(from decoder: Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
-    public func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(rawValue) }
-
-    public static let fe2o3 = SubstanceID("Fe2O3")
-    public static let feS = SubstanceID("FeS")
-    public static let fe = SubstanceID("Fe")
-    public static let cu = SubstanceID("Cu")
-    public static let cuS = SubstanceID("CuS")
-    public static let cu2o = SubstanceID("Cu2O")
-    public static let sio2 = SubstanceID("SiO2")
-    public static let carbon = SubstanceID("C")
-    public static let sno2 = SubstanceID("SnO2")
-    public static let znS = SubstanceID("ZnS")
-    public static let ag = SubstanceID("Ag")
-    public static let au = SubstanceID("Au")
-    public static let pt = SubstanceID("Pt")
-}
-
 /// 元素(採掘の産出を決めるのに使うものだけ)。
 public enum Element: String, Codable, CaseIterable, Sendable {
     case fe, cu, c, si, sn, zn, ag, au, pt
 
     /// 物質の中の元素の質量比(万分率。原作 `EstimateElementFraction`)。
-    static func share(of element: Element, in substance: SubstanceID) -> Int {
+    static func share(of element: Element, in substance: MineralID) -> Int {
         switch (element, substance.rawValue) {
         case (.fe, "Fe2O3"): return 7000
         case (.fe, "FeS"): return 6400
@@ -71,22 +65,22 @@ public enum Element: String, Codable, CaseIterable, Sendable {
 
 /// 鉱脈の組成の 1 成分。
 public struct DepositComponent: Codable, Equatable, Hashable, Sendable {
-    public var substance: SubstanceID
+    public var substance: MineralID
     public var share: Purity
 
-    public init(_ substance: SubstanceID, _ share: Purity) {
+    public init(_ substance: MineralID, _ share: Purity) {
         self.substance = substance
         self.share = share
     }
 }
 
-/// 1 回の採掘で出るもの。item は内部の品目 ID(原作と同じ。例 "iron_ore")。
+/// 1 回の採掘で出るもの。item は品目の ID(原作と同じ。例 "iron_ore")。
 public struct OreYield: Codable, Equatable, Hashable, Sendable {
-    public var item: String
+    public var item: ItemID
     public var quantity: Int
     public var purity: Purity
 
-    public init(item: String, quantity: Int, purity: Purity) {
+    public init(item: ItemID, quantity: Int, purity: Purity) {
         self.item = item
         self.quantity = quantity
         self.purity = purity
@@ -132,7 +126,7 @@ public struct Deposit: Codable, Equatable, Sendable {
 
     /// 鉱脈の純度 = 主な鉱物の割合(鉄なら Fe2O3、銅なら CuS + Cu2O、石炭なら C、土石なら SiO2)。
     public var purity: Purity {
-        let primary: Set<SubstanceID>
+        let primary: Set<MineralID>
         switch category {
         case .iron, .mixed, .rare: primary = [.fe2o3]
         case .copper: primary = [.cuS, .cu2o]
@@ -143,7 +137,7 @@ public struct Deposit: Codable, Equatable, Sendable {
     }
 
     /// 物質の割合。
-    public func share(of substance: SubstanceID) -> Purity {
+    public func share(of substance: MineralID) -> Purity {
         Purity(basisPoints: composition.filter { $0.substance == substance }.reduce(0) { $0 + $1.share.basisPoints })
     }
 
@@ -178,7 +172,7 @@ public struct Deposit: Codable, Equatable, Sendable {
         depth += 1
 
         var out: [OreYield] = []
-        func add(_ item: String, _ q: Int, _ p: Purity) { out.append(OreYield(item: item, quantity: q, purity: p)) }
+        func add(_ item: ItemID, _ q: Int, _ p: Purity) { out.append(OreYield(item: item, quantity: q, purity: p)) }
 
         if category == .quarry {
             add("stone", 2 + rng.int(below: 2), .full)
@@ -209,18 +203,18 @@ public struct Deposit: Codable, Equatable, Sendable {
             add("titanium_ore", 1, Purity(basisPoints: 3500 + depth * 20))
         }
         if depth >= 20 && rng.chance(percent: 12) {
-            let table: [(String, Int)] = [("lead_ore", 5000), ("manganese_ore", 4500), ("zinc_ore", 5500), ("bauxite", 4000)]
+            let table: [(ItemID, Int)] = [("lead_ore", 5000), ("manganese_ore", 4500), ("zinc_ore", 5500), ("bauxite", 4000)]
             let t = table[rng.int(below: table.count)]
             add(t.0, 1, Purity(basisPoints: t.1))
         }
         if depth >= 50 && depth < 100 && rng.chance(percent: 15) {
-            let table: [(String, Int)] = [("silver_ore", 4000), ("gold_ore", 3000), ("chromium_ore", 4500),
+            let table: [(ItemID, Int)] = [("silver_ore", 4000), ("gold_ore", 3000), ("chromium_ore", 4500),
                                           ("titanium_ore", 3500), ("aluminum_ore", 5000), ("tungsten_ore", 3000)]
             let t = table[rng.int(below: table.count)]
             add(t.0, 1, Purity(basisPoints: t.1))
         }
         if depth >= 100 && rng.chance(percent: 20) {
-            let table: [(String, Int)] = [("platinum_ore", 5000), ("gold_ore", 6000), ("uranium_ore", 4000),
+            let table: [(ItemID, Int)] = [("platinum_ore", 5000), ("gold_ore", 6000), ("uranium_ore", 4000),
                                           ("cobalt_ore", 5500), ("nickel_ore", 5000)]
             let t = table[rng.int(below: table.count)]
             add(t.0, 1, Purity(basisPoints: t.1))

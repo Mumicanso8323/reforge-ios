@@ -12,6 +12,8 @@ public struct PeopleState: Codable, Equatable, Sendable {
     public var persons: [PersonID: PersonState] = [:]
     /// 表示と処理の順(決定的に回すため。辞書の順に頼らない)。
     public var order: [PersonID] = []
+    /// 拠点の外の集団(R2〜R3: 接触・関係・縄張り・対立と和解)。ノアたちの拠点は集団に入れない。
+    public var groups: [GroupID: GroupState] = [:]
 
     public init() {}
 
@@ -64,6 +66,8 @@ public struct PersonState: Codable, Equatable, Sendable {
     /// 記憶。巻き戻しをまたいで残るものがある。
     public var memories: [MemoryRecord] = []
     public var skills: Set<SkillID> = []
+    /// 拠点の外の集団に属しているとき。
+    public var group: GroupID?
     /// 装備(枠 → 物)。R1 は武器 1 枠だけ使う。
     public var equipment: [String: EquippedItem] = [:]
 
@@ -71,6 +75,20 @@ public struct PersonState: Codable, Equatable, Sendable {
         self.id = id
         self.presence = presence
     }
+}
+
+/// 拠点の外の集団。
+public struct GroupState: Codable, Equatable, Sendable {
+    /// 拠点との関係(負は敵対)。
+    public var relation: Int = 0
+    /// 知っているか(見せるか)。
+    public var known: Bool = false
+    /// 縄張り(地表)。
+    public var territory: GridRect?
+    /// 集団の状態の印(コンテンツの ID 文字列。対立中・和解など)。
+    public var flags: Set<String> = []
+
+    public init() {}
 }
 
 /// 配属の上書き(「ある声の範囲の中の仲間が配属に従わず、その人物の方へ歩く」など)。

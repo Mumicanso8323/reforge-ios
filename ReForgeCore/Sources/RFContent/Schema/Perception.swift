@@ -119,9 +119,12 @@ public struct RewindDef: Codable, Equatable, Sendable {
     public var memorableTags: [ProvenanceTag]
     /// 関係の点を持ち越す割合(千分率。既定 1000 = 全部)。
     public var relationPermille: Int?
+    /// 「失って続ける」で失うもの(効果の並び。誰かが去る・物を失う…)。
+    public var lossEffects: [Effect]?
 
-    public init(memorableTags: [ProvenanceTag] = [], relationPermille: Int? = nil) {
+    public init(memorableTags: [ProvenanceTag] = [], relationPermille: Int? = nil, lossEffects: [Effect]? = nil) {
         self.memorableTags = memorableTags
         self.relationPermille = relationPermille
+        self.lossEffects = lossEffects
     }
 }

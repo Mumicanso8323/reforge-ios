@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 鉱物の濃さ(原作 `MineralInfo`)。各 0.0〜1.0。
 public struct MineralInfo: Codable, Equatable, Sendable {
     public var iron: Double

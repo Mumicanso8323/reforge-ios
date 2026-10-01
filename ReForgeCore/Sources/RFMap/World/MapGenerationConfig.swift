@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 地図の生成の設定。
 public struct MapGenerationConfig: Codable, Equatable, Sendable {
     public var size: MapSize
@@ -19,12 +21,14 @@ public struct MapGenerationConfig: Codable, Equatable, Sendable {
     public var minimumRuinsCells: Int
     /// 生成のやり直しの上限(位置関係の保証を満たすまで)。
     public var maxLayoutAttempts: Int
+    /// やり直しの上限に達したとき、未検証の地図を返す(記録に verified = false を残す)。既定は投げる。
+    public var allowUnverifiedFallback: Bool
     public var vision: VisionRule
 
     public init(size: MapSize, landmarks: LandmarkRules? = nil, biomes: BiomeThresholds? = nil, denseCellLimit: Int = 1 << 20,
                 chunkSize: Int = 64, poiPercentPerCell: Int = 16, depositPercentPerCell: Int = 12,
                 poiBaseExclusion: Int = 6, minimumRuinsCells: Int = 12, maxLayoutAttempts: Int = 64,
-                vision: VisionRule = .original) {
+                allowUnverifiedFallback: Bool = false, vision: VisionRule = .original) {
         self.size = size
         self.landmarks = (landmarks ?? .r1).scaled(to: size)
         // 小さい地図(R1 の 96×96 前後)は R1 の閾値、原作の大きさは原作の閾値
@@ -36,8 +40,12 @@ public struct MapGenerationConfig: Codable, Equatable, Sendable {
         self.poiBaseExclusion = poiBaseExclusion
         self.minimumRuinsCells = minimumRuinsCells
         self.maxLayoutAttempts = maxLayoutAttempts
+        self.allowUnverifiedFallback = allowUnverifiedFallback
         self.vision = vision
     }
+
+    /// 目印を置ける最小の短い辺。
+    public static let minimumSide = 48
 
     /// R1 の地図(96×96)。
     public static let r1 = MapGenerationConfig(size: .r1)

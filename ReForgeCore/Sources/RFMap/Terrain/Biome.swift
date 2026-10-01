@@ -1,51 +1,66 @@
-/// 地表の地形(原作 `BiomeType`)。5 バイオーム + 拠点の整地。
-/// 表示名は持たない(名前は Perception 層が引く)。
+import RFKernel
+
+/// 地表の地形(原作 `BiomeType` + R1 の川)。5 バイオーム + 拠点の整地 + 川と浅瀬。
+/// 表示名は持たない(名前は Perception 層が引く)。rawValue は保存の値なので、既存の番号は変えない。
 public enum Biome: UInt8, Codable, CaseIterable, Equatable, Hashable, Sendable {
     case plain = 0
     case forest = 1
     case rock = 2
+    /// 水辺(岸・沼・池。原作どおり歩ける)
     case water = 3
     case ruins = 4
     /// 拠点の整地(建造できる草地)。
     case cleared = 5
+    /// 川の流れ(歩けない。R1 の追加)
+    case river = 6
+    /// 浅瀬(川を渡れるところ。高いコストで歩ける。R1 の追加)
+    case ford = 7
 
-    /// 自然に生まれる 5 バイオーム(整地を除く)。
+    /// 自然に生まれる 5 バイオーム(整地・川・浅瀬を除く)。
     public static let natural: [Biome] = [.plain, .forest, .rock, .water, .ruins]
-}
 
-/// 地図の大きさ(マス)。
-public struct MapSize: Codable, Equatable, Hashable, Sendable, CustomStringConvertible {
-    public var width: Int
-    public var height: Int
-
-    public init(width: Int, height: Int) {
-        precondition(width > 0 && height > 0, "地図の大きさは正の値")
-        self.width = width
-        self.height = height
+    /// 版をまたいで変わらない文字列の鍵(移動コスト表などの保存に使う)。
+    public var key: String {
+        switch self {
+        case .plain: return "plain"
+        case .forest: return "forest"
+        case .rock: return "rock"
+        case .water: return "water"
+        case .ruins: return "ruins"
+        case .cleared: return "cleared"
+        case .river: return "river"
+        case .ford: return "ford"
+        }
     }
 
-    /// R1 の地図(96×96)。
-    public static let r1 = MapSize(width: 96, height: 96)
-    /// 原作の既定(10000×10000)。
-    public static let original = MapSize(width: 10000, height: 10000)
-
-    public var cellCount: Int { width * height }
-
-    public func contains(_ p: GridPoint) -> Bool {
-        p.x >= 0 && p.y >= 0 && p.x < width && p.y < height
+    public init?(key: String) {
+        guard let b = Biome.allCases.first(where: { $0.key == key }) else { return nil }
+        self = b
     }
 
-    /// 行優先の通し番号。
-    @inlinable
-    public func index(_ p: GridPoint) -> Int { p.y * width + p.x }
+    /// 世界状態・コンテンツで使う地形の ID(RFKernel の TerrainID)。表示の文字と名前は Perception 層がこの ID で引く。
+    public var terrainID: TerrainID {
+        switch self {
+        case .plain: return "grass"
+        case .forest: return "forest"
+        case .rock: return "rock"
+        case .water: return "shore"
+        case .ruins: return "ruins"
+        case .cleared: return "cleared"
+        case .river: return "water"
+        case .ford: return "ford"
+        }
+    }
 
-    @inlinable
-    public func point(_ index: Int) -> GridPoint { GridPoint(index % width, index / width) }
+    public init?(terrainID: TerrainID) {
+        guard let b = Biome.allCases.first(where: { $0.terrainID == terrainID }) else { return nil }
+        self = b
+    }
 
-    /// 中央のマス。
-    public var center: GridPoint { GridPoint(width / 2, height / 2) }
-
-    public var description: String { "\(width)x\(height)" }
+    /// 川の水(流れと浅瀬)か。
+    public var isRiver: Bool { self == .river || self == .ford }
+    /// 水(水辺・川・浅瀬)か。
+    public var isWet: Bool { self == .water || isRiver }
 }
 
 /// 環境パラメータ(4 軸。原作 `EnvironmentParams`)。各 0.0〜1.0。
@@ -85,6 +100,27 @@ public struct BiomeThresholds: Codable, Equatable, Sendable {
         self.waterMoisture = waterMoisture
         self.forestTemperature = forestTemperature
         self.forestMoisture = forestMoisture
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case ruinsContamination, rockGeology, waterMoisture, forestTemperature, forestMoisture
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(ruinsContamination: try c.decodeMicro(.ruinsContamination), rockGeology: try c.decodeMicro(.rockGeology),
+                  waterMoisture: try c.decodeMicro(.waterMoisture), forestTemperature: try c.decodeMicro(.forestTemperature),
+                  forestMoisture: try c.decodeMicro(.forestMoisture))
+    }
+
+    /// 実数は 100 万分の 1 単位の整数で書く(保存に小数を入れない)。
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeMicro(ruinsContamination, forKey: .ruinsContamination)
+        try c.encodeMicro(rockGeology, forKey: .rockGeology)
+        try c.encodeMicro(waterMoisture, forKey: .waterMoisture)
+        try c.encodeMicro(forestTemperature, forKey: .forestTemperature)
+        try c.encodeMicro(forestMoisture, forKey: .forestMoisture)
     }
 
     /// 原作の値(汚れ > 0.7 / 地質 > 0.65 / 水分 > 0.75 / 温度 > 0.3 かつ 水分 > 0.4)。

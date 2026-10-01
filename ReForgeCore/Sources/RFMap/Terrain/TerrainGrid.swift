@@ -1,3 +1,4 @@
+import RFKernel
 import Foundation
 
 /// 層の地形。小さい地図(R1 の 96×96 など)は全マスを密に持ち、
@@ -26,6 +27,15 @@ public struct TerrainGrid: Codable, Equatable, Sendable {
         } else {
             dense = nil
         }
+    }
+
+    /// 全マスを手で与える(試験用の地図・地下の層など)。下地の場は seed 0 のもの(地形の判定には使わない)。
+    public init(size: MapSize, cells: [Biome]) {
+        precondition(cells.count == size.count, "cells は size.count 個")
+        self.size = size
+        self.field = BiomeField(seed: 0, size: size)
+        self.overrides = [:]
+        self.dense = cells.map(\.rawValue)
     }
 
     /// 全マスを密に持っているか。

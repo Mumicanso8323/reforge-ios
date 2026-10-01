@@ -75,6 +75,7 @@ public enum ConditionEvaluator {
             return Auras.active(at: w.people[p]?.position, kind: kind, in: w) != nil
         case .person(let id, let test): return testPerson(w.people[id], test, w)
         case .members(let n): return w.people.members.count >= n
+        case .group(let id, let r): return (w.people.groups[id]?.relation ?? Int.min) >= r
         case .counter(let id, let cmp, let v): return cmp.test(Int64(w.narrative.counters[id] ?? 0), Int64(v))
         case .stat(let id, let cmp, let v): return cmp.test(w.survival.stats[id]?.raw ?? 0, Int64(v))
         case .phase(let ph): return w.clock.phase == ph

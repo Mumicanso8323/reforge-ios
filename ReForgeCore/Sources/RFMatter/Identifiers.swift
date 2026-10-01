@@ -51,6 +51,8 @@ extension TypedID where Tag == RecipeTag {
     public static var plateForge: Self { "plate_forge" }
     public static var castIronPlate: Self { "cast_iron_plate" }
     public static var charcoalBurn: Self { "charcoal_burn" }
+    /// 叩き重ね(R1 で足したレシピ。原作の recipes.json には無い)。
+    public static var fold: Self { "r1_fold" }
 }
 
 /// 工程のモジュールの種類。規則の表(`RuleBook`)のキー。新しいモジュールは ID と規則を足すだけで増やせる。
@@ -109,6 +111,8 @@ extension TypedID where Tag == FindingTag {
     public static var mixAfterSmeltNoEffect: Self { "mix.after_smelt_no_effect" }
     /// もう混ざっていたので、足しても変わらなかった。
     public static var mixAlreadyMixed: Self { "mix.already_mixed" }
+    /// 石灰石ではない物を混ぜ鉢に入れたが、馴染まずに残らなかった(引数: 入れた物)。
+    public static var mixUnknownAdditive: Self { "mix.unknown_additive" }
     /// 混ぜ物を入れずに混ぜ鉢を通した。
     public static var mixNothingAdded: Self { "mix.nothing_added" }
     /// 燃料の火では温度が足りず、溶けなかった(引数: 燃料)。
@@ -121,6 +125,12 @@ extension TypedID where Tag == FindingTag {
     public static var hammerCrackedAfterQuench: Self { "hammer.cracked_after_quench" }
     /// 割れた鉄は叩いても戻らない。
     public static var hammerAlreadyCracked: Self { "hammer.already_cracked" }
+    /// 冷めかけた鉄は叩いても伸びなかった(熱し直しが要る)。
+    public static var hammerTooCool: Self { "hammer.too_cool" }
+    /// これ以上叩き重ねても変わらなかった。
+    public static var hammerNoFurther: Self { "hammer.no_further" }
+    /// 叩いていない塊は、冷やしても硬くならなかった。
+    public static var quenchUnworkedNotHardened: Self { "quench.unworked_not_hardened" }
     /// 鉱石を水に浸けても変わらなかった。
     public static var quenchOreNoEffect: Self { "quench.ore_no_effect" }
     /// もう冷えていたので、水に浸けても変わらなかった。
@@ -191,4 +201,15 @@ public struct AlloyID: StringIdentifier {
     public static let hematite: AlloyID = "hematite"
     public static let castIron: AlloyID = "cast_iron"
     public static let carbonSteel: AlloyID = "carbon_steel"
+}
+
+/// 物の特性の ID。`Matter.traits` で加工ごとに上書き・加減できる(R2 以降の 18 特性の反映・装備の性能用)。
+public struct TraitID: StringIdentifier {
+    public let rawValue: String
+    public init(rawValue: String) { self.rawValue = rawValue }
+
+    /// 硬さの加減(`ChainResult.hardness` に足す)。
+    public static let hardness: TraitID = "hardness"
+    /// 粘りの加減(`ChainResult.toughness` に足す)。
+    public static let toughness: TraitID = "toughness"
 }

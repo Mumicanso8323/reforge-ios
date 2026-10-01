@@ -1,40 +1,44 @@
-/// 配置物の ID(層の中で一意)。
-public struct PlacementID: RawRepresentable, Codable, Equatable, Hashable, Comparable, Sendable, CustomStringConvertible {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ raw: String) { self.rawValue = raw }
+import RFKernel
 
+public enum PlacementTag {}
+/// 配置物の ID(層の中で一意)。
+public typealias PlacementID = TypedID<PlacementTag>
+
+extension TypedID where Tag == PlacementTag {
     /// 自分たちの残骸(拠点の中央)。
     public static let homeWreck = PlacementID("wreck.home")
-    /// 先に来た誰かの残骸(遠回りの先)。
+    /// 先に来た誰かの残骸(川沿いの道の途中)。
     public static let farWreck = PlacementID("wreck.far")
-
-    public static func < (a: PlacementID, b: PlacementID) -> Bool { a.rawValue < b.rawValue }
-    public var description: String { rawValue }
-    public init(from decoder: Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
-    public func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(rawValue) }
 }
 
+public enum PlacementKindTag {}
 /// 配置物の種類(原作 `PlacementKind` + 残骸)。建造モジュールも POI も同じ形で持つ。
-public enum PlacementKind: String, Codable, CaseIterable, Equatable, Hashable, Sendable {
+/// 版をまたいで未知の種類も読めるよう、閉じた enum でなく文字列の ID にする。
+public typealias PlacementKind = TypedID<PlacementKindTag>
+
+extension TypedID where Tag == PlacementKindTag {
     /// プレイヤーが建てたモジュール
-    case module
+    public static let module = PlacementKind("module")
     /// 遺跡(漁れる)
-    case ruins
+    public static let ruins = PlacementKind("ruins")
     /// 獣の巣(脅威の元)
-    case nest
+    public static let nest = PlacementKind("nest")
     /// 集落跡
-    case settlement
+    public static let settlement = PlacementKind("settlement")
     /// 地熱孔
-    case geothermal
+    public static let geothermal = PlacementKind("geothermal")
     /// 肥沃地
-    case fertileLand
+    public static let fertileLand = PlacementKind("fertileLand")
     /// 水源
-    case aquifer
+    public static let aquifer = PlacementKind("aquifer")
     /// 汚れた区域
-    case contamination
+    public static let contamination = PlacementKind("contamination")
     /// 残骸(自分たちのもの・先に来た誰かのもの)
-    case wreck
+    public static let wreck = PlacementKind("wreck")
+
+    /// この版が知っている種類。
+    public static let known: [PlacementKind] = [.module, .ruins, .nest, .settlement, .geothermal,
+                                                .fertileLand, .aquifer, .contamination, .wreck]
 }
 
 /// 地図の上の配置物(原作 `MapPlacement`)。テンプレート ID と座標と状態だけを持つ。
@@ -49,9 +53,12 @@ public struct MapPlacement: Codable, Equatable, Sendable {
     public var isDiscovered: Bool
     /// 残りの回数(遺跡のスクラップ・残骸を漁れる回数など)。回数の概念がなければ nil。
     public var remainingUses: Int?
+    /// 世界の実体 ID(世界を作るときに振る。探索の進み具合・発見はこの ID で持つ)。
+    public var entity: EntityID?
 
     public init(id: PlacementID, kind: PlacementKind, templateID: String, anchor: GridPoint,
-                footprint: TileFootprint = .single, isDiscovered: Bool = true, remainingUses: Int? = nil) {
+                footprint: TileFootprint = .single, isDiscovered: Bool = true, remainingUses: Int? = nil,
+                entity: EntityID? = nil) {
         self.id = id
         self.kind = kind
         self.templateID = templateID
@@ -59,6 +66,7 @@ public struct MapPlacement: Codable, Equatable, Sendable {
         self.footprint = footprint
         self.isDiscovered = isDiscovered
         self.remainingUses = remainingUses
+        self.entity = entity
     }
 
     /// 占めているマス。

@@ -39,6 +39,17 @@ final class SimulationTests: XCTestCase {
         XCTAssertEqual(w.clock.now.seconds, Int64(26 * 3600))
     }
 
+    /// 裏から戻った直後の大きな dt でも、1 回に進むのは上限(1 実秒)ぶんだけ(閉じている間は進まない)。
+    func testLargeRealtimeDeltaIsCapped() throws {
+        let rig = try TestRig.publicOnly()
+        var a = rig.factory.newWorld(seed: 3)
+        var b = a
+        _ = rig.simulation.advance(&a, realSeconds: 600)
+        _ = rig.simulation.advance(&b, realSeconds: Simulation.maxRealSecondsPerAdvance)
+        XCTAssertEqual(a.clock.now, b.clock.now)
+        XCTAssertEqual(a.clock.phase, .day)
+    }
+
     func testNightWorkOnlyAtDusk() throws {
         let rig = try TestRig.publicOnly()
         var w = rig.factory.newWorld(seed: 3)

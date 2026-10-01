@@ -277,7 +277,7 @@ public struct AuraDef: ContentDef, Equatable {
         case drawTowardSource
         /// 敵が入ってこない。
         case repelEnemies
-        /// 拠点全体の数値への寄与(大気への上積みなど)。
+        /// 拠点全体の数値への寄与(上積み)。
         case statPerHour(stat: StatID, amount: Int)
     }
 
@@ -287,7 +287,7 @@ public struct AuraDef: ContentDef, Equatable {
     public var affects: [PersonID]?
 }
 
-/// 拠点全体の数値(大気・季節の暦…)。開示まで見せない値もここ。見せ方は認識の表。
+/// 拠点全体の数値(内訳と合計・暦…)。見せない値もここ。見せ方は認識の表。
 public struct StatDef: ContentDef, Equatable {
     public var id: StatID
     public var initial: Int

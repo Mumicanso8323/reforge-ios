@@ -1,3 +1,5 @@
+import RFKernel
+
 /// チャンクの座標(POI と鉱脈を置く単位)。
 public struct ChunkCoord: Codable, Equatable, Hashable, Comparable, Sendable {
     public var cx: Int
@@ -18,22 +20,54 @@ public struct VisionUpdate: Equatable, Sendable {
     public var discoveredDeposits: [DepositID]
 }
 
+/// 地図の生成の失敗。
+public enum MapGenerationError: Error, Equatable, Sendable {
+    /// 地図が小さすぎて目印を置けない。
+    case mapTooSmall(MapSize)
+    /// やり直しの上限まで試しても位置関係の保証を満たせなかった。
+    case layoutNotFound(attempts: Int)
+}
+
+/// 生成の記録。
+public struct GenerationReport: Codable, Equatable, Sendable {
+    /// 目印の配置を何回目で決めたか(1 から)。
+    public var attempts: Int
+    /// 位置関係の保証を満たしたか(false は `allowUnverifiedFallback` のときだけ)。
+    public var verified: Bool
+
+    public init(attempts: Int, verified: Bool) {
+        self.attempts = attempts
+        self.verified = verified
+    }
+}
+
 /// 地図全体(原作 `WorldMap` を層に分けたもの = layered-map-architecture の LayeredWorldMap)。
 /// 値型。GameState には依存しない。seed と設定が同じなら同じ地図になる。
 public struct WorldMap: Codable, Equatable, Sendable {
     /// 地図の seed(生成時に渡された乱数から 1 回引いたもの)。チャンクと層の決定的な生成に使う。
     public let seed: UInt64
     public let config: MapGenerationConfig
-    public let landmarks: Landmarks
+    /// 目印(生成した地図だけ。手で作った地図は nil)。
+    public let landmarks: Landmarks?
     public let minerals: MineralField
+    /// 拠点の整地済みの範囲(地表)。
+    public var baseArea: GridRect?
+    /// ノアが目覚めた場所。
+    public var spawn: WorldPoint
     public private(set) var layers: [MapLayerID: MapLayer]
     /// POI と鉱脈を置き終えた地表のチャンク。
     public private(set) var generatedChunks: Set<ChunkCoord>
+    /// 生成の記録(試行回数・保証を満たしたか)。手で作った地図は nil。
+    public let generationReport: GenerationReport?
 
-    init(seed: UInt64, config: MapGenerationConfig, landmarks: Landmarks, surface: MapLayer) {
+    init(seed: UInt64, config: MapGenerationConfig, landmarks: Landmarks, surface: MapLayer, report: GenerationReport) {
         self.seed = seed
         self.config = config
         self.landmarks = landmarks
+        self.generationReport = report
+        let b = landmarks.base
+        self.baseArea = GridRect(origin: b.minCorner, size: GridSize(width: b.width, height: b.height))
+        self.spawn = WorldPoint(.surface, b.center)
         self.minerals = MineralField(seed: seed)
         self.layers = [.surface: surface]
         self.generatedChunks = []
@@ -42,14 +76,15 @@ public struct WorldMap: Codable, Equatable, Sendable {
     // MARK: 生成
 
     /// 渡された乱数で地図を作る(乱数は 1 回だけ進む)。
-    public static func generate(config: MapGenerationConfig = .r1, rng: inout SeededRandom) -> WorldMap {
-        WorldMapGenerator.generate(config: config, rng: &rng)
+    /// 地図が小さすぎるとき、位置関係の保証を満たせないときは投げる(未検証の地図を黙って返さない)。
+    public static func generate(config: MapGenerationConfig = .r1, rng: inout SeededRandom) throws -> WorldMap {
+        try WorldMapGenerator.generate(config: config, rng: &rng)
     }
 
     /// seed から地図を作る。
-    public static func generate(seed: UInt64, config: MapGenerationConfig = .r1) -> WorldMap {
+    public static func generate(seed: UInt64, config: MapGenerationConfig = .r1) throws -> WorldMap {
         var rng = SeededRandom(state: seed)
-        return generate(config: config, rng: &rng)
+        return try generate(config: config, rng: &rng)
     }
 
     // MARK: 層
@@ -62,7 +97,7 @@ public struct WorldMap: Codable, Equatable, Sendable {
         set { layers[.surface] = newValue }
     }
 
-    public subscript(layer id: MapLayerID) -> MapLayer? {
+    public subscript(_ id: MapLayerID) -> MapLayer? {
         get { layers[id] }
         set { layers[id] = newValue }
     }
@@ -70,6 +105,25 @@ public struct WorldMap: Codable, Equatable, Sendable {
     /// 層を足す(地下など)。同じ ID があれば置き換える。
     public mutating func addLayer(_ layer: MapLayer) {
         layers[layer.id] = layer
+    }
+
+    /// 手で作る地図(試験用の平らな地図など)。目印と生成の記録は持たない。辞書の鍵を層の ID にする。
+    public init(layers: [LayerID: MapLayer], baseArea: GridRect?, spawn: WorldPoint) {
+        var ls: [LayerID: MapLayer] = [:]
+        for (id, var l) in layers {
+            l.id = id
+            ls[id] = l
+        }
+        let size = layers[.surface]?.size ?? layers.values.first?.size ?? .r1
+        self.seed = 0
+        self.config = MapGenerationConfig(size: size)
+        self.landmarks = nil
+        self.minerals = MineralField(seed: 0)
+        self.layers = ls
+        self.generatedChunks = []
+        self.generationReport = nil
+        self.baseArea = baseArea
+        self.spawn = spawn
     }
 
     /// 層の ID の一覧(並びは固定)。
@@ -94,7 +148,8 @@ public struct WorldMap: Codable, Equatable, Sendable {
 
     // MARK: 視界
 
-    /// ノアのいる位置から視界を更新し、視界に入った配置物と鉱脈を発見済みにする。
+    /// ノアのいる位置から視界を更新し、視界に入った配置物・鉱脈・層の接続を発見済みにする。
+    /// 視界の円の中のマスから占有と鉱脈の索引を引く(全部の配置物を毎回なめない)。
     @discardableResult
     public mutating func updateVision(at center: GridPoint, isNight: Bool, hasTorch: Bool,
                                       layer id: MapLayerID = .surface) -> VisionUpdate {
@@ -103,26 +158,48 @@ public struct WorldMap: Codable, Equatable, Sendable {
             return VisionUpdate(radius: r, newlyExplored: 0, discoveredPlacements: [], discoveredDeposits: [])
         }
         let added = layer.visibility.update(center: center, radius: r)
-        var foundP: [PlacementID] = []
-        for p in layer.placements.all where !p.isDiscovered && p.cells.contains(where: layer.visibility.isInView) {
-            layer.placements.update(p.id) { $0.isDiscovered = true }
-            foundP.append(p.id)
-        }
+        var foundP = Set<PlacementID>()
         var foundD: [DepositID] = []
-        for d in layer.deposits.all where !d.isDiscovered && layer.visibility.isInView(d.position) {
-            layer.deposits.update(d.id) { $0.isDiscovered = true }
-            foundD.append(d.id)
+        for p in VisionRule.cells(center: center, radius: r, in: layer.size) {
+            if let pl = layer.placements.placement(at: p), !pl.isDiscovered, !foundP.contains(pl.id) {
+                foundP.insert(pl.id)
+            }
+            if let d = layer.deposits.deposit(at: p), !d.isDiscovered {
+                foundD.append(d.id)
+            }
+        }
+        for pid in foundP { layer.placements.update(pid) { $0.isDiscovered = true } }
+        for did in foundD { layer.deposits.update(did) { $0.isDiscovered = true } }
+        for c in layer.connections where !c.isDiscovered && layer.visibility.isInView(c.at) {
+            layer.markConnectionDiscovered(c.id)
         }
         layers[id] = layer
-        return VisionUpdate(radius: r, newlyExplored: added, discoveredPlacements: foundP, discoveredDeposits: foundD)
+        return VisionUpdate(radius: r, newlyExplored: added, discoveredPlacements: foundP.sorted(),
+                            discoveredDeposits: foundD.sorted())
     }
 
     // MARK: 経路
 
-    /// 経路探索(既定では見たことのあるマスだけを通る)。
+    /// 経路探索。既定はプレイヤーのタップ用(霧の先は平地と仮定し、`.throughFog` なら歩いて晴れるたびに引き直す)。
+    public func route(from start: GridPoint, to goal: GridPoint, layer id: MapLayerID = .surface,
+                      costs: MoveCostTable = .original, options: PathOptions = .tap,
+                      workspace: PathWorkspace? = nil) -> PathOutcome {
+        layers[id]?.route(from: start, to: goal, costs: costs, options: options, workspace: workspace) ?? .blocked
+    }
+
+    /// 経路だけが欲しいとき(届かなければ nil)。
     public func findPath(from start: GridPoint, to goal: GridPoint, layer id: MapLayerID = .surface,
-                         costs: MoveCostTable = .original, options: PathOptions = PathOptions()) -> MapPath? {
-        layers[id]?.findPath(from: start, to: goal, costs: costs, options: options)
+                         costs: MoveCostTable = .original, options: PathOptions = .tap) -> MapPath? {
+        route(from: start, to: goal, layer: id, costs: costs, options: options).path
+    }
+
+    // MARK: 層をまたぐ接続
+
+    /// 2 つの層のマスを両方向につなぐ(入口・階段)。
+    public mutating func connect(_ a: MapLocation, _ b: MapLocation, kind: ConnectionKind, id: String) {
+        guard layers[a.layer] != nil, layers[b.layer] != nil else { return }
+        layers[a.layer]!.addConnection(LayerConnection(id: id, kind: kind, at: a.point, to: b))
+        layers[b.layer]!.addConnection(LayerConnection(id: id, kind: kind, at: b.point, to: a))
     }
 
     // MARK: 鉱脈
@@ -149,13 +226,26 @@ public struct WorldMap: Codable, Equatable, Sendable {
     }
 
     /// 位置のまわりのチャンクに POI と鉱脈を置く(置き済みなら何もしない)。チャンクの中身は生成の順番に依らない。
-    public mutating func ensureGenerated(around p: GridPoint, radiusChunks: Int = 1) {
+    /// 新しく置いた配置物に世界の実体 ID を振るときは allocate を渡す。
+    public mutating func ensureGenerated(around p: GridPoint, radiusChunks: Int = 1, allocate: (() -> EntityID)? = nil) {
         let c = chunk(containing: p)
         let (nx, ny) = chunkCounts
         for cy in (c.cy - radiusChunks)...(c.cy + radiusChunks) where cy >= 0 && cy < ny {
             for cx in (c.cx - radiusChunks)...(c.cx + radiusChunks) where cx >= 0 && cx < nx {
                 populate(ChunkCoord(cx, cy))
             }
+        }
+        if let allocate { assignEntities(allocate) }
+    }
+
+    /// 実体 ID の無い配置物に ID を振る(層の ID 順 → 配置物の ID 順。決定的)。
+    public mutating func assignEntities(_ allocate: () -> EntityID) {
+        for lid in layerIDs {
+            var layer = layers[lid]!
+            for p in layer.placements.all where p.entity == nil {
+                layer.placements.update(p.id) { $0.entity = allocate() }
+            }
+            layers[lid] = layer
         }
     }
 
@@ -167,6 +257,7 @@ public struct WorldMap: Codable, Equatable, Sendable {
     private mutating func populate(_ c: ChunkCoord) {
         guard !generatedChunks.contains(c) else { return }
         var layer = surface
+        guard let landmarks else { return }
         WorldMapGenerator.populateChunk(&layer, chunk: c, seed: seed, landmarks: landmarks, config: config, minerals: minerals)
         surface = layer
         generatedChunks.insert(c)
@@ -174,28 +265,31 @@ public struct WorldMap: Codable, Equatable, Sendable {
 
     // MARK: Codable(層とチャンクは並びを固定して書く)
 
-    private enum CodingKeys: String, CodingKey { case seed, config, landmarks, layers, generatedChunks }
+    private enum CodingKeys: String, CodingKey { case seed, config, landmarks, layers, generatedChunks, generationReport, baseArea, spawn }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         seed = try c.decode(UInt64.self, forKey: .seed)
         config = try c.decode(MapGenerationConfig.self, forKey: .config)
-        landmarks = try c.decode(Landmarks.self, forKey: .landmarks)
+        landmarks = try c.decodeIfPresent(Landmarks.self, forKey: .landmarks)
         minerals = MineralField(seed: seed)
         let ls = try c.decode([MapLayer].self, forKey: .layers)
         layers = Dictionary(uniqueKeysWithValues: ls.map { ($0.id, $0) })
-        guard layers[.surface] != nil else {
-            throw DecodingError.dataCorruptedError(forKey: .layers, in: c, debugDescription: "地表の層が無い")
-        }
         generatedChunks = Set(try c.decode([ChunkCoord].self, forKey: .generatedChunks))
+        generationReport = try c.decodeIfPresent(GenerationReport.self, forKey: .generationReport)
+        baseArea = try c.decodeIfPresent(GridRect.self, forKey: .baseArea)
+        spawn = try c.decode(WorldPoint.self, forKey: .spawn)
     }
 
     public func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
         try c.encode(seed, forKey: .seed)
         try c.encode(config, forKey: .config)
-        try c.encode(landmarks, forKey: .landmarks)
+        try c.encodeIfPresent(landmarks, forKey: .landmarks)
         try c.encode(layerIDs.map { layers[$0]! }, forKey: .layers)
         try c.encode(generatedChunks.sorted(), forKey: .generatedChunks)
+        try c.encodeIfPresent(generationReport, forKey: .generationReport)
+        try c.encodeIfPresent(baseArea, forKey: .baseArea)
+        try c.encode(spawn, forKey: .spawn)
     }
 }

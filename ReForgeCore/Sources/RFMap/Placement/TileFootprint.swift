@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 任意形状のマスの占有(原作 `TileFootprint`)。アンカーからの相対座標の集合。
 /// L 字・T 字など長方形でない形も持てる。
 public struct TileFootprint: Codable, Equatable, Hashable, Sendable {

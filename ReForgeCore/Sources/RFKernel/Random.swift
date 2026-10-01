@@ -1,6 +1,6 @@
 /// 決定的な乱数(SplitMix64)。同じ状態からは常に同じ列が出る。
 /// 確率の判定はすべてこれを使い、標準ライブラリの乱数 API(実装が版で変わり得る)は使わない。
-public struct SeededRandom: RandomNumberGenerator, Equatable, Codable, Sendable {
+public struct SeededRandom: RandomNumberGenerator, Equatable, Hashable, Codable, Sendable {
     public private(set) var state: UInt64
 
     public init(state: UInt64) { self.state = state }
@@ -29,6 +29,9 @@ public struct SeededRandom: RandomNumberGenerator, Equatable, Codable, Sendable 
 
     /// 万分率の確率で true。
     public mutating func chance(basisPoints: Int) -> Bool { int(below: 10_000) < basisPoints }
+
+    /// [0, 1) の実数(53 bit)。地図の生成(ノイズ)だけが使う。世界状態の判定には使わない。
+    public mutating func unit() -> Double { Double(next() >> 11) * 0x1.0p-53 }
 }
 
 /// 乱数の流れの名前。システムごとに別の流れを使うので、あるシステムが引く回数を変えても

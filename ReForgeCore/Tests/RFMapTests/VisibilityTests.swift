@@ -1,5 +1,6 @@
 import Foundation
 import XCTest
+import RFKernel
 @testable import RFMap
 
 /// 視界: 昼 8・夜 −3・松明 +4、未踏/既知/視界内の 3 状態、発見。
@@ -11,6 +12,23 @@ final class VisibilityTests: XCTestCase {
         XCTAssertEqual(v.radius(isNight: false, hasTorch: true), 12)
         XCTAssertEqual(v.radius(isNight: true, hasTorch: true), 9)
         XCTAssertEqual(VisionRule(baseRadius: 3).radius(isNight: true, hasTorch: false), 2, "最小 2")
+    }
+
+    func testCircleRuleIsShared() {
+        // 円の判定は VisionRule の 1 か所。縁を含む
+        XCTAssertTrue(VisionRule.inCircle(dx: 8, dy: 0, radius: 8))
+        XCTAssertFalse(VisionRule.inCircle(dx: 6, dy: 6, radius: 8))
+        let size = GridSize(width: 20, height: 20)
+        let cells = VisionRule.cells(center: GridPoint(0, 0), radius: 2, in: size)
+        XCTAssertEqual(cells, [GridPoint(0, 0), GridPoint(1, 0), GridPoint(2, 0), GridPoint(0, 1), GridPoint(1, 1), GridPoint(0, 2)])
+        var v = VisibilityLayer(size: size)
+        v.update(center: GridPoint(10, 10), radius: 5)
+        for y in 0..<20 {
+            for x in 0..<20 {
+                let p = GridPoint(x, y)
+                XCTAssertEqual(v.isInView(p), VisionRule.inCircle(p, center: GridPoint(10, 10), radius: 5))
+            }
+        }
     }
 
     func testThreeStates() {
@@ -37,7 +55,7 @@ final class VisibilityTests: XCTestCase {
 
     func testNightShrinksAndTorchExtends() {
         var m = MapFixture.r1Seed7
-        let o = m.landmarks.base.center
+        let o = m.lm.base.center
         let probe = GridPoint(o.x, o.y + 7)
         m.updateVision(at: o, isNight: true, hasTorch: false)
         XCTAssertEqual(m.visibility(at: probe), .explored, "夜は半径 5")
@@ -47,7 +65,7 @@ final class VisibilityTests: XCTestCase {
 
     func testInitialKnowledgeIsBasePlusThree() {
         let m = MapFixture.r1Seed7
-        let b = m.landmarks.base
+        let b = m.lm.base
         // 拠点 +3 の長方形はすべて既知以上
         for y in (b.minCorner.y - 3)...(b.maxCorner.y + 3) {
             for x in (b.minCorner.x - 3)...(b.maxCorner.x + 3) {
@@ -55,21 +73,21 @@ final class VisibilityTests: XCTestCase {
             }
         }
         XCTAssertEqual(m.visibility(at: b.center), .visible)
-        XCTAssertEqual(m.visibility(at: m.landmarks.mountainCenter), .unseen, "岩山は霧の中")
+        XCTAssertEqual(m.visibility(at: m.lm.mountainCenter), .unseen, "岩山は霧の中")
     }
 
     func testWalkingDiscoversPlacementsAndDeposits() {
         var m = MapFixture.r1Seed7
         XCTAssertFalse(m.surface.placements[.farWreck]!.isDiscovered)
         XCTAssertFalse(m.surface.deposits[.outcrop]!.isDiscovered)
-        let u1 = m.updateVision(at: m.landmarks.farWreck, isNight: false, hasTorch: false)
+        let u1 = m.updateVision(at: m.lm.farWreck, isNight: false, hasTorch: false)
         XCTAssertTrue(u1.discoveredPlacements.contains(.farWreck))
         XCTAssertTrue(m.surface.placements[.farWreck]!.isDiscovered)
         XCTAssertGreaterThan(u1.newlyExplored, 0)
-        let u2 = m.updateVision(at: m.landmarks.outcrop, isNight: false, hasTorch: false)
+        let u2 = m.updateVision(at: m.lm.outcrop, isNight: false, hasTorch: false)
         XCTAssertTrue(u2.discoveredDeposits.contains(.outcrop))
         // 2 回目は新しい発見にならない
-        let u3 = m.updateVision(at: m.landmarks.outcrop, isNight: false, hasTorch: false)
+        let u3 = m.updateVision(at: m.lm.outcrop, isNight: false, hasTorch: false)
         XCTAssertFalse(u3.discoveredDeposits.contains(.outcrop))
         XCTAssertEqual(u3.newlyExplored, 0)
     }

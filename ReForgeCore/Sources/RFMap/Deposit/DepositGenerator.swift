@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 鉱脈の生成(原作 `DepositGenerator`)。組成の幅と採掘回数の幅は原作のまま、乱数だけを渡されたものにする。
 public enum DepositGenerator {
     /// 種類ごとの見た目の候補の数(原作の見た目の名前の並びの長さ)。
@@ -25,7 +27,7 @@ public enum DepositGenerator {
                             rng: inout SeededRandom, primaryPercent: ClosedRange<Int>? = nil,
                             appearanceVariant: Int? = nil) -> Deposit {
         func pct(_ r: ClosedRange<Int>) -> Int { rng.int(in: r) * 100 }
-        var parts: [(SubstanceID, Int)]
+        var parts: [(MineralID, Int)]
         switch category {
         case .iron:
             parts = [(.fe2o3, pct(primaryPercent ?? 35...60)), (.sio2, pct(20...35)), (.feS, pct(0...5)), (.cu, pct(0...3))]

@@ -14,3 +14,5 @@ xcuserdata/
 .DS_Store
 # 非公開のコンテンツ(物語・出来事の本文)。CI と手元でだけ置く(docs/architecture/E-content.md)
 content/private/
+ReForge/Generated/
+content/private.sealed

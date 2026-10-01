@@ -1,3 +1,5 @@
+import RFKernel
+
 /// 地表バイオームの元になる 4 軸の場(原作 `BiomeLayer`)。seed と大きさだけで決まる純関数。
 /// 周波数は設計書どおり(温度 1/80・水分 1/40・地質 1/30・汚れ 1/60 + 中心からの距離 0.4)。
 public struct BiomeField: Codable, Equatable, Sendable {

@@ -1,13 +1,7 @@
-/// POI テンプレートの ID(原作 `POITemplate.Id` と同じ文字列)。
-public struct POITemplateID: RawRepresentable, Codable, Equatable, Hashable, Comparable, Sendable, CustomStringConvertible {
-    public let rawValue: String
-    public init(rawValue: String) { self.rawValue = rawValue }
-    public init(_ raw: String) { self.rawValue = raw }
-    public static func < (a: POITemplateID, b: POITemplateID) -> Bool { a.rawValue < b.rawValue }
-    public var description: String { rawValue }
-    public init(from decoder: Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
-    public func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(rawValue) }
-}
+import RFKernel
+
+/// POI テンプレートの ID(RFKernel の POIKindID。原作 `POITemplate.Id` と同じ文字列)。
+public typealias POITemplateID = POIKindID
 
 /// POI(遺跡・巣・環境)のテンプレート(原作 `POITemplate`)。名前は持たない。
 public struct POITemplate: Codable, Equatable, Sendable {

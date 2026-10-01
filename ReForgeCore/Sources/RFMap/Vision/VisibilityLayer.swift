@@ -1,3 +1,4 @@
+import RFKernel
 import Foundation
 
 /// マスの見え方(原作 `TileVisibility`)。
@@ -32,6 +33,31 @@ public struct VisionRule: Codable, Equatable, Sendable {
         if hasTorch { r += torchBonus }
         return max(minimumRadius, r)
     }
+
+    // 視界の円の判定はここ 1 か所(地図の既知・仲間の既知・画面の明暗はすべてこれを呼ぶ)。
+
+    /// 中心から (dx, dy) ずれたマスが半径 r の円の中か(縁を含む。整数だけで判定)。
+    public static func inCircle(dx: Int, dy: Int, radius r: Int) -> Bool {
+        r >= 0 && dx * dx + dy * dy <= r * r
+    }
+
+    /// p が center を中心とする半径 r の円の中か。
+    public static func inCircle(_ p: GridPoint, center: GridPoint, radius r: Int) -> Bool {
+        inCircle(dx: p.x - center.x, dy: p.y - center.y, radius: r)
+    }
+
+    /// 円の中のマス(地図の外は除く。並びは行 → 列)。
+    public static func cells(center: GridPoint, radius r: Int, in size: GridSize) -> [GridPoint] {
+        guard r >= 0 else { return [] }
+        var out: [GridPoint] = []
+        for dy in -r...r {
+            for dx in -r...r where inCircle(dx: dx, dy: dy, radius: r) {
+                let p = GridPoint(center.x + dx, center.y + dy)
+                if size.contains(p) { out.append(p) }
+            }
+        }
+        return out
+    }
 }
 
 /// 視界レイヤー(原作 `VisibilityLayer`)。いまの視界(中心と半径の円)と、見たことのあるマス(永続)を持つ。
@@ -63,12 +89,8 @@ public struct VisibilityLayer: Codable, Equatable, Sendable {
         viewCenter = center
         viewRadius = max(0, radius)
         var added = 0
-        let r = viewRadius
-        for dy in -r...r {
-            for dx in -r...r where dx * dx + dy * dy <= r * r {
-                let p = GridPoint(center.x + dx, center.y + dy)
-                if size.contains(p), setExplored(p) { added += 1 }
-            }
+        for p in VisionRule.cells(center: center, radius: viewRadius, in: size) where setExplored(p) {
+            added += 1
         }
         return added
     }
@@ -98,7 +120,7 @@ public struct VisibilityLayer: Codable, Equatable, Sendable {
     /// いまの視界の中か。
     public func isInView(_ p: GridPoint) -> Bool {
         guard let c = viewCenter, size.contains(p) else { return false }
-        return p.distanceSquared(to: c) <= viewRadius * viewRadius
+        return VisionRule.inCircle(p, center: c, radius: viewRadius)
     }
 
     /// 見たことがあるか(いま見えているマスも含む)。

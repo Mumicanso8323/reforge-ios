@@ -12,6 +12,10 @@ public struct Purity: Hashable, Comparable, Codable, Sendable, CustomStringConve
     public init(basisPoints: Int) { self.basisPoints = min(Self.scale, max(0, basisPoints)) }
     /// 百分率で作る(例: Purity(percent: 30) = 30.00%)。
     public init(percent: Int, hundredths: Int = 0) { self.init(basisPoints: percent * 100 + hundredths) }
+    /// 整数の百分率から(地図の担当の書き方)。
+    public static func percent(_ p: Int) -> Purity { Purity(basisPoints: p * 100) }
+    /// 0.0〜1.0 の割合(表示・生成用)。
+    public var fraction: Double { Double(basisPoints) / 10000 }
 
     public static func + (a: Purity, b: Purity) -> Purity { Purity(basisPoints: a.basisPoints + b.basisPoints) }
 
@@ -22,14 +26,22 @@ public struct Purity: Hashable, Comparable, Codable, Sendable, CustomStringConve
     }
     public static func < (a: Self, b: Self) -> Bool { a.basisPoints < b.basisPoints }
 
-    public init(from decoder: Decoder) throws { self.init(basisPoints: try decoder.singleValueContainer().decode(Int.self)) }
+    /// 保存・コンテンツから読むときは範囲外を丸めずにエラーにする(壊れたデータで始めない)。
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        let v = try c.decode(Int.self)
+        guard (0...Self.scale).contains(v) else {
+            throw DecodingError.dataCorruptedError(in: c, debugDescription: "純度は 0...10000 の万分率(\(v))")
+        }
+        self.init(basisPoints: v)
+    }
     public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer()
         try c.encode(basisPoints)
     }
 }
 
-/// 千分の 1 単位の固定小数(体力・精神力・大気・関係の点など)。
+/// 千分の 1 単位の固定小数(体力・精神力・拠点全体の数値・関係の点など)。
 public struct Milli: Hashable, Comparable, Codable, Sendable, AdditiveArithmetic, CustomStringConvertible {
     public var raw: Int64
 
