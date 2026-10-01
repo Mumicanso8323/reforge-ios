@@ -34,6 +34,10 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case itemGained(holder: HolderID, stuff: Stuff, quantity: Int, record: ProvenanceID?)
     case itemSpent(holder: HolderID, stuff: Stuff, quantity: Int)
     case finiteUsed(record: ProvenanceID)
+    /// 探索の出来事の表から 1 件起きた(event は ExploreEventDef の ID)。
+    case explored(person: PersonID, event: EventID, record: ProvenanceID)
+    /// 有限の部品の状態・修理の段階が変わった。
+    case partChanged(poi: EntityID, part: String, record: ProvenanceID)
     // 人
     case personMet(person: PersonID, record: ProvenanceID)
     case personJoined(person: PersonID, record: ProvenanceID)
@@ -98,6 +102,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .itemGained: "item.gained"
         case .itemSpent: "item.spent"
         case .finiteUsed: "finite.used"
+        case .explored: "explored"
+        case .partChanged: "part"
         case .personMet: "person.met"
         case .personJoined: "person.joined"
         case .personLeft: "person.left"
@@ -140,7 +146,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .personDied(_, let r), .battleStarted(_, let r), .battleEnded(_, _, _, let r),
              .researchCompleted(_, let r), .skillAcquired(_, _, let r), .researchNode(_, _, let r),
              .abilityUsed(_, _, let r), .eventFired(_, let r),
-             .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r):
+             .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r),
+             .explored(_, _, let r), .partChanged(_, _, let r):
             r
         case .itemGained(_, _, _, let r): r
         case .hintHeard(_, _, let r): r

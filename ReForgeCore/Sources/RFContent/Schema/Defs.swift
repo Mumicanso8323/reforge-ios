@@ -150,6 +150,12 @@ public struct StructureDef: ContentDef, Equatable {
     public var provides: [String: Int]
     public var auras: [AuraKindID]?
     public var parameters: Value?
+    /// 拠点の範囲(整地)の中にだけ建てられるか(既定 true)。柵など外に建てる物は false。持ち主: U8
+    public var requiresBaseArea: Bool?
+    /// 置ける地形などの制約(nil は問わない)。持ち主: U8
+    public var placement: PlacementRule?
+    /// 付くと速く建つ専門(タグ)。持ち主: U8
+    public var specialty: String?
 }
 
 /// マス・POI・置いた物に対してできる行為(漁る・汲む・掘る・観測する…)。
@@ -177,6 +183,15 @@ public struct InteractionDef: ContentDef, Equatable {
     public var effects: [Effect]?
     /// 来歴に付ける印。
     public var tags: [ProvenanceTag]?
+    // 以下は U8(探索)が足した省略可能な項目。RFContent/Schema/Exploration.swift に説明。
+    /// 使う材料(作り直し・修理など)。始めるときに拠点の蓄えから取る。
+    public var cost: [Ingredient]?
+    /// 有限の部品(残骸の区画など)に対する操作。
+    public var partOp: PartOp?
+    /// 同じマスでもう一度できるまでの日数(採集のクールダウン。nil・0 は無制限)。
+    public var cooldownDays: Int?
+    /// 対象のそばに何人いないと進まないか(大きすぎる扉や設備。既定 1)。
+    public var requiredPeople: Int?
 }
 
 /// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。
@@ -187,6 +202,8 @@ public struct Yield: Codable, Equatable, Sendable {
     public var max: Int
     public var basisPoints: Int?
     public var unique: Bool?
+    /// 減ったら戻らない品の残り(千分率の raw。旧文明系の品など)。持ち主: U8
+    public var durability: Int?
 }
 
 // MARK: - 人

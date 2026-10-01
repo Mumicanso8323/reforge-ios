@@ -1,0 +1,297 @@
+{
+  "//": "各担当の仕組みのテスト用の定義(U5〜U10)の、ネタバレの無い一般の名前。公開の層で「？」を出さないため。",
+  "perception": [
+    {
+      "subject": "ability:ability.test.calm",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.ability.ability.test.calm"
+        }
+      ]
+    },
+    {
+      "subject": "ability:ability.test.sense",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.ability.ability.test.sense"
+        }
+      ]
+    },
+    {
+      "subject": "item:clay",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.clay"
+        }
+      ]
+    },
+    {
+      "subject": "item:metal_scrap",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.metal_scrap"
+        }
+      ]
+    },
+    {
+      "subject": "item:plant_fiber",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.plant_fiber"
+        }
+      ]
+    },
+    {
+      "subject": "item:ration",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.ration"
+        }
+      ]
+    },
+    {
+      "subject": "item:stick",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.stick"
+        }
+      ]
+    },
+    {
+      "subject": "item:stone",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.stone"
+        }
+      ]
+    },
+    {
+      "subject": "item:test_relic_note",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.test_relic_note"
+        }
+      ]
+    },
+    {
+      "subject": "item:water",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.water"
+        }
+      ]
+    },
+    {
+      "subject": "item:water_pack",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.item.water_pack"
+        }
+      ]
+    },
+    {
+      "subject": "part:part.test.a",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.part.part.test.a"
+        }
+      ]
+    },
+    {
+      "subject": "part:part.test.b",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.part.part.test.b"
+        }
+      ]
+    },
+    {
+      "subject": "part:part.test.c",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.part.part.test.c"
+        }
+      ]
+    },
+    {
+      "subject": "part:part.test.d",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.part.part.test.d"
+        }
+      ]
+    },
+    {
+      "subject": "research:research.test.basics",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.research.research.test.basics"
+        }
+      ]
+    },
+    {
+      "subject": "research:research.test.hidden",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.research.research.test.hidden"
+        }
+      ]
+    },
+    {
+      "subject": "research:research.test.metal",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.research.research.test.metal"
+        }
+      ]
+    },
+    {
+      "subject": "research:research.test.parts",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.research.research.test.parts"
+        }
+      ]
+    },
+    {
+      "subject": "skill:skill.test.instant",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.skill.skill.test.instant"
+        }
+      ]
+    },
+    {
+      "subject": "skill:skill.test.kindling",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.skill.skill.test.kindling"
+        }
+      ]
+    },
+    {
+      "subject": "skill:skill.test.stonework",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.skill.skill.test.stonework"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.campfire",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.structure.structure.campfire"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.charcoal_kiln",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.structure.structure.charcoal_kiln"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.fence",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.structure.structure.fence"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.research_desk",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.structure.structure.research_desk"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.shelter",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.structure.structure.shelter"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.storage",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.structure.structure.storage"
+        }
+      ]
+    },
+    {
+      "subject": "structure:structure.test.desk",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.structure.structure.test.desk"
+        }
+      ]
+    }
+  ],
+  "texts": {
+    "text.unit.ability.ability.test.calm": "試験の力その1",
+    "text.unit.ability.ability.test.sense": "試験の力その2",
+    "text.unit.item.clay": "粘土",
+    "text.unit.item.metal_scrap": "金属くず",
+    "text.unit.item.plant_fiber": "植物の繊維",
+    "text.unit.item.ration": "携行食",
+    "text.unit.item.stick": "枝",
+    "text.unit.item.stone": "石",
+    "text.unit.item.test_relic_note": "試験の書き付け",
+    "text.unit.item.water": "水",
+    "text.unit.item.water_pack": "水の包み",
+    "text.unit.part.part.test.a": "試験の部品その1",
+    "text.unit.part.part.test.b": "試験の部品その2",
+    "text.unit.part.part.test.c": "試験の部品その3",
+    "text.unit.part.part.test.d": "試験の部品その4",
+    "text.unit.research.research.test.basics": "試験の研究その1",
+    "text.unit.research.research.test.hidden": "試験の研究その2",
+    "text.unit.research.research.test.metal": "試験の研究その3",
+    "text.unit.research.research.test.parts": "試験の研究その4",
+    "text.unit.skill.skill.test.instant": "試験の技その1",
+    "text.unit.skill.skill.test.kindling": "試験の技その2",
+    "text.unit.skill.skill.test.stonework": "試験の技その3",
+    "text.unit.structure.structure.campfire": "焚き火",
+    "text.unit.structure.structure.charcoal_kiln": "炭焼き窯",
+    "text.unit.structure.structure.fence": "柵",
+    "text.unit.structure.structure.research_desk": "研究机",
+    "text.unit.structure.structure.shelter": "小屋",
+    "text.unit.structure.structure.storage": "物置",
+    "text.unit.structure.structure.test.desk": "試験の机"
+  }
+}

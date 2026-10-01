@@ -1,0 +1,102 @@
+{
+  "//": "探索と拠点(U8)の試験用。本文・物語は無い(ID と数だけ)。残骸を漁る表は原作 MapScreen.cs DoScavenge の値。場・出来事・遺品・部品の名前は試験用の ID。本物は非公開の層が置き換える。",
+  "exploration": { "regionSize": 8, "rangeStep": 8, "maxRange": 11, "nothingWeight": 0, "quietInBase": true },
+  "base": { "welcomeRequires": [ { "item": "ration", "quantity": 2 } ], "welcomeConsumes": true, "housingTag": "housing" },
+  "pois": [
+    { "id": "wreck.home", "parts": ["part.test.a", "part.test.b", "part.test.c", "part.test.d"], "parameters": null },
+    { "id": "wreck.far", "parameters": null }
+  ],
+  "fields": [
+    { "id": "field.test.plain", "terrains": ["grass", "cleared"] },
+    { "id": "field.test.river", "terrains": ["shore", "water", "ford"] },
+    { "id": "field.test.rock", "terrains": ["rock"], "minRange": 1 },
+    { "id": "field.test.forest", "terrains": ["forest"], "minRange": 1 },
+    { "id": "field.test.ruins", "terrains": ["ruins"], "minRange": 2 },
+    { "id": "field.test.wreck", "pois": ["wreck.far"] }
+  ],
+  "exploreEvents": [
+    { "id": "explore.test.plain.mark", "field": "field.test.plain", "weight": 1000, "once": true,
+      "effects": [ { "unlock": { "target": { "interaction": { "id": "interaction.test.u_plain" } } } } ] },
+    { "id": "explore.test.plain.food", "field": "field.test.plain", "weight": 15,
+      "yields": [ { "item": "ration", "min": 1, "max": 2 } ] },
+    { "id": "explore.test.plain.fiber", "field": "field.test.plain", "weight": 15,
+      "yields": [ { "item": "plant_fiber", "min": 3, "max": 3 } ] },
+    { "id": "explore.test.river.mark", "field": "field.test.river", "weight": 1000, "once": true,
+      "effects": [ { "unlock": { "target": { "interaction": { "id": "interaction.test.u_river" } } } } ] },
+    { "id": "explore.test.river.clay", "field": "field.test.river", "weight": 12,
+      "yields": [ { "item": "clay", "min": 2, "max": 2 } ] },
+    { "id": "explore.test.rock.mark", "field": "field.test.rock", "weight": 1000, "once": true,
+      "effects": [ { "unlock": { "target": { "interaction": { "id": "interaction.test.u_rock" } } } } ] },
+    { "id": "explore.test.rock.limestone", "field": "field.test.rock", "weight": 8,
+      "yields": [ { "item": "limestone", "min": 2, "max": 2 } ] },
+    { "id": "explore.test.forest.mark", "field": "field.test.forest", "weight": 1000, "once": true,
+      "effects": [ { "unlock": { "target": { "interaction": { "id": "interaction.test.u_forest" } } } } ] },
+    { "id": "explore.test.forest.beast", "field": "field.test.forest", "weight": 25,
+      "when": { "not": { "that": { "known": { "expr": "fact.test.beasts_read" } } } },
+      "effects": [ { "counter": { "id": "counter.test.forest_danger", "add": 1 } } ] },
+    { "id": "explore.test.forest.beast_read", "field": "field.test.forest", "weight": 5,
+      "when": { "known": { "expr": "fact.test.beasts_read" } },
+      "effects": [ { "counter": { "id": "counter.test.forest_danger", "add": 1 } } ] },
+    { "id": "explore.test.wreck.look", "field": "field.test.wreck", "weight": 10, "once": true,
+      "effects": [ { "counter": { "id": "counter.test.far_wreck_seen", "add": 1 } } ] },
+    { "id": "explore.test.anywhere.quiet", "weight": 3, "minRange": 2,
+      "effects": [ { "counter": { "id": "counter.test.quiet", "add": 1 } } ] }
+  ],
+  "facts": [
+    { "id": "fact.test.beasts_read" },
+    { "id": "fact.test.terminal_1" }
+  ],
+  "interactions": [
+    { "id": "interaction.scavenge", "target": { "poi": { "kind": "wreck.home" } }, "seconds": 60, "hold": false,
+      "yields": [
+        { "item": "ration", "min": 2, "max": 4 },
+        { "item": "stick", "min": 2, "max": 3 },
+        { "item": "water_pack", "min": 1, "max": 3, "basisPoints": 8000 },
+        { "item": "plant_fiber", "min": 2, "max": 2, "basisPoints": 3000 },
+        { "item": "metal_scrap", "min": 1, "max": 1, "basisPoints": 4000 }
+      ] },
+    { "id": "interaction.salvage_part", "target": { "poi": { "kind": "wreck.home" } }, "seconds": 120, "hold": false,
+      "yields": [ { "item": "metal_scrap", "min": 1, "max": 1 } ],
+      "partOp": { "from": ["intact"], "to": "salvaged",
+        "partYields": { "part.test.b": [ { "item": "test_relic_blade", "min": 1, "max": 1, "unique": true, "durability": 1000 } ] } } },
+    { "id": "interaction.dismantle_part", "target": { "poi": { "kind": "wreck.home" } }, "seconds": 240, "hold": true,
+      "yields": [ { "item": "metal_scrap", "min": 3, "max": 5 } ],
+      "partOp": { "from": ["intact", "salvaged"], "to": "dismantled" } },
+    { "id": "interaction.rebuild_part", "target": { "poi": { "kind": "wreck.home" } }, "seconds": 600, "hold": false, "yields": [],
+      "cost": [ { "item": "test_plate", "quantity": 2 } ],
+      "partOp": { "from": ["dismantled", "salvaged"], "to": "rebuilt" } },
+    { "id": "interaction.repair_part", "target": { "poi": { "kind": "wreck.home" } }, "seconds": 300, "hold": false, "yields": [],
+      "cost": [ { "item": "test_part", "quantity": 1 } ],
+      "partOp": { "part": "part.test.c", "repairTo": 1 },
+      "effects": [ { "learn": { "fact": "fact.test.terminal_1" } } ] },
+    { "id": "interaction.search_far_wreck", "target": { "poi": { "kind": "wreck.far" } }, "seconds": 120, "hold": false,
+      "limit": 1,
+      "yields": [ { "item": "test_relic_note", "min": 1, "max": 1, "unique": true } ],
+      "effects": [
+        { "learn": { "fact": "fact.test.beasts_read" } },
+        { "unlock": { "target": { "interaction": { "id": "interaction.test.u_relic" } } } }
+      ] },
+    { "id": "interaction.draw_water", "target": { "terrain": { "tag": "water" } }, "seconds": 30, "hold": false,
+      "yields": [ { "item": "water", "min": 1, "max": 1 } ] },
+    { "id": "interaction.pick_sticks", "target": { "terrain": { "tag": "forest" } }, "seconds": 45, "hold": false,
+      "cooldownDays": 5, "yields": [ { "item": "stick", "min": 1, "max": 2 } ] },
+    { "id": "interaction.mine_by_hand", "target": { "deposit": {} }, "seconds": 90, "hold": true, "yields": [] }
+  ],
+  "auras": [
+    { "id": "aura.test.campfire", "modifiers": [ { "repelEnemies": {} } ], "radius": 4 }
+  ],
+  "structures": [
+    { "id": "structure.shelter", "cost": [ { "item": "stick", "quantity": 4 }, { "item": "plant_fiber", "quantity": 2 } ],
+      "buildSeconds": 7200, "provides": { "shelter": 1, "housing": 5 } },
+    { "id": "structure.campfire", "cost": [ { "item": "wood", "quantity": 2 }, { "item": "plant_fiber", "quantity": 2 } ],
+      "buildSeconds": 1800, "provides": { "light": 4, "watch": 3 }, "auras": ["aura.test.campfire"] },
+    { "id": "structure.fence", "cost": [ { "item": "wood", "quantity": 2 } ], "buildSeconds": 900,
+      "provides": { "fence": 1 }, "requiresBaseArea": false },
+    { "id": "structure.storage", "cost": [ { "item": "wood", "quantity": 6 } ], "buildSeconds": 3600,
+      "provides": { "storage": 10 } },
+    { "id": "structure.charcoal_kiln", "cost": [ { "item": "stone", "quantity": 4 }, { "item": "clay", "quantity": 3 } ],
+      "buildSeconds": 3600, "provides": { "kiln": 1 }, "specialty": "smith" },
+    { "id": "structure.research_desk", "cost": [ { "item": "wood", "quantity": 4 } ], "buildSeconds": 2400,
+      "provides": { "research": 1 } }
+  ]
+}

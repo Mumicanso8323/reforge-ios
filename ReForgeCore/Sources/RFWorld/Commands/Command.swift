@@ -95,6 +95,8 @@ public enum ExplorationCommand: Codable, Equatable, Sendable {
 public enum BaseCommand: Codable, Equatable, Sendable {
     case build(structure: StructureKindID, at: WorldPoint, facing: Direction)
     case demolish(placement: EntityID)
+    /// 会った生存者を拠点に迎える(拠点の蓄えの食料と、空いている寝床が要る。人数はシェルターの収容で決まる)。
+    case welcome(person: PersonID)
 }
 
 public enum CombatCommand: Codable, Equatable, Sendable {
