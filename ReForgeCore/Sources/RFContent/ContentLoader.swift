@@ -221,6 +221,8 @@ struct ContentFile: Codable {
         case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings
         case perception, forbidden, auditStages, textGates, texts, glyphs, latinAllowed
         case remove
+        // 探索と拠点(U8)
+        case fields, exploreEvents, exploration, base
     }
 
     /// 人が読むための注記のキー(読み飛ばす)。
@@ -271,6 +273,11 @@ struct ContentFile: Codable {
     var latinAllowed: [String]?
     /// 前の層の定義を消す(集まりの名前 → ID の並び)。
     var remove: [String: [String]]?
+    // 探索と拠点(U8)
+    var fields: [FieldDef]?
+    var exploreEvents: [ExploreEventDef]?
+    var exploration: ExplorationDef?
+    var base: BaseDef?
 
     func apply(to db: inout ContentDB, file: String, seen: inout LayerKeys) throws {
         var dups: [String] = []
@@ -345,6 +352,11 @@ struct ContentFile: Codable {
             seen.insert("latinAllowed", w, dups: &dups)
             if !db.latinAllowed.contains(w) { db.latinAllowed.append(w) }
         }
+        // 探索と拠点(U8)
+        upsert("fields", &db.fields, fields)
+        upsert("exploreEvents", &db.exploreEvents, exploreEvents)
+        if let v = exploration { db.exploration = v }
+        if let v = base { db.base = v }
         if !dups.isEmpty { throw ContentLoader.LoadError.duplicate(file: file, keys: dups.sorted()) }
         for (collection, ids) in (remove ?? [:]).sorted(by: { $0.key < $1.key }) {
             guard Self.remove(collection, ids, from: &db) else {
@@ -390,6 +402,8 @@ struct ContentFile: Codable {
         case "perception": drop(&db.perception)
         case "textGates": drop(&db.textGates)
         case "texts": drop(&db.texts)
+        case "fields": drop(&db.fields)
+        case "exploreEvents": drop(&db.exploreEvents)
         case "glyphs": drop(&db.glyphs)
         case "auditStages": db.auditStages.removeAll { ids.contains($0.id) }
         case "latinAllowed": db.latinAllowed.removeAll { ids.contains($0) }

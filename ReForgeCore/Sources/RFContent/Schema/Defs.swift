@@ -150,6 +150,12 @@ public struct StructureDef: ContentDef, Equatable {
     public var provides: [String: Int]
     public var auras: [AuraKindID]?
     public var parameters: Value?
+    /// 拠点の範囲(整地)の中にだけ建てられるか(既定 true)。柵など外に建てる物は false。持ち主: U8
+    public var requiresBaseArea: Bool?
+    /// 置ける地形などの制約(nil は問わない)。持ち主: U8
+    public var placement: PlacementRule?
+    /// 付くと速く建つ専門(タグ)。持ち主: U8
+    public var specialty: String?
 }
 
 /// マス・POI・置いた物に対してできる行為(漁る・汲む・掘る・観測する…)。
@@ -177,6 +183,15 @@ public struct InteractionDef: ContentDef, Equatable {
     public var effects: [Effect]?
     /// 来歴に付ける印。
     public var tags: [ProvenanceTag]?
+    // 以下は U8(探索)が足した省略可能な項目。RFContent/Schema/Exploration.swift に説明。
+    /// 使う材料(作り直し・修理など)。始めるときに拠点の蓄えから取る。
+    public var cost: [Ingredient]?
+    /// 有限の部品(残骸の区画など)に対する操作。
+    public var partOp: PartOp?
+    /// 同じマスでもう一度できるまでの日数(採集のクールダウン。nil・0 は無制限)。
+    public var cooldownDays: Int?
+    /// 対象のそばに何人いないと進まないか(大きすぎる扉や設備。既定 1)。
+    public var requiredPeople: Int?
 }
 
 /// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。
@@ -187,6 +202,8 @@ public struct Yield: Codable, Equatable, Sendable {
     public var max: Int
     public var basisPoints: Int?
     public var unique: Bool?
+    /// 減ったら戻らない品の残り(千分率の raw。旧文明系の品など)。持ち主: U8
+    public var durability: Int?
 }
 
 // MARK: - 人
@@ -259,25 +276,84 @@ public struct HintDef: ContentDef, Equatable {
 
 // MARK: - 研究・力・敵
 
+/// 研究パッケージ(原作 ResearchPackage)。研究机に付いた人が進める。完了で解禁と効果。
+/// 追加した項目はどれも省略可能(U10)。補助の型は Schema/Research.swift。
 public struct ResearchDef: ContentDef, Equatable {
     public var id: ResearchID
+    /// 必要な研究の点の合計(nodes があれば nodes の点の合計が優先)。
     public var points: Int
+    /// 選べる条件(前提のパッケージは researchDone で書く)。
     public var requires: Condition?
+    /// この種類の建造物でしか進まない(nil は研究の建造物ならどれでも)。
     public var station: StructureKindID?
+    /// 完了で解禁するもの。
     public var unlocks: [UnlockTarget]
     public var effects: [Effect]?
+    /// 中の段(原作のノード。木炭焼成・叩き板金…)。順に進み、段ごとに解禁と効果がある。
+    public var nodes: [ResearchNodeDef]?
+    /// 一覧に出る条件(存在を伏せる研究)。nil は常に出る。名前を伏せるのは認識の表(research:<id>)。
+    public var visibleWhen: Condition?
+    /// 進む時間帯(既定は昼だけ。天体の観測のような夜の研究は nightWork を入れる)。
+    public var phases: [DayPhase]?
+    /// 選んだときに使う物(部品を組んで調べる研究など)。
+    public var cost: [Ingredient]?
 }
 
+/// 研究パッケージの中の段。
+public struct ResearchNodeDef: Codable, Equatable, Sendable {
+    /// 段の名前の見出し(認識の表。名前は文字列表)。
+    public var id: String
+    public var points: Int
+    public var unlocks: [UnlockTarget]?
+    public var effects: [Effect]?
+
+    public init(id: String, points: Int, unlocks: [UnlockTarget]? = nil, effects: [Effect]? = nil) {
+        self.id = id
+        self.points = points
+        self.unlocks = unlocks
+        self.effects = effects
+    }
+}
+
+/// スキル(人の技能。道筋を増やす選択)。習得には時間がかかり、その間は「学ぶ時期」(BEAT-15)。
 public struct SkillDef: ContentDef, Equatable {
     public var id: SkillID
+    /// 選べる条件(研究の完了など)。
     public var requires: Condition?
     public var unlocks: [UnlockTarget]?
     public var parameters: Value?
+    /// 習得にかかるゲーム時間(nil・0 はすぐ)。
+    public var hours: Int?
+    /// この種類の建造物に付いている間だけ進む(nil はどこでも・いつでも進む)。
+    public var station: StructureKindID?
+    /// 身につけた人の作業への効き(成功率・速さ・量)。
+    public var modifiers: [WorkModifier]?
+    public var effects: [Effect]?
+    /// 一覧に出る条件(nil は常に)。
+    public var visibleWhen: Condition?
 }
 
+/// 特別な力(代償型)。名前・説明は認識の表(ability:<id>)で、解禁の事実まで出さない。
+/// 力は配属の効き(passives)と、使う行為(effects + cost)の 2 つの形を持てる。
 public struct AbilityDef: ContentDef, Equatable {
     public var id: AbilityID
     public var parameters: Value?
+    /// 生まれつき持っている人。
+    public var holders: [PersonID]?
+    /// 存在が見えてよい条件(nil は見せない = R1 の伏線の力)。見えない力は使えず、画面にも出ない。
+    public var visibleWhen: Condition?
+    /// 一員でいる間の作業への効き(配属の効き。BEAT-25)。
+    public var passives: [WorkModifier]?
+    /// 一員でいる間、その人を中心に付く範囲の効果(獣が寄らない、など)。
+    public var auras: [AbilityAura]?
+    /// 使ったときに世界に起きること(場所は PlaceSelector.trigger = 使った場所)。
+    public var effects: [Effect]?
+    /// 使う代償。
+    public var cost: AbilityCost?
+    /// 次に使えるまでのゲーム時間。
+    public var cooldownHours: Int?
+    /// 力の元の最大(夜明けに満ちる。足りない分は体で払う)。
+    public var reserveMax: Int?
 }
 
 // EnemyDef(敵)は Schema/Combat.swift(持ち主 U9)。

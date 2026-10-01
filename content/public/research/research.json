@@ -1,0 +1,63 @@
+{
+  "//": "研究と力(U10)の仕組みのテスト用。試験用の ID と一般語だけ。本物の研究パッケージ・スキル・力の表は非公開の層。",
+  "structures": [
+    { "id": "structure.test.desk", "cost": [ { "item": "wood", "quantity": 1 } ], "buildSeconds": 600,
+      "provides": { "research": 10 }, "parameters": { "specialty": "study", "specialtyPermille": 1500 } }
+  ],
+  "research": [
+    { "id": "research.test.basics", "points": 0, "unlocks": [ { "structure": { "id": "structure.test.campfire" } } ],
+      "effects": [ { "counter": { "id": "counter.test.research", "add": 1 } } ],
+      "nodes": [
+        { "id": "node.test.first", "points": 20, "unlocks": [ { "handwork": { "id": "handwork.test.cord" } } ] },
+        { "id": "node.test.second", "points": 20, "unlocks": [ { "handwork": { "id": "handwork.test.charcoal" } } ] }
+      ] },
+    { "id": "research.test.metal", "points": 30,
+      "requires": { "researchDone": { "id": "research.test.basics" } },
+      "unlocks": [ { "handwork": { "id": "handwork.test.hammer" } } ] },
+    { "id": "research.test.hidden", "points": 10,
+      "visibleWhen": { "known": { "expr": "fact.test.revealed" } },
+      "unlocks": [ { "interaction": { "id": "interaction.test.observe" } } ] },
+    { "id": "research.test.parts", "points": 5,
+      "cost": [ { "item": "wood", "quantity": 2 } ],
+      "unlocks": [ { "interaction": { "id": "interaction.test.decode" } } ] }
+  ],
+  "skills": [
+    { "id": "skill.test.stonework", "hours": 4,
+      "requires": { "researchDone": { "id": "research.test.basics" } },
+      "unlocks": [ { "handwork": { "id": "handwork.test.stone_tool" } } ] },
+    { "id": "skill.test.kindling", "hours": 2,
+      "requires": { "researchDone": { "id": "research.test.basics" } },
+      "modifiers": [ { "chance": { "interaction": "interaction.test.kindle", "basisPoints": 3000 } } ] },
+    { "id": "skill.test.instant",
+      "modifiers": [ { "speed": { "work": "research", "permille": 2000 } } ] }
+  ],
+  "abilities": [
+    { "id": "ability.test.sense", "holders": ["person.noah"],
+      "passives": [ { "perceives": { "sense": "purity" } } ] },
+    { "id": "ability.test.calm", "holders": ["person.test_c"],
+      "visibleWhen": { "known": { "expr": "fact.test.revealed" } },
+      "auras": [ { "kind": "aura.test.calm", "radius": 3 } ],
+      "effects": [ { "counter": { "id": "counter.test.ability", "add": 1 } } ],
+      "cost": { "reserve": 3 }, "reserveMax": 5, "cooldownHours": 1 }
+  ],
+  "auras": [
+    { "id": "aura.test.calm", "modifiers": [ { "repelEnemies": {} } ] }
+  ],
+  "texts": {
+    "reason.research.unknown": "その研究は分からない",
+    "reason.research.locked": "まだ手が付けられない",
+    "reason.research.done": "もう終わっている",
+    "reason.research.no_materials": "材料が足りない",
+    "reason.research.not_member": "その人はいない",
+    "reason.research.skill_unknown": "その技は分からない",
+    "reason.research.skill_locked": "まだ習えない",
+    "reason.research.skill_known": "もう身についている",
+    "reason.research.not_learning": "何も習っていない",
+    "reason.research.not_night": "夜の作業ではない",
+    "reason.research.no_desk": "研究机がない",
+    "reason.research.nothing_selected": "研究が選ばれていない",
+    "reason.ability.unknown": "それはできない",
+    "reason.ability.cooldown": "まだできない",
+    "reason.ability.no_catalyst": "使う物が足りない"
+  }
+}

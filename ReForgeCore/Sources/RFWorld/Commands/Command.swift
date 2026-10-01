@@ -95,6 +95,8 @@ public enum ExplorationCommand: Codable, Equatable, Sendable {
 public enum BaseCommand: Codable, Equatable, Sendable {
     case build(structure: StructureKindID, at: WorldPoint, facing: Direction)
     case demolish(placement: EntityID)
+    /// 会った生存者を拠点に迎える(拠点の蓄えの食料と、空いている寝床が要る。人数はシェルターの収容で決まる)。
+    case welcome(person: PersonID)
 }
 
 public enum CombatCommand: Codable, Equatable, Sendable {
@@ -110,8 +112,14 @@ public enum CombatCommand: Codable, Equatable, Sendable {
 }
 
 public enum ResearchCommand: Codable, Equatable, Sendable {
+    /// 進める研究パッケージを選ぶ(研究机に付いた人が昼に進める)。別のを選べば切り替わる(進みは残る)。
     case select(research: ResearchID)
+    /// スキルを習い始める(習得の時間のあいだは「学ぶ時期」。BEAT-15)。
     case learnSkill(person: PersonID, skill: SkillID)
+    /// 習うのをやめる(進みは残る。同じスキルを選び直せば続きから)。
+    case stopLearning(person: PersonID)
+    /// 夜作業: 研究机で研究する(ResearchRules.nightStudyHours だけ時間が進む)。
+    case nightStudy(person: PersonID)
 }
 
 public enum AbilitiesCommand: Codable, Equatable, Sendable {

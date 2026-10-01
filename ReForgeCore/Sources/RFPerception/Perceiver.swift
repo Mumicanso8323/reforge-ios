@@ -214,6 +214,7 @@ public struct Perceiver: Sendable {
         case .part(_, let name): Subject.part(name)
         case .sheet(let s): Subject.sheet(s)
         case .aura(let k, _): Subject.aura(k)
+        case .ability(let a): Subject.ability(a)
         }
     }
 
