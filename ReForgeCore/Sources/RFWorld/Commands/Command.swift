@@ -76,13 +76,17 @@ public enum ProductionCommand: Codable, Equatable, Sendable {
 }
 
 public enum LogisticsCommand: Codable, Equatable, Sendable {
+    /// 端と端を運搬の経路で結ぶ(拠点の蓄えも端にできる)。同じ端の組がもうあれば何もしない。
+    case link(from: HaulEndpoint, to: HaulEndpoint)
+    /// モジュールとモジュールを運搬の経路で結ぶ(link の短い書き方)。
     case connect(from: EntityID, to: EntityID)
     case disconnect(route: EntityID)
 }
 
 public enum ExplorationCommand: Codable, Equatable, Sendable {
     /// マス・POI・置いた物に対する行為(漁る・汲む・掘る…)。押し続ける行為は holding で始め・終える。
-    case interact(interaction: InteractionID, at: WorldPoint, holding: Bool)
+    /// person = 誰がするか(nil はノア)。その人が対象のそばにいなければ断る。
+    case interact(interaction: InteractionID, at: WorldPoint, holding: Bool, person: PersonID? = nil)
     // 効果から(持ち主 U8 が処理する。cause = 引き金の来歴)
     /// 周りの地図を既知にする。
     case revealMap(around: WorldPoint, radius: Int, cause: ProvenanceID?)

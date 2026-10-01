@@ -1,10 +1,12 @@
 import SwiftUI
 import ReForgeEngine
 
-/// 上の状態の帯: 日・昼の残り・拠点の数値(食料と水の残り日数・大気など。見せ方は認識の層)・次の目標 1 つ。
+/// 上の状態の帯: 日・昼の残り・拠点の数値(食料と水の残り日数など。見せ方は認識の層)・次の目標 1 つ。
 /// 夜になったとき・寝るかどうか・決断はここで選ぶ(全画面のシートで止めない)。
 struct StatusBandView: View {
     let store: GameStore
+    /// 封をした物語のデータを開けず、公開の層だけで動いているとき(1 行だけ出す。遊ぶのは止めない)。
+    var sealedContentFailed = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -53,6 +55,13 @@ struct StatusBandView: View {
                         .accessibilityIdentifier(a == .sleep ? "sleepButton" : "nightWorkButton")
                     }
                 }
+            }
+            if sealedContentFailed {
+                Text("物語のデータを読めなかったので、試遊用のデータで動いています")
+                    .font(.custom(FontBook.mapFont, size: 12))
+                    .foregroundStyle(Color(white: 0.6))
+                    .lineLimit(1)
+                    .accessibilityIdentifier("sealedContentNotice")
             }
             if let o = store.objective {
                 HStack(spacing: 6) {

@@ -227,6 +227,8 @@ final class MapPresentTests: XCTestCase {
 
     func contentWithInteractions() throws -> ContentDB {
         var db = rig.content
+        // 他の担当が公開の層に足した行為を外し、このテストの行為だけで見る
+        db.interactions.removeAll()
         let json = """
         {
           "interactions": [

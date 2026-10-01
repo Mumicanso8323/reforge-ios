@@ -79,22 +79,42 @@ public struct StepContext {
     // MARK: 在庫
 
     /// 物を入れる(同じ中身の山があれば合わせる。唯一品は合わせない)。
+    /// 在庫に足す。唯一品(unique)と減る品(durability)は山を合わせない。
     public mutating func addStock(_ stuff: Stuff, _ n: Int, to holder: HolderID, origin: ProvenanceID? = nil,
-                                  unique: EntityID? = nil)
+                                  unique: EntityID? = nil, durability: Milli? = nil)
     {
         guard n > 0 else { return }
-        var list = world.inventory.holders[holder] ?? []
         let o = origin ?? ProvenanceLedger.unknownOrigin
-        if unique == nil, let i = list.firstIndex(where: { $0.unique == nil && $0.stuff == stuff }) {
-            list[i].quantity += n
-            list[i].origins[o, default: 0] += n
+        putEntry(StockEntry(stuff: stuff, quantity: n, origins: [o: n], unique: unique, durability: durability), to: holder)
+        emit(.itemGained(holder: holder, stuff: stuff, quantity: n, record: origin))
+    }
+
+    /// 山を 1 つそのまま入れる(来歴・唯一品・減る品を保つ)。合わせられる山(唯一品でも減る品でもない同じ物)には合わせる。
+    /// 移し替え(在り処の間の移動)用。出来事 itemGained は出さない(足した時に出す addStock を使う)。
+    public mutating func putEntry(_ e: StockEntry, to holder: HolderID) {
+        guard e.quantity > 0 else { return }
+        var list = world.inventory.holders[holder] ?? []
+        if e.unique == nil, e.durability == nil,
+           let i = list.firstIndex(where: { $0.unique == nil && $0.durability == nil && $0.stuff == e.stuff })
+        {
+            list[i].quantity += e.quantity
+            for (k, v) in e.origins { list[i].origins[k, default: 0] += v }
             Self.capOrigins(&list[i])
         } else {
-            list.append(StockEntry(stuff: stuff, quantity: n, origins: [o: n], unique: unique))
+            list.append(e)
         }
         world.inventory.holders[holder] = list
         changes.mark(.inventory)
-        emit(.itemGained(holder: holder, stuff: stuff, quantity: n, record: origin))
+    }
+
+    /// 合う山を丸ごと取り出す(来歴・唯一品・減る品を保ったまま。移し替え用)。並びの順で返す。
+    public mutating func takeEntries(from holder: HolderID, where match: (StockEntry) -> Bool) -> [StockEntry] {
+        let list = world.inventory.holders[holder] ?? []
+        let taken = list.filter(match)
+        guard !taken.isEmpty else { return [] }
+        world.inventory.holders[holder] = list.filter { !match($0) }
+        changes.mark(.inventory)
+        return taken
     }
 
     /// 合う物を n 個取り出す。足りなければ何もせず nil。取り出した物の来歴(数つき)を返す。

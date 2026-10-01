@@ -215,10 +215,10 @@ struct LayerKeys {
 /// JSON 1 ファイルの形。どの集まりも省略できる。
 struct ContentFile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case bundle, clock, mapGen, start, rewind, ruleBook, survival
+        case bundle, clock, mapGen, start, rewind, ruleBook, survival, combat, hauling
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
         case memoryKinds, lines, hints, research, skills, abilities, enemies, auras, stats, failureRules
-        case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings
+        case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings, documents
         case perception, forbidden, auditStages, textGates, texts, glyphs, latinAllowed
         case remove
         // 探索と拠点(U8)
@@ -234,6 +234,8 @@ struct ContentFile: Codable {
     var start: StartDef?
     var rewind: RewindDef?
     var survival: SurvivalDef?
+    var combat: CombatDef?
+    var hauling: HaulingDef?
     var ruleBook: RuleBook?
     var terrains: [TerrainDef]?
     var biomes: [BiomeDef]?
@@ -259,6 +261,7 @@ struct ContentFile: Codable {
     var events: [EventDef]?
     var scenes: [SceneDef]?
     var sheets: [SheetDef]?
+    var documents: [DocumentDef]?
     var objectives: [ObjectiveDef]?
     var chapters: [ChapterDef]?
     var endings: [EndingDef]?
@@ -294,6 +297,8 @@ struct ContentFile: Codable {
         if let v = start { db.start = v }
         if let v = rewind { db.rewind = v }
         if let v = survival { db.survival = v }
+        if let v = combat { db.combat = v }
+        if let v = hauling { db.hauling = v }
         if let v = ruleBook { db.ruleBook = v }
         func upsert<D: ContentDef>(_ name: String, _ dict: inout [D.Key: D], _ items: [D]?) {
             for d in items ?? [] {
@@ -325,6 +330,7 @@ struct ContentFile: Codable {
         upsert("events", &db.events, events)
         upsert("scenes", &db.scenes, scenes)
         upsert("sheets", &db.sheets, sheets)
+        upsert("documents", &db.documents, documents)
         upsert("objectives", &db.objectives, objectives)
         upsert("chapters", &db.chapters, chapters)
         upsert("endings", &db.endings, endings)
@@ -395,6 +401,7 @@ struct ContentFile: Codable {
         case "events": drop(&db.events)
         case "scenes": drop(&db.scenes)
         case "sheets": drop(&db.sheets)
+        case "documents": drop(&db.documents)
         case "objectives": drop(&db.objectives)
         case "chapters": drop(&db.chapters)
         case "endings": drop(&db.endings)

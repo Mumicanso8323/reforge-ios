@@ -26,8 +26,7 @@ public struct CombatSystem: SimSystem {
 
     /// 使う規則。
     public func def(_ content: ContentDB) -> CombatDef {
-        // ContentDB に combat の設定が入ったら content.combat を読む(統合担当に依頼済み)
-        rules ?? CombatDef()
+        rules ?? content.combat ?? CombatDef()
     }
 
     // MARK: コマンド

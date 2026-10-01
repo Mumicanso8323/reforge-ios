@@ -10,7 +10,7 @@ struct GameScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            StatusBandView(store: store)
+            StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed)
             ZStack {
                 // 地図は他のタブの間も残す(視点を保つ。時計も止めない)
                 MapCanvasView(store: store)
