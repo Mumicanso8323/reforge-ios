@@ -299,6 +299,25 @@ public struct StatDef: ContentDef, Equatable {
     public var perDay: Int?
     /// 合計として他の数値を足し合わせる(内訳を内部に持ち、開示で内訳を見せる)。
     public var sumOf: [StatID]?
+    /// この値を越えたら(上りでも下りでも)出来事 statCrossed を出す(警告・期限の引き金。raw)。
+    public var marks: [Int]?
+    /// 回る値(暦など): この値で割った余りにする(raw)。
+    public var wrap: Int?
+    /// 画面で赤く出す範囲(raw。isAlert を使う)。
+    public var alertBelow: Int?
+    public var alertAtLeast: Int?
+
+    public init(id: StatID, initial: Int, perDay: Int? = nil, sumOf: [StatID]? = nil, marks: [Int]? = nil,
+                wrap: Int? = nil, alertBelow: Int? = nil, alertAtLeast: Int? = nil) {
+        self.id = id
+        self.initial = initial
+        self.perDay = perDay
+        self.sumOf = sumOf
+        self.marks = marks
+        self.wrap = wrap
+        self.alertBelow = alertBelow
+        self.alertAtLeast = alertAtLeast
+    }
 }
 
 /// 失敗の規則。期限は日数でなく値で判定する。
