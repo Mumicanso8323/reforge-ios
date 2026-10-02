@@ -6,11 +6,11 @@
 ## 決めた名前
 | 札 | いつ付く | 記録 |
 |---|---|---|
-| `tag.industry.furnace_hot`(毎回)・`tag.industry.first_hot_furnace`(初めての 1 回だけ) | 炉(`FurnaceHeatDef` を持つ置いた物)が、予熱から `workTemp` に初めて届いたステップ(冷えて予熱し直して届いた時も `furnace_hot` は付く) | `ctx.record(.heated, .module(kind, id) / .structure(kind, id), place:)`。新しい行い `ActKind.heated` |
-| `tag.industry.powered`(毎回)・`tag.industry.first_power`(初めての 1 回だけ) | 「電気を出す」置いた物が、建ち終わって働き始めたステップ。電気を出す物は、内容の定義の `provides["power"]` が 1 以上の物(モジュールは動いている間、建造物は建ち終わって `whenLit` の条件が効いている間)。止まって再び働き始めた時も `powered` は付く | `ctx.record(.powered, …, place:)`。新しい行い `ActKind.powered` |
+| `tag.invention.furnace_hot`(毎回)・`tag.invention.first_hot_furnace`(初めての 1 回だけ) | 炉(`FurnaceHeatDef` を持つ置いた物)が、予熱から `workTemp` に初めて届いたステップ(冷えて予熱し直して届いた時も `furnace_hot` は付く) | `ctx.record(.heated, .module(kind, id) / .structure(kind, id), place:)`。新しい行い `ActKind.heated` |
+| `tag.invention.powered`(毎回)・`tag.invention.first_power`(初めての 1 回だけ) | 「電気を出す」置いた物が、建ち終わって働き始めたステップ。電気を出す物は、内容の定義の `provides["power"]` が 1 以上の物(モジュールは動いている間、建造物は建ち終わって `whenLit` の条件が効いている間)。止まって再び働き始めた時も `powered` は付く | `ctx.record(.powered, …, place:)`。新しい行い `ActKind.powered` |
 - 「初めて」は、ledger にまだその毎回の札(`furnace_hot` / `powered`)の記録が無かった時(`first_smelt` と同じ決め方。`RFInvention/Trial.swift` の `firstSmelt` を手本に)。
-- 名前は `InventionTags` と並べて、新しい `IndustryTags`(RFRules か、炉と置いた物の担当の所)に置く。
-- 条件からは今の形で引ける: `{"ledger": {"query": {"tag": "tag.industry.first_power"}, "atLeast": 1}}`、引き金は `{"on": ["heated"], "when": {"firstTime": {"query": {"act": "heated"}}}}`。出来事の `on` に新しい行いの名前が使えるようにする(今の `ActKind` の文字列の形に合わせる)。
+- 名前は `InventionTags`(RFInvention/Vocabulary.swift)に足す(内容のデータがすでにこの名前で指している。名前を変えると黙って起きなくなるので、この表の綴りのまま)。
+- 条件からは今の形で引ける: `{"ledger": {"query": {"tag": "tag.invention.first_power"}, "atLeast": 1}}`、引き金は `{"on": ["heated"], "when": {"firstTime": {"query": {"act": "heated"}}}}`。出来事の `on` に新しい行いの名前が使えるようにする(今の `ActKind` の文字列の形に合わせる)。
 - 保存の形は変えない(記録は今の ledger の形。新しい行いの名前が増えるだけ)。
 
 ## 急がない: 暦の見込みの 1 行
