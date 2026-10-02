@@ -4,7 +4,6 @@ name: ci
 #   core: ReForgeCore を Linux で swift test(安くて速い)
 #   ios : xcodegen → シミュレータで単体テスト → 未署名 ipa を作る → (手動起動で release=true なら) プレリリース公開
 #   screens: 手動起動で screens=true のときだけ。公開の層だけのアプリで主な画面を 5 言語で撮り、PNG を artifact に上げる
-#            (docs/briefs/screen-snapshots.md。非公開の層は取り込まない)
 # ipa は未署名。SideStore が自分の Apple ID で再署名して入れる。
 
 on:
