@@ -30,7 +30,7 @@ struct GameScreen: View {
             TabBarView(tab: $tab)
         }
         .padding(.vertical, AdLayout.contentGap)
-        .background(Color.black)
+        .background(InkColor.field)
         .task { await store.run() }
     }
 }
@@ -43,87 +43,79 @@ struct PanelView: View {
     @State private var showSettings = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            switch tab {
-            case .map:
-                EmptyView()
-            case .design:
-                Text("設計").font(.custom(FontBook.mapFont, size: 20)).bold()
+        content
+            .inkCard(isPresented: $showSettings, title: Text("設定")) {
+                SettingsView(app: app, close: { showSettings = false })
+            }
+    }
+
+    @ViewBuilder private var content: some View {
+        switch tab {
+        case .map:
+            EmptyView()
+        case .design:
+            InkPanel(title: Text("設計")) {
                 Text("縦の工程表で並びを決め、試したり札にしたりする画面です。まだできていません。")
-            case .notes:
-                Text("ノート").font(.custom(FontBook.mapFont, size: 20)).bold()
+                    .foregroundStyle(InkColor.textDim)
+            }
+        case .notes:
+            InkPanel(title: Text("ノート")) {
                 Text("試したこと・所見・素材の図鑑が載ります。まだできていません。")
-            case .base:
-                Text("拠点").font(.custom(FontBook.mapFont, size: 20)).bold()
+                    .foregroundStyle(InkColor.textDim)
+            }
+        case .base:
+            InkPanel(title: Text("拠点")) {
                 Text("蓄え・建てた物・セーブが載ります。まだできていません。")
-                Button {
-                    showSettings = true
-                } label: {
-                    Text("設定")
+                    .foregroundStyle(InkColor.textDim)
+                InkSection {
+                    Button {
+                        showSettings.toggle()
+                    } label: {
+                        InkRow(title: Text("設定"), value: Text(verbatim: "›"))
+                    }
+                    .buttonStyle(.inkRow)
+                    Button {
+                        Task { await app.backToTitle() }
+                    } label: {
+                        InkRow(title: Text("タイトルへ"), value: Text(verbatim: "›"))
+                    }
+                    .buttonStyle(.inkRow)
                 }
-                .buttonStyle(.bordered)
-                Button {
-                    Task { await app.backToTitle() }
-                } label: {
-                    Text("タイトルへ")
-                }
-                .buttonStyle(.bordered)
-            case .crew:
-                Text("仲間").font(.custom(FontBook.mapFont, size: 20)).bold()
-                ForEach(store.actors.filter(\.isMember), id: \.id) { a in
-                    HStack(spacing: 8) {
-                        Text(verbatim: a.glyph).frame(width: 24)
-                        Text(verbatim: a.label)
+            }
+        case .crew:
+            InkPanel(title: Text("仲間")) {
+                InkSection {
+                    ForEach(store.actors.filter(\.isMember), id: \.id) { a in
+                        InkRow(glyph: a.glyph, title: Text(verbatim: a.label))
                     }
                 }
             }
-            Spacer()
-        }
-        .font(.custom(FontBook.mapFont, size: 15))
-        .foregroundStyle(Color(white: 0.92))
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.black)
-        .sheet(isPresented: $showSettings) {
-            SettingsView(app: app)
         }
     }
 }
 
 /// ゲームオーバーの 4 択(同じ重さで並べる。D-save.md §3)。
 /// いまは「最初から」だけが動く(巻き戻し・失って続ける・セーブ地点からは保存と失敗の担当の中身が入ってから)。
+/// 「最初から」は記録を消すので、確かめのダイアログの代わりに長押しで確定する。
 struct GameOverView: View {
     @Bindable var app: AppModel
-    @State private var confirmRestart = false
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("ここまで").font(.custom(FontBook.mapFont, size: 24)).bold()
-            choice(Text("最初から"), enabled: true) { confirmRestart = true }
-            choice(Text("記憶を持って巻き戻す"), enabled: false) {}
-            choice(Text("失って続ける"), enabled: false) {}
-            choice(Text("セーブ地点からロード"), enabled: false) {}
-        }
-        .font(.custom(FontBook.mapFont, size: 16))
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.9))
-        .accessibilityIdentifier("gameOver")
-        .alert(Text("いまの記録を消して最初からはじめますか?"), isPresented: $confirmRestart) {
-            Button(role: .destructive) {
+        InkPlate(title: Text("ここまで")) {
+            InkHoldButton(label: Text("最初から"), hint: Text("長押しで、いまの記録を消して最初から")) {
                 app.startNewGame()
-            } label: {
-                Text("最初から")
             }
-            Button(role: .cancel) {} label: { Text("やめる") }
+            .accessibilityIdentifier("restartHold")
+            choice(Text("記憶を持って巻き戻す"))
+            choice(Text("失って続ける"))
+            choice(Text("セーブ地点からロード"))
         }
+        .accessibilityIdentifier("gameOver")
     }
 
-    private func choice(_ label: Text, enabled: Bool, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            label.frame(maxWidth: 280, minHeight: 44)
-        }
-        .buttonStyle(.bordered)
-        .disabled(!enabled)
+    private func choice(_ label: Text) -> some View {
+        Button {} label: { label }
+            .buttonStyle(.ink(.secondary))
+            .disabled(true)
     }
 }

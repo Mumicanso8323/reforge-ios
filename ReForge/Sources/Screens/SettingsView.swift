@@ -1,10 +1,11 @@
 import SwiftUI
 
-/// S8 設定。効果音(MVP は音なし)とプライバシー(P3 で URL)は出さない。
+/// S8 設定。下からの札(InkCard)の中身。効果音(MVP は音なし)とプライバシー(P3 で URL)は出さない。
+/// 広告を消す画面は札を重ねず、この中身を差し替えて出す。
 struct SettingsView: View {
     @Bindable var app: AppModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var confirmDelete = false
+    /// 札を閉じる(記録を消した後など)。
+    var close: () -> Void
     @State private var showRemoveAds = false
     @State private var restoreMessage: LocalizedStringKey?
 
@@ -15,75 +16,49 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
+        if showRemoveAds {
+            RemoveAdsView(app: app, back: { showRemoveAds = false })
+        } else {
+            VStack(alignment: .leading, spacing: 24) {
+                InkSection(title: Text("広告")) {
                     if app.adsRemoved {
-                        Text("広告は非表示です")
+                        InkRow(title: Text("広告は非表示です"))
                     } else {
-                        Button("広告を消す") { showRemoveAds = true }
-                            .accessibilityIdentifier("removeAdsButton")
+                        Button {
+                            showRemoveAds = true
+                        } label: {
+                            InkRow(title: Text("広告を消す"), value: Text(verbatim: "›"))
+                        }
+                        .buttonStyle(.inkRow)
+                        .accessibilityIdentifier("removeAdsButton")
                     }
-                    Button("購入を復元") {
+                    Button {
                         Task {
                             await app.restorePurchases()
                             restoreMessage = app.adsRemoved ? "購入を復元しました" : "復元できる購入はありません"
                         }
+                    } label: {
+                        InkRow(title: Text("購入を復元"), detail: restoreMessage.map { Text($0) })
                     }
+                    .buttonStyle(.inkRow)
                     .accessibilityIdentifier("restoreButton")
-                    if let restoreMessage {
-                        Text(restoreMessage)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                } header: {
-                    Text("広告")
                 }
 
-                Section {
-                    Button("記録を消す", role: .destructive) { confirmDelete = true }
-                } header: {
-                    Text("記録")
+                InkSection(title: Text("記録")) {
+                    InkHoldButton(label: Text("記録を消す"),
+                                  hint: Text("長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。")) {
+                        app.deleteSave()
+                        close()
+                    }
+                    .padding(.top, 10)
+                    .accessibilityIdentifier("deleteSaveButton")
                 }
 
-                Section {
-                    LabeledContent {
-                        Text(verbatim: version)
-                    } label: {
-                        Text("バージョン")
-                    }
-                    LabeledContent {
-                        Text("すべての権利を留保")
-                    } label: {
-                        Text("ライセンス")
-                    }
-                    LabeledContent {
-                        Text("BIZ UDGothic(SIL Open Font License 1.1)")
-                    } label: {
-                        Text("フォント")
-                    }
-                } header: {
-                    Text("このアプリについて")
+                InkSection(title: Text("このアプリについて")) {
+                    InkRow(title: Text("バージョン"), value: Text(verbatim: version))
+                    InkRow(title: Text("ライセンス"), value: Text("すべての権利を留保"))
+                    InkRow(title: Text("フォント"), detail: Text("BIZ UDGothic(SIL Open Font License 1.1)"))
                 }
-            }
-            .navigationTitle(Text("設定"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("閉じる") { dismiss() }
-                }
-            }
-            .alert("記録を消しますか?", isPresented: $confirmDelete) {
-                Button("消す", role: .destructive) {
-                    app.deleteSave()
-                    dismiss()
-                }
-                Button("やめる", role: .cancel) {}
-            } message: {
-                Text("いまの状態とセーブ地点がすべて消えます。元には戻せません。")
-            }
-            .sheet(isPresented: $showRemoveAds) {
-                RemoveAdsSheet(app: app)
             }
         }
     }
