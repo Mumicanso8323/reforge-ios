@@ -61,6 +61,26 @@
         }
       }
     },
+    "1 字ずつ": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 字ずつ"
+          }
+        }
+      }
+    },
+    "1 行ずつ": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "1 行ずつ"
+          }
+        }
+      }
+    },
     "‹ 設定にもどる": {
       "localizations": {
         "ja": {
@@ -651,6 +671,16 @@
         }
       }
     },
+    "場面ごと": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "場面ごと"
+          }
+        }
+      }
+    },
     "壊れている": {
       "localizations": {
         "ja": {
@@ -787,6 +817,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "広告を消す"
+          }
+        }
+      }
+    },
+    "序の見せ方": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "序の見せ方"
           }
         }
       }

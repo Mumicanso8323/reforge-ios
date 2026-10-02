@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var restoreMessage: LocalizedStringKey?
     /// 開発の設定(DEBUG と dev のビルドだけ。PT で決まるまで製品には出さない)。保存には入れない。
     @AppStorage(GameStore.devHoldClockKey) private var devHoldClock = false
+    @AppStorage(PrologueStyle.defaultsKey) private var prologueStyle = PrologueStyle.a.rawValue
 
     private var version: String {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -65,6 +66,17 @@ struct SettingsView: View {
                             Text("設計とノートを開いている間、時計を止める")
                         }
                         .accessibilityIdentifier("devHoldClockToggle")
+                        .padding(.top, 10)
+                        // 序の見せ方の 3 案(PT-B6)。次に序を見るとき(はじめから)に効く
+                        Picker(selection: $prologueStyle) {
+                            Text("1 行ずつ").tag(PrologueStyle.a.rawValue)
+                            Text("1 字ずつ").tag(PrologueStyle.b.rawValue)
+                            Text("場面ごと").tag(PrologueStyle.c.rawValue)
+                        } label: {
+                            Text("序の見せ方")
+                        }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("devPrologueStylePicker")
                         .padding(.top, 10)
                     }
                 }

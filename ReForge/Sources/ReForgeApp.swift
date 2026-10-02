@@ -50,6 +50,30 @@ final class AppModel {
 
     static let adsRemovedKey = "adsRemoved"
 
+#if DEBUG
+    /// 撮る起動の序(Debug/PrologueSample.swift)。公開の層には序の場面が無いので、見本の場面をここから出す。
+    var debugPrologue: DebugPrologue?
+#endif
+
+    /// いま画面を覆っている序(無ければ nil)。本体の序、撮る起動なら見本の序。
+    var activePrologue: PrologueView? {
+#if DEBUG
+        if let debugPrologue { return debugPrologue.view }
+#endif
+        return game?.prologue
+    }
+
+    /// 序の送り(タップだけ。時間では送らない)。
+    func advancePrologue() {
+#if DEBUG
+        if let debugPrologue { debugPrologue.advance(); return }
+#endif
+        game?.send(.narrative(.advanceScene))
+    }
+
+    /// 右上の設定の角のボタンを出すか。序の間は出さない(窓ごと隠す。PT-B6)。
+    var cornerButtonVisible: Bool { activePrologue == nil }
+
     init(saves: FileSaveStorage = FileSaveStorage(),
          storeService: any StoreService = UnavailableStoreService(),
          adProvider: any AdProvider = NoopAdProvider(),
@@ -177,8 +201,37 @@ final class AppModel {
 struct RootView: View {
     @Bindable var app: AppModel
     @Environment(\.scenePhase) private var scenePhase
+    /// 序が終わった直後の移り(文字が消え・黒の間・地図が灯る)を演じている間の、最後の行。nil なら移りは無い。
+    @State private var dawnLines: [String]?
 
     var body: some View {
+        ZStack {
+            mainContent
+            // 序は画面全体の場面。安全域の外まで覆い、地図・帯・タブ・角のボタンは序の間は作らない(PT-B6)
+            if let prologue = app.activePrologue {
+                PrologueScene(lines: prologue.lines, advance: { app.advancePrologue() })
+                    .ignoresSafeArea()
+            } else if let lines = dawnLines {
+                PrologueScene(lines: lines, exiting: true, onExitDone: { dawnLines = nil })
+                    .ignoresSafeArea()
+            }
+        }
+        .onChange(of: app.activePrologue) { old, new in
+            if let old, new == nil, app.game != nil {
+                dawnLines = old.lines
+            } else if new != nil {
+                dawnLines = nil
+            }
+        }
+        .background(Color.black)
+        .background(SettingsCornerInstaller(app: app, visible: app.cornerButtonVisible && dawnLines == nil))
+        .task { await app.refreshEntitlements() }
+        .onChange(of: scenePhase) { _, phase in
+            app.scenePhaseChanged(active: phase == .active)
+        }
+    }
+
+    private var mainContent: some View {
         AdBannerContainer(adsRemoved: app.adsRemoved) {
             if let message = app.loadError {
                 ContentErrorView(message: message)
@@ -191,12 +244,6 @@ struct RootView: View {
         // 設定は地図の下半分に出す札。ボタンは別の窓(SettingsCorner)にあるので、どの画面・札・シートの上でも見える
         .inkCard(isPresented: $app.settingsOpen, title: Text("設定"), maxHeightRatio: 0.5) {
             SettingsView(app: app, close: { app.settingsOpen = false })
-        }
-        .background(Color.black)
-        .background(SettingsCornerInstaller(app: app))
-        .task { await app.refreshEntitlements() }
-        .onChange(of: scenePhase) { _, phase in
-            app.scenePhaseChanged(active: phase == .active)
         }
     }
 }

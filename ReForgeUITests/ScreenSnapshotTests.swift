@@ -1,6 +1,6 @@
 import XCTest
 
-/// 画面の写真(docs/briefs/screen-snapshots.md)。言語 5 × 画面 12 = 60 枚を、1 枚ごとにアプリを起動し直して撮る。
+/// 画面の写真(docs/briefs/screen-snapshots.md)。言語 5 × 画面 13 = 65 枚を、1 枚ごとにアプリを起動し直して撮る。
 /// アプリの側は `-ReForgeScreenshot <画面>` で、公開の層の束・固定の種の新しい世界・解放は全部開く・時計は止める(DEBUG のみ)。
 /// 撮るだけでは止めず、次の検査に当たれば失敗にする(PNG は失敗しても残す)。
 ///  1. 画面の外に出る(横。下に伸びるスクロールの中身は縦に出て当然なので、縦は見ない)
@@ -16,9 +16,12 @@ final class ScreenSnapshotTests: XCTestCase {
         ("ja", "ja_JP"), ("en", "en_US"), ("zh-Hans", "zh_CN"), ("zh-Hant", "zh_TW"), ("ko", "ko_KR"),
     ]
     /// 主な画面 8 つと、タイトル・ノート・決断の帯・読み込みの失敗(説明書 §8)。
-    /// 序(冒頭の文章)は画面が無い(W-16 待ち)ので撮らない。入ったらここと ScreenshotMode.swift に足す。
+    /// 序(prologue)は、公開の層の中立の見本(Debug/PrologueSample.swift)を画面全体の場面で撮る(PT-B6)。
     private static let screens = ["map", "foot", "design", "base", "crew", "research", "gameOver", "settings",
-                                  "title", "notes", "decisionBand", "bootFailure"]
+                                  "title", "notes", "decisionBand", "bootFailure", "prologue"]
+    /// 序の地の色(InkColor.prologueGround #07080C)と、端の色の許す差(0...255 の各チャンネル)。
+    private static let prologueGround: (r: Int, g: Int, b: Int) = (7, 8, 12)
+    private static let prologueTolerance = 6
     /// アプリの一番上の透明の窓に置かれる設定のボタン(L-10)。右上のこの大きさの角に来る(TEST-L16)。
     private static let cornerSize: CGFloat = 52
 
@@ -88,13 +91,17 @@ final class ScreenSnapshotTests: XCTestCase {
         Thread.sleep(forTimeInterval: 1.0)  // 組み直しと文字の測りが落ち着くのを待つ(研究の巻き取りの成否は下のポーリングで決める)
         let researchStatus = screen == "research" ? waitForResearchSection(app, language: lang.code, screen: screen) : nil
 
-        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        let screenshot = XCUIScreen.main.screenshot()
+        let shot = XCTAttachment(screenshot: screenshot)
         shot.name = "\(lang.code)_\(screen)"
         shot.lifetime = .keepAlways
         add(shot)
 
         let inspected = inspect(app, lang: lang.code, screen: screen)
         var findings = inspected.findings
+        if screen == "prologue" {
+            findings += prologueFindings(app, lang: lang.code, screenshot: screenshot)
+        }
         // 設定を開いた状態(settings)では、同じ所のボタンで閉じられる(TEST-L16)
         if screen == "settings" {
             let button = element(app, "settingsButton")
@@ -158,6 +165,8 @@ final class ScreenSnapshotTests: XCTestCase {
             _ = element(app, "statusBand").waitForExistence(timeout: 30)
         case "bootFailure":
             _ = element(app, "contentError").waitForExistence(timeout: 30)
+        case "prologue":
+            _ = element(app, "prologueScene").waitForExistence(timeout: 30)
         default:
             XCTFail("知らない画面: \(screen)")
         }
@@ -271,6 +280,9 @@ final class ScreenSnapshotTests: XCTestCase {
             }
         }
 
+        // 序は画面全体の場面。設定のボタンは窓ごと隠れている(PT-B6)ので、TEST-L16 の代わりに「無い」ことを見る(prologueFindings)
+        if screen == "prologue" { return (findings, ignoredZeroSize) }
+
         // 4. TEST-L16: 設定のボタン。1. ある 2. 押せる 3. 右上の 52x52pt(安全な領域の内側)にある 4. ほかの要素と重ならない。
         if settingsFrame == nil { add("settingsButton", "settings", "無い") }
         if let sf = settingsFrame {
@@ -292,5 +304,53 @@ final class ScreenSnapshotTests: XCTestCase {
             }
         }
         return (findings, ignoredZeroSize)
+    }
+
+    // MARK: - 序(PT-B6)
+
+    /// 序の写真の検査: 序の間は、地図・帯・タブ・角のボタンの識別子が画面に無い。端(安全域の外を含む)が序の地の色で覆われている。
+    private func prologueFindings(_ app: XCUIApplication, lang: String, screenshot: XCUIScreenshot) -> [Finding] {
+        var out: [Finding] = []
+        func add(_ id: String, _ detail: String) {
+            out.append(Finding(language: lang, screen: "prologue", id: id, kind: "prologue", detail: detail))
+        }
+        for id in ["settingsButton", "statusBand", "footCard", "map"] where element(app, id).exists {
+            add(id, "序の間に画面にある")
+        }
+        if app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'tab-'")).firstMatch.exists {
+            add("tab-*", "序の間にタブが画面にある")
+        }
+        guard let cg = screenshot.image.cgImage else {
+            add("edge", "写真の画素を読めない")
+            return out
+        }
+        let w = cg.width, h = cg.height
+        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        let drawn = pixels.withUnsafeMutableBytes { buf -> Bool in
+            guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                  let ctx = CGContext(data: buf.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: space, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else {
+            add("edge", "写真の画素を読めない")
+            return out
+        }
+        // 四隅・各辺の中ほど(端から 2 画素内側)。上の中ほどはノッチ・島の下、下の中ほどはホームの線のまわり。
+        let points: [(String, Int, Int)] = [
+            ("topLeft", 2, 2), ("topCenter", w / 2, 2), ("topRight", w - 3, 2),
+            ("left", 2, h / 2), ("right", w - 3, h / 2),
+            ("bottomLeft", 2, h - 3), ("bottomCenter", w / 2, h - 3), ("bottomRight", w - 3, h - 3),
+        ]
+        for (name, x, y) in points {
+            let i = (y * w + x) * 4
+            let (r, g, b) = (Int(pixels[i]), Int(pixels[i + 1]), Int(pixels[i + 2]))
+            let t = Self.prologueGround
+            if abs(r - t.r) > Self.prologueTolerance || abs(g - t.g) > Self.prologueTolerance || abs(b - t.b) > Self.prologueTolerance {
+                add("edge.\(name)", "端の色が序の地の色でない rgb \(r),\(g),\(b)")
+            }
+        }
+        return out
     }
 }

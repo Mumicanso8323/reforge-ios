@@ -6,11 +6,11 @@ import ReForgeEngine
 /// 起動引数 `-ReForgeScreenshot <画面>` のときだけ働く。公開の層の束で、固定の種の新しい世界を作り、
 /// 画面の要素の解放を全部開き(撮るためだけの上書き。保存しない・世界の状態を変えない)、時計を止めて、指定の画面を開く。
 /// 画面: 主な画面 8 つと、タイトル・ノート・決断の帯・読み込みの失敗(説明書 §8)。
-/// 序(冒頭の文章)は、W-16 が入るまで画面が無いので撮らない(入ったらここに足す)。
+/// 序(prologue)は、公開の層に序の場面が無いので、Debug/PrologueSample.swift の中立の見本(3 行 × 2 場面)を画面全体の場面で出す(PT-B6)。
 /// 言語は `-AppleLanguages (xx)` と `-AppleLocale xx` で与える(InkFont.language の初期値が拾う)。
 enum ScreenshotScreen: String, CaseIterable {
     case map, foot, design, base, crew, research, gameOver, settings
-    case title, notes, decisionBand, bootFailure
+    case title, notes, decisionBand, bootFailure, prologue
 
     /// 最初に選ぶタブ。研究は拠点のタブ(研究の節までの巻き取りはアプリの側。BaseTab の DEBUG)。
     var tab: GameTab {
@@ -27,6 +27,7 @@ enum ScreenshotScreen: String, CaseIterable {
         case .notes: .notes
         case .decisionBand: .map
         case .bootFailure: .map
+        case .prologue: .map
         }
     }
 }
@@ -60,11 +61,13 @@ enum ScreenshotMode {
             return AppModel(saves: saves, bundle: Bundle(url: empty) ?? Bundle())
         case .title:
             return AppModel(saves: saves)
-        case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand:
+        case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand, .prologue:
             let model = AppModel(saves: saves)
             model.startScreenshotGame(failed: screen == .gameOver, decision: screen == .decisionBand)
             // 設定は、角のボタンで開いた形で撮る(札は RootView。L-10a)
             if screen == .settings { model.settingsOpen = true }
+            // 序は、見本の場面を画面全体で出した形(送りは UI テストのタップ)
+            if screen == .prologue { model.debugPrologue = DebugPrologue() }
             return model
         }
     }
