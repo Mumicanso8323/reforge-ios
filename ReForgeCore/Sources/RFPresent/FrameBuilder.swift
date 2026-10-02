@@ -94,6 +94,8 @@ public struct FrameBuilder: Sendable {
             frame.ui = UIUnlocks(gated: Set(UIElements.all), open: [])
             frame.newlyOpened = []
             frame.shadows = []
+        } else {
+            frame.darkStart = darkStart(w)
         }
         return frame
     }
@@ -206,6 +208,22 @@ public struct FrameBuilder: Sendable {
         return PrologueView(lines: def.lines.prefix(s.line + 1).map { p.text($0.text) }, waiting: true)
     }
 
+    func darkStart(_ w: WorldState) -> DarkStartView? {
+        guard w.run.isActive, w.clock.held,
+              !w.narrative.pending.contains(where: \.blocking),
+              prologue(w, Perceiver(content: content, world: w)) == nil,
+              let position = w.people[.noah]?.position, position.layer == layer,
+              let card = footCard(w, at: position.point)
+        else { return nil }
+        let action: FootCard.Action?
+        if let id = content.start.clock?.firstAct {
+            action = card.actions.first { $0.id == id }
+        } else {
+            action = card.actions.first
+        }
+        return action.map { DarkStartView(action: $0) }
+    }
+
     // MARK: - 地図の引き出し
 
     /// 区画の中身(画面が版の変わった区画だけ引く)。
@@ -304,7 +322,17 @@ public struct FrameBuilder: Sendable {
             guard applies, ui.isOpen(.interaction(id)) else { return nil }
             if let phases = def.allowedPhases, !phases.contains(w.clock.phase) { return nil }
             if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) == false { return nil }
-            return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)), hold: def.hold, at: at)
+            let active = w.exploration.active[.noah]
+            let progress: Int?
+            if active?.interaction == id, active?.at == at, def.seconds > 0 {
+                progress = min(1000, max(0, Int(active!.progress * 1000 / Int64(def.seconds))))
+            } else if def.hold {
+                progress = 0
+            } else {
+                progress = nil
+            }
+            return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)), hold: def.hold,
+                                   progressPermille: progress, at: at)
         }
         var card = FootCard(point: pt, title: title, actions: Array(actions.prefix(FootCard.maxActions)))
         if let poi {

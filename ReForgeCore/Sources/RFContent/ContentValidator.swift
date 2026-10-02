@@ -33,6 +33,7 @@ public enum ContentValidator {
         latinAllowedIsNotAnID(db, &out)
         // 出来事・始まり
         startMembersExist(db, &out)
+        startClockWellFormed(db, &out)
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)
         scenesWellFormed(db, &out)
@@ -325,6 +326,17 @@ public enum ContentValidator {
     static func startMembersExist(_ db: ContentDB, _ out: inout [Issue]) {
         for p in db.start.members + (db.start.unmet ?? []) where db.people[p] == nil {
             out.append(Issue(level: .error, rule: "start.people", message: "始まりの人 \(p) の定義が無い"))
+        }
+    }
+
+    /// 最初の行為は実在する行為だけを指す。時計を止めるのに指定が無ければ、足元の行為を使う。
+    static func startClockWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        guard let clock = db.start.clock else { return }
+        if let firstAct = clock.firstAct, db.interactions[firstAct] == nil {
+            out.append(Issue(level: .error, rule: "start.firstAct", message: "始まりの行為 \(firstAct) が無い"))
+        }
+        if clock.held == true, clock.firstAct == nil {
+            out.append(Issue(level: .warning, rule: "start.firstAct.held", message: "時計を止める始まりに行為の指定が無い"))
         }
     }
 

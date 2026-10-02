@@ -60,14 +60,22 @@ public struct Simulation: Sendable {
             report.rejection = Rejection("reason.scene.prologue")
             return report
         }
+        if world.clock.held, !hasPrologueScene(world), content.start.clock?.firstAct != nil,
+           !acceptsWhileFirstActHeld(command)
+        {
+            report.rejection = Rejection("reason.start.first_act")
+            return report
+        }
         var ctx = StepContext(world: world, content: content)
         let result = dispatch(command, &ctx)
-        if ctx.world.clock.held, case .accepted = result, Self.releasesHold(command) {
+        if ctx.world.clock.held, content.start.clock?.firstAct == nil, case .accepted = result, Self.releasesHold(command) {
             // 最初の行為で時計が動き出す(W-01)。戻らない
             ctx.world.clock.held = false
             ctx.changes.mark(.clock)
         }
+        let eventStart = report.events.count
         settle(&ctx, &report)
+        releaseHeldAfterFirstAct(&ctx, events: report.events[eventStart...], report: &report)
         world = ctx.world
         switch result {
         case .rejected(let r): report.rejection = r
@@ -93,6 +101,23 @@ public struct Simulation: Sendable {
     private func isFireFromEffect(_ command: Command) -> Bool {
         if case .narrative(.fireFromEffect) = command { return true }
         return false
+    }
+
+    private func hasPrologueScene(_ world: WorldState) -> Bool {
+        guard let scene = world.narrative.scene else { return false }
+        return content.scenes[scene.scene]?.style == .prologue
+    }
+
+    /// firstAct を持つ始まりは、暗い画面の行為と場面・効果の内部命令だけを受ける。
+    private func acceptsWhileFirstActHeld(_ command: Command) -> Bool {
+        switch command {
+        case .exploration(.interact(let interaction, _, _, let person)):
+            return interaction == content.start.clock?.firstAct && (person == nil || person == .noah)
+        case .narrative(.advanceScene), .narrative(.fireFromEffect):
+            return true
+        default:
+            return false
+        }
     }
 
     /// 「寝る」を押したらどうなるかの見込み(W-11)。世界の写しに同じ規則で .time(.sleep) を当てた結果。
@@ -135,6 +160,39 @@ public struct Simulation: Sendable {
         return runSteps(steps, &world, stopAtPhaseChange: true)
     }
 
+    /// 時計を保留した始まりで、ノアが最初の押し続ける行為をしている間だけ進める。
+    /// 繰り越しは保存する時計ではなく、呼び出し側が持つ carry を使う。
+    public func advanceHeld(_ world: inout WorldState, realSeconds: Double, carry: inout Int64) -> StepReport {
+        guard world.run.isActive, world.clock.held, let firstAct = content.start.clock?.firstAct,
+              let active = world.exploration.active[.noah], active.interaction == firstAct, active.holding,
+              realSeconds > 0, realSeconds.isFinite
+        else { return StepReport() }
+        let dt = min(realSeconds, Self.maxRealSecondsPerAdvance)
+        let micros = Int64((dt * 1_000_000).rounded())
+        let unit = Int64(content.clock.dayRealSeconds) * 1_000_000 * SimStep.gameSeconds
+        carry += micros * content.clock.dayGameSeconds
+        let steps = Int(carry / unit)
+        carry %= unit
+        guard steps > 0 else { return StepReport() }
+
+        var report = StepReport()
+        var ctx = StepContext(world: world, content: content)
+        for _ in 0..<steps {
+            guard ctx.world.run.isActive, ctx.world.clock.held,
+                  ctx.world.exploration.active[.noah]?.interaction == firstAct,
+                  ctx.world.exploration.active[.noah]?.holding == true
+            else { break }
+            Interactions.advance(&ctx, actor: .noah, interaction: firstAct)
+            let eventStart = report.events.count
+            settle(&ctx, &report)
+            releaseHeldAfterFirstAct(&ctx, events: report.events[eventStart...], report: &report)
+            report.steps += 1
+            if !ctx.world.clock.held { carry = 0; break }
+        }
+        world = ctx.world
+        return report
+    }
+
     /// ステップを n 回進める。
     public func runSteps(_ n: Int, _ world: inout WorldState, stopAtPhaseChange: Bool = false) -> StepReport {
         var report = StepReport()
@@ -171,6 +229,21 @@ public struct Simulation: Sendable {
         ctx.changes = ChangeSet()
         report.warnings += ctx.warnings
         ctx.warnings.removeAll()
+    }
+
+    /// firstAct を完了しただけでは始めない。完了の出来事と、燃えている建造物の火床が同じ手順でそろった時だけ解く。
+    private func releaseHeldAfterFirstAct(_ ctx: inout StepContext, events: ArraySlice<DomainEvent>,
+                                          report: inout StepReport) {
+        guard ctx.world.clock.held, let firstAct = content.start.clock?.firstAct,
+              events.contains(where: { event in
+                  if case .interacted(_, let interaction, _, _) = event { return interaction == firstAct }
+                  return false
+              }),
+              ctx.world.placements.items.values.contains(where: { $0.structure?.hearth?.lit == true })
+        else { return }
+        ctx.world.clock.held = false
+        ctx.changes.mark(.clock)
+        report.changes.mark(.clock)
     }
 }
 

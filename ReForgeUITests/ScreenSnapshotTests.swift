@@ -1,6 +1,6 @@
 import XCTest
 
-/// 画面の写真(docs/briefs/screen-snapshots.md)。言語 5 × 画面 12 = 60 枚を、1 枚ごとにアプリを起動し直して撮る。
+/// 画面の写真(docs/briefs/screen-snapshots.md)。言語ごとに各画面を、1 枚ずつアプリを起動し直して撮る。
 /// アプリの側は `-ReForgeScreenshot <画面>` で、公開の層の束・固定の種の新しい世界・解放は全部開く・時計は止める(DEBUG のみ)。
 /// 撮るだけでは止めず、次の検査に当たれば失敗にする(PNG は失敗しても残す)。
 ///  1. 画面の外に出る(横。下に伸びるスクロールの中身は縦に出て当然なので、縦は見ない)
@@ -15,10 +15,9 @@ final class ScreenSnapshotTests: XCTestCase {
     private static let languages: [(code: String, locale: String)] = [
         ("ja", "ja_JP"), ("en", "en_US"), ("zh-Hans", "zh_CN"), ("zh-Hant", "zh_TW"), ("ko", "ko_KR"),
     ]
-    /// 主な画面 8 つと、タイトル・ノート・決断の帯・読み込みの失敗(説明書 §8)。
-    /// 序(冒頭の文章)は画面が無い(W-16 待ち)ので撮らない。入ったらここと ScreenshotMode.swift に足す。
+    /// 主な画面と、タイトル・ノート・決断の帯・読み込みの失敗。
     private static let screens = ["map", "foot", "design", "base", "crew", "research", "gameOver", "settings",
-                                  "title", "notes", "decisionBand", "bootFailure"]
+                                  "title", "notes", "decisionBand", "bootFailure", "darkStart"]
     /// アプリの一番上の透明の窓に置かれる設定のボタン(L-10)。右上のこの大きさの角に来る(TEST-L16)。
     private static let cornerSize: CGFloat = 52
 
@@ -85,6 +84,7 @@ final class ScreenSnapshotTests: XCTestCase {
         }
 
         prepare(app, screen: screen)
+        if screen == "darkStart" { assertDarkStart(app, language: lang.code) }
         Thread.sleep(forTimeInterval: 1.0)  // 組み直しと文字の測りが落ち着くのを待つ(研究の巻き取りの成否は下のポーリングで決める)
         let researchStatus = screen == "research" ? waitForResearchSection(app, language: lang.code, screen: screen) : nil
 
@@ -145,9 +145,22 @@ final class ScreenSnapshotTests: XCTestCase {
             _ = element(app, "statusBand").waitForExistence(timeout: 30)
         case "bootFailure":
             _ = element(app, "contentError").waitForExistence(timeout: 30)
+        case "darkStart":
+            _ = element(app, "darkStartAct").waitForExistence(timeout: 30)
         default:
             XCTFail("知らない画面: \(screen)")
         }
+    }
+
+    private func assertDarkStart(_ app: XCUIApplication, language: String) {
+        for id in ["map", "statusBand", "footCard", "tab-map", "tab-design", "tab-notes", "tab-base", "tab-crew"] {
+            XCTAssertFalse(element(app, id).exists, "\(language)_darkStart: \(id) が出ている")
+        }
+        let action = element(app, "darkStartAct")
+        XCTAssertTrue(action.exists, "\(language)_darkStart: 行為が出ない")
+        let window = app.windows.firstMatch.frame
+        XCTAssertGreaterThanOrEqual(action.frame.height, 44, "\(language)_darkStart: 行為が小さい")
+        XCTAssertGreaterThanOrEqual(action.frame.midY, window.midY, "\(language)_darkStart: 行為が下半分にない")
     }
 
     /// 研究の最初の行が上半分に来るまで待つ。写真はこの判定の後に撮る。

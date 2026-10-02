@@ -18,6 +18,8 @@ public actor GameHost {
     public private(set) var frame: Frame
     public private(set) var replayLog: [(step: Int64, command: Command)] = []
     private var revision = 0
+    /// 保留中の最初の行為だけに使う実時間の端数。保存しない。
+    private var heldCarry: Int64 = 0
 
     public init(simulation: Simulation, world: WorldState) {
         self.simulation = simulation
@@ -31,13 +33,20 @@ public actor GameHost {
     public func send(_ command: Command) -> (frame: Frame, report: StepReport) {
         replayLog.append((world.clock.now.seconds / SimStep.gameSeconds, command))
         let r = simulation.apply(command, to: &world)
+        if !world.clock.held { heldCarry = 0 }
         return (rebuild(r), r)
     }
 
     /// 昼の実時間を進める(画面のタイマーから。止めているときは呼ばない)。
     @discardableResult
     public func tick(realSeconds: Double) -> (frame: Frame, report: StepReport) {
-        let r = simulation.advance(&world, realSeconds: realSeconds)
+        let r: StepReport
+        if world.clock.held {
+            r = simulation.advanceHeld(&world, realSeconds: realSeconds, carry: &heldCarry)
+        } else {
+            heldCarry = 0
+            r = simulation.advance(&world, realSeconds: realSeconds)
+        }
         guard r.steps > 0 || !r.events.isEmpty else { return (frame, r) }
         return (rebuild(r), r)
     }
@@ -45,6 +54,7 @@ public actor GameHost {
     /// 保存から戻す・巻き戻すなどで世界を差し替える。
     public func replace(world w: WorldState) -> Frame {
         world = w
+        heldCarry = 0
         revision += 1
         frame = builder.build(w, revision: revision, previous: nil, report: nil)
         return frame

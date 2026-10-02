@@ -32,7 +32,7 @@ final class PrologueTests: XCTestCase {
         }
         """#.utf8), to: &content)
         content.start.events = ["event.test.prologue"]
-        content.start.clock = StartClockDef(held: true)
+        content.start.clock = StartClockDef(held: true, firstAct: "interaction.test.prologue")
         return TestRig(content: content)
     }
 
@@ -81,6 +81,7 @@ final class PrologueTests: XCTestCase {
         XCTAssertTrue(world.clock.held)
         XCTAssertEqual(world.clock.now, start)
         XCTAssertEqual(try XCTUnwrap(FrameBuilder(content: rig.content).footCard(world, at: world.map.spawn.point)).actions.count, 1)
+        XCTAssertEqual(frame(rig, world).darkStart?.action.id, "interaction.test.prologue")
     }
 
     func testPrologueRejectsWalkActionAndSleepWithoutChangingWorld() throws {

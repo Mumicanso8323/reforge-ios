@@ -6,6 +6,8 @@ import ReForgeEngine
 struct GameScreen: View {
     @Bindable var app: AppModel
     let store: GameStore
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var mapVisible = false
 #if DEBUG
     // 撮る起動(Debug/ScreenshotMode.swift)は、最初のタブと設定の札を外から決める
     @State private var tab: GameTab = ScreenshotMode.firstTab
@@ -15,6 +17,30 @@ struct GameScreen: View {
 #endif
 
     var body: some View {
+        Group {
+            if let darkStart = store.darkStart {
+                DarkStartScene(action: darkStart.action, store: store)
+            } else {
+                game
+            }
+        }
+        .background(InkColor.field)
+        .task { await store.run() }
+        .onAppear { mapVisible = store.darkStart == nil }
+        .onChange(of: store.darkStart) { old, new in
+            guard old != nil, new == nil else { return }
+            mapVisible = false
+            withAnimation(.easeOut(duration: reduceMotion ? 0.3 : 0.8)) {
+                mapVisible = true
+            }
+        }
+        .onChange(of: store.requestedTab) { _, t in
+            // パネルからの切り替え(置くモードで地図へ。U18)
+            if let t { tab = t; store.requestedTab = nil }
+        }
+    }
+
+    private var game: some View {
         VStack(spacing: 0) {
             if store.prologue == nil {
                 StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed || ArtProvider.shared.failed)
@@ -25,6 +51,18 @@ struct GameScreen: View {
                 MapCanvasView(store: store)
                     .opacity(tab == .map ? 1 : 0)
                     .allowsHitTesting(tab == .map)
+                    .opacity(mapVisible ? 1 : 0)
+                    .mask {
+                        if reduceMotion {
+                            Rectangle()
+                        } else {
+                            GeometryReader { geo in
+                                Circle()
+                                    .scale(mapVisible ? 4 : 0.001)
+                                    .position(x: geo.size.width / 2, y: geo.size.height / 2)
+                            }
+                        }
+                    }
                 if tab != .map {
                     PanelView(tab: tab, app: app, store: store)
                 }
@@ -45,17 +83,11 @@ struct GameScreen: View {
             }
         }
         .padding(.vertical, AdLayout.contentGap)
-        .background(InkColor.field)
 #if DEBUG
         .inkCard(isPresented: $showScreenshotSettings, title: Text("設定")) {
             SettingsView(app: app, close: { showScreenshotSettings = false })
         }
 #endif
-        .task { await store.run() }
-        .onChange(of: store.requestedTab) { _, t in
-            // パネルからの切り替え(置くモードで地図へ。U18)
-            if let t { tab = t; store.requestedTab = nil }
-        }
     }
 }
 

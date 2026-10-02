@@ -15,6 +15,33 @@ final class AppTests: XCTestCase {
 
     private func content() throws -> ContentDB { try AppModel.loadBundledContent(bundle: .main) }
 
+    /// 公開の束だけで、保留中の最初の押し続ける行為を作る。地図を見る試験はこれを終えてから確かめる。
+    private func heldStartContent() throws -> (content: ContentDB, world: WorldState) {
+        var db = try content()
+        var world = GameBootstrap.newWorld(content: db, seed: 3)
+        let position = try XCTUnwrap(world.people[.noah]?.position)
+        let terrain = try XCTUnwrap(world.map[position.layer]?.terrain(at: position.point))
+        let tag = try XCTUnwrap(db.terrains[terrain]?.tags.first)
+        db.interactions.removeAll()
+        try ContentLoader.apply(json: Data(#"""
+        {
+          "interactions": [
+            { "id": "interaction.test.start", "target": { "terrain": { "tag": "\#(tag)" } }, "seconds": 5,
+              "hold": true, "yields": [] }
+          ]
+        }
+        """#.utf8), to: &db)
+        var first = try XCTUnwrap(db.interactions["interaction.test.start"])
+        first.effects = [.placeStructure(structure: "structure.campfire", at: .trigger, built: true),
+                         .hearth(at: .trigger, op: .ignite())]
+        db.interactions[first.id] = first
+        db.structures["structure.campfire"]?.hearth?.initialSeconds = 0
+        db.structures["structure.campfire"]?.hearth?.igniteSeconds = 60
+        db.start.clock = StartClockDef(held: true, firstAct: first.id)
+        world.clock.held = true
+        return (db, world)
+    }
+
     /// 非公開の層は序の場面(W-16)から始まる。地図や命令を確かめるテストは、序を読み終えてから見る。
     /// 公開の層には序が無いので、そのまま抜ける。
     private func readThroughPrologue(_ store: GameStore) async throws {
@@ -23,6 +50,17 @@ final class AppTests: XCTestCase {
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         XCTAssertNil(store.prologue, "序を読み終えた")
+    }
+
+    private func startDarkStartAction(_ store: GameStore) async throws {
+        let action = try XCTUnwrap(store.darkStart?.action, "最初の行為の前は暗い場面を出す")
+        store.act(action, pressing: true)
+        for _ in 0..<100 where store.darkStart != nil {
+            try await Task.sleep(nanoseconds: 20_000_000)
+            let (frame, _) = await store.host.tick(realSeconds: 0.25)
+            await store.refresh(frame)
+        }
+        XCTAssertNil(store.darkStart, "最初の行為で火が点いた後は通常画面になる")
     }
 
     func testBundledContentLoads() throws {
@@ -49,28 +87,43 @@ final class AppTests: XCTestCase {
     }
 
     func testNewGameLoadsMapChunksAndFootCard() async throws {
-        let c = try content()
-        let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3), saves: tempSaves())
+        let start = try heldStartContent()
+        let store = GameStore(content: start.content, world: start.world, saves: tempSaves())
         await store.load()
-        let startsWithPrologue = store.prologue != nil
         try await readThroughPrologue(store)
+        try await startDarkStartAction(store)
         XCTAssertEqual(store.chunks.count, store.mapView.chunkColumns * store.mapView.chunkRows, "全区画を引いた")
         XCTAssertNotNil(store.focus, "ノアの位置に追従する")
         XCTAssertNotNil(store.footCard, "足元カードはノアの足元")
         XCTAssertTrue(store.actors.contains { $0.isNoah })
-        // 序から始まる層では、序を読み終えた直後の時計は、次の 1 歩まで止まったままに見える。序の無い層だけ確かめる。
-        if !startsWithPrologue { XCTAssertTrue(store.clock.running) }
+        XCTAssertTrue(store.clock.running)
     }
 
     /// 断られた操作は足元カードに 1 行(ダイアログは出さない)。
     func testRejectedCommandShowsNotice() async throws {
-        let c = try content()
-        let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3), saves: tempSaves())
+        let start = try heldStartContent()
+        let store = GameStore(content: start.content, world: start.world, saves: tempSaves())
         await store.load()
         try await readThroughPrologue(store)
+        try await startDarkStartAction(store)
         store.choose(.sleep)
         for _ in 0..<100 where store.notice == nil { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertEqual(store.notice, "まだ昼だ")
+    }
+
+    func testHeldStartUsesAndClearsDarkStartAction() async throws {
+        let start = try heldStartContent()
+        let store = GameStore(content: start.content, world: start.world, saves: tempSaves())
+        await store.load()
+        let action = try XCTUnwrap(store.darkStart?.action)
+        store.act(action, pressing: true)
+        for _ in 0..<100 where store.darkStart != nil {
+            try await Task.sleep(nanoseconds: 20_000_000)
+            let (frame, _) = await store.host.tick(realSeconds: 0.25)
+            await store.refresh(frame)
+        }
+        XCTAssertNil(store.darkStart)
+        XCTAssertTrue(store.clock.running)
     }
 
     /// 背面に回ると「つづきから」が書かれ、読み直すと同じ世界から続く。
