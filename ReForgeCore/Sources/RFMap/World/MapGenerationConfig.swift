@@ -26,6 +26,8 @@ public struct MapGenerationConfig: Codable, Equatable, Sendable {
     public var vision: VisionRule
     /// コンテンツが決める場所(砦など。U16)。nil・空なら何も置かず、乱数も引かない。
     public var sites: [SiteRule]?
+    /// 岩山の奥の鉱脈(U19)。nil なら置かず、乱数も引かない。
+    public var deepVein: DeepVeinRule?
 
     public init(size: MapSize, landmarks: LandmarkRules? = nil, biomes: BiomeThresholds? = nil, denseCellLimit: Int = 1 << 20,
                 chunkSize: Int = 64, poiPercentPerCell: Int = 16, depositPercentPerCell: Int = 12,

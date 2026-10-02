@@ -113,6 +113,7 @@ enum WorldMapGenerator {
         var layer = MapLayer(id: .surface, terrain: terrain)
         placeFixedContent(&layer, landmarks: landmarks, seed: seed)
         if let sites = config.sites, !sites.isEmpty { Sites.place(sites, in: &layer, landmarks: landmarks, seed: seed) }
+        if let rule = config.deepVein { DeepVein.place(rule, in: &layer, landmarks: landmarks, seed: seed) }
 
         // 初期の既知(原作: 拠点の範囲 +3)
         let b = landmarks.base

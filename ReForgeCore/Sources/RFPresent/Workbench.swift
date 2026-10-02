@@ -116,6 +116,10 @@ public struct DocumentPage: Equatable, Sendable {
     public var title: String
     public var body: String
     public var source: String?
+    /// 読める割合(千分率。資料に段があるときだけ。U19)。
+    public var readablePermille: Int? = nil
+    /// いまの修理の段階(資料に段があるときだけ)。
+    public var repairStage: Int? = nil
 }
 
 extension PresentSubject {
@@ -214,7 +218,9 @@ extension FrameBuilder {
         guard let d = content.documents[id],
               ConditionEvaluator.evaluatePure(d.when, world: w, content: content) == true else { return nil }
         let p = Perceiver(content: content, world: w)
-        return DocumentPage(id: id, title: p.text(d.title), body: p.text(d.body), source: d.source.map { p.name($0) })
+        let r = Documents.reading(d, in: w)
+        return DocumentPage(id: id, title: p.text(d.title), body: p.text(r.body), source: d.source.map { p.name($0) },
+                            readablePermille: r.readablePermille, repairStage: r.repairStage)
     }
 
     // MARK: - 工程表(発明の出所)

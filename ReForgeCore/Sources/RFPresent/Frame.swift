@@ -200,12 +200,15 @@ public struct TileView: Hashable, Sendable {
     public var fog: Fog
     /// 手がかりの影の文字(fog == .hint のとき)。
     public var shadow: String?
+    /// 暗闇でも描く光る印(見え方の glow)。夜の灯りの外でも、既知か手がかりのマスなら描く。
+    public var glow: Bool
 
-    public init(glyph: String, tint: String, fog: Fog, shadow: String? = nil) {
+    public init(glyph: String, tint: String, fog: Fog, shadow: String? = nil, glow: Bool = false) {
         self.glyph = glyph
         self.tint = tint
         self.fog = fog
         self.shadow = shadow
+        self.glow = glow
     }
 
     public static let void = TileView(glyph: "", tint: TilePalette.void, fog: .unknown)

@@ -80,9 +80,12 @@ public struct Variant: Codable, Equatable, Sendable {
     /// 品の名前の色の系統(品・物質の見え方のときだけ)。無ければ中立の色。
     /// 色は真実の素材からではなく、この見え方から決める(色で真実がばれないように。docs/art/README.md §1.3)。
     public var tint: ItemTint?
+    /// 暗闇でも描く光る印(端末の光など。U19)。地図のマス(POI・部品・鉱脈・地形)の見え方のときだけ。
+    public var glow: Bool?
 
     public init(when: FactExpr, name: TextID? = nil, description: TextID? = nil, display: StatDisplay? = nil,
-                glyph: String? = nil, announce: Bool? = nil, tint: ItemTint? = nil) {
+                glyph: String? = nil, announce: Bool? = nil, tint: ItemTint? = nil, glow: Bool? = nil) {
+        self.glow = glow
         self.when = when
         self.name = name
         self.description = description

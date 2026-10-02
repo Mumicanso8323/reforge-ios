@@ -63,6 +63,9 @@ enum Handwork {
         var s = HandworkSession(id: def.id, input: nil, holding: true, at: pos)
         if def.onDeposit == true {
             guard let d = depositNear(pos, w) else { return .failure(Rejection(ProductionText.handworkNeedsDeposit)) }
+            if let dep = w.map[pos.layer]?.deposits[d], let r = MiningRules.check(dep, world: w, content: content) {
+                return .failure(r)
+            }
             s.deposit = d
             return .success(s)
         }
