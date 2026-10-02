@@ -35,48 +35,34 @@ struct GameScreen: View {
     }
 }
 
-/// 地図以外のタブ。いまは枠だけ(設計の縦の工程表・ノート・拠点・仲間は各担当の中身が入ってから)。
+/// 地図以外のタブ。中身はタブごとのファイルに分ける(担当がぶつからないように。F §4):
+/// - 設計 `Tabs/DesignTab.swift`・ノート `Tabs/NotesTab.swift`: U17
+/// - 拠点 `Tabs/BaseTab.swift`・仲間 `Tabs/CrewTab.swift`・`GameOverView.swift`・`TabBarView.swift`: U18
+/// - 色・書体・部品 `Theme/`: art-director
+/// このファイル(並べ方)は統合担当。タブを足すときは GameTab に case を足し、ここに 1 行足す。
 struct PanelView: View {
     let tab: GameTab
     @Bindable var app: AppModel
     let store: GameStore
-    @State private var showSettings = false
+
+    var body: some View {
+        switch tab {
+        case .map: EmptyView()
+        case .design: DesignTabView(app: app, store: store)
+        case .notes: NotesTabView(app: app, store: store)
+        case .base: BaseTabView(app: app, store: store)
+        case .crew: CrewTabView(app: app, store: store)
+        }
+    }
+}
+
+/// タブの中身の仮の枠(各担当が置き換えるまでの共通の見た目)。
+struct PlaceholderPanel<Content: View>: View {
+    @ViewBuilder var content: Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            switch tab {
-            case .map:
-                EmptyView()
-            case .design:
-                Text("設計").font(.custom(FontBook.mapFont, size: 20)).bold()
-                Text("縦の工程表で並びを決め、試したり札にしたりする画面です。まだできていません。")
-            case .notes:
-                Text("ノート").font(.custom(FontBook.mapFont, size: 20)).bold()
-                Text("試したこと・所見・素材の図鑑が載ります。まだできていません。")
-            case .base:
-                Text("拠点").font(.custom(FontBook.mapFont, size: 20)).bold()
-                Text("蓄え・建てた物・セーブが載ります。まだできていません。")
-                Button {
-                    showSettings = true
-                } label: {
-                    Text("設定")
-                }
-                .buttonStyle(.bordered)
-                Button {
-                    Task { await app.backToTitle() }
-                } label: {
-                    Text("タイトルへ")
-                }
-                .buttonStyle(.bordered)
-            case .crew:
-                Text("仲間").font(.custom(FontBook.mapFont, size: 20)).bold()
-                ForEach(store.actors.filter(\.isMember), id: \.id) { a in
-                    HStack(spacing: 8) {
-                        Text(verbatim: a.glyph).frame(width: 24)
-                        Text(verbatim: a.label)
-                    }
-                }
-            }
+            content
             Spacer()
         }
         .font(.custom(FontBook.mapFont, size: 15))
@@ -84,46 +70,5 @@ struct PanelView: View {
         .padding(16)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.black)
-        .sheet(isPresented: $showSettings) {
-            SettingsView(app: app)
-        }
-    }
-}
-
-/// ゲームオーバーの 4 択(同じ重さで並べる。D-save.md §3)。
-/// いまは「最初から」だけが動く(巻き戻し・失って続ける・セーブ地点からは保存と失敗の担当の中身が入ってから)。
-struct GameOverView: View {
-    @Bindable var app: AppModel
-    @State private var confirmRestart = false
-
-    var body: some View {
-        VStack(spacing: 12) {
-            Text("ここまで").font(.custom(FontBook.mapFont, size: 24)).bold()
-            choice(Text("最初から"), enabled: true) { confirmRestart = true }
-            choice(Text("記憶を持って巻き戻す"), enabled: false) {}
-            choice(Text("失って続ける"), enabled: false) {}
-            choice(Text("セーブ地点からロード"), enabled: false) {}
-        }
-        .font(.custom(FontBook.mapFont, size: 16))
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.9))
-        .accessibilityIdentifier("gameOver")
-        .alert(Text("いまの記録を消して最初からはじめますか?"), isPresented: $confirmRestart) {
-            Button(role: .destructive) {
-                app.startNewGame()
-            } label: {
-                Text("最初から")
-            }
-            Button(role: .cancel) {} label: { Text("やめる") }
-        }
-    }
-
-    private func choice(_ label: Text, enabled: Bool, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            label.frame(maxWidth: 280, minHeight: 44)
-        }
-        .buttonStyle(.bordered)
-        .disabled(!enabled)
     }
 }
