@@ -27,6 +27,7 @@ public struct FrameBuilder: Sendable {
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
         let size = proj.size
         var map = MapView(layer: layer, size: size, chunkRevisions: [], vision: vision.areas(w, layer: layer))
+        map.beacons = w.exploration.beacons.sorted { $0.key < $1.key }.compactMap { $0.value.layer == layer ? $0.value.point : nil }
         let count = map.chunkColumns * map.chunkRows
         let signatures = (0..<count).map { proj.signature(map.chunkRect($0)) }
         var revs: [Int]

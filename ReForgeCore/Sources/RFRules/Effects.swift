@@ -274,6 +274,11 @@ public enum EffectApplier {
             guard let at = resolve(place) else { return missing(&ctx, e) }
             ctx.queue(.combat(.startGroupBattle(group: group, near: at, members: members, lethal: lethal ?? true,
                                                 cause: cause)))
+        case .beacon(let id, let place):
+            guard let at = resolve(place) else { return missing(&ctx, e) }
+            ctx.queue(.exploration(.setBeacon(id: id, at: at, cause: cause)))
+        case .clearBeacon(let id):
+            ctx.queue(.exploration(.setBeacon(id: id, at: nil, cause: cause)))
         }
     }
 

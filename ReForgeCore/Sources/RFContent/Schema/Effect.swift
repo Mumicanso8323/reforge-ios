@@ -80,6 +80,11 @@ public enum Effect: Codable, Hashable, Sendable {
     /// (members で名指しできる)。lethal = 倒れた人が死ぬか(既定 true。死者は戻らない)。
     /// 終わると集団の旗 "battle.won" / "battle.lost" / "battle.fled" が立つ(条件 groupFlag で見る)。
     case groupBattle(group: GroupID, at: PlaceSelector, members: [PersonID]? = nil, lethal: Bool? = nil)
+    // U19: 地図の光の点(遠くの灯りなど。暗闇でも描く)
+    /// 地図に光の点を置く(同じ id なら置き直す)。id は中立の名前にする。
+    case beacon(id: String, at: PlaceSelector)
+    /// 光の点を消す(無ければ何もしない)。
+    case clearBeacon(id: String)
 }
 
 /// 部品の状態の名前(RFWorld の PartState と対応)。

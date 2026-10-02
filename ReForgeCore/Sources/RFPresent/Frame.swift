@@ -136,6 +136,8 @@ public struct MapView: Equatable, Sendable {
     public var chunkSignatures: [Int]
     /// いま見えている範囲(一員ごとの円)。この中は明るく、物と生き物も描く。
     public var vision: [VisionArea]
+    /// 地図の光の点(この層のもの。id の順)。暗闇・霧の中でも描く(効果 beacon。U19)。
+    public var beacons: [GridPoint] = []
 
     public init(layer: LayerID, size: GridSize, chunkRevisions: [Int], chunkSignatures: [Int] = [],
                 vision: [VisionArea] = []) {
