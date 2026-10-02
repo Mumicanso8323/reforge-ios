@@ -113,6 +113,7 @@ final class AppModel {
     func startNewGame() {
         guard let content else { return }
         let world = GameBootstrap.newWorld(content: content, seed: UInt64.random(in: .min ... .max))
+        GameStore.forgetLastOperation()
         let g = GameStore(content: content, world: world, saves: saves)
         settingsOpen = false
         game = g
@@ -143,6 +144,7 @@ final class AppModel {
         settingsOpen = false
         game = nil
         try? saves.deleteAll()
+        GameStore.forgetLastOperation()
         hasResume = false
     }
 

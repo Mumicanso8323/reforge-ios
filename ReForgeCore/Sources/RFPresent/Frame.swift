@@ -57,6 +57,8 @@ public struct Frame: Equatable, Sendable {
     public var shadows: [ShadowRow] = []
     /// 戦闘が始まったときの方針(寝ている間の戦闘もこれ)。
     public var defaultStance: BattleState.Stance = .keepDistance
+    /// 夜の締めの 3 行(PT-B2)。日没(夜作業か寝るかを選ぶ帯が出ている間)だけ入る。
+    public var dayWrap: DayWrapView?
 
     public init(revision: Int, clock: ClockView, status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,

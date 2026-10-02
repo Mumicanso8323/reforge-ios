@@ -49,6 +49,10 @@ struct StatusBandView: View {
                     }
                 }
             } else if !store.clock.bandActions.isEmpty {
+                // 夜の締めの 3 行(日没の間だけ。2 つのボタンの上)
+                if let wrap = store.dayWrap, !wrap.isEmpty {
+                    DayWrapLinesView(wrap: wrap)
+                }
                 HStack(spacing: 8) {
                     ForEach(store.clock.bandActions, id: \.self) { a in
                         Button {
@@ -61,6 +65,9 @@ struct StatusBandView: View {
                         .accessibilityIdentifier(a == .sleep ? "sleepButton" : "nightWorkButton")
                     }
                 }
+            }
+            if let r = store.resumeBanner {
+                ResumeBannerView(line: r)
             }
             if sealedContentFailed {
                 Text("物語のデータを読めなかったので、試遊用のデータで動いています")

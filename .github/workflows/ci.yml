@@ -173,6 +173,7 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS=REFORGE_DEV \
             build > build.log 2>&1 \
             || { grep -B2 -A8 "error:" build.log | head -200; tail -60 build.log; exit 1; }
           grep -E "\*\* BUILD" build.log || true
