@@ -227,6 +227,10 @@ struct ContentFile: Codable {
         case fields, exploreEvents, exploration, base
         // 画面の要素の解放(U18)
         case uiGates
+        // 図鑑の影の欄(U17)
+        case codexShadows
+        // 深さの気配(U19)
+        case hintThemes, depthHints, mining
     }
 
     /// 人が読むための注記のキー(読み飛ばす)。
@@ -288,6 +292,10 @@ struct ContentFile: Codable {
     var exploration: ExplorationDef?
     var base: BaseDef?
     var uiGates: [UIGateDef]?
+    var codexShadows: [CodexShadowDef]?
+    var hintThemes: [HintTheme]?
+    var depthHints: [DepthHint]?
+    var mining: MiningDef?
 
     func apply(to db: inout ContentDB, file: String, seen: inout LayerKeys) throws {
         var dups: [String] = []
@@ -373,6 +381,10 @@ struct ContentFile: Codable {
         if let v = exploration { db.exploration = v }
         if let v = base { db.base = v }
         upsert("uiGates", &db.uiGates, uiGates)
+        upsert("codexShadows", &db.codexShadows, codexShadows)
+        upsert("hintThemes", &db.hintThemes, hintThemes)
+        upsert("depthHints", &db.depthHints, depthHints)
+        if let v = mining { db.mining = v }
         if !dups.isEmpty { throw ContentLoader.LoadError.duplicate(file: file, keys: dups.sorted()) }
         for (collection, ids) in (remove ?? [:]).sorted(by: { $0.key < $1.key }) {
             guard Self.remove(collection, ids, from: &db) else {
@@ -422,7 +434,10 @@ struct ContentFile: Codable {
         case "texts": drop(&db.texts)
         case "fields": drop(&db.fields)
         case "exploreEvents": drop(&db.exploreEvents)
+        case "hintThemes": drop(&db.hintThemes)
+        case "depthHints": for id in ids { db.depthHints[id] = nil }
         case "uiGates": drop(&db.uiGates)
+        case "codexShadows": drop(&db.codexShadows)
         case "glyphs": drop(&db.glyphs)
         case "auditStages": db.auditStages.removeAll { ids.contains($0.id) }
         case "latinAllowed": db.latinAllowed.removeAll { ids.contains($0) }

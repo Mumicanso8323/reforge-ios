@@ -26,8 +26,30 @@ public struct ExplorationState: Codable, Equatable, Sendable {
     public var farthest: Int = 0
     /// 探索範囲(1 から。原作 ExplorationRange)。出来事・場の解放に使う。
     public var range: Int = 1
+    /// 地図の光の点(id → 位置。効果 beacon が置く。U19)。古いセーブには無い(空で読む)。
+    public var beacons: [String: WorldPoint] = [:]
 
     public init() {}
+
+    enum CodingKeys: String, CodingKey {
+        case poi, interactionCounts, active, harvestedDay, exploredRegions, exploreFired, lastPositions, nearPOI
+        case farthest, range, beacons
+    }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        poi = try c.decode([EntityID: POIProgress].self, forKey: .poi)
+        interactionCounts = try c.decode([String: Int].self, forKey: .interactionCounts)
+        active = try c.decode([PersonID: ActiveInteraction].self, forKey: .active)
+        harvestedDay = try c.decode([String: Int].self, forKey: .harvestedDay)
+        exploredRegions = try c.decode([String: GridBitset].self, forKey: .exploredRegions)
+        exploreFired = try c.decode([EventID: Int].self, forKey: .exploreFired)
+        lastPositions = try c.decode([PersonID: WorldPoint].self, forKey: .lastPositions)
+        nearPOI = try c.decode([PersonID: EntityID].self, forKey: .nearPOI)
+        farthest = try c.decode(Int.self, forKey: .farthest)
+        range = try c.decode(Int.self, forKey: .range)
+        beacons = try c.decodeIfPresent([String: WorldPoint].self, forKey: .beacons) ?? [:]
+    }
 
     /// 区画のビット列のキー(層 × 場。場の無い地形は "-")。
     public static func regionKey(_ layer: LayerID, field: String?) -> String { "\(layer.rawValue)|\(field ?? "-")" }

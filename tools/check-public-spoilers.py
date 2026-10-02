@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """公開リポジトリに物語の語(非公開の層の禁止語)が入っていないかを確かめる。
 
-照らし合わせる語は、非公開の層の perception/forbidden.json の forbidden[].words(全部の段の語)。
+照らし合わせる語は、非公開の層の perception/forbidden.json の forbidden[].words(全部の段の語)と、
+禁止語から外したが公開には書かない語 tools/public-words.json の publicOnlyWords。
 非公開の層は content/private(または環境変数 REFORGE_PRIVATE_CONTENT)。無ければ何もせずに通す
 (fork の PR など。CI の公開のログに語を出さないため、一致した語そのものは決して表示しない)。
 
@@ -42,6 +43,19 @@ def load_words(layer: pathlib.Path) -> list:
                 for w in rule.get("words") or []:
                     if isinstance(w, str) and w.strip():
                         words.add(w.strip())
+    # 禁止語から外したが(気配として出す等)公開リポジトリには書かない語。読み込みの対象外の tools/ に置く
+    # (ContentLoader は tools/ を読まず、封にも入らない)。形: {"publicOnlyWords": ["…", …]}
+    extra = layer / "tools" / "public-words.json"
+    if extra.is_file():
+        try:
+            data = json.loads(extra.read_text(encoding="utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            data = None
+        if not isinstance(data, dict) or not isinstance(data.get("publicOnlyWords"), list):
+            raise SystemExit("tools/public-words.json の形が違う(publicOnlyWords の配列)")
+        for w in data["publicOnlyWords"]:
+            if isinstance(w, str) and w.strip():
+                words.add(w.strip())
     return sorted(words, key=len, reverse=True)
 
 

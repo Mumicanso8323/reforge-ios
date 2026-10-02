@@ -26,6 +26,8 @@ struct MapScene {
     var preview: PlacementPreview? = nil
     /// 戦闘の場所(U18)。
     var battles: [GridPoint] = []
+    /// 地図の光の点(遠くの灯り。暗闇でも描く。U18・§10 HNT-08)。
+    var beacons: [GridPoint] = []
 
     private struct GlyphKey: Hashable {
         var glyph: String
@@ -81,7 +83,10 @@ struct MapScene {
                     let rect = cellRect(p)
                     let center = CGPoint(x: rect.midX, y: rect.midY)
                     var k = lit
-                    if !visible {
+                    if tile.glow, tile.fog != .unknown {
+                        // 暗闇でも描く光る印(端末の光など。§10 HNT-01)。夜も暗くしない
+                        k = 1.0
+                    } else if !visible {
                         switch tile.fog {
                         case .unknown, .visible:
                             continue
@@ -121,6 +126,13 @@ struct MapScene {
             ctx.fill(Path(rect), with: .color(.black))
             let t = text(pl.glyph, c)
             ctx.draw(t, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
+        }
+
+        // 光の点(霧も夜も関係なく描く)
+        let beaconColor = RGB(240, 230, 170)
+        for b in beacons where b.x >= x0 && b.x < x1 && b.y >= y0 && b.y < y1 {
+            let rect = cellRect(b)
+            ctx.fill(Path(ellipseIn: rect.insetBy(dx: cs * 0.3, dy: cs * 0.3)), with: .color(beaconColor.color))
         }
 
         // 戦闘の場所: 赤い枠(帯と同じ相手。止めない)

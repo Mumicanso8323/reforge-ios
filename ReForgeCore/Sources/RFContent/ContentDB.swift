@@ -70,6 +70,14 @@ public struct ContentDB: Equatable, Sendable {
 
     /// 画面の要素を出す条件(U18。表に無い要素はいつも出す)。
     public var uiGates: [UIElementID: UIGateDef] = [:]
+    /// 図鑑の影の欄(U17。Schema/CodexShadows.swift)。
+    public var codexShadows: [CodexShadowID: CodexShadowDef] = [:]
+
+    /// 深さの気配(事実ごとの主題・工業の段の気配)。監査 PerceptionHintAudit が読む。
+    public var hintThemes: [FactID: HintTheme] = [:]
+    public var depthHints: [String: DepthHint] = [:]
+    /// 掘る規則(刃の段と鉱脈の硬さ)。無ければどの鉱脈も掘れる。
+    public var mining = MiningDef()
 
     // 認識の層
     public var perception: [SubjectID: SubjectDef] = [:]

@@ -117,6 +117,8 @@ public enum POITest: Codable, Hashable, Sendable {
     case flag(name: String)
     /// その状態の部品の数。
     case partsInState(state: PartStateName, atLeast: Int)
+    /// 部品の修理の段階(POIProgress.repair。0 = 壊れたまま)が stage 以上(U19)。
+    case repairAtLeast(part: String, stage: Int)
 }
 
 /// 工程表の進みの調べ方。

@@ -1,0 +1,72 @@
+*** Program crashed: Illegal instruction at 0x000076bdbca5f78a ***
+
+Thread 0 "ReForgeCorePack" crashed:
+
+0               0x000076bdbca5f78a swift_slowAlloc + 74 in libswiftCore.so
+1 [ra]          0x000076bdbca5fa67 swift_allocObject + 38 in libswiftCore.so
+2 [ra]          0x000076bdbc785012 _ContiguousArrayBuffer._consumeAndCreateNew(bufferIsUnique:minimumCapacity:growForAppend:) + 177 in libswiftCore.so
+3 [ra]          0x000076bdbc7a5784 ContiguousArray._createNewBuffer(bufferIsUnique:minimumCapacity:growForAppend:) + 19 in libswiftCore.so
+4 [ra] [system] 0x0000570ddad79a90 Collection.map<A, B>(_:) + 399 in ReForgeCorePackageTests.xctest at //<compiler-generated>
+5 [ra]          0x0000570ddbac4874 static ForbiddenAudit.stages(_:) + 611 in ReForgeCorePackageTests.xctest at /w/ReForgeCore/Sources/RFPerception/ForbiddenAudit.swift:137:14
+6 [ra]          0x0000570ddbac6d27 static ForbiddenAudit.auditFixedStrings(_:content:origin:) + 246 in ReForgeCorePackageTests.xctest at /w/ReForgeCore/Sources/RFPerception/ForbiddenAudit.swift:116:19
+
+Thread 1:
+
+0      0x000076bdbade6e51 <unknown> in libc.so.6
+1 [ra] 0x000076bdbadf2e73 <unknown> in libc.so.6
+
+Thread 2:
+
+0      0x000076bdbae782d2 <unknown> in libc.so.6
+1 [ra] 0x000076bdbc382e15 _dispatch_event_loop_drain + 52 in libdispatch.so
+
+Thread 3:
+
+0      0x000076bdbade6e51 <unknown> in libc.so.6
+1 [ra] 0x000076bdbadf2e73 <unknown> in libc.so.6
+
+Thread 4:
+
+0      0x000076bdbade6e51 <unknown> in libc.so.6
+1 [ra] 0x000076bdbadf2e73 <unknown> in libc.so.6
+
+Thread 5:
+
+0      0x000076bdbade6e51 <unknown> in libc.so.6
+1 [ra] 0x000076bdbadf2e73 <unknown> in libc.so.6
+
+
+Registers:
+
+rax 0x0000000000000000  0
+rdx 0x0000570df0489738  00 00 00 00 00 00 00 00 30 35 bd bc bd 76 00 00  ········05½¼½v··
+rcx 0x000076bdbca5f800  55 48 89 e5 53 50 48 89 fb 48 89 f7 48 89 d6 e8  UH·åSPH·ûH·÷H·Öè
+rbx 0x901232cfda201010  10381415959341568016
+rsi 0x901232cfda201010  10381415959341568016
+rdi 0x0000000000000007  7
+rbp 0x00007ffc2354b1c0  e0 b1 54 23 fc 7f 00 00 67 fa a5 bc bd 76 00 00  à±T#ü···gú¥¼½v··
+rsp 0x00007ffc2354b1b0  e0 b1 54 23 fc 7f 00 00 03 5f 8e bc bd 76 00 00  à±T#ü····_·¼½v··
+ r8 0x0000570df035b010  07 00 07 00 07 00 07 00 07 00 07 00 04 00 05 00  ················
+ r9 0x0000000000000007  7
+r10 0x0000570df0c20950  00 21 9b 80 08 57 00 00 57 7d ca 58 07 97 d1 91  ·!···W··W}ÊX··Ñ·
+r11 0x91d1970758ca7d57  10507345463442308439
+r12 0x0000000000000000  0
+r13 0x901232cfda201010  10381415959341568016
+r14 0x0000000000000007  7
+r15 0x0000000000000028  40
+rip 0x000076bdbca5f78a  0f 0b 0f 1f 40 00 55 48 89 e5 48 83 ec 10 48 89  ····@·UH·åH·ì·H·
+
+rflags 0x0000000000010246  ZF PF
+
+cs 0x0033  fs 0x0000  gs 0x0000
+
+
+Images (18 omitted):
+
+0x0000570ddac8f000–0x0000570ddcec7018 b9528445578ef92303a81325d53efd39b578e40f ReForgeCorePackageTests.xctest /w/ReForgeCore/.build/x86_64-unknown-linux-gnu/debug/ReForgeCorePackageTests.xctest
+0x000076bdbad4e000–0x000076bdbaefe039 a4a7992a8e66555c8141ab2a08a8465ff6e0ea65 libc.so.6                      /usr/lib/x86_64-linux-gnu/libc.so.6
+0x000076bdbc347000–0x000076bdbc38f7d8 1335147e9c8f11cf8ac61fbec81dbb2353500581 libdispatch.so                 /usr/lib/swift/linux/libdispatch.so
+0x000076bdbc628000–0x000076bdbcbb8068 afcf8be5755a9d9ff54e5848f5bb5161b45e8922 libswiftCore.so                /usr/lib/swift/linux/libswiftCore.so
+
+Backtrace took 2.23s
+

@@ -255,7 +255,9 @@ enum Interactions {
             return .failure(none)
         case .deposit:
             guard let d = layer.deposits.deposit(at: at.point) else { return .failure(none) }
+            if let cats = def.depositCategories, !cats.contains(d.category) { return .failure(none) }
             guard !d.isDepleted else { return .failure(Rejection("reason.explore.depleted")) }
+            if let r = MiningRules.check(d, extra: def.bladeTier, world: w, content: content) { return .failure(r) }
             return .success(ResolvedTarget(deposit: d.id, cells: [at.point], layer: at.layer))
         case .structure(let kind):
             return placed(.structure(kind), at: at, world: w).map { .success($0) } ?? .failure(none)

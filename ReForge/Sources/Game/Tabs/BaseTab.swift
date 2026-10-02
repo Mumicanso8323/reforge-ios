@@ -17,10 +17,10 @@ struct BaseTabView: View {
             if let base {
                 if store.ui.isOpen(UIElements.baseStock) { stock(base) }
                 built(base)
-                if store.ui.isOpen(UIElements.baseBuild), !base.buildable.isEmpty { build(base) }
+                if store.ui.isOpen(UIElements.baseBuild), !base.buildable.isEmpty || base.unknownStructures > 0 { build(base) }
                 if store.ui.isOpen(UIElements.baseLines), !base.lines.isEmpty { lines(base) }
             }
-            if store.ui.isOpen(UIElements.research), let research, !research.entries.isEmpty {
+            if store.ui.isOpen(UIElements.research), let research, !research.entries.isEmpty || research.hiddenCount > 0 {
                 ResearchSection(view: research, store: store)
             }
             if store.ui.isOpen(UIElements.saveManual) { saves }
@@ -86,6 +86,12 @@ struct BaseTabView: View {
                 .buttonStyle(.inkRow)
                 .accessibilityIdentifier("build-\(o.kind.rawValue)")
             }
+            if v.unknownStructures > 0 {
+                // 建てられない物の影(名前は出さない。§10 HNT-13)
+                InkRow(glyph: "？", title: Text(verbatim: "？"), value: Text("×\(v.unknownStructures)"))
+                    .foregroundStyle(InkColor.textDim)
+                    .accessibilityIdentifier("buildUnknown")
+            }
         }
     }
 
@@ -150,6 +156,12 @@ struct ResearchSection: View {
                 .buttonStyle(.inkRow)
                 .disabled(e.status == .locked || e.status == .done)
                 .accessibilityIdentifier("research-\(e.id.rawValue)")
+            }
+            if view.hiddenCount > 0 {
+                // 深さの気配: 名前は出さず、数だけ(§10 HNT-16)
+                InkRow(glyph: "？", title: Text("この先にまだ \(view.hiddenCount) 件"))
+                    .foregroundStyle(InkColor.textDim)
+                    .accessibilityIdentifier("researchHidden")
             }
         }
     }

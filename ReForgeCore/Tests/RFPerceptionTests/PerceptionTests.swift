@@ -289,6 +289,13 @@ final class PerceptionTests: XCTestCase {
         XCTAssertTrue(v.description.contains("rule.test.a"), v.description)
     }
 
+    /// 文字列カタログのキーの書式の指定(%lld・%@・%%)は、英字の ID の漏れの検査に当たらない。指定の外の ID は今までどおり当たる。
+    func testFixedStringFormatSpecifiersAreNotIDs() throws {
+        let db = try TestContent.publicOnly()
+        XCTAssertEqual(ForbiddenAudit.auditFixedStrings(["建造中 %lld%%", "「%@」", "%1$@・%2$lld日目"], content: db, origin: "x"), [])
+        XCTAssertFalse(ForbiddenAudit.auditFixedStrings(["%lld iron_ore"], content: db, origin: "x").isEmpty)
+    }
+
     /// アプリの画面の固定文言(Localizable.xcstrings)も、重ねたコンテンツの規則で全段 0 件。
     func testAppStringCatalogPassesRules() throws {
         let url = TestContent.repoRoot.appendingPathComponent("ReForge/Resources/Localizable.xcstrings")

@@ -60,6 +60,8 @@ final class WorkbenchTests: XCTestCase {
         let before = try XCTUnwrap(b.sheet(.draft(steps: steps, input: sel), in: w))
         XCTAssertEqual(before.rows.map(\.title), ["炉"])
         XCTAssertEqual(before.rows[0].step, 0)
+        XCTAssertEqual(before.rows[0].inputs.count, 1, "段に入れた物は名前の並びで渡す(区切りは画面)")
+        XCTAssertNil(before.rows[0].note)
         XCTAssertNil(before.rows[0].forecast)
         XCTAssertNil(before.expected)
         XCTAssertEqual(before.head?.percent, 30)
@@ -145,4 +147,54 @@ final class WorkbenchTests: XCTestCase {
         let f2 = b.build(w, revision: 3, previous: f1, report: r)
         XCTAssertEqual(f2.benchRevision, 3)
     }
+
+    /// 図鑑の影: 品の欄(正体が分かるまで埋まらない)・造語の名前だけの欄・条件つきの欄。答えは出さず、欄があることだけを出す。
+    func testCodexShadowsShowDepthNotAnswers() throws {
+        let rig = try TestRig.publicOnly()
+        let b = FrameBuilder(content: rig.content)
+        var ctx = StepContext(world: rig.factory.newWorld(seed: 1), content: rig.content)
+        var codex = b.notebook(in: ctx.world).codex
+        let ore = try XCTUnwrap(codex.first { $0.item })
+        XCTAssertEqual(ore.name, "見慣れない石")
+        XCTAssertFalse(ore.made)
+        XCTAssertTrue(codex.contains { $0.name == "試験の造語の欄" && !$0.made })
+        XCTAssertFalse(codex.contains { $0.name == "あとで出る試験の欄" })
+        ctx.learn("fact.test.alpha")
+        ctx.learn("fact.test.revealed")
+        codex = b.notebook(in: ctx.world).codex
+        XCTAssertTrue(codex.contains { $0.name == "あとで出る試験の欄" })
+        XCTAssertEqual(codex.first { $0.item }?.made, true)
+    }
+
+    /// 作れば埋まる名前の欄は、作った後は本物の行に任せて消える。棚の「？」はまだ知らない段の数。
+    func testTargetShadowDisappearsOnceMadeAndUnknownModuleCount() throws {
+        var c = try TestContent.publicOnly()
+        let rig0 = TestRig(content: c)
+        var w = world(rig0, furnace: true)
+        let sel = try XCTUnwrap(FrameBuilder(content: c).designBench(in: w).materials.first?.selector)
+        var probe = w
+        rig0.simulation.apply(.invention(.trial(input: sel, quantity: 1, steps: steps)), to: &probe)
+        let made = try XCTUnwrap(probe.notebook.trials.last?.outcome.name)
+        c.codexShadows["codex.test.target"] = CodexShadowDef(id: "codex.test.target", name: "misc:codex.test.coined",
+                                                             target: made, order: 9)
+        let rig = TestRig(content: c)
+        let b = FrameBuilder(content: c)
+        let before = b.notebook(in: w).codex.filter { $0.name == "試験の造語の欄" }.count
+        XCTAssertEqual(before, 2, "試験の欄と、作れば埋まる欄")
+        rig.simulation.apply(.invention(.trial(input: sel, quantity: 1, steps: steps)), to: &w)
+        XCTAssertEqual(b.notebook(in: w).codex.filter { $0.name == "試験の造語の欄" }.count, 1)
+
+        let bench = b.designBench(in: w)
+        XCTAssertEqual(bench.unknownModules, c.ruleBook.modules.keys.count - bench.modules.count)
+        XCTAssertGreaterThan(bench.unknownModules, 0)
+    }
+
+    /// 影の欄の名前は認識の表に載る見出しでなければ、検証で止める(気配の監査が見え方を引けるように)。
+    func testCodexShadowNameMustBeInPerception() throws {
+        var c = try TestContent.publicOnly()
+        XCTAssertFalse(ContentValidator.validate(c).contains { $0.rule.hasPrefix("codexShadows") })
+        c.codexShadows["codex.test.bad"] = CodexShadowDef(id: "codex.test.bad", name: "misc:codex.test.missing")
+        XCTAssertTrue(ContentValidator.validate(c).contains { $0.rule == "codexShadows.name" && $0.level == .error })
+    }
 }
+

@@ -44,6 +44,7 @@ struct MapCanvasView: View {
             .overlay(alignment: .bottomTrailing) { recenterButton }
             .overlay(alignment: .top) { bubbles }
             .overlay(alignment: .bottom) { placingBar }
+            .overlay(alignment: .bottom) { forgePanel }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("map")
         }
@@ -72,7 +73,8 @@ struct MapCanvasView: View {
     private func currentScene() -> MapScene {
         MapScene(camera: liveCamera(), map: store.mapView, chunks: store.chunks, actors: store.actors,
                  placements: store.placements, route: store.route, night: store.clock.isNight, elapsed: elapsed,
-                 terrains: store.content.terrains, preview: store.preview, battles: store.battles.map(\.at))
+                 terrains: store.content.terrains, preview: store.preview, battles: store.battles.map(\.at),
+                 beacons: store.mapView.beacons)
     }
 
     // MARK: - 指
@@ -153,6 +155,37 @@ struct MapCanvasView: View {
             .padding(12)
             .accessibilityLabel(Text("ノアに戻る"))
             .accessibilityIdentifier("recenterButton")
+        }
+    }
+
+    /// 残骸のパネル(残骸の装置の資料など)。読める行と ■ の行、読める割合。閉じるまで地図は動いたまま。
+    @ViewBuilder private var forgePanel: some View {
+        if let page = store.panel {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text(verbatim: page.title).font(InkFont.heading)
+                    Spacer()
+                    Button { store.closePanel() } label: { Text("閉じる") }
+                        .buttonStyle(.ink(.quiet, fill: false))
+                        .accessibilityIdentifier("panelClose")
+                }
+                if let r = page.readablePermille {
+                    Text("読める割合 \(r / 10)%")
+                    .font(InkFont.small)
+                    .foregroundStyle(InkColor.textDim)
+                }
+                ScrollView {
+                    Text(verbatim: page.body)
+                        .font(.custom(FontBook.mapFont, size: 14))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .frame(maxHeight: 260)
+            }
+            .foregroundStyle(InkColor.text)
+            .padding(InkMetric.gutter)
+            .background(InkColor.panel.opacity(0.96))
+            .overlay(alignment: .top) { Rectangle().fill(InkColor.accent).frame(height: 2) }
+            .accessibilityIdentifier("forgePanel")
         }
     }
 

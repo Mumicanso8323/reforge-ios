@@ -1,0 +1,23 @@
+{
+  "//": "深さの気配の試験用の表(U19)。本物は非公開の層の perception/hints.json",
+  "hintThemes": [
+    {
+      "fact": "fact.test.revealed",
+      "stage": "start",
+      "hnt": ["HNT-T1"],
+      "subjects": ["item:test_ore"]
+    },
+    {
+      "fact": "fact.test.gamma",
+      "none": "試験: 気配を置かない事実"
+    }
+  ],
+  "depthHints": [
+    {
+      "hnt": "HNT-T2",
+      "what": "試験: 工業の段の気配",
+      "stage": "revealed",
+      "subjects": ["module:furnace"]
+    }
+  ]
+}

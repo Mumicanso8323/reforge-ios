@@ -33,8 +33,13 @@ struct ProcessSheetView: View {
                 }
             }
             if let h = sheet.head {
-                Text(verbatim: "\(h.name) ── 手: \(SenseWords.phrase(h.percent))")
-                    .foregroundStyle(InkColor.accent)
+                HStack(spacing: 6) {
+                    Text(verbatim: h.name)
+                    Text(verbatim: "──")
+                    Text("手:")
+                    SenseWords.phrase(h.percent)
+                }
+                .foregroundStyle(InkColor.accent)
                 connector
             }
             ForEach(Array(sheet.rows.enumerated()), id: \.offset) { i, row in
@@ -64,6 +69,9 @@ struct ProcessSheetView: View {
                 Text(verbatim: row.title)
                     .foregroundStyle(row.empty ? InkColor.textDim : InkColor.text)
                     .bold(selected)
+                if !row.inputs.isEmpty {
+                    Text(verbatim: "+ \(row.inputs.formatted(.list(type: .and)))").foregroundStyle(InkColor.textDim).lineLimit(1)
+                }
                 if let n = row.note { Text(verbatim: "+ \(n)").foregroundStyle(InkColor.textDim).lineLimit(1) }
                 if let f = row.figure { Text(verbatim: "\(f)").foregroundStyle(InkColor.textDim) }
                 Spacer(minLength: 4)
@@ -75,7 +83,11 @@ struct ProcessSheetView: View {
                 if let slot = row.slot { actions.openEntry?(slot) }
             }
             if let f = row.forecast {
-                Text(verbatim: "  │ → \(f.name)(\(SenseWords.phrase(f.percent)))").foregroundStyle(InkColor.textDim)
+                HStack(spacing: 4) {
+                    Text(verbatim: "  │ → \(f.name)")
+                    SenseWords.phrase(f.percent)
+                }
+                .foregroundStyle(InkColor.textDim)
             } else if row.step != nil {
                 Text(verbatim: "  │ → ？").foregroundStyle(InkColor.textDim)
             }
@@ -98,24 +110,24 @@ struct ProcessSheetView: View {
     private func controls(_ row: ProcessSheet.Row) -> some View {
         if let s = row.step {
             if let move = actions.moveStep {
-                glyphButton("▲", id: "up\(s)") { move(s, -1) }
-                glyphButton("▼", id: "down\(s)") { move(s, 1) }
+                glyphButton(Text(verbatim: "▲"), id: "up\(s)") { move(s, -1) }
+                glyphButton(Text(verbatim: "▼"), id: "down\(s)") { move(s, 1) }
             }
-            if let remove = actions.removeStep { glyphButton("✕", id: "remove\(s)") { remove(s) } }
+            if let remove = actions.removeStep { glyphButton(Text(verbatim: "✕"), id: "remove\(s)") { remove(s) } }
         }
         if let id = row.answerRow, let place = actions.placeAnswer {
-            glyphButton(row.answer == nil ? "置く" : "置き直す", id: "answer.\(id)") { place(id) }
+            glyphButton(row.answer == nil ? Text("置く") : Text("置き直す"), id: "answer.\(id)") { place(id) }
         }
         if let p = row.person, row.aboard != nil || row.declared != nil, let set = actions.setBoarding {
-            if row.declared != nil { Text(verbatim: "言").font(InkFont.small).foregroundStyle(InkColor.textDim) }
-            glyphButton(row.aboard == true ? "[乗る]" : " 乗る ", id: "aboard.\(p.rawValue)") { set(p, true) }
-            glyphButton(row.aboard == false ? "[残る]" : " 残る ", id: "stay.\(p.rawValue)") { set(p, false) }
+            if row.declared != nil { Text("言").font(InkFont.small).foregroundStyle(InkColor.textDim) }
+            glyphButton(row.aboard == true ? Text("[乗る]") : Text("乗る"), id: "aboard.\(p.rawValue)") { set(p, true) }
+            glyphButton(row.aboard == false ? Text("[残る]") : Text("残る"), id: "stay.\(p.rawValue)") { set(p, false) }
         }
     }
 
-    private func glyphButton(_ label: String, id: String, _ action: @escaping () -> Void) -> some View {
+    private func glyphButton(_ label: Text, id: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Text(verbatim: label).frame(minWidth: 32, minHeight: 32)
+            label.frame(minWidth: 32, minHeight: 32)
         }
         .buttonStyle(.plain)
         .foregroundStyle(InkColor.accent)
@@ -130,14 +142,28 @@ struct TrialCardView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(verbatim: "┌ \(card.product.name) ×\(card.quantity)\(card.unique ? " ★" : "")").bold()
-            Text(verbatim: "│ 手: \(SenseWords.phrase(card.product.percent))  硬さ \(card.hardness)  粘り \(card.toughness)")
+            HStack(spacing: 8) {
+                Text(verbatim: "│")
+                Text("手:")
+                SenseWords.phrase(card.product.percent)
+                Text("硬さ \(card.hardness)")
+                Text("粘り \(card.toughness)")
+            }
             if !card.byproducts.isEmpty {
-                Text(verbatim: "│ ほかに: \(card.byproducts.joined(separator: "・"))")
+                HStack(spacing: 4) {
+                    Text(verbatim: "│")
+                    Text("ほかに:")
+                    Text(verbatim: card.byproducts.formatted(.list(type: .and)))
+                }
             }
             ForEach(card.findings, id: \.self) { f in Text(verbatim: "│ ・\(f)") }
             if !card.used.isEmpty {
-                Text(verbatim: "└ 使った: " + card.used.map { "\($0.name) \($0.quantity)" }.joined(separator: "・"))
-                    .foregroundStyle(InkColor.textDim)
+                HStack(spacing: 4) {
+                    Text(verbatim: "└")
+                    Text("使った:")
+                    Text(verbatim: card.used.map { "\($0.name) ×\($0.quantity)" }.formatted(.list(type: .and)))
+                }
+                .foregroundStyle(InkColor.textDim)
             }
         }
         .font(InkFont.small)

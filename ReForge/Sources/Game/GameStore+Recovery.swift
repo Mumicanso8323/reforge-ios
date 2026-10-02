@@ -85,6 +85,15 @@ extension GameStore {
         preview = nil
     }
 
+    // MARK: - 残骸のパネル
+
+    /// 残骸の資料をパネルとして開く(地図の上の札。時計は止めない)。
+    func openPanel(_ id: DocumentID) {
+        Task { panel = await host.document(id) }
+    }
+
+    func closePanel() { panel = nil }
+
     // MARK: - 戦闘
 
     func setStance(_ s: BattleState.Stance, in battle: BattleBand) { send(battle.stanceCommand(s)) }

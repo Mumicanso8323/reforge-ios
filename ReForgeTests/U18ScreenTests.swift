@@ -25,6 +25,12 @@ final class U18ScreenTests: XCTestCase {
         XCTAssertEqual(GameTab.visible(closed), [.map], "最初は地図だけ")
     }
 
+    func testGaugeTextAndPercent() {
+        XCTAssertEqual(GaugeText.render(StatGauge(fillPermille: 500, marks: [250, 900]), width: 4), "■┃□┃")
+        XCTAssertEqual(PanelText.percent(40), "4%")
+        XCTAssertEqual(PanelText.percent(355), "35.5%")
+    }
+
     func testBattleLane() {
         let b = BattleBand(id: EntityID(1), foe: "x", stance: .keepDistance, retreating: false,
                            laneSize: 5, at: GridPoint(0, 0),

@@ -80,9 +80,19 @@ public struct Variant: Codable, Equatable, Sendable {
     /// 品の名前の色の系統(品・物質の見え方のときだけ)。無ければ中立の色。
     /// 色は真実の素材からではなく、この見え方から決める(色で真実がばれないように。docs/art/README.md §1.3)。
     public var tint: ItemTint?
+    /// 暗闇でも描く光る印(端末の光など。U19)。地図のマス(POI・部品・鉱脈・地形)の見え方のときだけ。
+    public var glow: Bool?
+    /// 数値の帯に棒と目盛り(StatDef.marks)を出す。目盛りの意味は書かない(気配。U18・§10 HNT-05)。
+    public var showMarks: Bool?
+    /// 人物の立ち絵(中立の番号。art.sealed の中)。見え方ごとに切り替えられる(開示の前後で別の絵・絵なし)。U18
+    public var art: ArtID?
 
     public init(when: FactExpr, name: TextID? = nil, description: TextID? = nil, display: StatDisplay? = nil,
-                glyph: String? = nil, announce: Bool? = nil, tint: ItemTint? = nil) {
+                glyph: String? = nil, announce: Bool? = nil, tint: ItemTint? = nil, glow: Bool? = nil,
+                showMarks: Bool? = nil, art: ArtID? = nil) {
+        self.art = art
+        self.showMarks = showMarks
+        self.glow = glow
         self.when = when
         self.name = name
         self.description = description

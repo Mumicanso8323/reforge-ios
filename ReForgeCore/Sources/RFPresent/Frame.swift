@@ -117,6 +117,8 @@ public struct StatusItem: Equatable, Sendable {
     public var value: String
     /// 危ない(赤く出す)。
     public var alert: Bool
+    /// 棒と目盛り(見え方が showMarks のときだけ。U18)。
+    public var gauge: StatGauge? = nil
 
     public init(key: String, label: String, value: String, alert: Bool) {
         self.key = key
@@ -136,6 +138,8 @@ public struct MapView: Equatable, Sendable {
     public var chunkSignatures: [Int]
     /// いま見えている範囲(一員ごとの円)。この中は明るく、物と生き物も描く。
     public var vision: [VisionArea]
+    /// 地図の光の点(この層のもの。id の順)。暗闇・霧の中でも描く(効果 beacon。U19)。
+    public var beacons: [GridPoint] = []
 
     public init(layer: LayerID, size: GridSize, chunkRevisions: [Int], chunkSignatures: [Int] = [],
                 vision: [VisionArea] = []) {
@@ -200,12 +204,15 @@ public struct TileView: Hashable, Sendable {
     public var fog: Fog
     /// 手がかりの影の文字(fog == .hint のとき)。
     public var shadow: String?
+    /// 暗闇でも描く光る印(見え方の glow)。夜の灯りの外でも、既知か手がかりのマスなら描く。
+    public var glow: Bool
 
-    public init(glyph: String, tint: String, fog: Fog, shadow: String? = nil) {
+    public init(glyph: String, tint: String, fog: Fog, shadow: String? = nil, glow: Bool = false) {
         self.glyph = glyph
         self.tint = tint
         self.fog = fog
         self.shadow = shadow
+        self.glow = glow
     }
 
     public static let void = TileView(glyph: "", tint: TilePalette.void, fog: .unknown)
@@ -373,6 +380,8 @@ public struct ProcessSheet: Equatable, Sendable {
         public var forecast: Sensed?
         /// この段で載った所見(文)。
         public var findings: [String] = []
+        /// 工程の段に入れた物の名前(並べ方・区切りは画面が言語に合わせる)。
+        public var inputs: [String] = []
 
         public init(title: String, note: String?, slot: Int? = nil, empty: Bool = false, figure: Int? = nil,
                     answerRow: String? = nil, answer: String? = nil, aboard: Bool? = nil, declared: Bool? = nil,
@@ -504,10 +513,43 @@ public struct FootCard: Equatable, Sendable {
     public var point: GridPoint
     public var title: String
     public var actions: [Action]
+    /// このマスの残骸から開ける資料(残骸の装置の資料など。行為の数には数えない。U18)。
+    public var documents: [DocumentLink] = []
+
+    public struct DocumentLink: Equatable, Sendable {
+        public var id: DocumentID
+        public var title: String
+
+        public init(id: DocumentID, title: String) {
+            self.id = id
+            self.title = title
+        }
+    }
 
     public init(point: GridPoint, title: String, actions: [Action]) {
         self.point = point
         self.title = title
         self.actions = actions
+    }
+}
+
+/// 数値の棒と目盛り(千分率の位置。目盛りの意味は書かない)。
+public struct StatGauge: Equatable, Sendable {
+    /// 棒の満ち(0...1000)。
+    public var fillPermille: Int
+    /// 目盛りの位置(0...1000)。
+    public var marks: [Int]
+
+    public init(fillPermille: Int, marks: [Int]) {
+        self.fillPermille = fillPermille
+        self.marks = marks
+    }
+
+    /// 値と目盛り(どちらも raw)から。一番大きな目盛りが右端の手前(1/11 の余白)に来る。
+    public static func make(value: Int64, marks: [Int]) -> StatGauge? {
+        guard let top = marks.max(), top > 0 else { return nil }
+        let scale = Int64(top) + Int64(top) / 10
+        func pos(_ v: Int64) -> Int { Int(max(0, min(1000, v * 1000 / max(1, scale)))) }
+        return StatGauge(fillPermille: pos(value), marks: marks.sorted().map { pos(Int64($0)) })
     }
 }

@@ -106,6 +106,8 @@ public struct MapGenConfig: Codable, Equatable, Sendable {
     public var sites: [SiteRule]?
     /// 序盤の保証の値(W-12)。nil なら R1 の既定(OpeningRules.r1)。
     public var opening: OpeningRules?
+    /// 岩山の奥の鉱脈(U19)。nil なら置かず、乱数も引かない。
+    public var deepVein: DeepVeinRule?
 
     public init(size: GridSize, parameters: Value = .null, sites: [SiteRule]? = nil) {
         self.size = size
@@ -138,6 +140,7 @@ public struct RFMapGenerator: MapGenerating {
         c.allowUnverifiedFallback = true
         c.sites = config.sites
         if let o = config.opening { c.opening = o.scaled(to: size) }
+        c.deepVein = config.deepVein
         do {
             var map = try WorldMap.generate(config: c, rng: &rng)
             map.assignEntities(allocate)

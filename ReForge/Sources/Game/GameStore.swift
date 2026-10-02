@@ -43,6 +43,8 @@ final class GameStore {
     var placing: StructureKindID?
     /// 置くモードの照準(地図に、置けるかどうかを色で描く)。
     var preview: PlacementPreview?
+    /// 地図の上に開いた残骸のパネル(残骸の装置の資料など。U18)。
+    var panel: DocumentPage?
     /// パネルから地図へ移りたいとき(置くモード)。GameScreen がタブを切り替えて nil に戻す。
     var requestedTab: GameTab?
     /// 区画の中身(番号 → 中身)。

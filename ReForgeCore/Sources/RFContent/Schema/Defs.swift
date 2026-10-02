@@ -89,6 +89,9 @@ public struct POIDef: ContentDef, Equatable {
     /// 有限の部品の名前(残骸の区画など)。
     public var parts: [String]?
     public var parameters: Value
+    /// 遠景の半径(U19)。知っているマスからこのマス数以内なら、まだ踏んでいなくても霧の向こうに影が見える
+    /// (霧の端の手がかり 2 マスの代わり)。nil は 2 マス。
+    public var landmarkRadius: Int?
 }
 
 // MARK: - 作る・置く
@@ -343,6 +346,11 @@ public struct InteractionDef: ContentDef, Equatable {
     /// 得た物の行き先(既定 base = 拠点の蓄え)。site なら対象の置いた物の中(HolderID.placement)に溜め、
     /// そこを運搬の経路の始まりにできる(炭焼き窯の木炭。序盤の設計 v0.4 の P-12)。持ち主: U22
     public var yieldsTo: YieldTarget?
+    // 以下は U19 が足した(対象が deposit のときだけ見る)。
+    /// 掘れる鉱脈の種類(nil は全部)。ほかの種類のマスは対象にならない。
+    public var depositCategories: [DepositCategory]?
+    /// この行為に要る刃の段(MiningDef の硬さと大きい方)。足りなければ理由つきで断る。
+    public var bladeTier: Int?
     /// 木を伐る行為か(獣の縄張りの入力。RaidLureDef.territory)。持ち主: U21
     public var felling: Bool?
 }
