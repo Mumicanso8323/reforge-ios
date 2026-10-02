@@ -13,20 +13,27 @@ public struct KnowledgeState: Codable, Equatable, Sendable {
     public var discovered: Set<EntityID> = []
     /// 一度でも見た・触れた対象(図鑑の「影」を出すかどうか)。
     public var seen: Set<SubjectID> = []
+    /// 開いたままにする画面の要素と、開いた理由(W-01。UIGateDef.latch の付いた門だけ)。
+    /// 巻き戻しでは .knowledge だけが残る(INV-O4)。
+    public var disclosed: [UIElementID: DisclosureKind] = [:]
+    /// 一度でも手にした品(半分の気配 HintRule.halfway が読む。W-07)。巻き戻しで残る。
+    public var heldItems: Set<ItemID> = []
     /// ノアが手で 1 度終えた行為の種類(INV-O8。仲間に頼めるのはこれだけ)。InteractionDef.handFamily か行為 ID、
     /// 本体が決める "family.haul"(運ぶ)・"family.build"(建てる)。知識の側なので巻き戻しても残る。持ち主: U22
     public var handDone: Set<HandFamilyID> = []
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case facts, mapKnown, discovered, seen, handDone }
+    private enum CodingKeys: String, CodingKey { case facts, mapKnown, discovered, seen, disclosed, heldItems, handDone }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        facts = try c.decodeIfPresent([FactID: FactRecord].self, forKey: .facts) ?? [:]
-        mapKnown = try c.decodeIfPresent([LayerID: GridBitset].self, forKey: .mapKnown) ?? [:]
-        discovered = try c.decodeIfPresent(Set<EntityID>.self, forKey: .discovered) ?? []
-        seen = try c.decodeIfPresent(Set<SubjectID>.self, forKey: .seen) ?? []
+        facts = try c.decode([FactID: FactRecord].self, forKey: .facts)
+        mapKnown = try c.decode([LayerID: GridBitset].self, forKey: .mapKnown)
+        discovered = try c.decode(Set<EntityID>.self, forKey: .discovered)
+        seen = try c.decode(Set<SubjectID>.self, forKey: .seen)
+        disclosed = try c.decodeIfPresent([UIElementID: DisclosureKind].self, forKey: .disclosed) ?? [:]
+        heldItems = try c.decodeIfPresent(Set<ItemID>.self, forKey: .heldItems) ?? []
         handDone = try c.decodeIfPresent(Set<HandFamilyID>.self, forKey: .handDone) ?? []
     }
 
@@ -36,6 +43,8 @@ public struct KnowledgeState: Codable, Equatable, Sendable {
         try c.encode(mapKnown, forKey: .mapKnown)
         try c.encode(discovered, forKey: .discovered)
         try c.encode(seen, forKey: .seen)
+        try c.encode(disclosed, forKey: .disclosed)
+        try c.encode(heldItems, forKey: .heldItems)
         if !handDone.isEmpty { try c.encode(handDone, forKey: .handDone) }
     }
 

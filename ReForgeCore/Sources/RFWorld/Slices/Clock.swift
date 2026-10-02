@@ -16,8 +16,24 @@ public struct ClockState: Codable, Equatable, Sendable {
     public var realCarry: Int64 = 0
     /// 「寝る」を選んで夜明けまで一括で進めている間 true(夜明けで false)。仲間の動作・夜の出来事が読む。
     public var sleeping: Bool = false
+    /// 最初の行為まで時計を止めている(W-01・OPEN-O2)。断られなかった最初のコマンドで false になり、戻らない。
+    /// 止めている間は昼の実時間を進めない(Simulation.advance)。
+    public var held: Bool = false
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey { case now, day, phase, dayStartedAt, realCarry, sleeping, held }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        now = try c.decode(GameTime.self, forKey: .now)
+        day = try c.decode(Int.self, forKey: .day)
+        phase = try c.decode(DayPhase.self, forKey: .phase)
+        dayStartedAt = try c.decode(GameTime.self, forKey: .dayStartedAt)
+        realCarry = try c.decode(Int64.self, forKey: .realCarry)
+        sleeping = try c.decode(Bool.self, forKey: .sleeping)
+        held = try c.decodeIfPresent(Bool.self, forKey: .held) ?? false
+    }
 
     /// 夜明けからの経過。
     public var sinceDawn: GameDuration { now - dayStartedAt }

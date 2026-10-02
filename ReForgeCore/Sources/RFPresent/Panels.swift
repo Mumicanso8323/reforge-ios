@@ -32,11 +32,31 @@ public struct UIUnlocks: Equatable, Sendable {
 }
 
 extension FrameBuilder {
+    /// 導出するタブと、その配下の要素(ID の頭)。
+    static let tabChildren: [(UIElementID, (UIElementID) -> Bool)] = [
+        (UIElements.tabBase, { $0.rawValue.hasPrefix("base.") || $0 == UIElements.research }),
+        (UIElements.tabCrew, { $0.rawValue.hasPrefix("crew.") }),
+        (UIElements.tabDesign, { $0.rawValue.hasPrefix("design.") }),
+        (UIElements.tabNotes, { $0.rawValue.hasPrefix("notes.") }),
+    ]
+
     /// 条件の付いた要素を評価する(乱数を進めない)。
     public func unlocks(_ w: WorldState) -> UIUnlocks {
         var u = UIUnlocks(gated: Set(content.uiGates.keys))
-        for (id, g) in content.uiGates where ConditionEvaluator.evaluatePure(g.when, world: w, content: content) == true {
-            u.open.insert(id)
+        for (id, g) in content.uiGates {
+            // 開いたままの記録(W-01)があるか、いま条件が成り立てば開く
+            if w.knowledge.disclosed[id] != nil
+                || ConditionEvaluator.evaluatePure(g.when, world: w, content: content) == true {
+                u.open.insert(id)
+            }
+        }
+        // タブは導出(W-01): 自分の門が無く、配下に latch 付きの門(新しい形のデータ)があれば、
+        // 配下のどれかが開いたときだけ開く。配下に latch の無い門しか無い古いデータでは今までどおり常に出る
+        for (tab, under) in Self.tabChildren where content.uiGates[tab] == nil {
+            let gatedChildren = u.gated.filter(under)
+            guard gatedChildren.contains(where: { content.uiGates[$0]?.latch != nil }) else { continue }
+            u.gated.insert(tab)
+            if !gatedChildren.isDisjoint(with: u.open) { u.open.insert(tab) }
         }
         return u
     }

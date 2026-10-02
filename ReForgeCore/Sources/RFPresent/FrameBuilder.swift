@@ -64,10 +64,31 @@ public struct FrameBuilder: Sendable {
             renamed: [],
             runEnded: !w.run.isActive)
         frame.ui = unlocks(w)
+        frame.placeTitle = content.perception[Self.placeSubject] == nil ? nil : p.name(Self.placeSubject)
+        frame.newlyOpened = previous.map { frame.ui.open.subtracting($0.ui.open) } ?? []
+        frame.shadows = shadows(w, p)
         frame.battles = battles(w, p)
         frame.defaultStance = w.combat.defaultStance
         frame.benchRevision = Self.benchRevision(previous: previous, report: report, revision: revision, day: w.clock.day)
         return frame
+    }
+
+    /// 地図の題の主題(INV-O12)。
+    public static let placeSubject: SubjectID = "place:base"
+
+    /// 半分の気配の影の行(W-07)。まだ解放されていない建造物・モジュールを ID 順に。
+    public func shadows(_ w: WorldState, _ p: Perceiver) -> [ShadowRow] {
+        func row(_ kind: PlaceableKind, _ cost: [Ingredient]) -> ShadowRow? {
+            guard HintRule.halfway(cost: cost, world: w) else { return nil }
+            let have = cost.reduce(0) { $0 + min(ConditionEvaluator.stockCount($1, w), $1.quantity) }
+            return ShadowRow(kind: kind, name: p.name(of: kind), have: have,
+                             need: cost.reduce(0) { $0 + $1.quantity })
+        }
+        let s = content.structures.keys.sorted().filter { !w.research.unlocked.structures.contains($0) }
+            .compactMap { row(.structure($0), content.structures[$0]!.cost) }
+        let m = content.modules.keys.sorted().filter { !w.research.unlocked.modules.contains($0) }
+            .compactMap { row(.module($0), content.modules[$0]!.cost) }
+        return s + m
     }
 
     /// 設計・ノートのタブが引き直す印。在庫・ノート・知識・研究・物語が変わったとき、日が変わったときに上がる。
@@ -82,10 +103,13 @@ public struct FrameBuilder: Sendable {
     func clockView(_ w: WorldState) -> ClockView {
         let dayLen = content.clock.dayGameSeconds
         let since = (w.clock.now - w.clock.dayStartedAt).seconds
-        return ClockView(
+        var v = ClockView(
             day: w.clock.day, phase: w.clock.phase,
             dayRemainingPermille: w.clock.phase == .day && dayLen > 0 ? Int(max(0, (dayLen - since) * 1000 / dayLen)) : 0,
-            running: w.run.isActive && w.clock.phase == .day && !w.narrative.pending.contains(where: \.blocking))
+            running: w.run.isActive && w.clock.phase == .day && !w.clock.held
+                && !w.narrative.pending.contains(where: \.blocking))
+        v.held = w.clock.held
+        return v
     }
 
     func statusItems(_ w: WorldState, _ p: Perceiver) -> [StatusItem] {

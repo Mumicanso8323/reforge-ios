@@ -84,6 +84,9 @@ jobs:
       - name: 型の名前の重なり
         if: always()
         run: python3 tools/check-app-names.py
+      - name: ストアの原稿の置き場
+        if: always()
+        run: python3 tools/check-store-metadata.py
       - name: 文字列カタログが画面の文言と合っている
         if: always()
         run: python3 tools/gen-xcstrings.py --check
