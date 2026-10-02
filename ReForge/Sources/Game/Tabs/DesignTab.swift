@@ -1,21 +1,21 @@
 import SwiftUI
 import ReForgeEngine
 
-/// 設計・ノートの要素の解放の ID(U18 の UIGateDef で条件を書く。表に無い ID は出す)。
+/// 設計・ノートの要素の解放の ID(本体の UIElements。条件はコンテンツの uiGates。表に無い ID は出す)。
 enum BenchGate {
-    static let sheet = "design.sheet"
-    static let trial = "design.trial"
-    static let plate = "design.plate"
-    static let hints = "design.hints"
-    static let trials = "notes.trials"
-    static let codex = "notes.codex"
-    static let clues = "notes.clues"
-    static let documents = "notes.documents"
+    static let sheet = UIElements.designSheet
+    static let trial = UIElements.designTrial
+    static let plate = UIElements.designPlate
+    static let hints = UIElements.designHints
+    static let trials = UIElements.notesTrials
+    static let codex = UIElements.notesCodex
+    static let clues = UIElements.notesClues
+    static let documents = UIElements.notesDocuments
 }
 
 extension GameStore {
-    /// 画面の要素を出してよいか。U18 の `Frame.ui`(UIUnlocks)が統合に入ったら、その isOpen に差し替える。
-    func benchOpen(_ id: String) -> Bool { true }
+    /// 画面の要素を出してよいか(Frame.ui)。
+    func benchOpen(_ id: UIElementID) -> Bool { ui.isOpen(id) }
 }
 
 /// 設計のタブ: 縦の工程表で並びを組み、試し、札にする。手がかりと所見もここから見られる。担当: U17。
@@ -103,6 +103,13 @@ struct DesignTabView: View {
                         Task { await wb.append(m.module, store) }
                     }
                     .accessibilityIdentifier("module.\(m.module.rawValue)")
+                }
+                // まだ知らない段があることだけを見せる(名前は出さない)
+                if let n = wb.bench?.unknownModules, n > 0 {
+                    Text(verbatim: "？ ×\(n)")
+                        .foregroundStyle(InkColor.textFaint)
+                        .frame(minHeight: InkMetric.buttonHeight)
+                        .accessibilityIdentifier("unknownModules")
                 }
             }
         }

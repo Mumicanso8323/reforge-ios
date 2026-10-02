@@ -44,6 +44,8 @@ public struct DesignBench: Equatable, Sendable {
     /// 段に入れられる品(燃料・混ぜ物など。物質でない品の山)。
     public var additives: [Stock]
     public var plates: [Plate]
+    /// まだ知らない段の数(部品の棚の「？」。名前は出さない)。
+    public var unknownModules: Int = 0
 
     public init(modules: [Module], materials: [Stock], additives: [Stock], plates: [Plate]) {
         self.modules = modules
@@ -77,6 +79,8 @@ public struct NotebookPage: Equatable, Sendable {
         public var percent: Int?
         /// この行に付いた手がかりの文。
         public var clues: [String]
+        /// 品の欄(持ったことのある品。正体が分かるまで made = false)。
+        public var item: Bool = false
     }
 
     public struct Clue: Equatable, Sendable {
@@ -156,7 +160,9 @@ extension FrameBuilder {
             DesignBench.Plate(design: d.id, result: d.expected.map { p.name(of: NameGenerator.name(for: $0)) },
                               steps: d.steps.map { p.name(Subject.module($0.module)) })
         }
-        return DesignBench(modules: modules, materials: materials, additives: additives, plates: plates)
+        var bench = DesignBench(modules: modules, materials: materials, additives: additives, plates: plates)
+        bench.unknownModules = unknownModules(in: w)
+        return bench
     }
 
     /// 同じ山(拠点とノアの持ち物で同じ物)は 1 行にまとめる。物質は在り処ごとに分ける(試すときに在り処を指す)。
@@ -188,11 +194,13 @@ extension FrameBuilder {
             }
         }
         let clueText: (NoteEntry) -> String = { self.noteText($0, p) }
-        let codex = Codex.rows(nb, content: content).map { r in
+        let rows = Codex.rows(nb, content: content)
+        var codex = rows.map { r in
             NotebookPage.CodexLine(
                 name: p.name(of: r.name), made: r.made, percent: r.bestSensed.map { $0.basisPoints / 100 },
                 clues: r.hints.compactMap { h in nb.notes.last { $0.hint == h }.map(clueText) })
         }
+        codex += shadowRows(w, rows, p)
         let clues = nb.notes.reversed().map { n in
             NotebookPage.Clue(about: p.name(n.about), text: clueText(n), source: p.source(of: n),
                               day: n.record.flatMap { w.ledger.record($0)?.day } ?? w.clock.day)
@@ -207,6 +215,42 @@ extension FrameBuilder {
         }
         return NotebookPage(trials: Array(trials), findings: findings, codex: codex, clues: Array(clues),
                             records: records, documents: docs)
+    }
+
+    // MARK: - 深さの影(答えは隠し、深さがあることは隠さない)
+
+    /// 図鑑の影の欄(CodexShadowDef)。作った行・手がかりの空欄と同じ名前のものは重ねない。
+    func shadowRows(_ w: WorldState, _ rows: [CodexRow], _ p: Perceiver) -> [NotebookPage.CodexLine] {
+        let holds = { (c: Condition?) in c.map { ConditionEvaluator.evaluatePure($0, world: w, content: content) == true } }
+        return content.codexShadows.values
+            .sorted { ($0.order ?? 0, $0.id) < ($1.order ?? 0, $1.id) }
+            .compactMap { d -> NotebookPage.CodexLine? in
+                guard holds(d.when) ?? true else { return nil }
+                if let t = d.target {
+                    // 作れば本物の行が出る。手がかりの空欄で同じ名前が出ていれば重ねない
+                    if rows.contains(where: { $0.made && Codex.covers($0.name, t) }) || rows.contains(where: { $0.name == t }) {
+                        return nil
+                    }
+                }
+                if let item = d.item {
+                    guard Self.everHeld(item, w) else { return nil }
+                    return NotebookPage.CodexLine(name: p.name(d.name), made: holds(d.filledWhen) ?? false, percent: nil,
+                                                  clues: [], item: true)
+                }
+                return NotebookPage.CodexLine(name: p.name(d.name), made: holds(d.filledWhen) ?? false, percent: nil,
+                                              clues: [])
+            }
+    }
+
+    /// 品を持ったことがあるか(いま持っているか、来歴に載っている)。
+    static func everHeld(_ item: ItemID, _ w: WorldState) -> Bool {
+        if w.inventory.holders.values.contains(where: { $0.contains { $0.stuff == .item(item) } }) { return true }
+        return w.ledger.records.contains { $0.subject == .item(item) }
+    }
+
+    /// まだ解禁していない段(規則の表に載っているモジュール)の数。
+    public func unknownModules(in w: WorldState) -> Int {
+        content.ruleBook.modules.keys.filter { !w.research.unlocked.modules.contains($0) }.count
     }
 
     /// 資料を開く(開く条件が成り立っていなければ nil)。

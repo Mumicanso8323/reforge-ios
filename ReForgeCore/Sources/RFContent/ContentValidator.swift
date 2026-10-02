@@ -35,6 +35,7 @@ public enum ContentValidator {
         eventsNotTriggeredByDays(db, &out)
         narrativeRules(db, &out)  // 出来事まわり(U11。Schema/Condition.swift)
         worldTypeRules(db, &out)
+        codexShadowsWellFormed(db, &out)  // 図鑑の影の欄(U17。Schema/CodexShadows.swift)
         uiGatesWellFormed(db, &out)  // 画面の要素の解放(U18。Schema/UIGates.swift)  // 場所・縛り・電力・掘った量・壊す・集団との戦い(U16。Schema/WorldTypes.swift)
         return out
     }
@@ -311,6 +312,15 @@ public enum ContentValidator {
             }
             for f in knownFacts(g.when).sorted() where db.facts[f] == nil {
                 out.append(Issue(level: .error, rule: "uiGates.fact", message: "\(id) の条件が知らない事実 \(f) を見ている"))
+            }
+        }
+    }
+
+    /// 図鑑の影の欄の名前は認識の表に載る見出し(気配の監査がそこで見え方を引く)。
+    static func codexShadowsWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        for (id, d) in db.codexShadows.sorted(by: { $0.key < $1.key }) {
+            if db.perception[d.name] == nil {
+                out.append(Issue(level: .error, rule: "codexShadows.name", message: "\(id) の名前 \(d.name) が認識の表に無い"))
             }
         }
     }

@@ -68,6 +68,8 @@ public struct ContentDB: Equatable, Sendable {
 
     /// 画面の要素を出す条件(U18。表に無い要素はいつも出す)。
     public var uiGates: [UIElementID: UIGateDef] = [:]
+    /// 図鑑の影の欄(U17。Schema/CodexShadows.swift)。
+    public var codexShadows: [CodexShadowID: CodexShadowDef] = [:]
 
     // 認識の層
     public var perception: [SubjectID: SubjectDef] = [:]

@@ -56,7 +56,7 @@ struct NotesTabView: View {
                 ForEach(Array(nb.codex.enumerated()), id: \.offset) { _, c in
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {
-                            Text(verbatim: c.made ? "■" : "□").foregroundStyle(c.made ? InkColor.accent : InkColor.textDim)
+                            Text(verbatim: c.item ? (c.made ? "◆" : "◇") : (c.made ? "■" : "□")).foregroundStyle(c.made ? InkColor.accent : InkColor.textDim)
                             Text(verbatim: c.name).foregroundStyle(c.made ? InkColor.text : InkColor.textDim)
                             Spacer()
                             if let p = c.percent {
