@@ -34,7 +34,8 @@ public enum ContentValidator {
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)
         narrativeRules(db, &out)  // 出来事まわり(U11。Schema/Condition.swift)
-        worldTypeRules(db, &out)  // 場所・縛り・電力・掘った量・壊す・集団との戦い(U16。Schema/WorldTypes.swift)
+        worldTypeRules(db, &out)
+        uiGatesWellFormed(db, &out)  // 画面の要素の解放(U18。Schema/UIGates.swift)  // 場所・縛り・電力・掘った量・壊す・集団との戦い(U16。Schema/WorldTypes.swift)
         return out
     }
 
@@ -297,6 +298,20 @@ public enum ContentValidator {
         }
         for (id, e) in db.events.sorted(by: { $0.key < $1.key }) where usesDay(e.trigger.when) {
             out.append(Issue(level: .warning, rule: "event.no-day-trigger", message: "\(id) の引き金が日数"))
+        }
+    }
+
+    // MARK: 画面の要素の解放(U18)
+
+    /// uiGates の id は画面の要素の一覧(UIElements)か、定義のある行為。条件の中の事実は定義がある。
+    static func uiGatesWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        for (id, g) in db.uiGates.sorted(by: { $0.key < $1.key }) {
+            if !UIElements.isKnown(id, in: db) {
+                out.append(Issue(level: .error, rule: "uiGates.id", message: "\(id) は画面の要素の一覧に無い"))
+            }
+            for f in knownFacts(g.when).sorted() where db.facts[f] == nil {
+                out.append(Issue(level: .error, rule: "uiGates.fact", message: "\(id) の条件が知らない事実 \(f) を見ている"))
+            }
         }
     }
 }

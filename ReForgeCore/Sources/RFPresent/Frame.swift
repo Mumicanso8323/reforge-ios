@@ -41,6 +41,12 @@ public struct Frame: Equatable, Sendable {
     public var runEnded: Bool
     /// 設計・ノートのタブが引き直す印(在庫・ノート・知識などが変わった・日が変わったときに上がる)。
     public var benchRevision: Int = 0
+    /// 画面の要素の解放(U18。表に無い要素はいつも出す)。
+    public var ui: UIUnlocks = UIUnlocks()
+    /// 進行中の戦闘(上の帯と地図に出す。止めない)。
+    public var battles: [BattleBand] = []
+    /// 戦闘が始まったときの方針(寝ている間の戦闘もこれ)。
+    public var defaultStance: BattleState.Stance = .keepDistance
 
     public init(revision: Int, clock: ClockView, status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,

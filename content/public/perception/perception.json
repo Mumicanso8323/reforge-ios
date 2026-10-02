@@ -376,6 +376,10 @@
   },
   "texts": {
     "text.unknown": "？",
+    "text.base.stock": "拠点の蓄え",
+    "reason.recovery.no_dawn": "戻れる夜明けがない",
+    "reason.recovery.still_failing": "失っても、まだ立ち行かない",
+    "reason.recovery.no_save": "セーブ地点がない",
     "text.structure.beacon": "のろし台",
     "text.name.noah": "ノア",
     "text.name.test_a": "試験の仲間A",

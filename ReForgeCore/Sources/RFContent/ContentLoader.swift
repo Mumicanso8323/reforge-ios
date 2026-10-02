@@ -223,6 +223,8 @@ struct ContentFile: Codable {
         case remove
         // 探索と拠点(U8)
         case fields, exploreEvents, exploration, base
+        // 画面の要素の解放(U18)
+        case uiGates
     }
 
     /// 人が読むための注記のキー(読み飛ばす)。
@@ -282,6 +284,7 @@ struct ContentFile: Codable {
     var exploreEvents: [ExploreEventDef]?
     var exploration: ExplorationDef?
     var base: BaseDef?
+    var uiGates: [UIGateDef]?
 
     func apply(to db: inout ContentDB, file: String, seen: inout LayerKeys) throws {
         var dups: [String] = []
@@ -365,6 +368,7 @@ struct ContentFile: Codable {
         upsert("exploreEvents", &db.exploreEvents, exploreEvents)
         if let v = exploration { db.exploration = v }
         if let v = base { db.base = v }
+        upsert("uiGates", &db.uiGates, uiGates)
         if !dups.isEmpty { throw ContentLoader.LoadError.duplicate(file: file, keys: dups.sorted()) }
         for (collection, ids) in (remove ?? [:]).sorted(by: { $0.key < $1.key }) {
             guard Self.remove(collection, ids, from: &db) else {
@@ -414,6 +418,7 @@ struct ContentFile: Codable {
         case "texts": drop(&db.texts)
         case "fields": drop(&db.fields)
         case "exploreEvents": drop(&db.exploreEvents)
+        case "uiGates": drop(&db.uiGates)
         case "glyphs": drop(&db.glyphs)
         case "auditStages": db.auditStages.removeAll { ids.contains($0.id) }
         case "latinAllowed": db.latinAllowed.removeAll { ids.contains($0) }

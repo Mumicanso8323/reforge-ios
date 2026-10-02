@@ -43,6 +43,7 @@ struct MapCanvasView: View {
             .simultaneousGesture(pinch)
             .overlay(alignment: .bottomTrailing) { recenterButton }
             .overlay(alignment: .top) { bubbles }
+            .overlay(alignment: .bottom) { placingBar }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("map")
         }
@@ -71,7 +72,7 @@ struct MapCanvasView: View {
     private func currentScene() -> MapScene {
         MapScene(camera: liveCamera(), map: store.mapView, chunks: store.chunks, actors: store.actors,
                  placements: store.placements, route: store.route, night: store.clock.isNight, elapsed: elapsed,
-                 terrains: store.content.terrains)
+                 terrains: store.content.terrains, preview: store.preview, battles: store.battles.map(\.at))
     }
 
     // MARK: - 指
@@ -152,6 +153,28 @@ struct MapCanvasView: View {
             .padding(12)
             .accessibilityLabel(Text("ノアに戻る"))
             .accessibilityIdentifier("recenterButton")
+        }
+    }
+
+    /// 置くモードの帯(照準の上をもう一度タップしても建つ)。
+    @ViewBuilder private var placingBar: some View {
+        if store.placing != nil {
+            HStack(spacing: InkMetric.gap) {
+                if let r = store.preview?.reason {
+                    Text(verbatim: r).font(InkFont.small).foregroundStyle(InkColor.alert).lineLimit(1)
+                } else {
+                    Text("置く場所をタップ").font(InkFont.small).foregroundStyle(InkColor.textDim)
+                }
+                Spacer(minLength: 4)
+                Button { store.confirmPlacing() } label: { Text("ここに建てる") }
+                    .buttonStyle(.ink(.primary, fill: false))
+                    .disabled(store.preview?.placeable != true)
+                    .accessibilityIdentifier("placeConfirm")
+                Button { store.cancelPlacing() } label: { Text("やめる") }
+                    .buttonStyle(.ink(.quiet, fill: false))
+            }
+            .padding(8)
+            .background(InkColor.panel.opacity(0.92))
         }
     }
 

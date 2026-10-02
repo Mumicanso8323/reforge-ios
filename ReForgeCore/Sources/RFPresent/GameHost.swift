@@ -88,6 +88,19 @@ public actor GameHost {
 
     /// 資料を開く(開く条件が成り立っていなければ nil)。
     public func document(_ id: DocumentID) -> DocumentPage? { builder.document(id, in: world) }
+    /// 拠点(蓄え・建てた物・建てられる物・運搬の経路)。
+    public func base() -> BaseView { builder.base(world) }
+
+    /// 仲間と割り当ての選択肢。
+    public func crew() -> CrewView { builder.crew(world) }
+
+    /// 置くモードの照準。
+    public func placementPreview(_ kind: StructureKindID, at p: GridPoint) -> PlacementPreview {
+        builder.placementPreview(world, kind: kind, at: p)
+    }
+
+    /// 研究。
+    public func research() -> ResearchView { builder.research(world) }
 
     private func rebuild(_ r: StepReport) -> Frame {
         revision += 1

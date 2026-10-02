@@ -10,7 +10,8 @@ struct GameScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed)
+            StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed || ArtProvider.shared.failed)
+            BattleBandView(store: store)
             ZStack {
                 // 地図は他のタブの間も残す(視点を保つ。時計も止めない)
                 MapCanvasView(store: store)
@@ -20,18 +21,22 @@ struct GameScreen: View {
                     PanelView(tab: tab, app: app, store: store)
                 }
                 if store.runEnded {
-                    GameOverView(app: app)
+                    GameOverView(app: app, store: store)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             if tab == .map {
                 FootCardView(store: store)
             }
-            TabBarView(tab: $tab)
+            TabBarView(tab: $tab, ui: store.ui)
         }
         .padding(.vertical, AdLayout.contentGap)
         .background(InkColor.field)
         .task { await store.run() }
+        .onChange(of: store.requestedTab) { _, t in
+            // パネルからの切り替え(置くモードで地図へ。U18)
+            if let t { tab = t; store.requestedTab = nil }
+        }
     }
 }
 

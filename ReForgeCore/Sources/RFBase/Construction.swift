@@ -218,3 +218,19 @@ enum Construction {
         return .done
     }
 }
+
+/// 画面向けの問い合わせ(置くモードの照準)。世界を変えない。
+public enum BaseQueries {
+    /// 建造物をそこに置けるか。置けなければ理由(費用の不足は含めない: 照準は場所だけを見る)。
+    public static func siteRejection(_ kind: StructureKindID, at: WorldPoint, facing: Direction, world: WorldState,
+                                     content: ContentDB) -> Rejection? {
+        guard let def = content.structures[kind] else { return Rejection("reason.base.unknown") }
+        let ctx = StepContext(world: world, content: content)
+        return Construction.checkSite(def, at: at, footprint: footprint(kind, facing: facing, content: content), ctx)
+    }
+
+    /// 向きで回した足跡(置く点からのずれ)。
+    public static func footprint(_ kind: StructureKindID, facing: Direction, content: ContentDB) -> [GridPoint] {
+        Construction.rotate(content.structures[kind]?.footprint ?? [GridPoint(0, 0)], facing)
+    }
+}

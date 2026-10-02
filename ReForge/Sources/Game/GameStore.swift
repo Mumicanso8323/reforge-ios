@@ -15,7 +15,7 @@ import ReForgeEngine
 final class GameStore {
     let content: ContentDB
     let host: GameHost
-    private let saves: FileSaveStorage
+    let saves: FileSaveStorage
     private let log = Logger(subsystem: "com.yusukedoi.reforge", category: "game")
 
     private(set) var clock: ClockView
@@ -31,6 +31,20 @@ final class GameStore {
     private(set) var runEnded: Bool
     /// 設計・ノートのタブが引き直す印(Frame.benchRevision。U17)。
     private(set) var benchRevision = 0
+    /// 画面の要素の解放(U18)。
+    private(set) var ui: UIUnlocks
+    /// 進行中の戦闘(帯と地図に出す)。
+    private(set) var battles: [BattleBand]
+    /// 戦闘が始まったときの方針(寝ている間も)。
+    private(set) var defaultStance: BattleState.Stance
+    /// 取り込んだ Frame の番号(パネルが引き直す合図)。
+    private(set) var revision = 0
+    /// 置くモード: 拠点のタブで選んだ建物(地図のタップがそのマスに建てるになる。U18)。
+    var placing: StructureKindID?
+    /// 置くモードの照準(地図に、置けるかどうかを色で描く)。
+    var preview: PlacementPreview?
+    /// パネルから地図へ移りたいとき(置くモード)。GameScreen がタブを切り替えて nil に戻す。
+    var requestedTab: GameTab?
     /// 区画の中身(番号 → 中身)。
     private(set) var chunks: [Int: MapChunk] = [:]
     /// 最後に Frame を受け取った時刻(ProcessInfo.systemUptime)。補間の起点。
@@ -70,6 +84,9 @@ final class GameStore {
         decision = f.decision
         sceneLines = f.sceneLines
         runEnded = f.runEnded
+        ui = f.ui
+        battles = f.battles
+        defaultStance = f.defaultStance
         lastPhase = f.clock.phase
     }
 
@@ -105,6 +122,15 @@ final class GameStore {
     func walk(to cell: GridPoint) {
         selected = cell
         inspection = nil
+        if let kind = placing {
+            // 置くモード: タップで照準を動かし、照準の上をもう一度タップすると建てる(置けるときだけ)
+            if let p = preview, p.at == cell, p.placeable {
+                confirmPlacing()
+            } else {
+                Task { preview = await host.placementPreview(kind, at: cell) }
+            }
+            return
+        }
         send(.crew(.walk(to: WorldPoint(mapView.layer, cell))))
     }
 
@@ -156,7 +182,7 @@ final class GameStore {
 
     // MARK: - Frame の取り込み
 
-    private func refresh(_ f: Frame) async {
+    func refresh(_ f: Frame) async {
         guard f.revision > lastRevision else { return }
         lastRevision = f.revision
         frameTime = ProcessInfo.processInfo.systemUptime
@@ -172,6 +198,10 @@ final class GameStore {
         if sceneLines != f.sceneLines { sceneLines = f.sceneLines }
         if runEnded != f.runEnded { runEnded = f.runEnded }
         if benchRevision != f.benchRevision { benchRevision = f.benchRevision }
+        if ui != f.ui { ui = f.ui }
+        if battles != f.battles { battles = f.battles }
+        if defaultStance != f.defaultStance { defaultStance = f.defaultStance }
+        revision = f.revision
 
         let stale = f.map.chunkRevisions.indices.filter { chunks[$0]?.revision != f.map.chunkRevisions[$0] }
         if !stale.isEmpty {
@@ -183,6 +213,8 @@ final class GameStore {
         // 日没・夜明けで「つづきから」を書く(D-save.md §2)。
         if f.clock.phase != lastPhase {
             lastPhase = f.clock.phase
+            // 夜明けの自動セーブ(巻き戻しの戻り先。D-save.md §2)
+            if f.clock.phase == .day { await saveDawn() }
             await saveResume()
         }
     }

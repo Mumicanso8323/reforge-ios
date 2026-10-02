@@ -22,6 +22,10 @@ struct MapScene {
     /// Frame を受け取ってからの秒(補間)。
     var elapsed: Double
     var terrains: [TerrainID: TerrainDef]
+    /// 置くモードの照準(U18)。
+    var preview: PlacementPreview? = nil
+    /// 戦闘の場所(U18)。
+    var battles: [GridPoint] = []
 
     private struct GlyphKey: Hashable {
         var glyph: String
@@ -119,6 +123,12 @@ struct MapScene {
             ctx.draw(t, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
         }
 
+        // 戦闘の場所: 赤い枠(帯と同じ相手。止めない)
+        for b in battles {
+            let rect = cellRect(b).insetBy(dx: -cs * 0.5, dy: -cs * 0.5)
+            ctx.stroke(Path(rect), with: .color(InkColor.alert), lineWidth: 2)
+        }
+
         // 人(ノアを一番上に)。前のマスと次のマスの間を補間する。
         for a in actors.sorted(by: { !$0.isNoah && $1.isNoah }) {
             let pos = a.position(elapsed: elapsed)
@@ -129,6 +139,16 @@ struct MapScene {
             let color = style(a.tint).foreground(at: GridPoint(0, 0))
             let t = text(a.glyph, color)
             ctx.draw(t, at: CGPoint(x: c.x, y: c.y), anchor: .center)
+        }
+
+        // 置くモードの照準: 置けるなら緑、置けないなら赤。占めるマスを塗り、外枠を引く
+        if let pv = preview {
+            let color = pv.placeable ? InkColor.good : InkColor.alert
+            for c in pv.cells {
+                let rect = cellRect(c)
+                ctx.fill(Path(rect), with: .color(color.opacity(0.28)))
+                ctx.stroke(Path(rect.insetBy(dx: 1, dy: 1)), with: .color(color), lineWidth: 2)
+            }
         }
     }
 }

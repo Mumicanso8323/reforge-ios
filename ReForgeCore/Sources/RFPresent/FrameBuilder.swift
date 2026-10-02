@@ -62,6 +62,9 @@ public struct FrameBuilder: Sendable {
             notices: [],
             renamed: [],
             runEnded: !w.run.isActive)
+        frame.ui = unlocks(w)
+        frame.battles = battles(w, p)
+        frame.defaultStance = w.combat.defaultStance
         frame.benchRevision = Self.benchRevision(previous: previous, report: report, revision: revision, day: w.clock.day)
         return frame
     }
@@ -209,6 +212,7 @@ public struct FrameBuilder: Sendable {
             }
         }
         let at = WorldPoint(layer, pt)
+        let ui = unlocks(w)
         let actions = content.interactions.keys.sorted().compactMap { id -> FootCard.Action? in
             guard let def = content.interactions[id] else { return nil }
             let applies: Bool = switch def.target {
@@ -218,7 +222,7 @@ public struct FrameBuilder: Sendable {
             case .structure(let kind): placed.contains { $0.kind == .structure(kind) }
             case .module(let kind): placed.contains { $0.kind == .module(kind) }
             }
-            guard applies else { return nil }
+            guard applies, ui.isOpen(.interaction(id)) else { return nil }
             if let phases = def.allowedPhases, !phases.contains(w.clock.phase) { return nil }
             if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) == false { return nil }
             return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)), hold: def.hold, at: at)

@@ -66,6 +66,9 @@ public struct ContentDB: Equatable, Sendable {
     /// 拠点の設定(生存者を迎える条件など)。
     public var base = BaseDef()
 
+    /// 画面の要素を出す条件(U18。表に無い要素はいつも出す)。
+    public var uiGates: [UIElementID: UIGateDef] = [:]
+
     // 認識の層
     public var perception: [SubjectID: SubjectDef] = [:]
     public var forbidden: [ForbiddenRule] = []
