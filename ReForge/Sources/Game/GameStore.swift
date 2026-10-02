@@ -220,7 +220,6 @@ final class GameStore {
         if focus != f.focus { focus = f.focus }
         if decision != f.decision { decision = f.decision }
         if sceneLines != f.sceneLines { sceneLines = f.sceneLines }
-        if prologue != f.prologue { prologue = f.prologue }
         if runEnded != f.runEnded { runEnded = f.runEnded }
         if benchRevision != f.benchRevision { benchRevision = f.benchRevision }
         if ui != Self.shownUI(f) { ui = Self.shownUI(f) }
@@ -235,6 +234,8 @@ final class GameStore {
             }
         }
         await refreshCard()
+        // 序が終わったことは、地図の区画と足元カードを引き終えてから見せる(序の画面が消えた時に、地図と足元カードがそろっている)
+        if prologue != f.prologue { prologue = f.prologue }
         // 日没・夜明けで「つづきから」を書く(D-save.md §2)。
         if f.clock.phase != lastPhase {
             lastPhase = f.clock.phase
