@@ -73,6 +73,8 @@ final class GameStore {
 
     /// 画面が前に出ているか(false の間は時計を進めない)。
     @ObservationIgnored var isActive = true
+    /// 設定が開いている間 true(時計を進めない。L-10a)。閉じたら、止めていた間の実時間は進めず、再開した時点から数える。
+    @ObservationIgnored var isPaused = false
     @ObservationIgnored private var lastRevision = -1
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var lastPhase: DayPhase = .day
@@ -127,7 +129,7 @@ final class GameStore {
 #if DEBUG
             if Self.freezeClock { continue }
 #endif
-            guard isActive, clock.running else { continue }
+            guard isActive, !isPaused, clock.running else { continue }
             let (f, _) = await host.tick(realSeconds: dt)
             await refresh(f)
         }

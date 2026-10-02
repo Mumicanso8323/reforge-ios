@@ -42,6 +42,11 @@ final class AppModel {
     private(set) var game: GameStore?
     /// 「つづきから」があるか。
     private(set) var hasResume: Bool
+    /// 設定が開いているか(L-10a)。開いている間はゲームの時計を止める。開閉は右上の角のボタンだけが行う。
+    /// 本体には何も送らない(ゲームのコマンドではない)。
+    var settingsOpen = false {
+        didSet { game?.isPaused = settingsOpen }
+    }
 
     static let adsRemovedKey = "adsRemoved"
 
@@ -101,6 +106,7 @@ final class AppModel {
                                                        since: world.clock.now, origin: nil)]
         }
         game = GameStore(content: content, world: world, saves: saves)
+        game?.isPaused = settingsOpen
     }
 #endif
 
@@ -108,6 +114,7 @@ final class AppModel {
         guard let content else { return }
         let world = GameBootstrap.newWorld(content: content, seed: UInt64.random(in: .min ... .max))
         let g = GameStore(content: content, world: world, saves: saves)
+        settingsOpen = false
         game = g
         hasResume = true
         Task { await g.saveResume() }
@@ -120,17 +127,20 @@ final class AppModel {
             hasResume = false
             return
         }
+        settingsOpen = false
         game = GameStore(content: content, world: env.world, saves: saves)
     }
 
     func backToTitle() async {
         await game?.saveResume()
+        settingsOpen = false
         game = nil
         hasResume = (try? saves.read(slot: .resume)) != nil
     }
 
     /// 記録を消す(取り返しがつかないので、画面は確認ダイアログを出してから呼ぶ)。
     func deleteSave() {
+        settingsOpen = false
         game = nil
         try? saves.deleteAll()
         hasResume = false
@@ -176,7 +186,12 @@ struct RootView: View {
                 TitleView(app: app)
             }
         }
+        // 設定は地図の下半分に出す札。ボタンは別の窓(SettingsCorner)にあるので、どの画面・札・シートの上でも見える
+        .inkCard(isPresented: $app.settingsOpen, title: Text("設定"), maxHeightRatio: 0.5) {
+            SettingsView(app: app, close: { app.settingsOpen = false })
+        }
         .background(Color.black)
+        .background(SettingsCornerInstaller(app: app))
         .task { await app.refreshEntitlements() }
         .onChange(of: scenePhase) { _, phase in
             app.scenePhaseChanged(active: phase == .active)

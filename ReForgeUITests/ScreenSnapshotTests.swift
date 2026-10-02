@@ -7,7 +7,7 @@ import XCTest
 ///  2. 切れる(アプリが測った overflow。Theme の inkFitCheck)
 ///  3. 重なり(下のタブの帯・上の状態の帯と、パネルの見出し)
 ///  4. TEST-L16: 設定のボタン(settingsButton)が、ある・押せる・右上の 52×52pt にある・ほかの要素と重ならない。
-///     ボタンはまだ無い(L-10 で入る)。無ければ飛ばす。入ったら、右上の 52×52pt に入った要素で落ちる。
+///     ボタンは L-10a で入った。無ければ失敗にする(画面ごとに「ある」を見る)。
 /// 結果は添付 `report_<言語>_<画面>`(JSON)にも残す。CI が xcresult から PNG と report.json に出す。
 @MainActor
 final class ScreenSnapshotTests: XCTestCase {
@@ -95,6 +95,19 @@ final class ScreenSnapshotTests: XCTestCase {
 
         let inspected = inspect(app, lang: lang.code, screen: screen)
         var findings = inspected.findings
+        // 設定を開いた状態(settings)では、同じ所のボタンで閉じられる(TEST-L16)
+        if screen == "settings" {
+            let button = element(app, "settingsButton")
+            if button.exists, button.isHittable {
+                button.tap()
+                let closed = NSPredicate(format: "exists == false")
+                let wait = XCTNSPredicateExpectation(predicate: closed, object: element(app, "cardClose"))
+                if XCTWaiter().wait(for: [wait], timeout: 5) != .completed {
+                    findings.append(Finding(language: lang.code, screen: screen, id: "settingsButton", kind: "settings",
+                                            detail: "開いた設定が同じボタンで閉じない"))
+                }
+            }
+        }
         let ignoredZeroSize = inspected.ignoredZeroSize
         let research = researchStatus?.state
         if let researchStatus {
@@ -258,9 +271,18 @@ final class ScreenSnapshotTests: XCTestCase {
             }
         }
 
-        // 4. TEST-L16: 設定のボタン。無ければ(L-10 の前は)飛ばす。
+        // 4. TEST-L16: 設定のボタン。1. ある 2. 押せる 3. 右上の 52x52pt(安全な領域の内側)にある 4. ほかの要素と重ならない。
+        if settingsFrame == nil { add("settingsButton", "settings", "無い") }
         if let sf = settingsFrame {
-            let corner = CGRect(x: window.maxX - Self.cornerSize, y: window.minY, width: Self.cornerSize, height: Self.cornerSize)
+            // 角の上端は安全な領域の上端(ボタンの上の余白 4pt を引いて割り出す)。ノッチ・島の下に入る
+            let topInset = sf.minY - (Self.cornerSize - 44) / 2
+            if topInset < window.minY - 1 || topInset > window.minY + 90 {
+                add("settingsButton", "settings", "上端の位置がおかしい frame y \(Int(sf.minY))")
+            }
+            if abs(sf.width - 44) > 1 || abs(sf.height - 44) > 1 {
+                add("settingsButton", "settings", "押せる範囲が 44x44 でない \(Int(sf.width))x\(Int(sf.height))")
+            }
+            let corner = CGRect(x: window.maxX - Self.cornerSize, y: topInset, width: Self.cornerSize, height: Self.cornerSize)
             if !element(app, "settingsButton").isHittable { add("settingsButton", "settings", "押せない") }
             if sf.minX < corner.minX - 1 || sf.maxX > corner.maxX + 1 || sf.minY < corner.minY - 1 || sf.maxY > corner.maxY + 1 {
                 add("settingsButton", "settings", "右上の \(Int(Self.cornerSize))x\(Int(Self.cornerSize)) の外 frame \(Int(sf.minX)),\(Int(sf.minY)) \(Int(sf.width))x\(Int(sf.height))")
