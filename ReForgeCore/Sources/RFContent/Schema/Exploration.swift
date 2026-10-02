@@ -93,7 +93,7 @@ public struct ExplorationDef: Codable, Equatable, Sendable {
 }
 
 /// 拠点の設定(1 つだけ)。
-/// 拠点の格 1 段。
+/// 拠点の段階 1 段。
 public struct BaseGradeDef: Codable, Equatable, Sendable {
     public var grade: Int
     public var when: Condition
