@@ -9,7 +9,7 @@
 
 ## 構成
 
-- `ReForge/` — アプリ本体(SwiftUI、iOS 17 以上、標準部品のみ)。上下に高さ 50pt の広告枠(いまはダミーの灰色の枠)を確保した共通コンテナの中に全画面を置きます。購入(広告除去)は枠だけで、StoreKit はまだ入れていません。
+- `ReForge/` — アプリ本体(SwiftUI、iOS 17 以上、標準部品のみ)。下に高さ 50pt の広告枠 1 つ(いまはダミーの灰色の枠)を確保した共通コンテナの中に全画面を置きます。購入(広告除去)は枠だけで、StoreKit はまだ入れていません。
   - 画面の固定文言は補間なしのリテラルで書き、`ReForge/Resources/Localizable.xcstrings` に集めます。ソースを変えたら `python3 tools/gen-xcstrings.py` でカタログを作り直してください(テストが抜けを検出します)。数や名前が入る文は ReForgeCore の `GameText` で組み立てます。
 - `ReForgeCore/` — Swift パッケージ。UIKit / SwiftUI に依存せず Linux でもテストできます。
   - `ReForgeCore` — ゲームロジック。状態は値型 `GameState`、規則は `Game`。時間(`TimeModel`)・失敗の代償(`FailurePolicy`)・オフライン(`OfflinePolicy`)はプロトコルの裏にあり、仮値や方針を差し替えられます。乱数は seed 固定の SplitMix64 で、同じ入力から同じ結果になります。
