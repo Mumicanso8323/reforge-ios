@@ -28,6 +28,8 @@
       public var mode: TrialGateMode?
       /// fence で待たせる物。
       public var holds: TrialHoldsDef?
+      /// 門が外れた(解放した)ステップで、待たせていた出来事より先に 1 度だけ適用する効果(再開の仕方。データが決める。無ければ何もしない)。
+      public var onRelease: [Effect]?
   }
   public enum TrialGateMode: String, Codable, Sendable { case fence, freeze }
   public struct TrialHoldsDef: Codable, Equatable, Sendable {
@@ -35,27 +37,59 @@
       public var research: Bool?
       /// 待たせる出来事(起きる条件がそろっても起こさず、待ちの列に積む)。
       public var events: [EventID]?
+      /// 待たせる失敗の規則(柵の中では判定しない。オーナーの決定 2026-10-02: 期限の失敗も研究・出来事と同じく待たせる)。
+      public var failures: [FailureRuleID]?
   }
   ```
-  `ContentValidator`: 条件の中の ID と `holds.events` の ID が在ることを確かめる。
+  `ContentValidator`: 条件の中の ID と、`holds.events`・`holds.failures` の ID が在ることを確かめる。
 - 区切りに着いた時点の扱い(夜明けまで待つ、など)は**データで書く**: 例えば、区切りの事実を夜明けの出来事が立てるようにする。本体は `when` を見るだけ。
 - 権利: `Simulation` に `entitlements: Entitlements` を足す(`public struct Entitlements: Sendable, Equatable { public var fullGame: Bool }`。置き場は RFSim か RFRules。`init(content:systems:entitlements:)` の既定は `.init(fullGame: true)` にして、今のテストとボットは変わらない)。権利は**保存(`WorldState`・`SaveEnvelope`)には入れない**。
 - 門の判定: `TrialGate.closed(world, content, entitlements) -> Bool` = 権利が無く、`trialGate` があり、`when` が成り立つ(`ConditionEvaluator.evaluatePure`)。
 - fence の間:
   - `holds.research == true` なら、研究を始める命令を `Rejection("reason.trial.locked")` で断る(どの命令が「研究を始める」かを一覧にしてテストで固定する)。
-  - `holds.events` の出来事は、起きる条件がそろったステップで起こさず、世界の待ちの列 `WorldState.trial.deferred: [EventID]`(新しい任意の欄。無い保存は空として読む。同じ ID は 1 度だけ積む)に積む。出来事の「起きた」の印も付けない。
+  - `holds.events` の出来事は、起きる条件がそろったステップで起こさず、世界の待ちの列 `WorldState.trial.deferred` に積む。出来事の「起きた」の印も付けない。
+  - `holds.failures` の失敗の規則は、柵の間は判定しない(失敗の画面も「失って続ける」も出ない)。条件が初めて成り立ったステップで、待ちの列に `failure` として 1 度だけ積む(待たせた日と、規則の条件に出てくる `stat` の値を写して持つ)。
+  - 待ちの列の形(新しい任意の欄。無い保存は空として読む。同じ ID は 1 度だけ積む):
+    ```swift
+    public struct TrialState: Codable, Equatable, Sendable {
+        public var deferred: [TrialHeld] = []
+        public var noticed: Bool?
+        /// 門が外れたゲームの時刻(外れていなければ nil)。
+        public var releasedAt: GameTime?
+    }
+    public struct TrialHeld: Codable, Equatable, Sendable {
+        public enum Kind: String, Codable, Sendable { case event, failure }
+        public var kind: Kind
+        public var id: String            // EventID か FailureRuleID
+        public var since: GameTime       // 待たせ始めた時刻
+        public var stats: [StatID: Int]? // failure のとき、待たせ始めた時点の値(規則の条件に出てくる stat だけ)
+    }
+    ```
   - それ以外(時計・手の作業・生産・運搬・探索・戦闘・ほかの出来事)は、今までどおり進む。
 - freeze の間: 時計を進めない(`advance`・`runSteps`・寝るの先読み `forecastSleep` も)。命令を `reason.trial.locked` で断る(今の `reason.scene.prologue` と同じ所で。世界は変えない)。
 - 門が閉じたステップで、出来事 `DomainEvent.trialReached` を 1 回だけ出す(画面が案内の札を出すきっかけ)。閉じたかどうかは世界の条件から毎回出せるので、「出した」の印は `WorldState.trial.noticed: Bool?` に持つ(保存に入る。権利ではなく「札を出した」の記録)。
-- 権利を得たら(同じ世界を権利ありの `Simulation` に渡したら): 次のステップで、待ちの列の出来事を**積んだ順に**起こし(起こす時点で条件をもう一度見ない。待たせたのは本体なので)、列を空にする。研究も始められる。世界は作り直さない。
+- **門が外れる(解放)**: 「門が一度閉じた(`noticed == true`)・まだ外れていない(`releasedAt == nil`)・今は権利がある」がそろった最初のステップで、1 度だけ次の順に行う。世界は作り直さない。
+  1. `releasedAt` に今の時刻を入れる。
+  2. `onRelease` の効果を適用する。
+  3. 待ちの列の出来事を**積んだ順に**起こす(起こす時点で条件をもう一度見ない。待たせたのは本体なので)。
+  4. 待たせていた失敗の規則は、このステップから普通に判定する(条件がまだ成り立てば、普通の失敗になる)。列を空にする。研究も始められる。出来事 `DomainEvent.trialReleased` を 1 回出す。
+  - 同じ口が 2 つの場合を受ける: (a) 携帯で購入・復元して権利が付いた。(b) 門の無い版(Steam の製品版。権利は常にあり)が、体験版の保存(閉じた門と待ちの列を持つ)を初めて読んだ。どちらも最初のステップで同じ手順が 1 度だけ走る。
+  - **再開の仕方はまだ決まっていない**(オーナーの答え待ち。物語の条件)。本体はどれでもデータで書けるようにだけする:
+    - そのまま判定する: `onRelease` なし。
+    - 買ってから猶予を置く: 条件 `trial(test:)` を足す(`TrialTest`: `.released(hoursAtLeast: Int)`・`.held(id: String)`)。失敗の規則の `when` に「待たせていない、か、外れてから N 時間たった」を書く。
+    - 待たせた長さの分を戻す・値を戻す: 効果 `trialRestoreStat(id: StatID, from: FailureRuleID)`(待たせ始めた時点の値に戻す)を足し、`onRelease` に書く。
+    - 待たせた日だけでは「値を戻す」型が書けないので、`TrialHeld.stats` で値も写して持つ。時刻の型(猶予・長さの分)は `since` と `releasedAt` で足りる。
+  - 払い戻しで権利が消え、門がもう一度閉じたステップでは `releasedAt` を nil に戻す(次に権利が付いたとき、同じ手順がもう一度走る)。
 - 画面の組み立て: `Frame` に `trial: TrialFrame?`(閉じているか・形(fence/freeze)・待っている物の数)を足し、`FrameBuilder` に `entitlements` を渡す口を足す(既定は解放済み)。
 - 文言: `reason.trial.locked` と、案内の札の文言 ID(例 `ui.trial.title`・`ui.trial.body`・`ui.trial.buy`・`ui.trial.restore`・`ui.trial.continue`)を公開の層の `text/ja/` に中立の見本で置く(「ここから先は購入で遊べます」程度。物語の語を使わない)。
 - テスト(新しいファイル `RFSimTests/TrialGateTests.swift` など。公開の層に、テストの中だけで試験用の門と出来事を重ねる):
   1. `trialGate` の無い内容では、権利が無くても今とまったく同じ(同じ seed・同じ命令で同じ世界)。
   2. fence: 権利無しで区切りの事実を知った後も、時計・手の作業・生産は進む。研究を始める命令は `reason.trial.locked`。`holds.events` の出来事は起きずに列に積まれ(1 度だけ)、ほかの出来事は起きる。`trialReached` は 1 回だけ。
-  3. fence → 権利あり: 次のステップで、列の出来事が積んだ順に起き、列が空になる。研究が始められる。
+  3. fence → 権利あり: 次のステップで、`onRelease` の効果 → 列の出来事(積んだ順)の順に起き、列が空になり、`releasedAt` が入り、`trialReleased` が 1 回出る。研究が始められる。
+  3b. 失敗の規則: 権利無しの柵の中で、`holds.failures` の規則の条件が成り立っても失敗にならず、列に `failure` が 1 度だけ積まれる(`since` と `stats` が入る)。挙げていない規則は今までどおり失敗になる。権利ありになったステップで、条件がまだ成り立てば失敗になる。`trial(test: .released(hoursAtLeast:))` を書いた規則は、その時間まで失敗にならない。`trialRestoreStat` で値が待たせ始めた時点に戻る。
+  3c. 門の無い版で読む: 権利無しで門が閉じ、列を持つ世界を保存し、権利ありの `Simulation` で読み直すと、最初のステップで 3 と同じ手順が 1 度だけ走る。2 度目のステップでは走らない。
   4. freeze: 時計が進まない・命令が断られる・寝るの先読みも止まる。権利ありで同じ世界が続く。
-  5. 保存: 待ちの列のある世界を保存して読み直すと、列が残る(体験版の保存が製品版で続く前提)。`trial` の欄の無い古い保存は空として読む。凍らせた見本 `save-v1-dev-*.json` はそのまま読める。
+  5. 保存: 待ちの列(出来事と失敗の両方。`since`・`stats` も)のある世界を保存して読み直すと、列が残る(体験版の保存が製品版で続く前提)。`trial` の欄の無い古い保存は空として読む。凍らせた見本 `save-v1-dev-*.json` はそのまま読める。
   6. JSON: `trialGate` の有無・`mode` の有無(既定 fence)・`holds` の有無の全部が読める。
 
 ### B.2 権利の確かめ(アプリ。macOS の CI)

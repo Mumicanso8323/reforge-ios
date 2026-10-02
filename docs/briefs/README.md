@@ -14,9 +14,12 @@ Codex(relay:codex-impl)は 1 本ずつ回す。上から順に渡す。「渡せ
 | 1c | [PT-B2 夜の締め・再開・考える画面の時計](PT-B2-day-wrap-and-resume.md) | **渡せる**(1b の後) | GAP-06 |
 | 1d | [PT-B3 反応の表と最小の音と触覚](PT-B3-feedback-pulses.md) | **渡せる**(1b の後) | GAP-04。音の素材は仮に生成 |
 | 1e | [PT-B4 端末の中だけの行動の記録](PT-B4-play-log.md) | **渡せる** | GAP-08。通信しない |
-| 2 | [M-01 広告をなくす・本編の解放](M-01-no-ads-and-full-game-unlock.md) | **渡せる**(1 の後) | 門は既定で開いたまま入る(区切りのデータが無い) |
+| 1f | [PT-HK 最初の 1 時間の手応え 5 つ](PT-HK-first-hour.md) | **渡せる**(1b〜1e の後) | HK-02・04・05・07・08。文は足さない |
+| 2 | [M-01 広告をなくす・本編の解放](M-01-no-ads-and-full-game-unlock.md) | **渡せる**(1 の後) | 門は既定で開いたまま入る(区切りのデータが無い)。柵の中で期限の失敗も待たせる(オーナーの決定)。dev の版だけ門を開ける |
 | 3 | [P-13 行為ごとの掘り出しの純度の上積み](P-13-extract-purity-bonus.md) | **渡せる**(2 の後) | |
 | 4 | [W-18 時刻の色(本体)](W-18-time-tint.md)・[S-04 自動と手動の枠](S-04-save-slots-ui.md) | **渡せる**(3 の後) | |
+
+PT-01 の後の列は [F-stages-after-PT.md](F-stages-after-PT.md)(無料の部分を段 F0〜F4 で先に作る)。
 
 研究の速さ(原作の 1 日 60 点に合わせる)は、本体の式を変えずにデータで直す(非公開の層の研究机の `provides.research` を 8 に。U14)。
 
