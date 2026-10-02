@@ -54,6 +54,11 @@ public struct Simulation: Sendable {
         }
         var ctx = StepContext(world: world, content: content)
         let result = dispatch(command, &ctx)
+        if ctx.world.clock.held, case .accepted = result, Self.releasesHold(command) {
+            // 最初の行為で時計が動き出す(W-01)。戻らない
+            ctx.world.clock.held = false
+            ctx.changes.mark(.clock)
+        }
         settle(&ctx, &report)
         world = ctx.world
         switch result {
@@ -63,7 +68,27 @@ public struct Simulation: Sendable {
             report.merge(runSteps(steps, &world))
         default: break
         }
+        if Disclosure.record(&world, content) { report.changes.mark(.narrative) }
         return report
+    }
+
+    /// 時計の保留を解くコマンドか(W-01)。歩く・止まる・場面の送りは解かない。
+    public static func releasesHold(_ command: Command) -> Bool {
+        switch command {
+        // 場面を送る(序・目覚めの行を読む)・効果から出来事を起こすも、プレイヤーの行為ではない(v0.5 §2.8.3)
+        case .crew(.walk), .crew(.stop), .narrative(.advanceScene), .narrative(.fireFromEffect): false
+        default: true
+        }
+    }
+
+    /// 「寝る」を押したらどうなるかの見込み(W-11)。世界の写しに同じ規則で .time(.sleep) を当てた結果。
+    /// 本物の世界と乱数の流れは進めない(値型の写しで回す)。乱数の種も写しのものを使うので、同じ世界に
+    /// 寝るを当てた実際の結果と必ず一致する。夜でない(断られる)ときは nil。
+    public func forecastSleep(_ world: WorldState) -> (world: WorldState, report: StepReport)? {
+        var copy = world
+        let r = apply(.time(.sleep), to: &copy)
+        guard r.rejection == nil else { return nil }
+        return (copy, r)
     }
 
     public func dispatch(_ command: Command, _ ctx: inout StepContext) -> CommandResult {
@@ -84,7 +109,7 @@ public struct Simulation: Sendable {
     public static let maxRealSecondsPerAdvance = 1.0
 
     public func advance(_ world: inout WorldState, realSeconds: Double) -> StepReport {
-        guard world.run.isActive, world.clock.phase == .day, realSeconds > 0, realSeconds.isFinite,
+        guard world.run.isActive, world.clock.phase == .day, !world.clock.held, realSeconds > 0, realSeconds.isFinite,
               !world.narrative.pending.contains(where: \.blocking)
         else { return StepReport() }
         let dt = min(realSeconds, Self.maxRealSecondsPerAdvance)
@@ -111,6 +136,7 @@ public struct Simulation: Sendable {
             if ctx.world.narrative.pending.contains(where: \.blocking) { break }
         }
         world = ctx.world
+        if Disclosure.record(&world, content) { report.changes.mark(.narrative) }
         return report
     }
 

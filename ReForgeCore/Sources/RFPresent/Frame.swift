@@ -45,6 +45,14 @@ public struct Frame: Equatable, Sendable {
     public var ui: UIUnlocks = UIUnlocks()
     /// 進行中の戦闘(上の帯と地図に出す。止めない)。
     public var battles: [BattleBand] = []
+    /// 地図の題(INV-O12)。認識の層の主題 place:base の今の名前。見え方の表に無ければ nil(題を出さない)。
+    /// 状態を別に持たないので、点火と同じステップの事実で、同じフレームのうちに変わる。
+    public var placeTitle: String?
+    /// 前のフレームから新しく開いた画面の要素(W-07。画面が一度だけ光らせる)。前のフレームが無ければ空。
+    public var newlyOpened: Set<UIElementID> = []
+    /// 半分の気配の影の行(HNT-17)。まだ解放されていない建造物とモジュールのうち、HintRule.halfway が真のもの。
+    /// 押せない。「まだ作り方を知らない」と出し、解放の条件は書かない。
+    public var shadows: [ShadowRow] = []
     /// 戦闘が始まったときの方針(寝ている間の戦闘もこれ)。
     public var defaultStance: BattleState.Stance = .keepDistance
 
@@ -76,6 +84,8 @@ public struct ClockView: Equatable, Sendable {
     public var dayRemainingPermille: Int
     /// 時計が動くか(昼・続行中・止める決断なし)。
     public var running: Bool
+    /// 最初の行為まで時計を止めている(W-01)。この間は上の帯に日の残りを出さない。
+    public var held: Bool = false
 
     public init(day: Int, phase: DayPhase, dayRemainingPermille: Int, running: Bool) {
         self.day = day
@@ -551,5 +561,22 @@ public struct StatGauge: Equatable, Sendable {
         let scale = Int64(top) + Int64(top) / 10
         func pos(_ v: Int64) -> Int { Int(max(0, min(1000, v * 1000 / max(1, scale)))) }
         return StatGauge(fillPermille: pos(value), marks: marks.sorted().map { pos(Int64($0)) })
+    }
+}
+
+/// 半分の気配の影の行 1 つ(HNT-17・W-07)。押せない。
+public struct ShadowRow: Equatable, Sendable {
+    public var kind: PlaceableKind
+    /// 今の呼び名(認識の層)。
+    public var name: String
+    /// 費用の合計と、いま持っている数(費用ごとに上限で切った和)。
+    public var have: Int
+    public var need: Int
+
+    public init(kind: PlaceableKind, name: String, have: Int, need: Int) {
+        self.kind = kind
+        self.name = name
+        self.have = have
+        self.need = need
     }
 }

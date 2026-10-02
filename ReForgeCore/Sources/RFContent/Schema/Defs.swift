@@ -845,6 +845,22 @@ public struct FindingDef: ContentDef, Equatable {
 }
 
 /// 始まりの世界。
+/// 始まりの時計(W-14)。
+public struct StartClockDef: Codable, Equatable, Sendable {
+    /// 始まりの日の番号(既定 1。序盤の設計では 0 =「目覚めた日」)。
+    public var day: Int?
+    /// 日没の何時間前から始めるか(既定: 夜明けから = 昼の長さ)。
+    public var hoursBeforeDusk: Int?
+    /// 最初の行為まで時計を止めるか(既定 false)。
+    public var held: Bool?
+
+    public init(day: Int? = nil, hoursBeforeDusk: Int? = nil, held: Bool? = nil) {
+        self.day = day
+        self.hoursBeforeDusk = hoursBeforeDusk
+        self.held = held
+    }
+}
+
 public struct StartDef: Codable, Equatable, Sendable {
     /// 最初からいる一員(ノアを含む)。
     public var members: [PersonID]
@@ -857,10 +873,13 @@ public struct StartDef: Codable, Equatable, Sendable {
     public var chapter: ChapterID?
     /// 始めに起こす出来事(目覚めの場面など)。
     public var events: [EventID]?
+    /// 始まりの時刻と時計の保留(W-14・W-01)。省略すると 1 日目の夜明けから、止めずに始める(今までどおり)。
+    public var clock: StartClockDef?
 
     public init(members: [PersonID], unmet: [PersonID]? = nil, items: [Yield] = [], facts: [FactID] = [],
                 unlocks: [UnlockTarget] = [], objectives: [ObjectiveID]? = nil, chapter: ChapterID? = nil,
-                events: [EventID]? = nil) {
+                events: [EventID]? = nil, clock: StartClockDef? = nil) {
+        self.clock = clock
         self.members = members
         self.unmet = unmet
         self.items = items

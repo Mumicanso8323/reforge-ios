@@ -35,6 +35,17 @@ public struct WorldFactory: Sendable {
             w.people.groups[id] = gs
         }
 
+        if let sc = content.start.clock {
+            let dayLen = content.clock.dayGameSeconds
+            if let d = sc.day { w.clock.day = d }
+            if let h = sc.hoursBeforeDusk {
+                let before = min(max(0, Int64(h) * 3600), dayLen)
+                // 夜明けを 0 に置き、日没の h 時間前から始める(GameTime を負にしない)
+                w.clock.now = GameTime(seconds: dayLen - before)
+            }
+            w.clock.held = sc.held ?? false
+        }
+
         var ctx = StepContext(world: w, content: content)
         let s = content.start
         for p in s.members {
@@ -57,8 +68,18 @@ public struct WorldFactory: Sendable {
         EffectApplier.apply(s.unlocks.map { .unlock(target: $0) }, &ctx, cause: nil)
         for o in s.objectives ?? [] { ctx.world.narrative.objectives[o] = .active }
         ctx.world.narrative.chapter = s.chapter
-        for e in s.events ?? [] { ctx.world.narrative.scheduled.append(ScheduledEvent(event: e, at: .zero)) }
+        let held = ctx.world.clock.held
+        if !held {
+            for e in s.events ?? [] { ctx.world.narrative.scheduled.append(ScheduledEvent(event: e, at: .zero)) }
+        }
         _ = ctx.drainEvents()
-        return ctx.world
+        var w2 = ctx.world
+        if held {
+            // 時計が止まっているとステップが回らないので、始まりの出来事(目覚めの場面)は作った時点で起こす。
+            // 最初の Frame に場面の 1 行目が出る(v0.5 §2.8.3)。保留は解かない
+            let sim = Simulation(content: content)
+            for e in s.events ?? [] { _ = sim.apply(.narrative(.fireFromEffect(event: e, cause: nil)), to: &w2) }
+        }
+        return w2
     }
 }

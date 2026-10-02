@@ -197,3 +197,16 @@ public struct IDAllocator: Codable, Equatable, Sendable {
         return nextValue
     }
 }
+
+public enum UIElementTag {}
+/// 画面の要素(タブ・ボタン・行為・パネル)の ID。文字列で決める(例 "tab.base"・"crew.assign"・
+/// "interaction.<InteractionID>")。表(ContentDB.uiGates)に無い要素はいつも出す。
+/// 一覧と行為の要素の作り方は RFContent の UIElements。
+public typealias UIElementID = TypedID<UIElementTag>
+
+/// 画面の要素が開いた理由(W-01・INV-O4)。知識で開いたものは記憶を持って巻き戻しても残り、
+/// 世界の状態で開いたものは巻き戻した先の世界に従う。
+public enum DisclosureKind: String, Codable, Hashable, Sendable {
+    case knowledge
+    case world
+}
