@@ -46,7 +46,7 @@ var targets: [Target] = [
     .target(name: "RFSim", dependencies: ["RFKernel", "RFWorld", "RFContent", "RFRules", "RFSave", "RFFailure"]
         + systems.map { .target(name: $0) }),
     // L6
-    .target(name: "RFPresent", dependencies: ["RFKernel", "RFMap", "RFWorld", "RFContent", "RFPerception", "RFSim"]),
+    .target(name: "RFPresent", dependencies: ["RFKernel", "RFMap", "RFWorld", "RFContent", "RFPerception", "RFSave", "RFFailure", "RFSim"]),
     // 傘
     .target(name: "ReForgeEngine", dependencies: [
         "RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception",

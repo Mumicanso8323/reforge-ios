@@ -35,87 +35,35 @@ struct GameScreen: View {
     }
 }
 
-/// 地図以外のタブ。いまは枠だけ(設計の縦の工程表・ノート・拠点・仲間は各担当の中身が入ってから)。
+/// 地図以外のタブ。中身はタブごとのファイルに分ける(担当がぶつからないように。F §4):
+/// - 設計 `Tabs/DesignTab.swift`・ノート `Tabs/NotesTab.swift`: U17
+/// - 拠点 `Tabs/BaseTab.swift`・仲間 `Tabs/CrewTab.swift`・`GameOverView.swift`・`TabBarView.swift`: U18
+/// - 色・書体・部品 `Theme/`: art-director
+/// このファイル(並べ方)は統合担当。タブを足すときは GameTab に case を足し、ここに 1 行足す。
 struct PanelView: View {
     let tab: GameTab
     @Bindable var app: AppModel
     let store: GameStore
-    @State private var showSettings = false
 
     var body: some View {
-        content
-            .inkCard(isPresented: $showSettings, title: Text("設定")) {
-                SettingsView(app: app, close: { showSettings = false })
-            }
-    }
-
-    @ViewBuilder private var content: some View {
         switch tab {
-        case .map:
-            EmptyView()
-        case .design:
-            InkPanel(title: Text("設計")) {
-                Text("縦の工程表で並びを決め、試したり札にしたりする画面です。まだできていません。")
-                    .foregroundStyle(InkColor.textDim)
-            }
-        case .notes:
-            InkPanel(title: Text("ノート")) {
-                Text("試したこと・所見・素材の図鑑が載ります。まだできていません。")
-                    .foregroundStyle(InkColor.textDim)
-            }
-        case .base:
-            InkPanel(title: Text("拠点")) {
-                Text("蓄え・建てた物・セーブが載ります。まだできていません。")
-                    .foregroundStyle(InkColor.textDim)
-                InkSection {
-                    Button {
-                        showSettings.toggle()
-                    } label: {
-                        InkRow(title: Text("設定"), value: Text(verbatim: "›"))
-                    }
-                    .buttonStyle(.inkRow)
-                    Button {
-                        Task { await app.backToTitle() }
-                    } label: {
-                        InkRow(title: Text("タイトルへ"), value: Text(verbatim: "›"))
-                    }
-                    .buttonStyle(.inkRow)
-                }
-            }
-        case .crew:
-            InkPanel(title: Text("仲間")) {
-                InkSection {
-                    ForEach(store.actors.filter(\.isMember), id: \.id) { a in
-                        InkRow(glyph: a.glyph, title: Text(verbatim: a.label))
-                    }
-                }
-            }
+        case .map: EmptyView()
+        case .design: DesignTabView(app: app, store: store)
+        case .notes: NotesTabView(app: app, store: store)
+        case .base: BaseTabView(app: app, store: store)
+        case .crew: CrewTabView(app: app, store: store)
         }
     }
 }
 
-/// ゲームオーバーの 4 択(同じ重さで並べる。D-save.md §3)。
-/// いまは「最初から」だけが動く(巻き戻し・失って続ける・セーブ地点からは保存と失敗の担当の中身が入ってから)。
-/// 「最初から」は記録を消すので、確かめのダイアログの代わりに長押しで確定する。
-struct GameOverView: View {
-    @Bindable var app: AppModel
+/// タブの中身の仮の枠(各担当が置き換えるまでの共通の見た目)。
+struct PlaceholderPanel<Content: View>: View {
+    @ViewBuilder var content: Content
 
     var body: some View {
-        InkPlate(title: Text("ここまで")) {
-            InkHoldButton(label: Text("最初から"), hint: Text("長押しで、いまの記録を消して最初から")) {
-                app.startNewGame()
-            }
-            .accessibilityIdentifier("restartHold")
-            choice(Text("記憶を持って巻き戻す"))
-            choice(Text("失って続ける"))
-            choice(Text("セーブ地点からロード"))
+        // 見た目は Theme の InkPanel(各担当は InkPanel を直接使ってよい)
+        InkPanel {
+            content
         }
-        .accessibilityIdentifier("gameOver")
-    }
-
-    private func choice(_ label: Text) -> some View {
-        Button {} label: { label }
-            .buttonStyle(.ink(.secondary))
-            .disabled(true)
     }
 }
