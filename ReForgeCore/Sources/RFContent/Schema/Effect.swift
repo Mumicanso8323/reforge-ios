@@ -80,6 +80,8 @@ public enum Effect: Codable, Hashable, Sendable {
     /// (members で名指しできる)。lethal = 倒れた人が死ぬか(既定 true。死者は戻らない)。
     /// 終わると集団の旗 "battle.won" / "battle.lost" / "battle.fled" が立つ(条件 groupFlag で見る)。
     case groupBattle(group: GroupID, at: PlaceSelector, members: [PersonID]? = nil, lethal: Bool? = nil)
+    /// 場所にある(無ければ最も近い)火床に、くべる・点ける・埋める(U21。「くべる」「火を起こす」「火を埋める」の行為)。
+    case hearth(at: PlaceSelector, op: HearthEffectOp)
 }
 
 /// 部品の状態の名前(RFWorld の PartState と対応)。

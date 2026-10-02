@@ -198,6 +198,8 @@ public struct ModuleDef: ContentDef, Equatable {
     /// 壊れた物(Placement.destroyedBy がある)を片付けたときに戻る、払った材料の割合(千分率・端数は切り捨て)。
     /// 既定 500。壊れていない物は全部戻る。
     public var refundPermilleBroken: Int?
+    /// 火床(炉の熱。U22 が W-03 で使う。形は U21 の HearthDef)。
+    public var hearth: HearthDef?
 
     public init(id: ModuleKindID, cost: [Ingredient], placement: PlacementRule, ports: [PortDef], cycleSeconds: Int,
                 specialty: String? = nil, auras: [AuraKindID]? = nil, parameters: Value? = nil,
@@ -295,6 +297,10 @@ public struct StructureDef: ContentDef, Equatable {
     public var placement: PlacementRule?
     /// 付くと速く建つ専門(タグ)。持ち主: U8
     public var specialty: String?
+    /// 火床(燃料で燃え、放っておけば消える。焚き火台)。持ち主: U21
+    public var hearth: HearthDef?
+    /// provides と auras が効く火床の段の下限(nil は常に効く)。焚き火台は smoldering。持ち主: U21
+    public var whenLit: HearthLevel?
 }
 
 /// マス・POI・置いた物に対してできる行為(漁る・汲む・掘る・観測する…)。

@@ -94,6 +94,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case placementDestroyed(placement: EntityID, record: ProvenanceID)
     /// 壊れた置いた物を直した(U16)。
     case placementRepaired(placement: EntityID, record: ProvenanceID)
+    /// 火床の段が変わった(消えた・点いた・弱まった。U21)。
+    case hearthLevelChanged(placement: EntityID, level: HearthLevel)
 
     /// 物語の出来事の引き金に書く名前。
     public var hook: String {
@@ -138,6 +140,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .battleEnded: "battle.ended"
         case .nestDestroyed: "nest.destroyed"
         case .raided: "raided"
+        case .hearthLevelChanged: "hearth"
         case .trapSprung: "trap.sprung"
         case .researchCompleted: "research.completed"
         case .skillAcquired: "skill"
