@@ -97,4 +97,4 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 | REQ-S11 隠れた値 | `survival.stats` に内部の値(内訳と合計 `StatDef.sumOf`・暦)。見せ方は認識の表の `StatDisplay`(hidden → 段階 → 数)。人の総数は `unmet` で内部に。期限・失敗は `FailureRuleDef`(値の条件)で、日数で判定しない |
 | MECH-07 決定的な乱数 | `RandomStreams`(seed + 流れの名前)。出来事の確率は `Condition.chance` が物語の流れで引く。テスト `testSameSeedSameCommandsSameWorld`・`AcceptanceTests.testDeterminismWithFullContent` |
 | MECH-05 仲間の R1 の範囲 | `Assignment`(運搬・モジュールに付く・見張り・建造・採取)・`Activity`(歩く・運ぶ・話す・戦う)・`LineDef.context`(焚き火)・賛否(`IdeologyAxisDef.weights` × 来歴の印 → `DomainEvent.opinion`)。士気・離脱(R2)・能力と集団(R3)は同じ型に足す |
-| REQ-S12 公開と非公開 | 仕組み(来歴・認識の層・条件と効果の評価・範囲)は公開のコード。事実の表・見え方の切り替え・本文・選ぶ表・禁止語は非公開の層(E) |
+| REQ-S12 公開と非公開 | 仕組み(来歴・認識の層・条件と効果の評価・範囲)は公開のコード。事実の表・見え方の切り替え・本文・人の一覧・禁止語は非公開の層(E) |

@@ -451,7 +451,7 @@ public struct ProcessSheet: Equatable, Sendable {
     public var card: Card?
     /// 工程表で技能を付けられる表なら、その候補(使える条件が成り立っているときだけ)。
     public var grant: SkillGrant?
-    /// 選ぶ表の表なら、締めたか(選ぶ表でなければ nil)。
+    /// 選ぶ表なら、確定したか(選ぶ表でなければ nil)。
     public var rosterConfirmed: Bool?
 
     /// 工程表の候補(付けられる技能と、付けられる人)。
@@ -564,7 +564,7 @@ public struct FootCard: Equatable, Sendable {
     public var point: GridPoint
     public var title: String
     public var actions: [Action]
-    /// このマスの残骸から開ける資料(残骸の工程表の資料など。行為の数には数えない。U18)。
+    /// このマスの残骸から開ける資料(段階つきの資料など。行為の数には数えない。U18)。
     public var documents: [DocumentLink] = []
 
     public struct DocumentLink: Equatable, Sendable {

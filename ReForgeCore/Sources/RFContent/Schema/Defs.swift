@@ -765,7 +765,7 @@ public struct SheetDef: ContentDef, Equatable {
     public var entries: [SheetEntryDef]?
     /// 記録の 1 件を開いたときの既定の行。entry.rows があればそちら。
     public var entryRows: [Row]?
-    /// この表の工程表で、人に技能を付けられる(BEAT-06)。
+    /// この表から、人に技能を付けられる(BEAT-06)。
     public var grant: SkillGrantDef?
     /// この表は選ぶ表(BEAT-29)。
     public var roster: RosterDef?
@@ -801,7 +801,7 @@ public enum SheetMeasure: Codable, Hashable, Sendable {
 public struct SkillGrantDef: Codable, Equatable, Sendable {
     /// 付けられる技能。
     public var skills: [SkillID]
-    /// 使える条件(工程表を直した、など)。
+    /// 使える条件(コンテンツが決める)。
     public var when: Condition?
     /// 付けられる人(一員で生きている人のうち、全部に合う人)。
     public var targets: [PersonTest]?

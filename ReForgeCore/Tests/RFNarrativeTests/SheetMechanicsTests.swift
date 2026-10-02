@@ -105,7 +105,7 @@ final class SheetMechanicsTests: XCTestCase {
                                                                 skill: "skill.test.kindling")), to: &w).rejection)
     }
 
-    // MARK: - BEAT-07 行に来歴を行に置く
+    // MARK: - BEAT-07 行に来歴を置く
 
     func testPlaceOwnRecordAsAnswer() throws {
         let rig = try TestRig.publicOnly()
