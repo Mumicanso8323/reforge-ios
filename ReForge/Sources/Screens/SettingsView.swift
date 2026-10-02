@@ -20,28 +20,30 @@ struct SettingsView: View {
             RemoveAdsView(app: app, back: { showRemoveAds = false })
         } else {
             VStack(alignment: .leading, spacing: 24) {
-                InkSection(title: Text("広告")) {
-                    if app.adsRemoved {
-                        InkRow(title: Text("広告は非表示です"))
-                    } else {
+                if AdPolicy.shown {
+                    InkSection(title: Text("広告")) {
+                        if app.adsRemoved {
+                            InkRow(title: Text("広告は非表示です"))
+                        } else {
+                            Button {
+                                showRemoveAds = true
+                            } label: {
+                                InkRow(title: Text("広告を消す"), value: Text(verbatim: "›"))
+                            }
+                            .buttonStyle(.inkRow)
+                            .accessibilityIdentifier("removeAdsButton")
+                        }
                         Button {
-                            showRemoveAds = true
+                            Task {
+                                await app.restorePurchases()
+                                restoreMessage = app.adsRemoved ? "購入を復元しました" : "復元できる購入はありません"
+                            }
                         } label: {
-                            InkRow(title: Text("広告を消す"), value: Text(verbatim: "›"))
+                            InkRow(title: Text("購入を復元"), detail: restoreMessage.map { Text($0) })
                         }
                         .buttonStyle(.inkRow)
-                        .accessibilityIdentifier("removeAdsButton")
+                        .accessibilityIdentifier("restoreButton")
                     }
-                    Button {
-                        Task {
-                            await app.restorePurchases()
-                            restoreMessage = app.adsRemoved ? "購入を復元しました" : "復元できる購入はありません"
-                        }
-                    } label: {
-                        InkRow(title: Text("購入を復元"), detail: restoreMessage.map { Text($0) })
-                    }
-                    .buttonStyle(.inkRow)
-                    .accessibilityIdentifier("restoreButton")
                 }
 
                 InkSection(title: Text("記録")) {
