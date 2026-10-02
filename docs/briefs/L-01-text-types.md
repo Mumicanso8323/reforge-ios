@@ -102,14 +102,14 @@ public enum NumberText { public static func format(_ n: Int64, places: Int, lang
 
 ## 6. 確かめのコマンド
 ```
-docker run --rm -v "$PWD":/w -w /w swift:6.1-noble swift build --build-tests --package-path ReForgeCore
-docker run --rm -v "$PWD":/w -w /w swift:6.1-noble swift test --package-path ReForgeCore --filter RFTextTests
-docker run --rm -v "$PWD":/w -w /w swift:6.1-noble swift test --package-path ReForgeCore   # 全体(既存が全部通る)
+~/.local/bin/rf-swift-slot docker run --rm --cpus=3 -v "$PWD":/w -w /w swift:6.1-noble swift build -j 3 --build-tests --package-path ReForgeCore
+~/.local/bin/rf-swift-slot docker run --rm --cpus=3 -v "$PWD":/w -w /w swift:6.1-noble swift test -j 3 --package-path ReForgeCore --filter RFTextTests
 python3 tools/check-app-switches.py
 python3 tools/check-app-names.py
 python3 tools/check-public-spoilers.py
 ```
-増分のビルドが signal 11 で落ちたら `swift package clean --package-path ReForgeCore` してから回し直す(コードの問題ではない)。
+- hub の負荷の決まり: docker は必ず `rf-swift-slot` を通し、`--cpus=3`・`-j 3`。`--parallel`・`-d` は使わない。枠が空くまで待つ。全体のテストは回さない(統合担当がマージのときに回す)。
+- 増分のビルドが signal 11 で落ちたら `swift package clean --package-path ReForgeCore` してから回し直す(コードの問題ではない)。
 
 ## 7. 終わりの報告(architect へ)
 - コミットのハッシュ、触ったファイルの一覧

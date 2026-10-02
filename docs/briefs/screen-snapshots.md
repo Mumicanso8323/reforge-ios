@@ -79,7 +79,7 @@ python3 tools/check-app-names.py
 python3 tools/gen-xcstrings.py --check
 python3 -c "import yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"
 python3 -c "import yaml; yaml.safe_load(open('project.yml'))"
-docker run --rm -v "$PWD":/w -w /w swift:6.1-noble swift test --package-path ReForgeCore   # 本体を触っていなければ省略可
+~/.local/bin/rf-swift-slot docker run --rm --cpus=3 -v "$PWD":/w -w /w swift:6.1-noble swift test -j 3 --package-path ReForgeCore --filter <触った本体のテスト>   # 本体を触っていなければ省略。全体は回さない
 ```
 
 - Swift の文法は目で確かめる(`#if DEBUG` の囲み、`@MainActor`、XCUI の API 名)。存在の怪しい API(`xcresulttool export attachments` のフラグなど)は、Apple の文書のどの版の何かをコミットのメッセージに書く。
