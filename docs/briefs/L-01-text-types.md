@@ -102,13 +102,15 @@ public enum NumberText { public static func format(_ n: Int64, places: Int, lang
 
 ## 6. 確かめのコマンド
 ```
+~/.local/bin/rf-note-test . --filter RFTextTests
+# note に ssh できなければ予備(hub):
 ~/.local/bin/rf-swift-slot docker run --rm --cpus=3 -v "$PWD":/w -w /w swift:6.1-noble swift build -j 3 --build-tests --package-path ReForgeCore
 ~/.local/bin/rf-swift-slot docker run --rm --cpus=3 -v "$PWD":/w -w /w swift:6.1-noble swift test -j 3 --package-path ReForgeCore --filter RFTextTests
 python3 tools/check-app-switches.py
 python3 tools/check-app-names.py
 python3 tools/check-public-spoilers.py
 ```
-- hub の負荷の決まり: docker は必ず `rf-swift-slot` を通し、`--cpus=3`・`-j 3`。`--parallel`・`-d` は使わない。枠が空くまで待つ。全体のテストは回さない(統合担当がマージのときに回す)。
+- テストはまず `rf-note-test`(note)。だめなときだけ hub の予備。hub の負荷の決まり: docker は必ず `rf-swift-slot` を通し、`--cpus=3`・`-j 3`。`--parallel`・`-d` は使わない。枠が空くまで待つ。全体のテストは回さない(統合担当がマージのときに回す)。
 - 増分のビルドが signal 11 で落ちたら `swift package clean --package-path ReForgeCore` してから回し直す(コードの問題ではない)。
 
 ## 7. 終わりの報告(architect へ)
