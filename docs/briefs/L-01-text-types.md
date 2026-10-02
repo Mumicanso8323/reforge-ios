@@ -112,6 +112,7 @@ python3 tools/check-public-spoilers.py
 - 増分のビルドが signal 11 で落ちたら `swift package clean --package-path ReForgeCore` してから回し直す(コードの問題ではない)。
 
 ## 7. 終わりの報告(architect へ)
+- 冒頭に「非公開未確認」と書く(この作業場には非公開の層が無い。統合担当がマージの前に回す。F §4)
 - コミットのハッシュ、触ったファイルの一覧
 - 書式で受けない形(ICU の何を切ったか)の一覧
 - テストの件数と全体の結果(件数・失敗・飛ばし)
