@@ -28,11 +28,23 @@ struct FootCardView: View {
                             .accessibilityIdentifier("nothingNearby")
                     }
                 }
+                if let hint = store.footCard?.hint {
+                    Text(verbatim: hint)
+                        .font(InkFont.small)
+                        .foregroundStyle(InkColor.textDim)
+                        .lineLimit(1)
+                        .accessibilityIdentifier("footCardHint")
+                }
                 // 焚き火の火の見込み(PT-B1。焚き火のカードだけ)
                 if let fire = store.footCard?.fire {
                     FireOutlookLine(fire: fire)
                 }
                 HStack(spacing: 8) {
+                    if store.selected != nil {
+                        Button { store.walkToSelection() } label: { Text("ここへ歩く") }
+                            .buttonStyle(.ink(.primary, fill: false))
+                            .accessibilityIdentifier("walkToSelection")
+                    }
                     ForEach(store.footCard?.actions ?? [], id: \.id) { a in
                         ActionButton(action: a, store: store)
                     }
@@ -43,7 +55,7 @@ struct FootCardView: View {
                             .accessibilityIdentifier("panel-\(d.id.rawValue)")
                     }
                 }
-                .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: InkMetric.buttonHeight, alignment: .leading)
             }
         }
         .accessibilityIdentifier("footCard")
@@ -62,22 +74,29 @@ struct ActionButton: View {
                 .font(InkFont.body)
                 .foregroundStyle(pressing ? InkColor.onAccent : InkColor.text)
                 .padding(.horizontal, 14)
-                .frame(height: 36)
+                .frame(minHeight: InkMetric.buttonHeight)
                 .background(RoundedRectangle(cornerRadius: InkMetric.corner)
                     .fill(pressing ? InkColor.accent : InkColor.panel))
                 .overlay(RoundedRectangle(cornerRadius: InkMetric.corner)
                     .stroke(InkColor.rule, lineWidth: InkMetric.rule))
-                .onLongPressGesture(minimumDuration: 3600, maximumDistance: 40, perform: {}, onPressingChanged: { p in
-                    pressing = p
-                    store.act(action, pressing: p)
-                })
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard !pressing else { return }
+                        pressing = true
+                        store.act(action, pressing: true)
+                    }
+                    .onEnded { _ in
+                        guard pressing else { return }
+                        pressing = false
+                        store.act(action, pressing: false)
+                    })
                 .accessibilityAddTraits(.isButton)
         } else {
             Button {
                 store.act(action, pressing: true)
             } label: {
                 Text(verbatim: action.label)
-                    .frame(height: 36)
+                    .frame(minHeight: InkMetric.buttonHeight)
             }
             .buttonStyle(.ink(.secondary, fill: false))
         }

@@ -16,6 +16,7 @@ final class GameStore {
     let content: ContentDB
     let host: GameHost
     let saves: FileSaveStorage
+    private let playLog = PlayLog()
     private let log = Logger(subsystem: "com.yusukedoi.reforge", category: "game")
 
     private(set) var clock: ClockView
@@ -27,6 +28,12 @@ final class GameStore {
     private(set) var route: [GridPoint]
     private(set) var focus: GridPoint?
     private(set) var decision: DecisionView?
+    struct DecisionUndo: Equatable {
+        var choice: ChoiceID
+        var label: String
+        var seconds: Int
+    }
+    private(set) var decisionUndo: DecisionUndo?
     private(set) var sceneLines: [String]
     private(set) var prologue: PrologueView?
     private(set) var darkStart: DarkStartView?
@@ -57,6 +64,10 @@ final class GameStore {
     /// 足元カードが注目しているマス(nil ならノアの足元)。
     private(set) var selected: GridPoint?
     private(set) var footCard: FootCard?
+    /// 遠い行為で、歩き終えたときに一度だけ送るもの。
+    private var approachingAction: FootCard.Action?
+    /// 操作棒が通れない場所に当たった合図。
+    private(set) var lastSteerBlocked = false
     /// 長押しで調べたマス(ふきだし)。
     private(set) var inspection: TileInspection?
     /// 断られた理由(足元カードに 1 行。数秒で消える)。
@@ -84,6 +95,7 @@ final class GameStore {
     @ObservationIgnored var isPaused = false
     @ObservationIgnored private var lastRevision = -1
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    @ObservationIgnored private var decisionUndoTask: Task<Void, Never>?
     @ObservationIgnored private var lastPhase: DayPhase = .day
     @ObservationIgnored private var lastDay = 0
     /// 前回の操作の実時刻の置き場(保存の外。PT-B2)と、実時刻の読み方(テストで差し替える)。
@@ -120,6 +132,14 @@ final class GameStore {
         lastPhase = f.clock.phase
         lastDay = f.clock.day
         dayWrap = f.dayWrap
+        log(kind: "build", fields: [
+            "hand": MapTouchSettings.hand(defaults).rawValue,
+            "directions": "\(MapTouchSettings.directions(defaults))",
+            "neutral": "\(MapTouchSettings.neutralRadius(defaults))",
+            "zoomPlan": MapTouchSettings.zoomPlan(defaults).rawValue,
+            "tapWalk": "\(defaults.bool(forKey: MapTouchSettings.tapWalkKey))",
+            "autoReturn": "\(defaults.object(forKey: MapTouchSettings.autoReturnKey) as? Bool ?? true)",
+        ])
     }
 
     /// 画面に出す解放(撮る起動の DEBUG のときだけ、Frame の値を全部開いた形に上書きする)。
@@ -157,7 +177,8 @@ final class GameStore {
 #endif
         // 保留の間(最初の行為の前)も呼ぶ。本体は、最初の行為を押していなければ何もしない(PT-B8)
         guard isActive, !isPaused, !benchHoldsClock, clock.running || clock.held else { return }
-        let (f, _) = await host.tick(realSeconds: dt)
+        let (f, report) = await host.tick(realSeconds: dt)
+        consume(report)
         await refresh(f)
     }
 
@@ -168,31 +189,35 @@ final class GameStore {
 
     // MARK: - 操作(すべて意図を送るだけ。確認ダイアログは出さない)
 
-    /// マスをタップ: そこへ歩く(経路は本体が決め、点線で描く。歩いている途中のタップで行き先が変わる)。
-    func walk(to cell: GridPoint) {
+    /// マスを選び、足元カードをその場所へ替える。選んだだけでは歩かない。
+    func select(_ cell: GridPoint) {
         selected = cell
         inspection = nil
         if let kind = placing {
-            // 置くモード: タップで照準を動かし、照準の上をもう一度タップすると建てる(置けるときだけ)
-            if let p = preview, p.at == cell, p.placeable {
-                confirmPlacing()
-            } else {
-                Task { preview = await host.placementPreview(kind, at: cell) }
-            }
+            // 置くモードのタップは照準を動かすだけ。建てるのは帯のボタンだけ。
+            Task { preview = await host.placementPreview(kind, at: cell) }
             return
         }
-        send(.crew(.walk(to: WorldPoint(mapView.layer, cell))))
-    }
-
-    /// マスを長押し: 調べる(ふきだし)。
-    func inspect(_ cell: GridPoint) {
-        selected = cell
         Task {
             inspection = await host.inspect(at: cell)
-            // 調べたことで開いた要素があれば出す(U20。frame の版が上がっていなければ何もしない)
             await refresh(await host.frame)
             await refreshCard()
         }
+    }
+
+    /// 選んだマスへ歩く。カードのボタンだけがこの命令を送る。
+    func walkToSelection() {
+        guard let cell = selected else { return }
+        log(kind: "walkSel", fields: ["x": "\(cell.x)", "y": "\(cell.y)", "zone": "bottom"])
+        send(.crew(.walk(to: WorldPoint(mapView.layer, cell))))
+    }
+
+    /// ノアの足元へ選びを戻す。
+    func clearSelection() { selected = nil; inspection = nil; Task { await refreshCard() } }
+
+    /// マスを長押し: 調べる(ふきだし)。
+    func inspect(_ cell: GridPoint) {
+        select(cell)
     }
 
     func dismissInspection() { inspection = nil }
@@ -203,11 +228,37 @@ final class GameStore {
     /// 決断を選ぶ(上の帯)。
     func decide(_ choice: ChoiceID) {
         guard let d = decision else { return }
-        send(.narrative(.decide(decision: d.id, choice: choice)))
+        guard decisionUndo == nil, let label = d.choices.first(where: { $0.id == choice })?.label else { return }
+        isPaused = true
+        decisionUndo = DecisionUndo(choice: choice, label: label, seconds: 4)
+        decisionUndoTask?.cancel()
+        decisionUndoTask = Task { @MainActor in
+            for remaining in stride(from: 3, through: 0, by: -1) {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                decisionUndo?.seconds = remaining
+            }
+            guard !Task.isCancelled, let pending = decisionUndo, let decision else { return }
+            decisionUndo = nil
+            isPaused = false
+            send(.narrative(.decide(decision: decision.id, choice: pending.choice)))
+        }
+    }
+
+    func undoDecision() {
+        decisionUndoTask?.cancel()
+        decisionUndoTask = nil
+        decisionUndo = nil
+        isPaused = false
     }
 
     /// 足元カードの行為。押し続ける行為は押し始め(pressing = true)と離した時(false)の 2 回。
     func act(_ a: FootCard.Action, pressing: Bool) {
+        if footCard?.state == .far, pressing {
+            approachingAction = a
+            walkToSelection()
+            return
+        }
         if a.hold {
             send(pressing ? a.start : a.end)
         } else if pressing {
@@ -228,10 +279,28 @@ final class GameStore {
     func send(_ command: Command) {
         noteOperation()
         Task {
-            let (f, rejection) = await host.perform(command)
+            let (f, report) = await host.send(command)
+            let rejection: String?
+            if let r = report.rejection {
+                rejection = await host.describe(r)
+            } else {
+                rejection = nil
+            }
+            consume(report)
             show(notice: rejection)
             await refresh(f)
         }
+    }
+
+    /// 操作棒は他の命令と同じく本体へ送る。理由は端末内の記録のために呼び出し側で渡す。
+    func steer(_ direction: StickDirection?, reason: String) {
+        log(kind: "steer", fields: ["direction": direction?.rawValue ?? "none", "reason": reason, "zone": "bottom"])
+        send(.crew(.steer(direction: direction)))
+    }
+
+    func log(kind: String, fields: [String: String]) {
+        playLog?.append(PlayLogEvent(t: Date(), kind: kind, day: clock.day,
+                                     minute: Int(clock.dayRemainingPermille), fields: fields))
     }
 
     // MARK: - Frame の取り込み
@@ -268,6 +337,10 @@ final class GameStore {
             }
         }
         await refreshCard()
+        if let action = approachingAction, footCard?.state == .normal {
+            approachingAction = nil
+            act(action, pressing: true)
+        }
         // 序が終わったことは、地図の区画と足元カードを引き終えてから見せる(序の画面が消えた時に、地図と足元カードがそろっている)
         if prologue != f.prologue { prologue = f.prologue }
         if darkStart != f.darkStart { darkStart = f.darkStart }
@@ -278,6 +351,11 @@ final class GameStore {
             if f.clock.phase == .day { await saveDawn() }
             await saveResume()
         }
+    }
+
+    private func consume(_ report: StepReport) {
+        lastSteerBlocked = report.events.contains { if case .steerBlocked = $0 { true } else { false } }
+        if lastSteerBlocked { log(kind: "blocked", fields: ["zone": "bottom"]) }
     }
 
     private func refreshCard() async {

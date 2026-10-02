@@ -28,6 +28,8 @@ struct MapScene {
     var battles: [GridPoint] = []
     /// 地図の光の点(遠くの灯り。暗闇でも描く。U18・§10 HNT-08)。
     var beacons: [GridPoint] = []
+    /// タップで選んだマス。経路とは別の角印で示す。
+    var selected: GridPoint? = nil
 
     private struct GlyphKey: Hashable {
         var glyph: String
@@ -117,6 +119,20 @@ struct MapScene {
             ctx.draw(t, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
         }
 
+        if let selected, selected.x >= x0 && selected.x < x1 && selected.y >= y0 && selected.y < y1 {
+            let rect = cellRect(selected).insetBy(dx: 2, dy: 2)
+            let color = InkColor.accent
+            let corner: CGFloat = min(7, cs * 0.28)
+            var path = Path()
+            path.move(to: CGPoint(x: rect.minX + corner, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + corner))
+            path.move(to: CGPoint(x: rect.maxX - corner, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - corner))
+            ctx.stroke(path, with: .color(color), lineWidth: 2)
+        }
+
         // 置いた物
         for pl in placements {
             let rect = cellRect(pl.at)
@@ -151,6 +167,23 @@ struct MapScene {
             let color = style(a.tint).foreground(at: GridPoint(0, 0))
             let t = text(a.glyph, color)
             ctx.draw(t, at: CGPoint(x: c.x, y: c.y), anchor: .center)
+            if a.isMember {
+                let triangle = Path { p in
+                    let s = cs * 0.12
+                    switch a.facing {
+                    case .north:
+                        p.move(to: CGPoint(x: c.x, y: c.y - cs * 0.34)); p.addLine(to: CGPoint(x: c.x - s, y: c.y - cs * 0.16)); p.addLine(to: CGPoint(x: c.x + s, y: c.y - cs * 0.16))
+                    case .south:
+                        p.move(to: CGPoint(x: c.x, y: c.y + cs * 0.34)); p.addLine(to: CGPoint(x: c.x - s, y: c.y + cs * 0.16)); p.addLine(to: CGPoint(x: c.x + s, y: c.y + cs * 0.16))
+                    case .east:
+                        p.move(to: CGPoint(x: c.x + cs * 0.34, y: c.y)); p.addLine(to: CGPoint(x: c.x + cs * 0.16, y: c.y - s)); p.addLine(to: CGPoint(x: c.x + cs * 0.16, y: c.y + s))
+                    case .west:
+                        p.move(to: CGPoint(x: c.x - cs * 0.34, y: c.y)); p.addLine(to: CGPoint(x: c.x - cs * 0.16, y: c.y - s)); p.addLine(to: CGPoint(x: c.x - cs * 0.16, y: c.y + s))
+                    }
+                    p.closeSubpath()
+                }
+                ctx.fill(triangle, with: .color(color.color))
+            }
         }
 
         // 置くモードの照準: 置けるなら緑、置けないなら赤。占めるマスを塗り、外枠を引く

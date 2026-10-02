@@ -131,6 +131,16 @@
         }
       }
     },
+    "ここへ歩く": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここへ歩く"
+          }
+        }
+      }
+    },
     "ここまで": {
       "localizations": {
         "ja": {
@@ -411,6 +421,16 @@
         }
       }
     },
+    "中立の幅": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "中立の幅"
+          }
+        }
+      }
+    },
     "九": {
       "localizations": {
         "ja": {
@@ -611,6 +631,36 @@
         }
       }
     },
+    "取り消す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "取り消す"
+          }
+        }
+      }
+    },
+    "右": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "右"
+          }
+        }
+      }
+    },
+    "向きの数": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "向きの数"
+          }
+        }
+      }
+    },
     "含めない": {
       "localizations": {
         "ja": {
@@ -667,6 +717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "地図"
+          }
+        }
+      }
+    },
+    "地図のタップですぐ歩く": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "地図のタップですぐ歩く"
           }
         }
       }
@@ -777,6 +837,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "崩す"
+          }
+        }
+      }
+    },
+    "左": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左"
           }
         }
       }
@@ -921,6 +991,16 @@
         }
       }
     },
+    "戻る": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "戻る"
+          }
+        }
+      }
+    },
     "所見": {
       "localizations": {
         "ja": {
@@ -1001,6 +1081,16 @@
         }
       }
     },
+    "拡大の段": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拡大の段"
+          }
+        }
+      }
+    },
     "持ち場": {
       "localizations": {
         "ja": {
@@ -1037,6 +1127,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "採取"
+          }
+        }
+      }
+    },
+    "操作棒の利き手": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作棒の利き手"
+          }
+        }
+      }
+    },
+    "操作棒をカードの横に置く": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "操作棒をカードの横に置く"
           }
         }
       }
@@ -1171,6 +1281,16 @@
         }
       }
     },
+    "残り %lld 秒": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "残り %lld 秒"
+          }
+        }
+      }
+    },
     "段": {
       "localizations": {
         "ja": {
@@ -1301,6 +1421,16 @@
         }
       }
     },
+    "移動の操作棒": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "移動の操作棒"
+          }
+        }
+      }
+    },
     "空き": {
       "localizations": {
         "ja": {
@@ -1377,6 +1507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "蓄え"
+          }
+        }
+      }
+    },
+    "見回しを自動で戻す": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "見回しを自動で戻す"
           }
         }
       }
