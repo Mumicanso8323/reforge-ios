@@ -36,7 +36,7 @@ final class AppTests: XCTestCase {
                          .hearth(at: .trigger, op: .ignite())]
         db.interactions[first.id] = first
         db.structures["structure.campfire"]?.hearth?.initialSeconds = 0
-        db.structures["structure.campfire"]?.hearth?.igniteSeconds = 60
+        db.structures["structure.campfire"]?.hearth?.igniteSeconds = 3600
         // 始まりの時刻も試験の側で決める(非公開の層の始まりの時刻に引きずられて昼でなくなるのを避ける)
         db.start.clock = StartClockDef(day: 0, hoursBeforeDusk: 4, held: true, firstAct: first.id)
         let world = GameBootstrap.newWorld(content: db, seed: 3)
@@ -64,7 +64,7 @@ final class AppTests: XCTestCase {
             + "phase=\(w.clock.phase) now=\(w.clock.now.seconds) active=\(String(describing: active)) "
             + "pos=\(String(describing: noah?.position)) motion=\(String(describing: noah?.motion)) "
             + "alive=\(String(describing: noah?.presence.isAlive)) prologue=\(store.prologue != nil) steps=\(String(describing: steps)) "
-            + "footCard=\(String(describing: store.footCard?.actions))"
+            + "hearths=\(w.placements.items.values.compactMap { $0.structure?.hearth })" + " footCard=\(String(describing: store.footCard?.actions))"
     }
 
     private func startDarkStartAction(_ store: GameStore) async throws {
