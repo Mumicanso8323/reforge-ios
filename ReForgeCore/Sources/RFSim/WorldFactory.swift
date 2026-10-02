@@ -35,6 +35,17 @@ public struct WorldFactory: Sendable {
             w.people.groups[id] = gs
         }
 
+        if let sc = content.start.clock {
+            let dayLen = content.clock.dayGameSeconds
+            if let d = sc.day { w.clock.day = d }
+            if let h = sc.hoursBeforeDusk {
+                let before = min(max(0, Int64(h) * 3600), dayLen)
+                // 夜明けを 0 に置き、日没の h 時間前から始める(GameTime を負にしない)
+                w.clock.now = GameTime(seconds: dayLen - before)
+            }
+            w.clock.held = sc.held ?? false
+        }
+
         var ctx = StepContext(world: w, content: content)
         let s = content.start
         for p in s.members {

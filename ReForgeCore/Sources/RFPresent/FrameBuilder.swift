@@ -81,10 +81,13 @@ public struct FrameBuilder: Sendable {
     func clockView(_ w: WorldState) -> ClockView {
         let dayLen = content.clock.dayGameSeconds
         let since = (w.clock.now - w.clock.dayStartedAt).seconds
-        return ClockView(
+        var v = ClockView(
             day: w.clock.day, phase: w.clock.phase,
             dayRemainingPermille: w.clock.phase == .day && dayLen > 0 ? Int(max(0, (dayLen - since) * 1000 / dayLen)) : 0,
-            running: w.run.isActive && w.clock.phase == .day && !w.narrative.pending.contains(where: \.blocking))
+            running: w.run.isActive && w.clock.phase == .day && !w.clock.held
+                && !w.narrative.pending.contains(where: \.blocking))
+        v.held = w.clock.held
+        return v
     }
 
     func statusItems(_ w: WorldState, _ p: Perceiver) -> [StatusItem] {
