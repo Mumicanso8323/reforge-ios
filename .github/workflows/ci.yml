@@ -43,6 +43,7 @@ jobs:
       REFORGE_R1_02_SEEDS: "20"
       # TEST-O12 地図の保証の種の数(手元の既定は 50。CI は全部の 1000)
       REFORGE_O12_SEEDS: "1000"
+      REFORGE_FIRSTFIRE_SEEDS: "200"
     steps:
       - uses: actions/checkout@v5
       - name: swift test(公開の層だけ)

@@ -35,6 +35,9 @@ public struct OpeningRules: Codable, Equatable, Sendable {
     /// 獣の巣を置く、露頭からの距離の幅(森の中。W-02c の縄張り)。
     public var nestFromOutcropMin: Int
     public var nestFromOutcropMax: Int
+    /// 自分たちの残骸(wreck.home)からこのチェビシェフ距離の内側に、焚き火台を置ける乾いた空きマスを 1 つ以上残す
+    /// (最初の「火を起こす」の placeStructure は残骸のそばの 0〜3 マスを探す。U21 の StructureSites.spot)。nil なら 3。
+    public var firstFireRadius: Int?
 
     public init(emberForestRadius: Int, emberForestMin: Int, forestRing: Int, forestMin: Int, clayBankSteps: Int,
                 outcropSteps: Int, outcropForestEdge: Int, secondIronMin: Int, secondIronMax: Int,
@@ -284,5 +287,34 @@ public enum OpeningGuarantee {
                                                     anchor: c.p, footprint: tpl.footprint, isDiscovered: false))
             }
         }
+
+        // 最初の火の置き場所: 残骸のそばに、乾いた平地か整地の空きマスを 1 つ以上(無ければ一番近い空きマスを整地にする)
+        ensureFirstFireSite(&layer, radius: r.firstFireRadius ?? 3)
+    }
+
+    /// 残骸(wreck.home)のそばの、焚き火台を置けるマス(StructureSites.spot と同じ順: 距離 0 から、同じ距離なら y → x)。
+    static func firstFireSite(_ layer: MapLayer, radius: Int) -> GridPoint? {
+        guard let home = layer.placements[.homeWreck]?.anchor else { return nil }
+        for p in ring(home, radius) where [Biome.plain, .cleared].contains(layer.terrain.biome(at: p)) && !layer.placements.isOccupied(p) {
+            return p
+        }
+        return nil
+    }
+
+    static func ensureFirstFireSite(_ layer: inout MapLayer, radius: Int) {
+        guard layer.placements[.homeWreck] != nil, firstFireSite(layer, radius: radius) == nil,
+              let home = layer.placements[.homeWreck]?.anchor else { return }
+        if let p = ring(home, radius).first(where: { layer.terrain.size.contains($0) && !layer.placements.isOccupied($0) }) { layer.terrain.set(p, .cleared) }
+    }
+
+    /// near から距離 0〜radius のマス(地図の内側だけ)。
+    static func ring(_ near: GridPoint, _ radius: Int) -> [GridPoint] {
+        var a: [GridPoint] = []
+        for r in 0...max(0, radius) {
+            for dy in -r...r {
+                for dx in -r...r where max(abs(dx), abs(dy)) == r { a.append(GridPoint(near.x + dx, near.y + dy)) }
+            }
+        }
+        return a
     }
 }
