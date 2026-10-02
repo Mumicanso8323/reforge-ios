@@ -9,10 +9,10 @@ import RFWorld
 /// 順番(決定的):
 /// 1. 同じマス(current)でまだ採れる(回数の上限・クールダウンが残る)なら、同じマス。
 /// 2. 採れないなら、手の届く所(いまの届く距離)にある、同じ行為が採れるマス。
-/// 3. それも無ければ、起点(from)から半径以内の、同じ行為が採れて、いま見えている(知っている)マス。歩いて移る。
+/// 3. それも無ければ、起点(from)から歩いて半径(歩数)以内の、同じ行為が採れて、いま見えている(知っている)マス。歩いて移る。
+///    歩数は RFMap の Pathfinder で数える。川の向こうなど届かないマスと、回り道が半径を越えるマスは外す。
 /// 4. どれも無ければ nil(止まる)。
-/// 候補が複数なら (歩く距離, y, x) の小さい順の 1 つ。歩く距離は、いる所(standing)からのチェビシェフ距離で数える
-/// (経路は RFCrew の持ち物で、ここからは引かない。平らな所では歩数と同じ)。
+/// 候補が複数なら (歩数, y, x) の小さい順の 1 つ。1・2 は歩かない所なので、距離はチェビシェフ距離のまま。
 public enum ContinueRules {
     public static let defaultRadius = 3
 
@@ -42,13 +42,69 @@ public enum ContinueRules {
             for dx in -r...r { consider(GridPoint(stand.point.x + dx, stand.point.y + dy), layer: stand.layer, reachOnly: true) }
         }
         if let b = best { return b.at }
-        // 3. 起点から半径以内(いま見えている所だけ)
+        // 3. 起点から歩いて半径(歩数)以内の、いま見えている所だけ。歩数は経路で数える
+        var router = Router(world: w, content: content, layer: from.layer)
+        var walk: (steps: Int, y: Int, x: Int, at: WorldPoint)?
         for dy in -radius...radius {
             for dx in -radius...radius {
-                consider(GridPoint(from.point.x + dx, from.point.y + dy), layer: from.layer, reachOnly: false)
+                let p = GridPoint(from.point.x + dx, from.point.y + dy)
+                let at = WorldPoint(from.layer, p)
+                guard canGather(def, at: at, world: w, content: content, requireKnown: true),
+                      let n = router.steps(from: from.point, to: p), n <= radius else { continue }
+                if walk == nil || (n, p.y, p.x) < (walk!.steps, walk!.y, walk!.x) { walk = (n, p.y, p.x, at) }
             }
         }
-        return best?.at
+        return walk?.at
+    }
+
+    /// 歩数を数える(RFCrew の PathPlanner と同じ規則: 見ていないマスは平地と仮定・置いたモジュールは通れない)。
+    struct Router {
+        let world: WorldState
+        let layerID: LayerID
+        let costs: MoveCostTable
+        let workspace = PathWorkspace()
+        let blocked: Set<GridPoint>
+        let known: GridBitset?
+
+        init(world w: WorldState, content: ContentDB, layer: LayerID) {
+            world = w
+            layerID = layer
+            costs = MoveCostTable(terrains: content.terrains)
+            known = w.knowledge.mapKnown[layer]
+            var b = Set<GridPoint>()
+            for id in w.placements.sortedIDs {
+                guard let p = w.placements.items[id], p.at.layer == layer, case .module = p.kind else { continue }
+                for o in p.footprint { b.insert(p.at.point + o) }
+            }
+            blocked = b
+        }
+
+        /// from → 行き先のマス(通れなければ隣の 8 マスのうち一番近く着けるところ)の歩数。届かなければ nil。
+        mutating func steps(from: GridPoint, to goal: GridPoint) -> Int? {
+            guard let layer = world.map[layerID] else { return nil }
+            if goal == from { return 0 }
+            let terrain = layer.terrain
+            let blocked = self.blocked.subtracting([from])
+            let known = self.known
+            func route(_ g: GridPoint) -> Int? {
+                let outcome = Pathfinder.route(size: layer.size, from: from, to: g, costs: costs, options: .tap,
+                                               workspace: workspace) { p in
+                    if blocked.contains(p) { return .impassable }
+                    if known?[p] != true { return .assumed(.plain) }
+                    guard let b = terrain.biome(at: p) else { return .impassable }
+                    return .known(b)
+                }
+                return outcome.path?.steps.count
+            }
+            func standable(_ p: GridPoint) -> Bool {
+                guard layer.size.contains(p), !blocked.contains(p) else { return false }
+                if known?[p] != true { return true }
+                guard let b = terrain.biome(at: p) else { return false }
+                return costs.cost(b) != nil
+            }
+            if standable(goal) { return route(goal) }
+            return goal.neighbors8.filter(standable).compactMap(route).min()
+        }
     }
 
     /// そのマスで、いま同じ行為が始められるか(届くかは見ない)。

@@ -213,4 +213,61 @@ final class ContinueGatheringTests: XCTestCase {
         XCTAssertFalse(text.contains("continueStop"))
         XCTAssertEqual(try JSONDecoder().decode(ExplorationState.self, from: data), r.world.exploration)
     }
+
+    /// 縦の川の壁(ノアの右隣の列。半径より長い)。
+    func riverWall(_ r: inout ExploreRig, half: Int = 6) {
+        let p = r.noahPos.point
+        for dy in -half...half { r.world.map[.surface]?.setTerrain("water", at: p + GridPoint(1, dy)) }
+    }
+
+    /// 川の向こうの「近い」マスより、こちら側の少し遠いマスを選ぶ(歩数で数える)。
+    func testPrefersReachableCellOverNearCellAcrossRiver() throws {
+        var r = try rig()
+        r.steps(1)
+        riverWall(&r)
+        let p = r.noahPos.point
+        let across = p + GridPoint(2, 0)   // チェビシェフ距離 2 だが川の向こう
+        let near = p + GridPoint(-3, 0)    // 距離 3 だがこちら側
+        forest(&r, [across, near])
+        let def = try XCTUnwrap(r.content.interactions[Self.sticks])
+        XCTAssertEqual(ContinueRules.next(interaction: def, from: r.noahPos, world: r.world, content: r.content),
+                       WorldPoint(.surface, near))
+        // 歩数も(距離でなく歩数の小さい順): こちら側どうしなら近い方
+        forest(&r, [p + GridPoint(-2, 1)])
+        XCTAssertEqual(ContinueRules.next(interaction: def, from: r.noahPos, world: r.world, content: r.content),
+                       WorldPoint(.surface, p + GridPoint(-2, 1)))
+    }
+
+    /// 回り道が半径を越えるマス(川の向こう)は選ばない。届かない所だけなら止まって印を残す。
+    func testDetourBeyondRadiusIsNotChosenAndStopMarkIsSet() throws {
+        var r = try rig()
+        r.steps(1)
+        riverWall(&r)
+        let p = r.noahPos.point
+        let first = p + GridPoint(0, 1)
+        let across = p + GridPoint(2, 0)
+        forest(&r, [first, across])
+        let def = try XCTUnwrap(r.content.interactions[Self.sticks])
+        XCTAssertEqual(ContinueRules.next(interaction: def, from: r.noahPos, world: r.world, content: r.content),
+                       WorldPoint(.surface, first), "手の届く所が先。川の向こうは選ばない")
+        XCTAssertNil(r.interact(Self.sticks, at: first))
+        XCTAssertEqual(r.records(.gathered).count, 1, "川の向こうへは行かない")
+        XCTAssertNotNil(r.world.exploration.continueStop)
+        XCTAssertEqual(r.noahPos.point, p)
+    }
+
+    /// 歩けない(届かない)次のマスで動き出せなかったら、黙って取り消さず印を立てる。
+    func testWalkThatCannotStartSetsStopMark() throws {
+        var r = try rig()
+        r.steps(1)
+        riverWall(&r)
+        let across = r.noahPos.point + GridPoint(2, 0)
+        forest(&r, [across])
+        r.world.exploration.active[.noah] = ActiveInteraction(
+            interaction: Self.sticks, at: WorldPoint(.surface, across), poi: nil, part: nil, holding: true, spent: [],
+            startedAt: r.world.clock.now)
+        r.steps(1)
+        XCTAssertNil(r.world.exploration.active[.noah])
+        XCTAssertEqual(r.world.exploration.continueStop?.interaction, Self.sticks)
+    }
 }
