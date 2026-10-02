@@ -25,7 +25,7 @@
 | `combat` | 地図上の脅威・進行中の戦闘 | RFCombat | 戻す |
 | `research` | 研究の進み・完了・解禁の集合 | RFResearch(解禁は効果からも) | 戻す |
 | `auras` | 範囲の効果 | 共通(効果と定義から) | 戻す |
-| `abilities` | 特別な力の熟達 | RFAbilities | 戻す(R3 で再検討) |
+| `abilities` | 人ごとの能力の状態 | RFAbilities | 戻す |
 | `narrative` | 発火済み・決断待ち・予約・カウンタ・目標・章・場面・結末 | RFNarrative | 戻す |
 | `run` | 周回の番号・結果・前の周回の記録 | RFFailure | 増やす |
 
@@ -50,7 +50,7 @@
 - `assignment`(プレイヤーが決めた役割: 運搬・モジュールに付く・見張り・建造・採取・ついて行く・休む)と `activity`(いま実際にしていること)。
 - `override`(出来事や範囲の効果が配属を上書きしているとき。範囲が消えれば上書きも消える)。
 - `body`(体力・スタミナ・満腹・水分・精神力・状態)・`relation`(ノアとの関係の点とランク)・`ideology`(思想の軸 → 値)・`memories`(`MemoryRecord`: 種類・いつ・どの周回・**何について(来歴)**・巻き戻しをまたぐか)・`skills`・`equipment`。
-- ノアも同じ型(`PersonID.noah`)。ノアだけが特別だと比べられる値は持たせない(全員が同じ体の規則)。
+- ノアも同じ型(`PersonID.noah`)。能力の画面に出す値はコンテンツが決める。
 
 ## 5. 在庫(純度・形・来歴を持つ物)
 - 在り処(`HolderID`): 拠点の蓄え(`base`)・人の持ち物(`person:<id>`)・置いた物の中(`placement:<n>`)。モジュールの入出力の待ちは `ModuleRuntime.input/output`。

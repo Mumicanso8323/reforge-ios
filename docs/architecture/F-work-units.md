@@ -49,10 +49,9 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 | R2 | 期限が研究で見える | `StatDisplay` の切り替え(認識の表)・`FailureRuleDef`(値で判定) |
 | R3 | 拠点の外の集団との対立と和解 | `people.groups`・`Condition.group`(U5・U11) |
 | R3 | 後半の場所・後半の敵とボス | 地図の層・POI・`InteractionDef`・`EnemyDef`(U1・U8・U9) |
-| R3 | 特別な力の体系・後半の物質 | `RFAbilities`・`abilities`・RFMatter の物質の表・認識の表 |
+| R3 | 後で解禁される能力 | `RFAbilities`・`abilities`・RFMatter の物質の表・認識の表 |
 | R3 | 有限の部品の修理・記録を工程表で開く | 有限の部品(`parts`)・`SheetDef`・`ProcessSheet` |
-| R4 | 意味の反転・最後の場面に自分の記録を並べる | 来歴の問い合わせ(`ProvenanceQueries`)・`tagRecords`・認識の表 |
-| R4 | 4 つのエンディング | `EndingDef`・`Effect.ending`・`run.outcome` |
+| R4 | 結末・結末の場面 | 来歴の問い合わせ(`ProvenanceQueries`)・`tagRecords`・認識の表 |
 
 ## 4. 進め方の約束(全単位)
 - A §3 の約束(持ちディレクトリの外を触らない・他の切れ端はコマンドか出来事で・共通操作は StepContext・自分の乱数の流れ・文章を作らない・定義の項目は省略可能)。
@@ -96,5 +95,5 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 | REQ-S10 範囲の効果 | `AuraState`(中心 = 点・人・置いた物、半径、強さ、期限、来歴)+ `AuraDef.modifiers`(作業の速さ・配属に従わず中心へ・敵が寄らない・体や数値の時間あたりの増減)。出来事で半分(`scaleAura`)・消す(`removeAura`)。モジュール・建造物・人の定義に `auras` |
 | REQ-S11 隠れた値 | `survival.stats` に内部の値(内訳と合計 `StatDef.sumOf`・暦)。見せ方は認識の表の `StatDisplay`(hidden → 段階 → 数)。人の総数は `unmet` で内部に。期限・失敗は `FailureRuleDef`(値の条件)で、日数で判定しない |
 | MECH-07 決定的な乱数 | `RandomStreams`(seed + 流れの名前)。出来事の確率は `Condition.chance` が物語の流れで引く。テスト `testSameSeedSameCommandsSameWorld`・`AcceptanceTests.testDeterminismWithFullContent` |
-| MECH-05 仲間の R1 の範囲 | `Assignment`(運搬・モジュールに付く・見張り・建造・採取)・`Activity`(歩く・運ぶ・話す・戦う)・`LineDef.context`(焚き火)・賛否(`IdeologyAxisDef.weights` × 来歴の印 → `DomainEvent.opinion`)。士気・離脱(R2)・特別な力と集団(R3)は同じ型に足す |
-| REQ-S12 公開と非公開 | 仕組み(来歴・認識の層・条件と効果の評価・範囲)は公開のコード。事実の表・見え方の切り替え・本文・名簿・禁止語は非公開の層(E) |
+| MECH-05 仲間の R1 の範囲 | `Assignment`(運搬・モジュールに付く・見張り・建造・採取)・`Activity`(歩く・運ぶ・話す・戦う)・`LineDef.context`(焚き火)・賛否(`IdeologyAxisDef.weights` × 来歴の印 → `DomainEvent.opinion`)。士気・離脱(R2)・能力と集団(R3)は同じ型に足す |
+| REQ-S12 公開と非公開 | 仕組み(来歴・認識の層・条件と効果の評価・範囲)は公開のコード。事実の表・見え方の切り替え・本文・選ぶ表・禁止語は非公開の層(E) |
