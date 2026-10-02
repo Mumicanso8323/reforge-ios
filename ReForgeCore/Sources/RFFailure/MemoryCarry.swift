@@ -37,6 +37,7 @@ public enum MemoryCarry {
         w.knowledge.discovered.formUnion(failed.knowledge.discovered)
         w.knowledge.seen.formUnion(failed.knowledge.seen)
         w.knowledge.heldItems.formUnion(failed.knowledge.heldItems)
+        w.knowledge.inspected.formUnion(failed.knowledge.inspected)
         // 開示(INV-O4): 知識で開いたものだけを運ぶ。世界の状態で開いたものは夜明けの世界のまま
         for (id, kind) in failed.knowledge.disclosed where kind == .knowledge { w.knowledge.disclosed[id] = kind }
 

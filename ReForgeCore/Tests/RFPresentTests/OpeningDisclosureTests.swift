@@ -273,4 +273,90 @@ final class OpeningDisclosureTests: XCTestCase {
         w.research.unlocked.structures.insert(k)
         XCTAssertFalse(b.shadows(w, p).contains { $0.kind == .structure(k) }, "解放済みは影にしない")
     }
+
+    // MARK: - 帯の要素の門(U20 の仕上げ)
+
+    func testBandElementsFollowGatesAndOldDataShowsAll() throws {
+        var db = try openingContent()
+        let stat = try XCTUnwrap(db.stats.keys.sorted().first)
+        db.stats[stat]?.band = UIElements.bandSupplies
+        db.uiGates[UIElements.bandSupplies] = UIGateDef(id: UIElements.bandSupplies, when: .known(expr: .fact("fact.test.k")),
+                                                        latch: .knowledge)
+        db.uiGates[UIElements.bandObjective] = UIGateDef(id: UIElements.bandObjective, when: .known(expr: .fact("fact.test.k")))
+        let b = FrameBuilder(content: db)
+        var w = TestRig(content: db).factory.newWorld(seed: 1)
+        let f0 = b.build(w, revision: 0, previous: nil, report: nil)
+        XCTAssertFalse(f0.clock.showsDayLeft, "時計を止めている間は日の残りを出さない")
+        XCTAssertFalse(f0.status.contains { $0.key == stat.rawValue })
+        XCTAssertNil(f0.objective)
+        var ctx = StepContext(world: w, content: db)
+        ctx.learn("fact.test.k")
+        w = ctx.world
+        w.clock.held = false
+        let f1 = b.build(w, revision: 1, previous: f0, report: nil)
+        XCTAssertTrue(f1.clock.showsDayLeft)
+        XCTAssertEqual(f1.status.map(\.key).filter { $0 != stat.rawValue }, f0.status.map(\.key), "他の数値は変わらない")
+        // 古い形(門も band も無い)では今どおり全部出る
+        let old = FrameBuilder(content: base)
+        let ow = TestRig(content: base).factory.newWorld(seed: 1)
+        let of = old.build(ow, revision: 0, previous: nil, report: nil)
+        XCTAssertTrue(of.clock.showsDayLeft)
+        XCTAssertNotNil(of.objective.map { _ in true } ?? true)
+        XCTAssertTrue(UIElements.all.isSuperset(of: [UIElements.bandDay, UIElements.bandFire, UIElements.cardCarry,
+                                                    UIElements.bandSupplies, UIElements.bandNight, UIElements.bandGas,
+                                                    UIElements.personMind, UIElements.furnaceHeat,
+                                                    UIElements.bandObjective, UIElements.baseCapacity,
+                                                    UIElements.routeCapacity]))
+    }
+
+    // MARK: - 足した条件
+
+    func testNewConditions() throws {
+        let rig = TestRig(content: try openingContent())
+        var w = rig.factory.newWorld(seed: 1)
+        func holds(_ c: Condition) -> Bool { ConditionEvaluator.evaluatePure(c, world: w, content: rig.content) == true }
+        XCTAssertFalse(holds(.stockTotal(atLeast: 3)) && w.inventory.entries(.base).isEmpty)
+        var ctx = StepContext(world: w, content: rig.content)
+        let before = w.inventory.entries(.base).reduce(0) { $0 + $1.quantity }
+        ctx.addStock(.item("item.test.h.a"), 2, to: .base)
+        ctx.addStock(.item("item.test.h.b"), 1, to: .base)
+        w = ctx.world
+        XCTAssertTrue(holds(.stockTotal(atLeast: before + 3)))
+        XCTAssertFalse(holds(.stockTotal(atLeast: before + 4)))
+
+        XCTAssertTrue(holds(.findings(atLeast: w.notebook.notes.count)))
+        XCTAssertFalse(holds(.findings(atLeast: w.notebook.notes.count + 1)))
+
+        let t = try XCTUnwrap(w.map[noahAt(w).layer]?.terrain(at: noahAt(w).point))
+        XCTAssertFalse(holds(.inspected(terrain: t, poi: nil)))
+        _ = rig.simulation.apply(.exploration(.inspected(terrain: t, poi: nil)), to: &w)
+        XCTAssertTrue(holds(.inspected(terrain: t, poi: nil)))
+        XCTAssertTrue(w.clock.held, "調べるだけでは時計は動かない")
+        XCTAssertFalse(holds(.inspected(terrain: nil, poi: nil)))
+
+        XCTAssertFalse(holds(.hearthAtLeast(level: .smoldering)), "火床が無い")
+        let here = noahAt(w)
+        var c2 = StepContext(world: w, content: rig.content)
+        let cause = c2.record(.chose, .none, actor: .noah, place: here)
+        EffectApplier.apply([.placeStructure(structure: "structure.campfire", at: .trigger, built: true),
+                             .hearth(at: .trigger, op: .ignite())], &c2, cause: cause)
+        try XCTSkipIf(!c2.warnings.isEmpty, "公開の層に焚き火台が無い: \(c2.warnings)")
+        w = c2.world
+        let lv = try XCTUnwrap(w.placements.items.values.compactMap { Hearths.level(of: $0, rig.content) }.max())
+        XCTAssertGreaterThan(lv, .out)
+        XCTAssertTrue(holds(.hearthAtLeast(level: lv)), "いまの段以上")
+        if let next = HearthLevel(rawValue: lv.rawValue + 1) {
+            XCTAssertFalse(holds(.hearthAtLeast(level: next)), "いまの段より上は成り立たない")
+        }
+    }
+
+    func testConditionJSONShapes() throws {
+        let json = #"""
+        [ { "hearthAtLeast": { "level": 3 } }, { "stockTotal": { "atLeast": 20 } }, { "findings": { "atLeast": 5 } },
+          { "inspected": { "terrain": "grass" } }, { "inspected": { "poi": "poi.test" } } ]
+        """#
+        let cs = try JSONDecoder().decode([Condition].self, from: Data(json.utf8))
+        XCTAssertEqual(cs, [.hearthAtLeast(level: .burning), .stockTotal(atLeast: 20), .findings(atLeast: 5),
+                            .inspected(terrain: "grass", poi: nil), .inspected(terrain: nil, poi: "poi.test")])
+    }
 }

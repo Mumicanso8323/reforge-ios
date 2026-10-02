@@ -79,6 +79,14 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     case sheet(id: SheetID, test: SheetTest)
     /// 拠点の格が atLeast 以上(BaseDef.grades と拠点の格の大きい方)。
     case baseGrade(atLeast: Int)
+    /// どこかの火床(焚き火台・炉)がこの段以上で燃えている(U20。§2.7 の「火が燃えている以上」)。
+    case hearthAtLeast(level: HearthLevel)
+    /// 拠点の蓄えの品の数の合計が atLeast 以上(全品。§2.7 の「蓄えが 20 を超えた」)。
+    case stockTotal(atLeast: Int)
+    /// 実験ノートの所見が atLeast 件以上(§2.7 の「所見が 5 つ」)。
+    case findings(atLeast: Int)
+    /// この種類のマス(地形か POI。どちらか一方)を長押しで調べたことがある(§2.7 の「実のマスを調べた」)。
+    case inspected(terrain: TerrainID?, poi: POIKindID?)
 }
 
 /// 目標の状態の名前(RFWorld の ObjectiveStatus と同じ値。RFContent は RFWorld に依存しないので写しを持つ)。

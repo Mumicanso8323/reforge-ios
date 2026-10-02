@@ -100,6 +100,8 @@ public enum ExplorationCommand: Codable, Equatable, Sendable {
     case setPart(poi: EntityID, part: String, state: PartState)
     /// 地図の光の点を置く・消す(at nil で消す。U19)。
     case setBeacon(id: String, at: WorldPoint?, cause: ProvenanceID?)
+    /// 長押しで調べたマスの種類を覚える(U20。GameHost.inspect が送る。時計の保留は解かない)。
+    case inspected(terrain: TerrainID?, poi: POIKindID?)
 }
 
 public enum BaseCommand: Codable, Equatable, Sendable {

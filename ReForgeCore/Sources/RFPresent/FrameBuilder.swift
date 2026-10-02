@@ -64,6 +64,12 @@ public struct FrameBuilder: Sendable {
             renamed: [],
             runEnded: !w.run.isActive)
         frame.ui = unlocks(w)
+        // 帯の要素の門(U20。門の無い古いデータでは全部出る)
+        frame.clock.showsDayLeft = !w.clock.held && frame.ui.isOpen(UIElements.bandDay)
+        if !frame.ui.isOpen(UIElements.bandObjective) { frame.objective = nil }
+        frame.status = frame.status.filter { item in
+            content.stats[StatID(item.key)]?.band.map { frame.ui.isOpen($0) } ?? true
+        }
         frame.placeTitle = content.perception[Self.placeSubject] == nil ? nil : p.name(Self.placeSubject)
         frame.newlyOpened = previous.map { frame.ui.open.subtracting($0.ui.open) } ?? []
         frame.shadows = shadows(w, p)
@@ -196,6 +202,15 @@ public struct FrameBuilder: Sendable {
     }
 
     /// 長押しで調べる(ふきだし)。未踏のマスは「？」だけ。
+    /// 調べたマスの地形と POI の種類(見えていないマスは nil。GameHost.inspect が世界に覚えさせる)。
+    public func inspectedKinds(_ w: WorldState, at pt: GridPoint) -> (terrain: TerrainID?, poi: POIKindID?)? {
+        let p = Perceiver(content: content, world: w)
+        let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
+        guard let l = proj.layer, proj.size.contains(pt),
+              proj.isKnown(pt) || vision.areas(w, layer: layer).contains(where: { $0.contains(pt) }) else { return nil }
+        return (l.terrain(at: pt), proj.poiAt[pt]?.poi.kind)
+    }
+
     public func inspect(_ w: WorldState, at pt: GridPoint) -> TileInspection? {
         let p = Perceiver(content: content, world: w)
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)

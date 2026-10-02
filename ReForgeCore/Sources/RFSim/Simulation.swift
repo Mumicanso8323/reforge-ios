@@ -76,7 +76,8 @@ public struct Simulation: Sendable {
     public static func releasesHold(_ command: Command) -> Bool {
         switch command {
         // 場面を送る(序・目覚めの行を読む)・効果から出来事を起こすも、プレイヤーの行為ではない(v0.5 §2.8.3)
-        case .crew(.walk), .crew(.stop), .narrative(.advanceScene), .narrative(.fireFromEffect): false
+        case .crew(.walk), .crew(.stop), .narrative(.advanceScene), .narrative(.fireFromEffect),
+             .exploration(.inspected): false
         default: true
         }
     }

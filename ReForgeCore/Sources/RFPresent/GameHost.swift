@@ -67,7 +67,17 @@ public actor GameHost {
     public func chunks(_ indices: [Int]) -> [MapChunk] { builder.chunks(world, indices, map: frame.map) }
 
     /// 長押しで調べる。
-    public func inspect(at p: GridPoint) -> TileInspection? { builder.inspect(world, at: p) }
+    /// 調べたマスの種類は世界に覚える(条件 inspected。U20)。開示が変われば frame も作り直す(画面は host.frame を読む)。
+    public func inspect(at p: GridPoint) -> TileInspection? {
+        guard let r = builder.inspect(world, at: p) else { return nil }
+        if let kinds = builder.inspectedKinds(world, at: p) {
+            let c = Command.exploration(.inspected(terrain: kinds.terrain, poi: kinds.poi))
+            replayLog.append((world.clock.now.seconds / SimStep.gameSeconds, c))
+            let report = simulation.apply(c, to: &world)
+            if !report.changes.areas.isEmpty { _ = rebuild(report) }
+        }
+        return r
+    }
 
     /// 足元カード。
     public func footCard(at p: GridPoint) -> FootCard? { builder.footCard(world, at: p) }

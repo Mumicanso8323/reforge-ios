@@ -93,10 +93,12 @@ struct StatusBandView: View {
     @ViewBuilder private var phase: some View {
         switch store.clock.phase {
         case .day:
-            // 昼の残り(時間数は出さない)
-            ProgressView(value: Double(store.clock.dayRemainingPermille), total: 1000)
-                .tint(InkColor.dusk)
-                .frame(width: 64)
+            // 昼の残り(時間数は出さない)。時計を止めている間・門が閉じている間は出さない(U20)
+            if store.clock.showsDayLeft {
+                ProgressView(value: Double(store.clock.dayRemainingPermille), total: 1000)
+                    .tint(InkColor.dusk)
+                    .frame(width: 64)
+            }
         case .dusk:
             Text("日没").foregroundStyle(InkColor.dusk)
         case .nightWork:
