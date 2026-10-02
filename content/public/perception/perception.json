@@ -85,7 +85,7 @@
       "variants": [
         {
           "when": "fact.test.revealed",
-          "name": "text.item.test_ore.true",
+          "name": "text.item.test_ore.variant_b",
           "announce": true
         },
         {
@@ -99,7 +99,7 @@
       "variants": [
         {
           "when": "fact.test.revealed",
-          "name": "text.module.furnace.true",
+          "name": "text.module.furnace.variant_b",
           "glyph": "炉"
         },
         {
@@ -165,7 +165,7 @@
       "variants": [
         {
           "when": "fact.test.revealed",
-          "name": "text.matter.fe.true",
+          "name": "text.matter.fe.variant_b",
           "announce": true
         },
         {
@@ -244,7 +244,7 @@
       "variants": [
         {
           "when": "fact.test.revealed",
-          "name": "text.poi.wreck.true",
+          "name": "text.poi.wreck.variant_b",
           "glyph": "残",
           "announce": true
         },
@@ -278,7 +278,7 @@
       "variants": [
         {
           "when": "fact.test.revealed",
-          "name": "text.source.hand.true"
+          "name": "text.source.hand.variant_b"
         },
         {
           "when": true,
@@ -367,7 +367,7 @@
   ],
   "textGates": [
     {
-      "text": "text.item.test_ore.true",
+      "text": "text.item.test_ore.variant_b",
       "gate": "fact.test.revealed"
     }
   ],

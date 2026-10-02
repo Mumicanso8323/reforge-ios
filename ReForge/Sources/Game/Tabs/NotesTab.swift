@@ -120,35 +120,35 @@ struct NotesTabView: View {
                 .padding(8)
                 .background(InkColor.panel)
             }
-            if let im = s.imprint, let sid = sheetID(source) { imprintArea(im, sheet: sid) }
-            if s.manifestLocked == false, let sid = sheetID(source) {
-                // 締めると戻せない(出発)。確認のダイアログの代わりに長押し
-                InkHoldButton(label: Text("名簿を締める"), hint: Text("長押しで締める")) {
-                    Task { await wb.lockManifest(sheet: sid, store) }
+            if let im = s.grant, let sid = sheetID(source) { grantArea(im, labels: s.labels, sheet: sid) }
+            if s.rosterConfirmed == false, let sid = sheetID(source) {
+                let labels = s.labels
+                InkHoldButton(label: Text(verbatim: labels?.rosterConfirm ?? "確定する"), hint: Text(verbatim: labels?.rosterConfirmHint ?? "長押しで確定")) {
+                    Task { await wb.confirmRoster(sheet: sid, store) }
                 }
-                .accessibilityIdentifier("lockManifest")
+                .accessibilityIdentifier("confirmRoster")
             }
         }
     }
 
-    /// 装置: 人ごとに、書き足せる技能と「使わない」。
-    private func imprintArea(_ im: ProcessSheet.Imprint, sheet sid: SheetID) -> some View {
-        InkSection(title: Text("書き足す")) {
+    /// 人ごとに付けられる技能と、その選択肢。
+    private func grantArea(_ im: ProcessSheet.SkillGrant, labels: ProcessSheet.Labels?, sheet sid: SheetID) -> some View {
+        InkSection(title: Text(verbatim: labels?.grantTitle ?? "技能を付ける")) {
             ForEach(im.targets, id: \.person) { t in
                 VStack(alignment: .leading, spacing: 6) {
                     InkRow(title: Text(verbatim: t.name),
                            detail: t.written.isEmpty ? nil : Text(verbatim: t.written.formatted(.list(type: .and))),
-                           value: t.declined == nil ? nil : (t.declined == true ? Text("拒んだ") : Text("使わない")))
+                           value: t.declined == nil ? nil : (t.declined == true ? Text(verbatim: labels?.grantRefused ?? "本人が断った") : Text(verbatim: labels?.grantSkip ?? "付けない")))
                     if t.declined == nil {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(im.skills, id: \.id) { k in
-                                    Button { Task { await wb.imprint(sheet: sid, person: t.person, skill: k.id, store) } }
+                                    Button { Task { await wb.grant(sheet: sid, person: t.person, skill: k.id, store) } }
                                         label: { Text(verbatim: k.name) }
                                         .buttonStyle(.ink(.secondary, fill: false))
                                 }
-                                Button { Task { await wb.imprint(sheet: sid, person: t.person, skill: nil, store) } }
-                                    label: { Text("使わない") }
+                                Button { Task { await wb.grant(sheet: sid, person: t.person, skill: nil, store) } }
+                                    label: { Text(verbatim: labels?.grantSkip ?? "付けない") }
                                     .buttonStyle(.ink(.quiet, fill: false))
                             }
                         }
@@ -190,8 +190,8 @@ struct NotesTabView: View {
         var a = ProcessSheetActions()
         if case .record = source {
             a.openEntry = { slot in Task { await wb.open(.sheet(.recordEntry(sid, slot: slot)), store) } }
-            if wb.openSheet?.manifestLocked != true {
-                a.setBoarding = { p, on in Task { await wb.board(sheet: sid, person: p, aboard: on, store) } }
+            if wb.openSheet?.rosterConfirmed != true {
+                a.setRosterPick = { p, on in Task { await wb.board(sheet: sid, person: p, included: on, store) } }
             }
         }
         a.placeAnswer = { row in Task { await wb.beginAnswer(sheet: sid, row: row, store) } }

@@ -4,7 +4,7 @@ import RFMap
 import RFRules
 import RFWorld
 
-/// 視界と地図の既知(knowledge.mapKnown)。地図の上にいる一員は誰でも同じ規則で見る(ノアだけを特別にしない)。
+/// 視界と地図の既知(knowledge.mapKnown)。地図の上にいる一員は誰でも同じ規則で見る(全員に同じ規則を使う)。
 /// 半径は RFMap の VisionRule(昼 8・夜 −3・灯り +4・最小 2。原作 VisibilityLayer.cs:21-27)。
 /// 灯り: 灯りを出す建造物(火床なら段から読んだ半径、それ以外は provides["light"])の範囲の中にいれば +4。
 public enum Vision {

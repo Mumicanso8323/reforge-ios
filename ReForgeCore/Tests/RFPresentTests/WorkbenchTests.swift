@@ -109,26 +109,26 @@ final class WorkbenchTests: XCTestCase {
         XCTAssertTrue(b.notebook(in: w).records.contains { $0.sheet == "sheet.test.record" }, "開ける記録はノートに並ぶ")
     }
 
-    /// 装置の候補と名簿を締めたかは、同じ工程表に載る(ノートの記録の頁がボタンを出す)。
-    func testRecordSheetCarriesImprintAndManifestState() throws {
+    /// 工程表の候補と選ぶ表を締めたかは、同じ工程表に載る(ノートの記録の頁がボタンを出す)。
+    func testRecordSheetCarriesSkillGrantAndRosterState() throws {
         let rig = try TestRig.publicOnly()
         let b = FrameBuilder(content: rig.content)
         var ctx = StepContext(world: rig.factory.newWorld(seed: 1), content: rig.content)
         ctx.learn("fact.test.device_fixed")
-        ctx.learn("fact.test.vessel_ready")
+        ctx.learn("fact.test.roster_open")
         var w = ctx.world
         let ledger = try XCTUnwrap(b.sheet(.record("sheet.test.ledger"), in: w))
-        let im = try XCTUnwrap(ledger.imprint)
+        let im = try XCTUnwrap(ledger.grant)
         XCTAssertEqual(im.skills.map(\.id), ["skill.test.kindling"])
         XCTAssertFalse(im.targets.isEmpty)
-        XCTAssertNil(ledger.manifestLocked)
+        XCTAssertNil(ledger.rosterConfirmed)
 
-        let m = try XCTUnwrap(b.sheet(.record("sheet.test.manifest"), in: w))
-        XCTAssertEqual(m.manifestLocked, false)
-        XCTAssertNil(m.imprint)
-        _ = rig.simulation.apply(.narrative(.setBoarding(sheet: "sheet.test.manifest", person: .noah, aboard: true)), to: &w)
-        _ = rig.simulation.apply(.narrative(.lockManifest(sheet: "sheet.test.manifest")), to: &w)
-        XCTAssertEqual(b.sheet(.record("sheet.test.manifest"), in: w)?.manifestLocked, true)
+        let m = try XCTUnwrap(b.sheet(.record("sheet.test.roster"), in: w))
+        XCTAssertEqual(m.rosterConfirmed, false)
+        XCTAssertNil(m.grant)
+        _ = rig.simulation.apply(.narrative(.setRosterPick(sheet: "sheet.test.roster", person: .noah, included: true)), to: &w)
+        _ = rig.simulation.apply(.narrative(.confirmRoster(sheet: "sheet.test.roster")), to: &w)
+        XCTAssertEqual(b.sheet(.record("sheet.test.roster"), in: w)?.rosterConfirmed, true)
     }
 
     /// 設計・ノートのタブが引き直す印は、在庫などが変わったときだけ上がる。

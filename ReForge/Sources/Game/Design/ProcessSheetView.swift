@@ -14,8 +14,8 @@ struct ProcessSheetActions {
     var openEntry: ((Int) -> Void)?
     /// 答えを置ける行(answerRow)に答えを置く。
     var placeAnswer: ((String) -> Void)?
-    /// 名簿で「乗る / 残る」を決める。
-    var setBoarding: ((PersonID, Bool) -> Void)?
+    /// 選ぶ表で含めるかを決める。
+    var setRosterPick: ((PersonID, Bool) -> Void)?
 }
 
 /// 縦一列の工程表。頭(入力と見当)→ 段(見込み・所見)→ 結果(と試作の結果カード)。
@@ -75,7 +75,7 @@ struct ProcessSheetView: View {
                 if let n = row.note { Text(verbatim: "+ \(n)").foregroundStyle(InkColor.textDim).lineLimit(1) }
                 if let f = row.figure { Text(verbatim: "\(f)").foregroundStyle(InkColor.textDim) }
                 Spacer(minLength: 4)
-                controls(row)
+                controls(row, labels: sheet.labels)
             }
             .contentShape(Rectangle())
             .onTapGesture {
@@ -107,7 +107,7 @@ struct ProcessSheetView: View {
     }
 
     @ViewBuilder
-    private func controls(_ row: ProcessSheet.Row) -> some View {
+    private func controls(_ row: ProcessSheet.Row, labels: ProcessSheet.Labels?) -> some View {
         if let s = row.step {
             if let move = actions.moveStep {
                 glyphButton(Text(verbatim: "▲"), id: "up\(s)") { move(s, -1) }
@@ -118,10 +118,12 @@ struct ProcessSheetView: View {
         if let id = row.answerRow, let place = actions.placeAnswer {
             glyphButton(row.answer == nil ? Text("置く") : Text("置き直す"), id: "answer.\(id)") { place(id) }
         }
-        if let p = row.person, row.aboard != nil || row.declared != nil, let set = actions.setBoarding {
+        if let p = row.person, row.included != nil || row.declared != nil, let set = actions.setRosterPick {
             if row.declared != nil { Text("言").font(InkFont.small).foregroundStyle(InkColor.textDim) }
-            glyphButton(row.aboard == true ? Text("[乗る]") : Text("乗る"), id: "aboard.\(p.rawValue)") { set(p, true) }
-            glyphButton(row.aboard == false ? Text("[残る]") : Text("残る"), id: "stay.\(p.rawValue)") { set(p, false) }
+            let included = labels?.rosterInclude ?? "含める"
+            let excluded = labels?.rosterExclude ?? "含めない"
+            glyphButton(Text(verbatim: row.included == true ? "[\(included)]" : included), id: "pick.in.\(p.rawValue)") { set(p, true) }
+            glyphButton(Text(verbatim: row.included == false ? "[\(excluded)]" : excluded), id: "pick.out.\(p.rawValue)") { set(p, false) }
         }
     }
 

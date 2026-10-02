@@ -177,20 +177,20 @@ final class WorkbenchModel {
         await reload(store)
     }
 
-    /// 装置で技能を書き足す(skill nil = この人には使わない)。
-    func imprint(sheet: SheetID, person: PersonID, skill: SkillID?, _ store: GameStore) async {
-        message = await store.perform(.narrative(.imprint(sheet: sheet, person: person, skill: skill)))
+    /// 工程表で技能を付ける(skill nil = この人には使わない)。
+    func grant(sheet: SheetID, person: PersonID, skill: SkillID?, _ store: GameStore) async {
+        message = await store.perform(.narrative(.grant(sheet: sheet, person: person, skill: skill)))
         await reload(store)
     }
 
-    /// 名簿を締める(出発)。
-    func lockManifest(sheet: SheetID, _ store: GameStore) async {
-        message = await store.perform(.narrative(.lockManifest(sheet: sheet)))
+    /// 選ぶ表を確定する。
+    func confirmRoster(sheet: SheetID, _ store: GameStore) async {
+        message = await store.perform(.narrative(.confirmRoster(sheet: sheet)))
         await reload(store)
     }
 
-    func board(sheet: SheetID, person: PersonID, aboard: Bool, _ store: GameStore) async {
-        message = await store.perform(.narrative(.setBoarding(sheet: sheet, person: person, aboard: aboard)))
+    func board(sheet: SheetID, person: PersonID, included: Bool, _ store: GameStore) async {
+        message = await store.perform(.narrative(.setRosterPick(sheet: sheet, person: person, included: included)))
         await reload(store)
     }
 }

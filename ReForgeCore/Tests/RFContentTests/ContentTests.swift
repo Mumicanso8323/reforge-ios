@@ -15,6 +15,18 @@ final class ContentTests: XCTestCase {
         XCTAssertEqual(errors, [], "\(errors)")
     }
 
+    func testPreMigrationContentNamesLoadAsCurrentContent() throws {
+        let current = Data(#"""
+        {"sheets":[{"id":"sheet.test.compat","title":"misc:test","rows":[],"when":{"always":{}},
+        "roster":{"leanings":[]},"grant":{"skills":[]}}]}
+        """#.utf8)
+        var expected = ContentDB()
+        var actual = ContentDB()
+        try ContentLoader.apply(json: current, to: &expected)
+        try ContentLoader.apply(json: LegacyNames.legacy(json: current), to: &actual)
+        XCTAssertEqual(actual, expected)
+    }
+
     /// 非公開の層は同じ ID を丸ごと置き換え、remove で消せる。
     func testPrivateLayerOverridesAndRemoves() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("rf-\(UUID().uuidString)")

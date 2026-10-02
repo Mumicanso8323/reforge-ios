@@ -128,10 +128,11 @@ public enum ContentLoader {
     }
 
     static func apply(json data: Data, to db: inout ContentDB, name: String, seen: inout LayerKeys) throws {
-        let raw = try checkTopLevelKeys(data, file: name)
+        let translated = LegacyNames.translate(json: data)
+        let raw = try checkTopLevelKeys(translated, file: name)
         let f: ContentFile
         do {
-            f = try JSONDecoder().decode(ContentFile.self, from: data)
+            f = try JSONDecoder().decode(ContentFile.self, from: translated)
         } catch let e as DecodingError {
             throw LoadError.decode(file: name, message: describe(e))
         }

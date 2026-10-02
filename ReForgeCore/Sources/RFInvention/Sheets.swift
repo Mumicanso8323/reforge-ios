@@ -5,7 +5,7 @@ import RFRules
 import RFWorld
 
 /// 工程表の出所。設計画面の縦一列の表は物のライン専用にしない(結合設計 REQ-S8):
-/// ライン札・試作・設計画面の下書き・コンテンツの記録(SheetDef。後で任意の装置の記録など)を同じ形で開く。
+/// ライン札・試作・設計画面の下書き・コンテンツの記録(SheetDef。後で任意の記録など)を同じ形で開く。
 public enum SheetSource: Equatable, Sendable {
     case design(EntityID)
     case trial(ProvenanceID)

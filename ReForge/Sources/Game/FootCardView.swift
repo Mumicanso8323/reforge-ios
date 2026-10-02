@@ -26,7 +26,7 @@ struct FootCardView: View {
                     ForEach(store.footCard?.actions ?? [], id: \.id) { a in
                         ActionButton(action: a, store: store)
                     }
-                    // 残骸から開く資料(残骸の装置の資料など。U18)
+                    // 残骸から開く資料(段階つきの資料など。U18)
                     ForEach(store.footCard?.documents ?? [], id: \.id) { d in
                         Button { store.openPanel(d.id) } label: { Text(verbatim: d.title) }
                             .buttonStyle(.ink(.quiet, fill: false))

@@ -87,7 +87,7 @@ public struct ByproductID: StringIdentifier {
     public static let sand: ByproductID = "sand"
     /// スラグ(石灰が不純物を抱えて抜けたもの)。
     public static let slag: ByproductID = "slag"
-    /// 排気(加熱全般。R2 の大気・公害で使う)。
+    /// 排気(範囲に効く作業の副産物)。
     public static let exhaust: ByproductID = "exhaust"
 }
 

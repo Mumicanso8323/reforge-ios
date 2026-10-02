@@ -17,7 +17,7 @@ public struct DocumentDef: Codable, Equatable, Sendable {
     /// 並び順(小さいほど上。同じなら id の順)。
     public var order: Int?
     public var material: String?
-    /// 修理の段で本文と読める割合を選ぶ(U19。残骸の装置の資料など)。無ければいつも body。
+    /// 修理の段で本文と読める割合を選ぶ(U19。段階つきの資料など)。無ければいつも body。
     public var stages: DocumentStages?
 
     public init(id: DocumentID, title: TextID, body: TextID, source: SubjectID? = nil, when: Condition,

@@ -1,10 +1,7 @@
 import RFKernel
 
-/// 特別な力。持ち主: RFAbilities。R1 は伏線(ノアの手ざわりで純度の見当が付く)だけ。
-/// 名前・説明は認識の層が引く(この層の存在そのものを画面で名指ししない)。
-///
-/// ここの値は画面の Frame に出さない(REQ-S5: ノアだけの数値を比べられる形にしない)。
-/// 見せるのは、力が見えてよい段階(AbilityDef.visibleWhen)になってから、認識の層を通したものだけ。
+/// 人ごとの能力。持ち主: RFAbilities。
+/// 名前・説明と画面に出す値はコンテンツと認識の層が決める。
 public struct AbilitiesState: Codable, Equatable, Sendable {
     /// 人 → 力 → 熟達(使った回数)。
     public var mastery: [PersonID: [AbilityID: Int]] = [:]

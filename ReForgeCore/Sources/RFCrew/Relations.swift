@@ -12,7 +12,7 @@ enum Relations {
     /// 賛否を出す出来事(プレイヤーの判断が来歴になるもの)。持ち物の出入り・賛否そのもの・会話などは見ない(二重に数えない)。
     static let decisionHooks: Set<String> = [
         "placed", "dismantled", "built", "crafted", "trialed", "designed", "decided", "interacted", "finite.used",
-        "research.completed", "skill", "battle.ended", "event", "imprint.declined",
+        "research.completed", "skill", "battle.ended", "event", "grant.declined",
     ]
 
     /// 点を足し、ランクが変わったら知らせる。

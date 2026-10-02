@@ -19,7 +19,7 @@ final class OpeningDisclosureTests: XCTestCase {
 
     override func setUpWithError() throws { base = try TestContent.publicOnly() }
 
-    /// Day 0・日没の 4 時間前・時計を止めて始め、足元の行為 1 つと、門の付いた要素を持つコンテンツ。
+    /// 開始時刻に時計を止めて始め、足元の行為 1 つと、門の付いた要素を持つコンテンツ。
     func openingContent() throws -> ContentDB {
         var db = base!
         db.interactions.removeAll()

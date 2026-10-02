@@ -61,26 +61,6 @@
         }
       }
     },
-    "[乗る]": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[乗る]"
-          }
-        }
-      }
-    },
-    "[残る]": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "[残る]"
-          }
-        }
-      }
-    },
     "‹ 設定にもどる": {
       "localizations": {
         "ja": {
@@ -401,16 +381,6 @@
         }
       }
     },
-    "乗る": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "乗る"
-          }
-        }
-      }
-    },
     "九": {
       "localizations": {
         "ja": {
@@ -437,6 +407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "五"
+          }
+        }
+      }
+    },
+    "付けない": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "付けない"
           }
         }
       }
@@ -477,16 +457,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "使った:"
-          }
-        }
-      }
-    },
-    "使わない": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "使わない"
           }
         }
       }
@@ -571,12 +541,22 @@
         }
       }
     },
-    "名簿を締める": {
+    "含めない": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "名簿を締める"
+            "value": "含めない"
+          }
+        }
+      }
+    },
+    "含める": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "含める"
           }
         }
       }
@@ -871,12 +851,12 @@
         }
       }
     },
-    "拒んだ": {
+    "技能を付ける": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "拒んだ"
+            "value": "技能を付ける"
           }
         }
       }
@@ -971,16 +951,6 @@
         }
       }
     },
-    "書き足す": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "書き足す"
-          }
-        }
-      }
-    },
     "書く": {
       "localizations": {
         "ja": {
@@ -997,6 +967,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "最初から"
+          }
+        }
+      }
+    },
+    "本人が断った": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "本人が断った"
           }
         }
       }
@@ -1037,16 +1017,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "残り"
-          }
-        }
-      }
-    },
-    "残る": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "残る"
           }
         }
       }
@@ -1157,6 +1127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "硬さ %lld"
+          }
+        }
+      }
+    },
+    "確定する": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "確定する"
           }
         }
       }
@@ -1511,12 +1491,12 @@
         }
       }
     },
-    "長押しで締める": {
+    "長押しで確定": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "長押しで締める"
+            "value": "長押しで確定"
           }
         }
       }
