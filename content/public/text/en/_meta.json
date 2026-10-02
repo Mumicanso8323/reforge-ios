@@ -1,0 +1,13 @@
+{
+  "language": "en",
+  "nameJoin": {
+    "order": [
+      "extreme",
+      "grade",
+      "temper",
+      "substance",
+      "shape"
+    ],
+    "separator": " "
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "language": "ja",
+  "texts": {
+    "text.terrain.shore": "水辺",
+    "text.terrain.ford": "浅瀬",
+    "text.terrain.forest": "森",
+    "text.terrain.ruins": "崩れた跡",
+    "text.terrain.cleared": "開けた地面",
+    "text.poi.map_wreck": "残骸",
+    "text.poi.ruins": "崩れた建物",
+    "text.poi.nest": "巣",
+    "text.poi.water_source": "水場",
+    "text.poi.fertile_land": "肥えた土",
+    "text.poi.geothermal": "温かい穴",
+    "text.poi.contamination": "汚れた場所"
+  }
+}

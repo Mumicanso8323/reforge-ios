@@ -1,18 +1,51 @@
 {
   "//": "図鑑の影の欄(CodexShadowDef)の仕組みのテスト用。名前は試験用の一般の語。",
   "codexShadows": [
-    { "id": "codex.test.ore", "name": "item:test_ore", "item": "test_ore",
-      "filledWhen": { "known": { "expr": "fact.test.revealed" } }, "order": 1 },
-    { "id": "codex.test.coined", "name": "misc:codex.test.coined", "order": 2 },
-    { "id": "codex.test.later", "name": "misc:codex.test.later",
-      "when": { "known": { "expr": "fact.test.alpha" } }, "order": 3 }
+    {
+      "id": "codex.test.ore",
+      "name": "item:test_ore",
+      "item": "test_ore",
+      "filledWhen": {
+        "known": {
+          "expr": "fact.test.revealed"
+        }
+      },
+      "order": 1
+    },
+    {
+      "id": "codex.test.coined",
+      "name": "misc:codex.test.coined",
+      "order": 2
+    },
+    {
+      "id": "codex.test.later",
+      "name": "misc:codex.test.later",
+      "when": {
+        "known": {
+          "expr": "fact.test.alpha"
+        }
+      },
+      "order": 3
+    }
   ],
   "perception": [
-    { "subject": "misc:codex.test.coined", "variants": [ { "when": true, "name": "text.codex.test.coined" } ] },
-    { "subject": "misc:codex.test.later", "variants": [ { "when": true, "name": "text.codex.test.later" } ] }
-  ],
-  "texts": {
-    "text.codex.test.coined": "試験の造語の欄",
-    "text.codex.test.later": "あとで出る試験の欄"
-  }
+    {
+      "subject": "misc:codex.test.coined",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.codex.test.coined"
+        }
+      ]
+    },
+    {
+      "subject": "misc:codex.test.later",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.codex.test.later"
+        }
+      ]
+    }
+  ]
 }

@@ -1,54 +1,172 @@
 {
   "//": "工程表の仕組み(U15)の試験用。物語は無い。記録の並びと空いた席・装置で技能を書き足す・行に来歴を答えとして置く・乗る人の名簿を確かめる。",
   "facts": [
-    { "id": "fact.test.device_fixed" },
-    { "id": "fact.test.vessel_ready" }
+    {
+      "id": "fact.test.device_fixed"
+    },
+    {
+      "id": "fact.test.vessel_ready"
+    }
   ],
-  "memoryKinds": [ { "id": "memory.test.gap", "persistsAcrossRewind": true } ],
+  "memoryKinds": [
+    {
+      "id": "memory.test.gap",
+      "persistsAcrossRewind": true
+    }
+  ],
   "sheets": [
     {
-      "id": "sheet.test.ledger", "title": "sheet:sheet.test.ledger", "rows": [],
-      "when": { "known": { "expr": "fact.test.device_fixed" } },
+      "id": "sheet.test.ledger",
+      "title": "sheet:sheet.test.ledger",
+      "rows": [],
+      "when": {
+        "known": {
+          "expr": "fact.test.device_fixed"
+        }
+      },
       "slots": 6,
       "entries": [
-        { "slot": 1, "subject": "misc:test.entry1" },
-        { "slot": 2, "subject": "person:person.test_a", "person": "person.test_a" },
-        { "slot": 3, "subject": "person:person.test_b", "person": "person.test_b" },
-        { "slot": 5, "subject": "misc:test.entry5" },
-        { "slot": 6, "subject": "misc:test.entry6" }
+        {
+          "slot": 1,
+          "subject": "misc:test.entry1"
+        },
+        {
+          "slot": 2,
+          "subject": "person:person.test_a",
+          "person": "person.test_a"
+        },
+        {
+          "slot": 3,
+          "subject": "person:person.test_b",
+          "person": "person.test_b"
+        },
+        {
+          "slot": 5,
+          "subject": "misc:test.entry5"
+        },
+        {
+          "slot": 6,
+          "subject": "misc:test.entry6"
+        }
       ],
       "entryRows": [
-        { "subject": "misc:test.step_origin" },
-        { "subject": "module:furnace", "note": "text.test.row" },
-        { "subject": "misc:test.step_write" }
+        {
+          "subject": "misc:test.step_origin"
+        },
+        {
+          "subject": "module:furnace",
+          "note": "text.test.row"
+        },
+        {
+          "subject": "misc:test.step_write"
+        }
       ],
       "imprint": {
-        "skills": ["skill.test.kindling"],
-        "when": { "known": { "expr": "fact.test.device_fixed" } },
-        "refuseWhen": [ { "ideologyAtLeast": { "axis": "axis.test.guard", "value": 2 } } ],
-        "tags": ["tag.test.build"]
+        "skills": [
+          "skill.test.kindling"
+        ],
+        "when": {
+          "known": {
+            "expr": "fact.test.device_fixed"
+          }
+        },
+        "refuseWhen": [
+          {
+            "ideologyAtLeast": {
+              "axis": "axis.test.guard",
+              "value": 2
+            }
+          }
+        ],
+        "tags": [
+          "tag.test.build"
+        ]
       }
     },
     {
-      "id": "sheet.test.verse", "title": "sheet:sheet.test.verse",
-      "when": { "always": {} },
+      "id": "sheet.test.verse",
+      "title": "sheet:sheet.test.verse",
+      "when": {
+        "always": {}
+      },
       "rows": [
-        { "id": "line.make", "subject": "misc:test.line_make",
-          "answer": { "accepts": [ { "act": "crafted" }, { "act": "trialed" } ] },
-          "measure": { "count": { "query": { "act": "crafted" } } } },
-        { "id": "line.keep", "subject": "misc:test.line_keep",
-          "answer": { "accepts": [ { "act": "died" }, { "act": "joined" } ] },
-          "measure": { "maxDetail": { "query": { "act": "crafted" }, "key": "purity" } } }
+        {
+          "id": "line.make",
+          "subject": "misc:test.line_make",
+          "answer": {
+            "accepts": [
+              {
+                "act": "crafted"
+              },
+              {
+                "act": "trialed"
+              }
+            ]
+          },
+          "measure": {
+            "count": {
+              "query": {
+                "act": "crafted"
+              }
+            }
+          }
+        },
+        {
+          "id": "line.keep",
+          "subject": "misc:test.line_keep",
+          "answer": {
+            "accepts": [
+              {
+                "act": "died"
+              },
+              {
+                "act": "joined"
+              }
+            ]
+          },
+          "measure": {
+            "maxDetail": {
+              "query": {
+                "act": "crafted"
+              },
+              "key": "purity"
+            }
+          }
+        }
       ]
     },
     {
-      "id": "sheet.test.manifest", "title": "sheet:sheet.test.manifest", "rows": [],
-      "when": { "known": { "expr": "fact.test.vessel_ready" } },
+      "id": "sheet.test.manifest",
+      "title": "sheet:sheet.test.manifest",
+      "rows": [],
+      "when": {
+        "known": {
+          "expr": "fact.test.vessel_ready"
+        }
+      },
       "manifest": {
         "capacity": 2,
         "leanings": [
-          { "tests": [ { "ideologyAtLeast": { "axis": "axis.test.make", "value": 3 } } ], "aboard": false, "firm": true },
-          { "tests": [ { "member": {} } ], "aboard": true }
+          {
+            "tests": [
+              {
+                "ideologyAtLeast": {
+                  "axis": "axis.test.make",
+                  "value": 3
+                }
+              }
+            ],
+            "aboard": false,
+            "firm": true
+          },
+          {
+            "tests": [
+              {
+                "member": {}
+              }
+            ],
+            "aboard": true
+          }
         ]
       }
     }
@@ -56,36 +174,133 @@
   "events": [
     {
       "id": "event.test.gap_seen",
-      "trigger": { "on": ["sheet.opened"], "when": { "sheet": { "id": "sheet.test.ledger", "test": { "emptySlotsSeen": { "atLeast": 1 } } } } },
+      "trigger": {
+        "on": [
+          "sheet.opened"
+        ],
+        "when": {
+          "sheet": {
+            "id": "sheet.test.ledger",
+            "test": {
+              "emptySlotsSeen": {
+                "atLeast": 1
+              }
+            }
+          }
+        }
+      },
       "effects": [
-        { "remember": { "person": "person.test_a", "memory": "memory.test.gap", "persists": true } },
-        { "overrideAssignment": { "person": "person.test_a", "toward": { "person": { "id": "person.noah" } }, "hours": 2 } }
+        {
+          "remember": {
+            "person": "person.test_a",
+            "memory": "memory.test.gap",
+            "persists": true
+          }
+        },
+        {
+          "overrideAssignment": {
+            "person": "person.test_a",
+            "toward": {
+              "person": {
+                "id": "person.noah"
+              }
+            },
+            "hours": 2
+          }
+        }
       ]
     }
   ],
   "perception": [
-    { "subject": "sheet:sheet.test.ledger", "variants": [ { "when": true, "name": "text.test.sheet_ledger" } ] },
-    { "subject": "sheet:sheet.test.verse", "variants": [ { "when": true, "name": "text.test.sheet_verse" } ] },
-    { "subject": "sheet:sheet.test.manifest", "variants": [ { "when": true, "name": "text.test.sheet_manifest" } ] },
-    { "subject": "misc:test.entry1", "variants": [ { "when": true, "name": "text.test.entry1" } ] },
-    { "subject": "misc:test.entry5", "variants": [ { "when": true, "name": "text.test.entry5" } ] },
-    { "subject": "misc:test.entry6", "variants": [ { "when": true, "name": "text.test.entry6" } ] },
-    { "subject": "misc:test.step_origin", "variants": [ { "when": true, "name": "text.test.step_origin" } ] },
-    { "subject": "misc:test.step_write", "variants": [ { "when": true, "name": "text.test.step_write" } ] },
-    { "subject": "misc:test.line_make", "variants": [ { "when": true, "name": "text.test.line_make" } ] },
-    { "subject": "misc:test.line_keep", "variants": [ { "when": true, "name": "text.test.line_keep" } ] }
-  ],
-  "texts": {
-    "text.sheet.slot_empty": "（空き）",
-    "text.test.sheet_ledger": "試験の名簿の記録",
-    "text.test.sheet_verse": "試験の句",
-    "text.test.sheet_manifest": "試験の乗る人",
-    "text.test.entry1": "試験の一番",
-    "text.test.entry5": "試験の五番",
-    "text.test.entry6": "試験の六番",
-    "text.test.step_origin": "元",
-    "text.test.step_write": "書き込み",
-    "text.test.line_make": "作る句",
-    "text.test.line_keep": "守る句"
-  }
+    {
+      "subject": "sheet:sheet.test.ledger",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.sheet_ledger"
+        }
+      ]
+    },
+    {
+      "subject": "sheet:sheet.test.verse",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.sheet_verse"
+        }
+      ]
+    },
+    {
+      "subject": "sheet:sheet.test.manifest",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.sheet_manifest"
+        }
+      ]
+    },
+    {
+      "subject": "misc:test.entry1",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.entry1"
+        }
+      ]
+    },
+    {
+      "subject": "misc:test.entry5",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.entry5"
+        }
+      ]
+    },
+    {
+      "subject": "misc:test.entry6",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.entry6"
+        }
+      ]
+    },
+    {
+      "subject": "misc:test.step_origin",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.step_origin"
+        }
+      ]
+    },
+    {
+      "subject": "misc:test.step_write",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.step_write"
+        }
+      ]
+    },
+    {
+      "subject": "misc:test.line_make",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.line_make"
+        }
+      ]
+    },
+    {
+      "subject": "misc:test.line_keep",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.test.line_keep"
+        }
+      ]
+    }
+  ]
 }

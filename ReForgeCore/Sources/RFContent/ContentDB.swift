@@ -82,8 +82,13 @@ public struct ContentDB: Equatable, Sendable {
     public var forbidden: [ForbiddenRule] = []
     public var auditStages: [AuditStage] = []
     public var textGates: [TextID: TextGate] = [:]
-    /// 文字列表(日本語)。本文の大半は非公開の層にある。
-    public var texts: [TextID: String] = [:]
+    /// 言語ごとの文字列表。本文の大半は非公開の層にある。
+    public var textTables = TextTables()
+    /// 日本語の文字列表。既存の本体・テストとの互換のために残す。
+    public var texts: [TextID: String] {
+        get { textTables.tables[.ja] ?? [:] }
+        set { textTables.tables[.ja] = newValue }
+    }
     /// 地図の文字(見出し → 1 文字)。認識の表の glyph が優先。
     public var glyphs: [SubjectID: String] = [:]
     /// 画面に出してよいラテン文字の語(固有名・題名など)。英語の ID の検査はこの語を除いてから判定する。

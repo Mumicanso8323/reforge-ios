@@ -1,0 +1,20 @@
+{
+  "language": "ja",
+  "texts": {
+    "reason.research.unknown": "その研究は分からない",
+    "reason.research.locked": "まだ手が付けられない",
+    "reason.research.done": "もう終わっている",
+    "reason.research.no_materials": "材料が足りない",
+    "reason.research.not_member": "その人はいない",
+    "reason.research.skill_unknown": "その技は分からない",
+    "reason.research.skill_locked": "まだ習えない",
+    "reason.research.skill_known": "もう身についている",
+    "reason.research.not_learning": "何も習っていない",
+    "reason.research.not_night": "夜の作業ではない",
+    "reason.research.no_desk": "研究机がない",
+    "reason.research.nothing_selected": "研究が選ばれていない",
+    "reason.ability.unknown": "それはできない",
+    "reason.ability.cooldown": "まだできない",
+    "reason.ability.no_catalyst": "使う物が足りない"
+  }
+}

@@ -1,4 +1,5 @@
 import RFKernel
+import RFText
 
 /// コンテンツの検証(読み込みの後、テストと CI で回す)。エラーは直すまで出荷しない。警告は理由を書いて残してよい。
 /// 担当は自分の集まりの検証をここに足す(1 つの関数 = 1 つの規則)。
@@ -24,6 +25,7 @@ public enum ContentValidator {
         subjectsHavePerception(db, &out)
         referencedTextsExist(db, &out)
         unknownTextExists(db, &out)
+        textTablesWellFormed(db, &out)
         forbiddenRulesWellFormed(db, &out)
         auditStagesWellFormed(db, &out)
         textGatesWellFormed(db, &out)
@@ -189,6 +191,54 @@ public enum ContentValidator {
     static func unknownTextExists(_ db: ContentDB, _ out: inout [Issue]) {
         if db.texts["text.unknown"] == nil {
             out.append(Issue(level: .error, rule: "text.unknown", message: "文字列 text.unknown が無い"))
+        }
+    }
+
+    /// すべての翻訳表は読める MessageFormat で、翻訳は日本語と同じ引数を持つ。
+    static func textTablesWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        let japanese = db.textTables.tables[.ja] ?? [:]
+        for (language, table) in db.textTables.tables.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            for (id, pattern) in table.sorted(by: { $0.key < $1.key }) {
+                guard (try? MessageFormat.validate(pattern)) != nil else {
+                    out.append(Issue(level: .error, rule: "text.format", message: "\(language.rawValue) の \(id) が読めない"))
+                    continue
+                }
+                guard language != .ja else { continue }
+                guard let source = japanese[id] else {
+                    out.append(Issue(level: .warning, rule: "text.orphan", message: "\(language.rawValue) の \(id) に日本語が無い"))
+                    continue
+                }
+                guard let sourceNames = try? MessageFormat.argumentNames(source),
+                      let translatedNames = try? MessageFormat.argumentNames(pattern),
+                      sourceNames == translatedNames else
+                {
+                    out.append(Issue(level: .error, rule: "text.args", message: "\(language.rawValue) の \(id) の引数が日本語と違う"))
+                    continue
+                }
+            }
+        }
+        glyphTextsAreOneCell(db, &out)
+    }
+
+    /// glyphText は日本語と、存在する各翻訳で 1 書記素だけにする。
+    static func glyphTextsAreOneCell(_ db: ContentDB, _ out: inout [Issue]) {
+        for (subject, definition) in db.perception.sorted(by: { $0.key < $1.key }) {
+            for variant in definition.variants {
+                guard let text = variant.glyphText else { continue }
+                guard let japanese = db.textTables.tables[.ja]?[text] else {
+                    out.append(Issue(level: .error, rule: "perception.glyphText", message: "\(subject) の \(text) に日本語が無い"))
+                    continue
+                }
+                if japanese.count != 1 {
+                    out.append(Issue(level: .error, rule: "perception.glyphText", message: "\(subject) の \(text) が 1 文字でない"))
+                }
+                for (language, table) in db.textTables.tables where language != .ja {
+                    if let translated = table[text], translated.count != 1 {
+                        out.append(Issue(level: .error, rule: "perception.glyphText",
+                                         message: "\(language.rawValue) の \(subject) の \(text) が 1 文字でない"))
+                    }
+                }
+            }
         }
     }
 

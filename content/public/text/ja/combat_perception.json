@@ -1,0 +1,13 @@
+{
+  "language": "ja",
+  "texts": {
+    "text.enemy.test.small": "小さな獣",
+    "text.enemy.test.pack": "群れの獣",
+    "text.item.test_meat": "肉",
+    "text.item.test_hide": "皮",
+    "text.structure.test.fence": "柵",
+    "text.structure.test.pit": "落とし穴",
+    "text.structure.test.store": "保管",
+    "text.structure.test.watchfire": "見張りの火"
+  }
+}

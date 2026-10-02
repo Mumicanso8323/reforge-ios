@@ -89,6 +89,16 @@ final class MessageFormatTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode(TextRef.self, from: encoded), ref)
     }
 
+    func testValidateRejectsMalformedPattern() {
+        XCTAssertNoThrow(try MessageFormat.validate("{name}"))
+        XCTAssertThrowsError(try MessageFormat.validate("{n, plural, one {one}}"))
+    }
+
+    func testArgumentNamesIncludeNestedBranches() throws {
+        let pattern = "{count, plural, other {{who, cap} chose {kind, select, wood {{thing}} other {{other}}}}}"
+        XCTAssertEqual(try MessageFormat.argumentNames(pattern), ["count", "who", "kind", "thing", "other"])
+    }
+
     private func render(_ pattern: String, _ value: RenderedArg, language: LanguageID) throws -> String {
         try MessageFormat.render(pattern, args: ["n": value], language: language)
     }

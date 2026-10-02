@@ -75,6 +75,8 @@ public struct Variant: Codable, Equatable, Sendable {
     public var display: StatDisplay?
     /// 地図の文字(地形・POI の見え方が変わるときだけ)。
     public var glyph: String?
+    /// 言語で変わる地図の文字。あれば glyph より優先する(実際に引くのは L-03 以降)。
+    public var glyphText: TextID?
     /// この見え方に切り替わったとき、画面で「書き換わった」と知らせるか。
     public var announce: Bool?
     /// 品の名前の色の系統(品・物質の見え方のときだけ)。無ければ中立の色。
@@ -89,7 +91,7 @@ public struct Variant: Codable, Equatable, Sendable {
 
     public init(when: FactExpr, name: TextID? = nil, description: TextID? = nil, display: StatDisplay? = nil,
                 glyph: String? = nil, announce: Bool? = nil, tint: ItemTint? = nil, glow: Bool? = nil,
-                showMarks: Bool? = nil, art: ArtID? = nil) {
+                showMarks: Bool? = nil, art: ArtID? = nil, glyphText: TextID? = nil) {
         self.art = art
         self.showMarks = showMarks
         self.glow = glow
@@ -98,6 +100,7 @@ public struct Variant: Codable, Equatable, Sendable {
         self.description = description
         self.display = display
         self.glyph = glyph
+        self.glyphText = glyphText
         self.announce = announce
         self.tint = tint
     }

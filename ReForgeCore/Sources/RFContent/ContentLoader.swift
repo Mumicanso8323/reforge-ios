@@ -112,13 +112,13 @@ public enum ContentLoader {
             .filter(isContentPath).sorted()
     }
 
-    /// コンテンツとして読む相対パスか: *.json で、隠し(. で始まる)と materials/・tools/ の下を除く
+    /// コンテンツとして読む相対パスか: *.json で、隠し(. で始まる)と materials/・tools/・l10n/ の下を除く
     /// (資料と変換スクリプトの置き場に JSON があっても読まない)。
     public static func isContentPath(_ rel: String) -> Bool {
         let parts = rel.split(separator: "/")
         guard rel.hasSuffix(".json"), let first = parts.first else { return false }
         if parts.contains(where: { $0.hasPrefix(".") }) { return false }
-        return first != "materials" && first != "tools"
+        return first != "materials" && first != "tools" && first != "l10n"
     }
 
     /// 1 つの JSON(テストやツールから)。
@@ -219,7 +219,7 @@ struct ContentFile: Codable {
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
         case memoryKinds, lines, hints, research, skills, abilities, enemies, auras, stats, failureRules
         case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings, documents, groups
-        case perception, forbidden, auditStages, textGates, texts, glyphs, latinAllowed
+        case perception, forbidden, auditStages, textGates, texts, glyphs, latinAllowed, language, nameJoin
         case remove
         // 探索と拠点(U8)
         case fields, exploreEvents, exploration, base
@@ -278,6 +278,9 @@ struct ContentFile: Codable {
     var auditStages: [AuditStage]?
     var textGates: [TextGate]?
     var texts: [String: String]?
+    /// 無ければ従来どおり日本語の表として読む。
+    var language: LanguageID?
+    var nameJoin: NameJoin?
     var glyphs: [String: String]?
     /// 画面に出してよいラテン文字の語(足し合わせ)。
     var latinAllowed: [String]?
@@ -295,6 +298,13 @@ struct ContentFile: Codable {
     var mining: MiningDef?
 
     func apply(to db: inout ContentDB, file: String, seen: inout LayerKeys) throws {
+        let textLanguage = try languageForTexts(file: file)
+        if textLanguage == .pseudo {
+            throw ContentLoader.LoadError.decode(file: file, message: "x-pseudo は文字列表を持てない")
+        }
+        if textLanguage != .ja, textGates != nil {
+            throw ContentLoader.LoadError.decode(file: file, message: "日本語以外の文字列表に textGates は書けない")
+        }
         var dups: [String] = []
         func one(_ name: String, _ present: Bool) { if present { seen.insert(name, "", dups: &dups) } }
         one("bundle", bundle != nil)
@@ -359,10 +369,13 @@ struct ContentFile: Codable {
             seen.insert("textGates", g.text.rawValue, dups: &dups)
             db.textGates[g.text] = g
         }
+        if let nameJoin { db.textTables.meta[textLanguage] = TextMeta(nameJoin: nameJoin) }
+        var textTable = db.textTables.tables[textLanguage] ?? [:]
         for (k, v) in texts ?? [:] {
-            seen.insert("texts", k, dups: &dups)
-            db.texts[TextID(k)] = v
+            seen.insert("texts.\(textLanguage.rawValue)", k, dups: &dups)
+            textTable[TextID(k)] = v
         }
+        if texts != nil { db.textTables.tables[textLanguage] = textTable }
         for (k, v) in glyphs ?? [:] {
             seen.insert("glyphs", k, dups: &dups)
             db.glyphs[SubjectID(k)] = v
@@ -427,7 +440,10 @@ struct ContentFile: Codable {
         case "findings": drop(&db.findings)
         case "perception": drop(&db.perception)
         case "textGates": drop(&db.textGates)
-        case "texts": drop(&db.texts)
+        case "texts":
+            for language in Array(db.textTables.tables.keys) {
+                for id in ids { db.textTables.tables[language]?[TextID(id)] = nil }
+            }
         case "fields": drop(&db.fields)
         case "exploreEvents": drop(&db.exploreEvents)
         case "hintThemes": drop(&db.hintThemes)
@@ -442,5 +458,20 @@ struct ContentFile: Codable {
         default: return false
         }
         return true
+    }
+
+    /// text/<language>/ に置いた表は、ファイルの language と食い違わせない。
+    private func languageForTexts(file: String) throws -> LanguageID {
+        let result = language ?? .ja
+        let parts = file.split(separator: "/").map(String.init)
+        guard let textIndex = parts.lastIndex(of: "text"), textIndex + 1 < parts.count,
+              let pathLanguage = LanguageID(rawValue: parts[textIndex + 1]) else
+        {
+            return result
+        }
+        guard pathLanguage == result else {
+            throw ContentLoader.LoadError.decode(file: file, message: "text の置き場所と言語が違う")
+        }
+        return result
     }
 }

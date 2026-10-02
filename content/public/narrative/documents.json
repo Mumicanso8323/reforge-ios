@@ -1,15 +1,26 @@
 {
   "//": "記録から開ける資料(DocumentDef)の仕組みのテスト用。本文は試験用の一般の文。",
   "documents": [
-    { "id": "doc.test.first", "title": "text.doc.test.first.title", "body": "text.doc.test.first.body",
-      "source": "person:person.test_a", "when": { "always": {} }, "order": 1 },
-    { "id": "doc.test.later", "title": "text.doc.test.later.title", "body": "text.doc.test.later.body",
-      "when": { "known": { "expr": "fact.test.alpha" } }, "order": 2 }
-  ],
-  "texts": {
-    "text.doc.test.first.title": "試験の書き付け",
-    "text.doc.test.first.body": "試験の書き付けの全文。",
-    "text.doc.test.later.title": "あとで読める書き付け",
-    "text.doc.test.later.body": "試験の事実を知ると読める全文。"
-  }
+    {
+      "id": "doc.test.first",
+      "title": "text.doc.test.first.title",
+      "body": "text.doc.test.first.body",
+      "source": "person:person.test_a",
+      "when": {
+        "always": {}
+      },
+      "order": 1
+    },
+    {
+      "id": "doc.test.later",
+      "title": "text.doc.test.later.title",
+      "body": "text.doc.test.later.body",
+      "when": {
+        "known": {
+          "expr": "fact.test.alpha"
+        }
+      },
+      "order": 2
+    }
+  ]
 }
