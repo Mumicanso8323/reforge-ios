@@ -6,8 +6,8 @@ hub の負荷の決まり(F §4): docker は `~/.local/bin/rf-swift-slot` を通
 
 | 順 | 説明書 | 状態 | 依存 | メモ |
 |---|---|---|---|---|
-| 1 | [画面の写真](screen-snapshots.md) | 作業中(feat/screen-snapshots) | — | 手動の起動(screens)だけで回す |
-| 2 | [L-01 文言の型と書式](L-01-text-types.md) | 渡せる | — | 純 Swift。Linux で全部確かめられる |
+| 1 | [画面の写真](screen-snapshots.md) | 実装済み(feat/screen-snapshots 5e886a0)・CI の確かめ中 | — | 手動の起動(screens)だけで回す。12 画面 × 5 言語 |
+| 2 | [L-01 文言の型と書式](L-01-text-types.md) | 作業中(feat/l01-text-types) | — | 純 Swift。Linux で全部確かめられる |
 | 3 | L-14 ストアの原稿の置き場 | 書く(短い) | — | いつでも。原稿はリーダー |
 | 4 | L-02 言語ごとの表を読む | L-01 の後に書く | L-01 | 公開の層の文言を `text/ja/` に移す |
 | 5 | L-04 言語ごとの封 | L-02 の後 | L-02 | rf-seal・stage.sh・ci.yml。release の名前は変えない |
