@@ -17,22 +17,46 @@
 
 ## B. 本編の解放
 ### B.1 本体の門(ReForgeCore。Linux で確かめる)
-- 内容の定義: `ContentDB` に任意の `trialGate: TrialGateDef?` を足す。`TrialGateDef { when: Condition }`。JSON は内容の束の上の段のキー `trialGate`(`bundle.json` と同じ並び。ほかの層で置き換えられる)。無ければ門は無い(今までのデータはそのまま)。`ContentValidator` は条件の中の ID を今の条件と同じに確かめる。
-- 権利: `Simulation` に `entitlements: Entitlements` を足す(`public struct Entitlements: Sendable, Equatable { public var fullGame: Bool }`。置き場は RFSim か RFRules。`init(content:systems:entitlements:)` の既定は `.init(fullGame: true)` にして、今のテストとボットは変わらない)。**保存(`WorldState`・`SaveEnvelope`)には入れない**。
-- 門の判定: `TrialGate.locked(world, content, entitlements) -> Bool` = 権利が無く、`trialGate` があり、その条件が成り立つ(`ConditionEvaluator.evaluatePure`)。
-- 止める: 門が閉じている間は、
-  - `apply`: 命令を `Rejection("reason.trial.locked")` で断る(今の `reason.scene.prologue` と同じ所で。世界は変えない)。ただし画面の出し入れだけの命令(あれば)や、保存に関わらない問い合わせは断らない。断ってよい命令の一覧を作り、テストで固定する。
-  - `advance`・`runSteps`・寝るの先読み: 時計を進めない(ステップを回さない)。
-  - 門が閉じたその 1 ステップで、出来事 `DomainEvent.trialLocked` を 1 回だけ出す(画面が案内の 1 枚を出すきっかけ)。条件が成り立ったステップの反応(効果・場面の始まり)はそのステップの中で済ませてから止める。
-- 画面の組み立て: `Frame` に `trialLocked: Bool` を足し、`FrameBuilder` が `TrialGate.locked` から入れる(`FrameBuilder` にも `entitlements` を渡す口を足す。既定は解放済み)。
-- 文言: `reason.trial.locked` と、案内の 1 枚の文言 ID(例 `ui.trial.title`・`ui.trial.body`・`ui.trial.buy`・`ui.trial.restore`)を公開の層の `text/ja/` に中立の見本で置く(「ここから先は購入で遊べます」程度。物語の語を使わない)。
-- テスト(新しいファイル `RFSimTests/TrialGateTests.swift` など):
+既定は「柵」の形(区切りの後も、その章の中で遊び続けられる。待つのはデータが決めた物だけ)。「止める」形にもデータで切り替えられる(どちらにするかはオーナーが試遊の後に決める)。
+- 内容の定義: `ContentDB` に任意の `trialGate: TrialGateDef?` を足す。JSON は内容の束の上の段のキー `trialGate`(ほかの層で置き換えられる)。無ければ門は無い(今までのデータはそのまま)。
+  ```swift
+  public struct TrialGateDef: Codable, Equatable, Sendable {
+      /// 区切りに着いたか(条件 1 つ。データが決める。例: 区切りの事実を知った)。
+      public var when: Condition
+      /// fence(既定): 時計・手の作業・生産・探索・戦闘は続け、holds に挙げた物だけを待たせる。
+      /// freeze: 時計を進めず、命令を断る(世界ごと止める)。
+      public var mode: TrialGateMode?
+      /// fence で待たせる物。
+      public var holds: TrialHoldsDef?
+  }
+  public enum TrialGateMode: String, Codable, Sendable { case fence, freeze }
+  public struct TrialHoldsDef: Codable, Equatable, Sendable {
+      /// 研究を始める命令を待たせる(理由 `reason.trial.locked` で断る。進めている研究の続きは止めない)。
+      public var research: Bool?
+      /// 待たせる出来事(起きる条件がそろっても起こさず、待ちの列に積む)。
+      public var events: [EventID]?
+  }
+  ```
+  `ContentValidator`: 条件の中の ID と `holds.events` の ID が在ることを確かめる。
+- 区切りに着いた時点の扱い(夜明けまで待つ、など)は**データで書く**: 例えば、区切りの事実を夜明けの出来事が立てるようにする。本体は `when` を見るだけ。
+- 権利: `Simulation` に `entitlements: Entitlements` を足す(`public struct Entitlements: Sendable, Equatable { public var fullGame: Bool }`。置き場は RFSim か RFRules。`init(content:systems:entitlements:)` の既定は `.init(fullGame: true)` にして、今のテストとボットは変わらない)。権利は**保存(`WorldState`・`SaveEnvelope`)には入れない**。
+- 門の判定: `TrialGate.closed(world, content, entitlements) -> Bool` = 権利が無く、`trialGate` があり、`when` が成り立つ(`ConditionEvaluator.evaluatePure`)。
+- fence の間:
+  - `holds.research == true` なら、研究を始める命令を `Rejection("reason.trial.locked")` で断る(どの命令が「研究を始める」かを一覧にしてテストで固定する)。
+  - `holds.events` の出来事は、起きる条件がそろったステップで起こさず、世界の待ちの列 `WorldState.trial.deferred: [EventID]`(新しい任意の欄。無い保存は空として読む。同じ ID は 1 度だけ積む)に積む。出来事の「起きた」の印も付けない。
+  - それ以外(時計・手の作業・生産・運搬・探索・戦闘・ほかの出来事)は、今までどおり進む。
+- freeze の間: 時計を進めない(`advance`・`runSteps`・寝るの先読み `forecastSleep` も)。命令を `reason.trial.locked` で断る(今の `reason.scene.prologue` と同じ所で。世界は変えない)。
+- 門が閉じたステップで、出来事 `DomainEvent.trialReached` を 1 回だけ出す(画面が案内の札を出すきっかけ)。閉じたかどうかは世界の条件から毎回出せるので、「出した」の印は `WorldState.trial.noticed: Bool?` に持つ(保存に入る。権利ではなく「札を出した」の記録)。
+- 権利を得たら(同じ世界を権利ありの `Simulation` に渡したら): 次のステップで、待ちの列の出来事を**積んだ順に**起こし(起こす時点で条件をもう一度見ない。待たせたのは本体なので)、列を空にする。研究も始められる。世界は作り直さない。
+- 画面の組み立て: `Frame` に `trial: TrialFrame?`(閉じているか・形(fence/freeze)・待っている物の数)を足し、`FrameBuilder` に `entitlements` を渡す口を足す(既定は解放済み)。
+- 文言: `reason.trial.locked` と、案内の札の文言 ID(例 `ui.trial.title`・`ui.trial.body`・`ui.trial.buy`・`ui.trial.restore`・`ui.trial.continue`)を公開の層の `text/ja/` に中立の見本で置く(「ここから先は購入で遊べます」程度。物語の語を使わない)。
+- テスト(新しいファイル `RFSimTests/TrialGateTests.swift` など。公開の層に、テストの中だけで試験用の門と出来事を重ねる):
   1. `trialGate` の無い内容では、権利が無くても今とまったく同じ(同じ seed・同じ命令で同じ世界)。
-  2. 公開の層に試験用の門(例: 試験の事実 `fact.test.trial_end` を知ったら)を一時的に重ね、権利無しでは事実を知ったステップで止まる: 時計が進まない・命令が `reason.trial.locked` で断られる・`trialLocked` の出来事が 1 回・`Frame.trialLocked == true`。
-  3. 同じ世界を権利ありの `Simulation` に渡すと、そのまま続く(世界を作り直さない)。
-  4. 止まった世界を保存して読み直しても、権利無しなら止まったまま、権利ありなら続く(保存の形は変わらない。凍らせた見本 `save-v1-dev-*.json` はそのまま読める)。
-  5. 寝るの先読み(`forecastSleep`)も門で止まる。
-  6. JSON: `trialGate` の有無の両方が読める。
+  2. fence: 権利無しで区切りの事実を知った後も、時計・手の作業・生産は進む。研究を始める命令は `reason.trial.locked`。`holds.events` の出来事は起きずに列に積まれ(1 度だけ)、ほかの出来事は起きる。`trialReached` は 1 回だけ。
+  3. fence → 権利あり: 次のステップで、列の出来事が積んだ順に起き、列が空になる。研究が始められる。
+  4. freeze: 時計が進まない・命令が断られる・寝るの先読みも止まる。権利ありで同じ世界が続く。
+  5. 保存: 待ちの列のある世界を保存して読み直すと、列が残る(体験版の保存が製品版で続く前提)。`trial` の欄の無い古い保存は空として読む。凍らせた見本 `save-v1-dev-*.json` はそのまま読める。
+  6. JSON: `trialGate` の有無・`mode` の有無(既定 fence)・`holds` の有無の全部が読める。
 
 ### B.2 権利の確かめ(アプリ。macOS の CI)
 - `StoreService` を StoreKit 2 の実装 `StoreKitStoreService` にする(今の `UnavailableStoreService` は、StoreKit が使えないとき・プレビュー用に残す)。
@@ -51,16 +75,18 @@
 - `.storekit` の設定ファイル(`ReForge/Resources/ReForge.storekit` など。`reforge.fullgame` 1 品)を置き、`ReForgeTests` で StoreKitTest(`SKTestSession`)を使って確かめる: 買う → 権利が付く、払い戻し(`refundTransaction`)→ 権利が消える、復元、家族共有の取引も権利にする、`.unverified` は権利にしない(作れれば)。macOS の CI でだけ回る。
 
 ### B.3 区切りの案内(アプリ)
-- `Frame.trialLocked` のとき、地図の上に案内の 1 枚(札。`InkCard` の作り)を出す: 文言は B.1 の `ui.trial.*`(公開の見本・非公開の層が本物の文を置く)。ボタンは「購入」(値段を添える)・「購入を復元」・「タイトルへ」。購入・復元で権利が付いたら札を閉じて、そのまま続く。
+- `Frame.trial` が閉じたとき(`trialReached` の出来事)に、地図の上に案内の札を 1 枚出す(`InkCard` の作り。確認のダイアログ・閉じるまで進めないシート・数え下ろしは使わない)。文言は B.1 の `ui.trial.*`(公開の見本。非公開の層が本物の文を置く)。
+- ボタン: 「購入」(値段を添える)・「購入を復元」・fence なら「この章を続ける」(札を閉じて遊び続ける)/ freeze なら「タイトルへ」。購入・復元で権利が付いたら、札を閉じてそのまま続く。
+- fence で札を閉じた後は、研究の画面と設定の購入の所に、待っていることを 1 行で出す(押すと札をもう一度出す)。
 - 区切りより前の本編の場面・クレジットには、購入の案内を出さない(G §1.3)。
-- 画面の写真に 1 枚足してよい(`ScreenshotMode` に `trialLocked`)。
+- 画面の写真に 1 枚足してよい(`ScreenshotMode` に `trial`)。
 
 ### B.4 設定の購入の所
 - 節の題「購入」。行: 「本編」(解放済みなら「解放済み」、まだなら値段と「購入」)・「購入を復元」(結果を 1 行で出す。今の `restoreButton` の識別子を残す)。
 - 文言は今の決まり(`Text("…")` のリテラル・`gen-xcstrings`)で書く。
 
 ## C. 区切りの位置
-- 位置そのもの(`trialGate` の条件)は、この作業では決めない。game-designer の候補からオーナーが決め、U14 が非公開の層に置く。公開の層の本物の `bundle.json` には置かない(試験の門はテストの中で重ねる)。
+- 位置そのもの(`trialGate` の条件)と、待たせる物の一覧(`holds`)は、この作業では決めない。game-designer の候補からオーナーが決め、U14 が非公開の層に置く。公開の層の本物の `bundle.json` には置かない(試験の門はテストの中で重ねる)。
 - だから、この作業が入った時点では、どのビルドでも門は閉じない(今までどおり最後まで遊べる)。
 
 ## 受け入れ
