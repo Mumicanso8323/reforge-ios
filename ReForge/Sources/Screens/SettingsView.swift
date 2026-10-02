@@ -8,6 +8,8 @@ struct SettingsView: View {
     var close: () -> Void
     @State private var showRemoveAds = false
     @State private var restoreMessage: LocalizedStringKey?
+    /// 開発の設定(DEBUG と dev のビルドだけ。PT で決まるまで製品には出さない)。保存には入れない。
+    @AppStorage(GameStore.devHoldClockKey) private var devHoldClock = false
 
     private var version: String {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -55,6 +57,16 @@ struct SettingsView: View {
                     }
                     .padding(.top, 10)
                     .accessibilityIdentifier("deleteSaveButton")
+                }
+
+                if GameStore.devSettingsAvailable {
+                    InkSection(title: Text("開発")) {
+                        Toggle(isOn: $devHoldClock) {
+                            Text("設計とノートを開いている間、時計を止める")
+                        }
+                        .accessibilityIdentifier("devHoldClockToggle")
+                        .padding(.top, 10)
+                    }
                 }
 
                 InkSection(title: Text("このアプリについて")) {

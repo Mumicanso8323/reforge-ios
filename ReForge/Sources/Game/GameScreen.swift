@@ -46,6 +46,8 @@ struct GameScreen: View {
         .padding(.vertical, AdLayout.contentGap)
         .background(InkColor.field)
         .task { await store.run() }
+        // 設計かノートを開いている間は、開発の設定が入のとき時計を止める(PT-B2。切なら何も変わらない)
+        .onChange(of: tab, initial: true) { _, t in store.benchOpen = (t == .design || t == .notes) }
         .onChange(of: store.requestedTab) { _, t in
             // パネルからの切り替え(置くモードで地図へ。U18)
             if let t { tab = t; store.requestedTab = nil }

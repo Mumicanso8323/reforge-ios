@@ -124,6 +124,9 @@ jobs:
       BUILD: ${{ github.run_number }}
       TAG: v0.1.0-b${{ github.run_number }}
       HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
+      # dev の ipa(SideStore で配る releases/download/dev)だけの切り替え。開発の設定の節などを出す。
+      # 店に出すビルドのジョブを足すときは、この値を持ち込まない(M-01 の REFORGE_TRIAL_GATE_OPEN と同じ扱い)。
+      DEV_IPA_CONDITIONS: REFORGE_DEV
     steps:
       - uses: actions/checkout@v5
 
@@ -173,6 +176,7 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
             MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS="$DEV_IPA_CONDITIONS" \
             build > build.log 2>&1 \
             || { grep -B2 -A8 "error:" build.log | head -200; tail -60 build.log; exit 1; }
           grep -E "\*\* BUILD" build.log || true

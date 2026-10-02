@@ -431,6 +431,16 @@
         }
       }
     },
+    "今日できた物": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日できた物"
+          }
+        }
+      }
+    },
     "付けない": {
       "localizations": {
         "ja": {
@@ -527,6 +537,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "前に出る"
+          }
+        }
+      }
+    },
+    "前回: %@": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前回: %@"
+          }
+        }
+      }
+    },
+    "前回: %@。次: %@": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前回: %@。次: %@"
           }
         }
       }
@@ -1001,6 +1031,16 @@
         }
       }
     },
+    "明日": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "明日"
+          }
+        }
+      }
+    },
     "昨日 %lld": {
       "localizations": {
         "ja": {
@@ -1057,6 +1097,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "札にする"
+          }
+        }
+      }
+    },
+    "次: %@": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "次: %@"
           }
         }
       }
@@ -1391,6 +1441,16 @@
         }
       }
     },
+    "設計とノートを開いている間、時計を止める": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設計とノートを開いている間、時計を止める"
+          }
+        }
+      }
+    },
     "試したこと": {
       "localizations": {
         "ja": {
@@ -1607,6 +1667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "閉じる"
+          }
+        }
+      }
+    },
+    "開発": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開発"
           }
         }
       }

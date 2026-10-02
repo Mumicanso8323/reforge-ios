@@ -60,6 +60,10 @@ final class GameStore {
     private(set) var inspection: TileInspection?
     /// 断られた理由(足元カードに 1 行。数秒で消える)。
     private(set) var notice: String?
+    /// 夜の締めの 3 行(Frame.dayWrap。日没の間だけ。PT-B2)。
+    private(set) var dayWrap: DayWrapView?
+    /// 再開の 1 行(前回の操作から実時間で resumeAfterMinutes 分以上たって戻ったとき。最初の命令かその日の終わりで消える。PT-B2)。
+    var resumeBanner: ResumeLine?
 
     /// 設計・ノートの画面側の状態(タブを切り替えても下書きを保つ。C-engine-ui.md §6。U17)。
     @ObservationIgnored let workbench = WorkbenchModel()
@@ -71,17 +75,28 @@ final class GameStore {
     static var freezeClock = false
 #endif
 
-    /// 画面が前に出ているか(false の間は時計を進めない)。
-    @ObservationIgnored var isActive = true
+    /// 画面が前に出ているか(false の間は時計を進めない)。前に戻ったとき、再開の 1 行を出すか決める(PT-B2)。
+    @ObservationIgnored var isActive = true {
+        didSet { if isActive, !oldValue { Task { await evaluateResume() } } }
+    }
     /// 設定が開いている間 true(時計を進めない。L-10a)。閉じたら、止めていた間の実時間は進めず、再開した時点から数える。
     @ObservationIgnored var isPaused = false
     @ObservationIgnored private var lastRevision = -1
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var lastPhase: DayPhase = .day
+    @ObservationIgnored private var lastDay = 0
+    /// 前回の操作の実時刻の置き場(保存の外。PT-B2)と、実時刻の読み方(テストで差し替える)。
+    @ObservationIgnored let defaults: UserDefaults
+    @ObservationIgnored let now: () -> Date
+    /// 設計かノートを開いている間 true(GameScreen が書く)。開発の設定が入のときだけ時計を止める(PT-B2)。
+    @ObservationIgnored var benchOpen = false
 
-    init(content: ContentDB, world: WorldState, saves: FileSaveStorage) {
+    init(content: ContentDB, world: WorldState, saves: FileSaveStorage,
+         defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init) {
         self.content = content
         self.saves = saves
+        self.defaults = defaults
+        self.now = now
         let host = GameBootstrap.host(content: content, world: world)
         self.host = host
         let f = FrameBuilder(content: content).build(world, revision: 0, previous: nil, report: nil)
@@ -101,6 +116,8 @@ final class GameStore {
         battles = f.battles
         defaultStance = f.defaultStance
         lastPhase = f.clock.phase
+        lastDay = f.clock.day
+        dayWrap = f.dayWrap
     }
 
     /// 画面に出す解放(撮る起動の DEBUG のときだけ、Frame の値を全部開いた形に上書きする)。
@@ -119,6 +136,7 @@ final class GameStore {
     /// 画面が出ている間ずっと回す(.task から。画面が消えると取り消される)。
     func run() async {
         await load()
+        await evaluateResume()
         var last = ProcessInfo.processInfo.systemUptime
         while !Task.isCancelled {
             try? await Task.sleep(nanoseconds: 50_000_000)
@@ -126,13 +144,18 @@ final class GameStore {
             // 引っかかり(重い処理・背面からの復帰)で一度に大きく進めない。
             let dt = min(now - last, 0.25)
             last = now
-#if DEBUG
-            if Self.freezeClock { continue }
-#endif
-            guard isActive, !isPaused, clock.running else { continue }
-            let (f, _) = await host.tick(realSeconds: dt)
-            await refresh(f)
+            await clockStep(realSeconds: dt)
         }
+    }
+
+    /// 時計を 1 回ぶん進める(止める条件を見てから)。回し方(実時間の待ち)と切り離し、テストからも直に呼べる。
+    func clockStep(realSeconds dt: TimeInterval) async {
+#if DEBUG
+        if Self.freezeClock { return }
+#endif
+        guard isActive, !isPaused, !benchHoldsClock, clock.running else { return }
+        let (f, _) = await host.tick(realSeconds: dt)
+        await refresh(f)
     }
 
     /// いまの Frame と全区画を取り込む(最初の 1 回・テスト)。
@@ -192,6 +215,7 @@ final class GameStore {
     /// 意図を送り、断られた理由(認識の層を通した 1 行)を返す。地図以外のタブが自分の場所に出す(U17)。
     @discardableResult
     func perform(_ command: Command) async -> String? {
+        noteOperation()
         let (f, rejection) = await host.perform(command)
         show(notice: rejection)
         await refresh(f)
@@ -199,6 +223,7 @@ final class GameStore {
     }
 
     func send(_ command: Command) {
+        noteOperation()
         Task {
             let (f, rejection) = await host.perform(command)
             show(notice: rejection)
@@ -228,6 +253,10 @@ final class GameStore {
         if ui != Self.shownUI(f) { ui = Self.shownUI(f) }
         if battles != f.battles { battles = f.battles }
         if defaultStance != f.defaultStance { defaultStance = f.defaultStance }
+        if dayWrap != f.dayWrap { dayWrap = f.dayWrap }
+        // その日が終わる(日没・夜明け)と再開の 1 行は消える
+        if resumeBanner != nil, f.clock.phase != .day || f.clock.day != lastDay { resumeBanner = nil }
+        lastDay = f.clock.day
         revision = f.revision
 
         let stale = f.map.chunkRevisions.indices.filter { chunks[$0]?.revision != f.map.chunkRevisions[$0] }

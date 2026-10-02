@@ -75,6 +75,7 @@ public struct FrameBuilder: Sendable {
         frame.shadows = shadows(w, p)
         frame.battles = battles(w, p)
         frame.defaultStance = w.combat.defaultStance
+        if w.clock.phase == .dusk { frame.dayWrap = dayWrap(w) }
         frame.benchRevision = Self.benchRevision(previous: previous, report: report, revision: revision, day: w.clock.day)
         if let prologue = prologue(w, p) {
             frame.prologue = prologue
@@ -94,6 +95,7 @@ public struct FrameBuilder: Sendable {
             frame.ui = UIUnlocks(gated: Set(UIElements.all), open: [])
             frame.newlyOpened = []
             frame.shadows = []
+            frame.dayWrap = nil
         }
         return frame
     }

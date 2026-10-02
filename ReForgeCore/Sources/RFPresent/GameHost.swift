@@ -109,6 +109,9 @@ public actor GameHost {
         builder.placementPreview(world, kind: kind, at: p)
     }
 
+    /// 再開の 1 行の材料(前回の最後の行為と今の目標。実時刻は持たない)。
+    public func resumeLine() -> ResumeLine { builder.resumeLine(world) }
+
     /// 研究。
     public func research() -> ResearchView { builder.research(world) }
 
