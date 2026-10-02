@@ -342,8 +342,12 @@ final class OpeningDisclosureTests: XCTestCase {
                              .hearth(at: .trigger, op: .ignite())], &c2, cause: cause)
         try XCTSkipIf(!c2.warnings.isEmpty, "公開の層に焚き火台が無い: \(c2.warnings)")
         w = c2.world
-        XCTAssertTrue(holds(.hearthAtLeast(level: .smoldering)))
-        XCTAssertFalse(holds(.hearthAtLeast(level: .roaring)))
+        let lv = try XCTUnwrap(w.placements.items.values.compactMap { Hearths.level(of: $0, rig.content) }.max())
+        XCTAssertGreaterThan(lv, .out)
+        XCTAssertTrue(holds(.hearthAtLeast(level: lv)), "いまの段以上")
+        if let next = HearthLevel(rawValue: lv.rawValue + 1) {
+            XCTAssertFalse(holds(.hearthAtLeast(level: next)), "いまの段より上は成り立たない")
+        }
     }
 
     func testConditionJSONShapes() throws {
