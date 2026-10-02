@@ -13,6 +13,22 @@ struct BaseTabView: View {
     @State private var showSettings = false
 
     var body: some View {
+        ScrollViewReader { proxy in
+            panel
+                #if DEBUG
+                // 撮る起動の研究だけ、研究の節が画面の上に来るまでアプリの側で巻き取る(S-02)
+                .onChange(of: research != nil) { _, loaded in
+                    guard loaded, ScreenshotMode.screen == .research else { return }
+                    Task { @MainActor in
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        proxy.scrollTo("researchSection", anchor: .top)
+                    }
+                }
+                #endif
+        }
+    }
+
+    private var panel: some View {
         InkPanel(title: Text("拠点")) {
             if let base {
                 if store.ui.isOpen(UIElements.baseStock) { stock(base) }
@@ -22,6 +38,7 @@ struct BaseTabView: View {
             }
             if store.ui.isOpen(UIElements.research), let research, !research.entries.isEmpty || research.hiddenCount > 0 {
                 ResearchSection(view: research, store: store)
+                    .id("researchSection")
             }
             if store.ui.isOpen(UIElements.saveManual) { saves }
             InkSection {

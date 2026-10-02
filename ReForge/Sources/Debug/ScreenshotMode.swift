@@ -12,7 +12,7 @@ enum ScreenshotScreen: String, CaseIterable {
     case map, foot, design, base, crew, research, gameOver, settings
     case title, notes, decisionBand, bootFailure
 
-    /// 最初に選ぶタブ。研究は拠点のタブ(研究の節までのスクロールは UI テストの側)。
+    /// 最初に選ぶタブ。研究は拠点のタブ(研究の節までの巻き取りはアプリの側。BaseTab の DEBUG)。
     var tab: GameTab {
         switch self {
         case .map: .map
