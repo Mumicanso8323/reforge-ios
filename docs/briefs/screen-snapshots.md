@@ -57,7 +57,8 @@ Linux の機械では誰もアプリの画面を見ていない。iOS の CI の
 ### 3.4 CI のジョブ
 - `.github/workflows/ci.yml` に新しいジョブ `screens`:
   - `runs-on: macos-26`、`needs: [core, app-switches]`、`timeout-minutes: 60`
-  - 起動: `push` の main と、`workflow_dispatch` の新しい入力 `screens`(boolean、既定 true)。
+  - 起動: `workflow_dispatch` の新しい入力 `screens`(boolean、既定 false)のときだけ(`if: github.event_name == 'workflow_dispatch' && inputs.screens`)。main への push では回さない。枝を push して手で起動する(リーダーの決め)。
+  - `needs` は手動の起動でも満たせるように、`core`・`app-switches` が手動でも回ることを確かめる。
   - 手順: checkout(公開のリポジトリだけ) → Xcode の選択(既存と同じ) → `tools/content/stage.sh`(非公開なし) → `xcodegen generate` → シミュレータを選ぶ → `xcodebuild test -scheme ReForgeScreens -resultBundlePath screens.xcresult CODE_SIGNING_ALLOWED=NO` → `xcresulttool export attachments` → `actions/upload-artifact`(名前 `screens`、`screens/*.png` と `screens/report.json`、`if: always()`、保持 14 日)。
 - **既存の `ios` ジョブ・release の手順・release の名前とタグ(`dev`)・ファイル名(`ReForge.ipa`)は変えない**(オーナーのショートカットが固定の URL を取る)。
 
