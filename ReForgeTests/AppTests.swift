@@ -81,7 +81,7 @@ final class AppTests: XCTestCase {
             if i < 3 { log.append(await darkStartDiagnosis(store, "tick \(i)", steps: report.steps)) }
         }
         log.append(await darkStartDiagnosis(store, "最後", steps: totalSteps))
-        XCTAssertNil(store.darkStart, "最初の行為で火が点いた後は通常画面になる\n" + log.joined(separator: "\n"))
+        XCTAssertNil(store.darkStart, "最初の行為で火が点いた後は通常画面になる ## " + log.joined(separator: " ## "))
     }
 
     func testBundledContentLoads() throws {
