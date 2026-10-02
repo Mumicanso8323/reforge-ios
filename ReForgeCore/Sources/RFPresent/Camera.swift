@@ -129,6 +129,10 @@ extension ActorSprite {
     /// 歩く速さ(原作 MapScreen.cs の MoveAnimInterval 0.25 秒 = 1 秒 4 マス)。
     public static let walkTilesPerSecond = 4.0
 
+    /// 先へ延ばす時間の上限(秒)。ステップ(約 10 回/秒)の 1 つ分と少し。Frame が遅れても(本体が重い・止まっている)、
+    /// 来ていない歩みの先まで絵を進めない(進んでから戻って見える食い違いを出さない)。
+    public static let maxExtrapolationSeconds = 0.12
+
     /// 補間した位置(マス単位の連続の座標。マスの中心)。
     /// Frame を受け取ってから elapsed 秒たったときの位置: 進み(千分率)を歩く速さで先に進め、次のマスで止める。
     /// シミュレーションのステップ(約 10 回/秒)ごとに Frame が来るので、その間を 60fps で埋める。
@@ -136,7 +140,7 @@ extension ActorSprite {
         let a = MapPointF(cellCenter: from)
         guard from != to else { return a }
         let b = MapPointF(cellCenter: to)
-        let ahead = max(0, elapsed) * Self.walkTilesPerSecond * 1000
+        let ahead = min(max(0, elapsed), Self.maxExtrapolationSeconds) * Self.walkTilesPerSecond * 1000
         let t = min(1, max(0, (Double(progress) + ahead) / 1000))
         return MapPointF(x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t)
     }

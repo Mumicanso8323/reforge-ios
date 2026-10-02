@@ -142,8 +142,12 @@ final class MapPresentTests: XCTestCase {
         XCTAssertEqual(noah.to, GridPoint(17, 16))
         XCTAssertEqual(noah.position(elapsed: 0).x, 17.0, accuracy: 1e-9, "進み 500 = 半分")
         XCTAssertEqual(noah.position(elapsed: 0.0625).x, 17.25, accuracy: 1e-9, "1 秒 4 マスで先へ")
-        XCTAssertEqual(noah.position(elapsed: 5).x, 17.5, accuracy: 1e-9, "次のマスで止まる")
+        // Frame が遅れても、0.12 秒ぶん(0.48 マス)より先へは延ばさない(次のマスの手前で止まる)
+        XCTAssertEqual(noah.position(elapsed: 5).x, 17.0 + 0.48, accuracy: 1e-9, "先へ延ばすのは上限まで")
         XCTAssertEqual(noah.position(elapsed: 5).y, 16.5, accuracy: 1e-9)
+        var near = noah
+        near.progress = 900
+        XCTAssertEqual(near.position(elapsed: 5).x, 17.5, accuracy: 1e-9, "次のマスで止まる")
         XCTAssertTrue(noah.isMoving)
         for d in Direction.allCases { XCTAssertEqual(ActorSprite.arrow(d), ["north": "↑", "east": "→", "south": "↓", "west": "←"][d.rawValue]) }
 

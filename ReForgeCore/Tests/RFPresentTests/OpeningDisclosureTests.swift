@@ -19,14 +19,16 @@ final class OpeningDisclosureTests: XCTestCase {
 
     override func setUpWithError() throws { base = try TestContent.publicOnly() }
 
-    /// 開始時刻に時計を止めて始め、足元の行為 1 つと、門の付いた要素を持つコンテンツ。
-    func openingContent() throws -> ContentDB {
+    /// Day 0・日没の 4 時間前・時計を止めて始める公開試験用の最初の行為。
+    func openingContent(igniteChance: Int? = nil) throws -> ContentDB {
         var db = base!
         db.interactions.removeAll()
         let json = """
         {
           "interactions": [
-            { "id": "interaction.test.open.first", "target": { "terrain": { "tag": "ground" } }, "seconds": 600,
+            { "id": "interaction.test.open.first", "target": { "terrain": { "tag": "ground" } }, "seconds": 5,
+              "hold": true, "yields": [] },
+            { "id": "interaction.test.open.other", "target": { "terrain": { "tag": "ground" } }, "seconds": 1,
               "hold": false, "yields": [] }
           ],
           "uiGates": [
@@ -37,14 +39,35 @@ final class OpeningDisclosureTests: XCTestCase {
         }
         """
         try ContentLoader.apply(json: Data(json.utf8), to: &db)
-        db.start.clock = StartClockDef(day: 0, hoursBeforeDusk: 4, held: true)
+        var first = try XCTUnwrap(db.interactions["interaction.test.open.first"])
+        first.effects = [.placeStructure(structure: "structure.campfire", at: .trigger, built: true),
+                         .hearth(at: .trigger, op: .ignite(chancePermille: igniteChance))]
+        db.interactions[first.id] = first
+        db.structures["structure.campfire"]?.hearth?.initialSeconds = 0
+        db.structures["structure.campfire"]?.hearth?.igniteSeconds = 60
+        db.start.clock = StartClockDef(day: 0, hoursBeforeDusk: 4, held: true,
+                                      firstAct: "interaction.test.open.first")
         return db
     }
 
     func noahAt(_ w: WorldState) -> WorldPoint { w.people[w.people.order[0]]!.position! }
 
+    private func savedWorld(_ world: WorldState) throws -> Data {
+        try SaveCodec.encode(SaveEnvelope(slot: .resume, world: world, content: []))
+    }
+
     func firstAction(_ w: WorldState) -> Command {
-        .exploration(.interact(interaction: "interaction.test.open.first", at: noahAt(w), holding: false))
+        .exploration(.interact(interaction: "interaction.test.open.first", at: noahAt(w), holding: true))
+    }
+
+    @discardableResult
+    func finishFirstAction(_ rig: TestRig, _ world: inout WorldState) -> StepReport {
+        var report = rig.simulation.apply(firstAction(world), to: &world)
+        var carry: Int64 = 0
+        for _ in 0..<100 where world.clock.held {
+            report.merge(rig.simulation.advanceHeld(&world, realSeconds: 0.1, carry: &carry))
+        }
+        return report
     }
 
     // MARK: - W-14 始まりの時刻・W-01 時計の保留
@@ -98,19 +121,142 @@ final class OpeningDisclosureTests: XCTestCase {
         for _ in 0..<100 { _ = await host.tick(realSeconds: 0.1) }
         let after = await host.frame.revision
         XCTAssertEqual(after, rev, "止まっている間は Frame を作り直さない")
+        let afterWorld = await host.world
+        XCTAssertEqual(try savedWorld(afterWorld), try savedWorld(before), "何も押さない tick は保存する世界を変えない")
     }
 
-    func testWalkingKeepsHoldAndFirstActionReleasesIt() throws {
+    func testOnlyTheFirstActionIsAcceptedUntilItsFireIsLit() throws {
         let rig = TestRig(content: try openingContent())
         var w = rig.factory.newWorld(seed: 1)
-        _ = rig.simulation.apply(.crew(.walk(to: noahAt(w))), to: &w)
-        XCTAssertTrue(w.clock.held, "歩くだけでは時計は動かない")
-        let r = rig.simulation.apply(firstAction(w), to: &w)
-        XCTAssertNil(r.rejection)
+        let before = w
+        XCTAssertEqual(rig.simulation.apply(.crew(.walk(to: noahAt(w))), to: &w).rejection?.reason, "reason.start.first_act")
+        XCTAssertEqual(w, before)
+        XCTAssertEqual(rig.simulation.apply(.exploration(.interact(interaction: "interaction.test.open.other", at: noahAt(w), holding: true)),
+                                            to: &w).rejection?.reason, "reason.start.first_act")
+        XCTAssertEqual(w, before)
+        XCTAssertNil(rig.simulation.apply(firstAction(w), to: &w).rejection)
+        XCTAssertTrue(w.clock.held, "始めただけでは時計を動かさない")
+        var carry: Int64 = 0
+        let r = rig.simulation.advanceHeld(&w, realSeconds: 1, carry: &carry)
         XCTAssertFalse(w.clock.held)
+        XCTAssertTrue(r.events.contains { if case .interacted(_, "interaction.test.open.first", _, _) = $0 { true } else { false } })
         let t = w.clock.now
         _ = rig.simulation.advance(&w, realSeconds: 1)
         XCTAssertGreaterThan(w.clock.now, t, "動き出した後は昼が進む")
+    }
+
+    func testDarkStartClearsOnlyAfterTheFirstActionLightsAFire() throws {
+        let rig = TestRig(content: try openingContent())
+        var w = rig.factory.newWorld(seed: 1)
+        let builder = FrameBuilder(content: rig.content)
+        let initial = try XCTUnwrap(builder.build(w, revision: 0, previous: nil, report: nil).darkStart)
+        XCTAssertEqual(initial.action.id, "interaction.test.open.first")
+
+        XCTAssertNil(rig.simulation.apply(initial.action.start, to: &w).rejection)
+        XCTAssertNotNil(builder.build(w, revision: 1, previous: nil, report: nil).darkStart)
+        let report = finishFirstAction(rig, &w)
+        XCTAssertFalse(w.clock.held)
+        XCTAssertNil(builder.build(w, revision: 2, previous: nil, report: report).darkStart)
+    }
+
+    func testDarkStartUsesConfiguredFirstAction() throws {
+        var db = try openingContent()
+        try ContentLoader.apply(json: Data(#"""
+        {
+          "interactions": [
+            { "id": "interaction.test.open.chosen", "target": { "terrain": { "tag": "ground" } }, "seconds": 1,
+              "hold": false, "yields": [] }
+          ]
+        }
+        """#.utf8), to: &db)
+        var clock = try XCTUnwrap(db.start.clock)
+        clock.firstAct = "interaction.test.open.chosen"
+        db.start.clock = clock
+        let rig = TestRig(content: db)
+        let w = rig.factory.newWorld(seed: 1)
+        XCTAssertEqual(FrameBuilder(content: db).build(w, revision: 0, previous: nil, report: nil).darkStart?.action.id,
+                       "interaction.test.open.chosen")
+    }
+
+    func testDarkStartIsAbsentWithoutAUsableActionOrHold() throws {
+        var noAction = try openingContent()
+        noAction.interactions.removeAll()
+        let world = TestRig(content: noAction).factory.newWorld(seed: 1)
+        XCTAssertNil(FrameBuilder(content: noAction).build(world, revision: 0, previous: nil, report: nil).darkStart)
+
+        var running = try openingContent()
+        running.start.clock?.held = false
+        let heldWorld = TestRig(content: running).factory.newWorld(seed: 1)
+        XCTAssertNil(FrameBuilder(content: running).build(heldWorld, revision: 0, previous: nil, report: nil).darkStart)
+    }
+
+    func testDarkStartUsesTheFirstFootActionWhenFirstActIsAbsent() throws {
+        var db = try openingContent()
+        db.start.clock?.firstAct = nil
+        let rig = TestRig(content: db)
+        var world = rig.factory.newWorld(seed: 1)
+        XCTAssertEqual(FrameBuilder(content: db).build(world, revision: 0, previous: nil, report: nil).darkStart?.action.id,
+                       "interaction.test.open.first")
+        XCTAssertNil(rig.simulation.apply(firstAction(world), to: &world).rejection)
+        XCTAssertFalse(world.clock.held, "firstAct の無い古い内容は受け付けた最初の行為で動き出す")
+    }
+
+    func testFailedIgnitionKeepsTheStartHeld() throws {
+        let rig = TestRig(content: try openingContent(igniteChance: 0))
+        var world = rig.factory.newWorld(seed: 1)
+        _ = finishFirstAction(rig, &world)
+        XCTAssertTrue(world.clock.held)
+        XCTAssertNotNil(FrameBuilder(content: rig.content).build(world, revision: 1, previous: nil, report: nil).darkStart)
+    }
+
+    func testHeldTickAdvancesOnlyThePressedFirstAction() async throws {
+        var db = try openingContent()
+        db.interactions["interaction.test.open.first"]?.seconds = 600
+        let rig = TestRig(content: db)
+        var world = rig.factory.newWorld(seed: 1)
+        let now = world.clock.now
+        let realCarry = world.clock.realCarry
+        XCTAssertNil(rig.simulation.apply(firstAction(world), to: &world).rejection)
+        let beforeProgress = try XCTUnwrap(world.exploration.active[.noah]).progress
+        var carry: Int64 = 0
+        _ = rig.simulation.advanceHeld(&world, realSeconds: 1, carry: &carry)
+        XCTAssertGreaterThan(try XCTUnwrap(world.exploration.active[.noah]).progress, beforeProgress)
+        XCTAssertEqual(world.clock.now, now)
+        XCTAssertEqual(world.clock.realCarry, realCarry)
+        _ = rig.simulation.apply(.exploration(.interact(interaction: "interaction.test.open.first", at: noahAt(world), holding: false)), to: &world)
+        let stopped = try XCTUnwrap(world.exploration.active[.noah]).progress
+        let carryBeforeWait = carry
+        _ = rig.simulation.advanceHeld(&world, realSeconds: 1, carry: &carry)
+        XCTAssertEqual(try XCTUnwrap(world.exploration.active[.noah]).progress, stopped)
+        XCTAssertEqual(carry, carryBeforeWait, "離している時間は次の押下へ繰り越さない")
+
+        var hostWorld = rig.factory.newWorld(seed: 2)
+        XCTAssertNil(rig.simulation.apply(firstAction(hostWorld), to: &hostWorld).rejection)
+        let host = GameHost(simulation: rig.simulation, world: hostWorld)
+        let hostProgress = try XCTUnwrap(hostWorld.exploration.active[.noah]).progress
+        _ = await host.tick(realSeconds: 1)
+        let advancedWorld = await host.world
+        XCTAssertGreaterThan(try XCTUnwrap(advancedWorld.exploration.active[.noah]).progress, hostProgress,
+                             "GameHost の tick も保留中の最初の行為だけを進める")
+        XCTAssertEqual(advancedWorld.clock.now, hostWorld.clock.now)
+        _ = await host.send(.exploration(.interact(interaction: "interaction.test.open.first", at: noahAt(advancedWorld), holding: false)))
+        let idleWorld = await host.world
+        let revision = await host.frame.revision
+        for _ in 0..<100 { _ = await host.tick(realSeconds: 0.1) }
+        let afterRevision = await host.frame.revision
+        XCTAssertEqual(afterRevision, revision, "押していない保留中は世界も Frame も変えない")
+        let afterIdleWorld = await host.world
+        XCTAssertEqual(try savedWorld(afterIdleWorld), try savedWorld(idleWorld))
+    }
+
+    func testStartFirstActionValidation() throws {
+        var missing = try openingContent()
+        missing.start.clock?.firstAct = "interaction.test.open.missing"
+        XCTAssertTrue(ContentValidator.validate(missing).contains { $0.rule == "start.firstAct" && $0.level == .error })
+
+        var warning = try openingContent()
+        warning.start.clock?.firstAct = nil
+        XCTAssertTrue(ContentValidator.validate(warning).contains { $0.rule == "start.firstAct.held" && $0.level == .warning })
     }
 
     // MARK: - W-01 開示
@@ -124,7 +270,7 @@ final class OpeningDisclosureTests: XCTestCase {
         ctx.learn("fact.test.k")
         ctx.learn("fact.test.live")
         w = ctx.world
-        _ = rig.simulation.apply(firstAction(w), to: &w)
+        _ = finishFirstAction(rig, &w)
         XCTAssertEqual(w.knowledge.disclosed["notes.trials"], .knowledge)
         XCTAssertNil(w.knowledge.disclosed["base.build"], "latch の無い門は記録しない")
         w.knowledge.facts["fact.test.k"] = nil
@@ -329,9 +475,9 @@ final class OpeningDisclosureTests: XCTestCase {
 
         let t = try XCTUnwrap(w.map[noahAt(w).layer]?.terrain(at: noahAt(w).point))
         XCTAssertFalse(holds(.inspected(terrain: t, poi: nil)))
+        w.clock.held = false
         _ = rig.simulation.apply(.exploration(.inspected(terrain: t, poi: nil)), to: &w)
         XCTAssertTrue(holds(.inspected(terrain: t, poi: nil)))
-        XCTAssertTrue(w.clock.held, "調べるだけでは時計は動かない")
         XCTAssertFalse(holds(.inspected(terrain: nil, poi: nil)))
 
         XCTAssertFalse(holds(.hearthAtLeast(level: .smoldering)), "火床が無い")

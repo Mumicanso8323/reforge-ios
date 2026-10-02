@@ -876,11 +876,14 @@ public struct StartClockDef: Codable, Equatable, Sendable {
     public var hoursBeforeDusk: Int?
     /// 最初の行為まで時計を止めるか(既定 false)。
     public var held: Bool?
+    /// 保留中に最初に出す行為(nil なら足元の最初の行為)。
+    public var firstAct: InteractionID?
 
-    public init(day: Int? = nil, hoursBeforeDusk: Int? = nil, held: Bool? = nil) {
+    public init(day: Int? = nil, hoursBeforeDusk: Int? = nil, held: Bool? = nil, firstAct: InteractionID? = nil) {
         self.day = day
         self.hoursBeforeDusk = hoursBeforeDusk
         self.held = held
+        self.firstAct = firstAct
     }
 }
 

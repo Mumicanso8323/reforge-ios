@@ -36,6 +36,8 @@ public struct Frame: Equatable, Sendable {
     public var sceneLines: [String]
     /// 冒頭の文章を読んでいる間だけある。地図と通常の操作は隠す。
     public var prologue: PrologueView?
+    /// 最初の行為まで、地図の代わりに出す操作。
+    public var darkStart: DarkStartView?
     /// 短い知らせ(足元カードの上に数秒)。
     public var notices: [String]
     /// 見え方が書き換わった物(「書き換わった」演出の対象)。
@@ -64,7 +66,7 @@ public struct Frame: Equatable, Sendable {
     public init(revision: Int, clock: ClockView, status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,
                 decision: DecisionView?, sceneLines: [String], notices: [String], renamed: [String],
-                runEnded: Bool = false, prologue: PrologueView? = nil) {
+                runEnded: Bool = false, prologue: PrologueView? = nil, darkStart: DarkStartView? = nil) {
         self.revision = revision
         self.clock = clock
         self.status = status
@@ -77,6 +79,7 @@ public struct Frame: Equatable, Sendable {
         self.decision = decision
         self.sceneLines = sceneLines
         self.prologue = prologue
+        self.darkStart = darkStart
         self.notices = notices
         self.renamed = renamed
         self.runEnded = runEnded
@@ -92,6 +95,15 @@ public struct PrologueView: Equatable, Sendable {
         self.lines = lines
         self.waiting = waiting
         self.art = art
+    }
+}
+
+/// 最初の行為まで、地図を開かずに出す 1 つの操作。
+public struct DarkStartView: Equatable, Sendable {
+    public var action: FootCard.Action
+
+    public init(action: FootCard.Action) {
+        self.action = action
     }
 }
 

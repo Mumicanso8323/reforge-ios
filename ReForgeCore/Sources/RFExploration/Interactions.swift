@@ -25,7 +25,7 @@ struct ResolvedTarget: Equatable {
 /// - 夜作業: その場で終わり、かかった時間を返す(本体がその分のステップを進める)。
 /// - 回数: POI の残りの回数(残骸を漁る 10 回・遺跡のスクラップ)と、定義の limit。採集はクールダウンの日数。
 /// - 有限の部品: PartOp(取り外し・解体・作り直し・修理の段階)。状態は exploration.poi[POI].parts に来歴つきで残る。
-enum Interactions {
+public enum Interactions {
     /// 手の届く距離(マス。チェビシェフ)。
     static let reach = 1
 
@@ -147,38 +147,40 @@ enum Interactions {
 
     // MARK: ステップ
 
-    /// 進行中の行為を 1 ステップ進める(昼だけ)。
-    static func advance(_ ctx: inout StepContext) {
+    /// 進行中の行為を 1 ステップ進める(昼だけ)。actor / interaction を指定すれば、その一組だけに絞る。
+    public static func advance(_ ctx: inout StepContext, actor: PersonID? = nil, interaction: InteractionID? = nil) {
         guard ctx.world.clock.phase == .day else { return }
-        for actor in ctx.world.exploration.active.keys.sorted() {
-            guard let a = ctx.world.exploration.active[actor] else { continue }
+        for actorID in ctx.world.exploration.active.keys.sorted() {
+            guard (actor == nil || actor == actorID), let a = ctx.world.exploration.active[actorID],
+                  interaction == nil || interaction == a.interaction
+            else { continue }
             guard let def = ctx.content.interactions[a.interaction],
                   case .success(let target) = resolve(def, at: a.at, world: ctx.world, content: ctx.content),
-                  let p = ctx.world.people[actor], p.presence.isAlive, let pos = p.position
+                  let p = ctx.world.people[actorID], p.presence.isAlive, let pos = p.position
             else {
-                cancel(actor, &ctx)
+                cancel(actorID, &ctx)
                 continue
             }
             if !inReach(pos, target) {
                 // 続けて採るで次のマスへ歩いている間は、着くまで待つ
                 if def.continues == true, a.holding, p.motion != nil { continue }
                 // 歩きが通らなかった(歩き出せなかった)ノアは、黙って取り消さず「近くにもう無い」で止まる
-                if def.continues == true, a.holding, actor == .noah {
+                if def.continues == true, a.holding, actorID == .noah {
                     ctx.world.exploration.continueStop = ContinueStop(interaction: def.id, at: a.at)
                 }
-                cancel(actor, &ctx)
+                cancel(actorID, &ctx)
                 continue
             }
             if holds(def) && !a.holding { continue }
             if p.motion != nil { continue }
             if let need = def.requiredPeople, need > 1, helpers(target, world: ctx.world) < need { continue }
             // 人の速さ(仲間の採取はノアの 0.6 倍。W-04)
-            let speed = workSpeed(at: pos, ctx) * CrewWork.gatherPermille(actor, ctx.world, ctx.content) / 1000
-            ctx.world.exploration.active[actor]?.progress += SimStep.gameSeconds * Int64(speed) / 1000
-            if (ctx.world.exploration.active[actor]?.progress ?? 0) >= Int64(def.seconds) {
-                let done = ctx.world.exploration.active.removeValue(forKey: actor)!
-                complete(def, done, actor: actor, target: target, &ctx)
-                if def.continues == true, done.holding, actor == .noah { continueNoah(def, from: done, &ctx) }
+            let speed = workSpeed(at: pos, ctx) * CrewWork.gatherPermille(actorID, ctx.world, ctx.content) / 1000
+            ctx.world.exploration.active[actorID]?.progress += SimStep.gameSeconds * Int64(speed) / 1000
+            if (ctx.world.exploration.active[actorID]?.progress ?? 0) >= Int64(def.seconds) {
+                let done = ctx.world.exploration.active.removeValue(forKey: actorID)!
+                complete(def, done, actor: actorID, target: target, &ctx)
+                if def.continues == true, done.holding, actorID == .noah { continueNoah(def, from: done, &ctx) }
             }
         }
     }

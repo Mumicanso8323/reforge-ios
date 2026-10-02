@@ -3,6 +3,7 @@
   "texts": {
     "text.journal.built": "{actor} built {subject}",
     "text.item.wood": "wood",
-    "text.unknown": "?"
+    "text.unknown": "?",
+    "reason.start.first_act": "Only this action is available now"
   }
 }

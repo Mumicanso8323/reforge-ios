@@ -29,6 +29,7 @@ final class GameStore {
     private(set) var decision: DecisionView?
     private(set) var sceneLines: [String]
     private(set) var prologue: PrologueView?
+    private(set) var darkStart: DarkStartView?
     private(set) var runEnded: Bool
     /// 設計・ノートのタブが引き直す印(Frame.benchRevision。U17)。
     private(set) var benchRevision = 0
@@ -111,6 +112,7 @@ final class GameStore {
         decision = f.decision
         sceneLines = f.sceneLines
         prologue = f.prologue
+        darkStart = f.darkStart
         runEnded = f.runEnded
         ui = Self.shownUI(f)
         battles = f.battles
@@ -153,7 +155,8 @@ final class GameStore {
 #if DEBUG
         if Self.freezeClock { return }
 #endif
-        guard isActive, !isPaused, !benchHoldsClock, clock.running else { return }
+        // 保留の間(最初の行為の前)も呼ぶ。本体は、最初の行為を押していなければ何もしない(PT-B8)
+        guard isActive, !isPaused, !benchHoldsClock, clock.running || clock.held else { return }
         let (f, _) = await host.tick(realSeconds: dt)
         await refresh(f)
     }
@@ -267,6 +270,7 @@ final class GameStore {
         await refreshCard()
         // 序が終わったことは、地図の区画と足元カードを引き終えてから見せる(序の画面が消えた時に、地図と足元カードがそろっている)
         if prologue != f.prologue { prologue = f.prologue }
+        if darkStart != f.darkStart { darkStart = f.darkStart }
         // 日没・夜明けで「つづきから」を書く(D-save.md §2)。
         if f.clock.phase != lastPhase {
             lastPhase = f.clock.phase

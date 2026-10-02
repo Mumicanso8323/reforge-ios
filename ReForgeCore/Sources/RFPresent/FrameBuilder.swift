@@ -96,6 +96,8 @@ public struct FrameBuilder: Sendable {
             frame.newlyOpened = []
             frame.shadows = []
             frame.dayWrap = nil
+        } else {
+            frame.darkStart = darkStart(w)
         }
         return frame
     }
@@ -207,6 +209,22 @@ public struct FrameBuilder: Sendable {
     func prologue(_ w: WorldState, _ p: Perceiver) -> PrologueView? {
         guard let s = w.narrative.scene, let def = content.scenes[s.scene], def.style == .prologue else { return nil }
         return PrologueView(lines: def.lines.prefix(s.line + 1).map { p.text($0.text) }, waiting: true)
+    }
+
+    func darkStart(_ w: WorldState) -> DarkStartView? {
+        guard w.run.isActive, w.clock.held,
+              !w.narrative.pending.contains(where: \.blocking),
+              prologue(w, Perceiver(content: content, world: w)) == nil,
+              let position = w.people[.noah]?.position, position.layer == layer,
+              let card = footCard(w, at: position.point)
+        else { return nil }
+        let action: FootCard.Action?
+        if let id = content.start.clock?.firstAct {
+            action = card.actions.first { $0.id == id }
+        } else {
+            action = card.actions.first
+        }
+        return action.map { DarkStartView(action: $0) }
     }
 
     // MARK: - 地図の引き出し
