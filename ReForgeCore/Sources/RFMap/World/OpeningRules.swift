@@ -12,7 +12,7 @@ import RFKernel
 public struct OpeningRules: Codable, Equatable, Sendable {
     /// 残り火(自分たちの残骸)の占めるマスからのチェビシェフ距離。この内側の森のマスを数える。
     public var emberForestRadius: Int
-    /// その森のマスの下限(Day 0 の煙の中で枝を拾う)。
+    /// その森のマスの下限。
     public var emberForestMin: Int
     /// 拠点の整地からのチェビシェフ距離(BaseArea.ringDistance)。この内側の森のマスを数える。
     public var forestRing: Int
@@ -143,7 +143,7 @@ public enum OpeningGuarantee {
         return out
     }
 
-    /// 足りない森を書き足す(乱数は使わない)。
+    /// 足りない森を補う(乱数は使わない)。
     /// 1. 残り火のそば: 整地の外で残り火から radius 以内の乾いた陸(草地・整地)を森にする。
     /// 2. 拠点の近く: 森が下限に届くまで、既にある森に隣り合う草地を、整地に近い順に森にする(森が育つ形)。
     static func stampForests(_ t: inout TerrainGrid, base: BaseArea, rules: OpeningRules) {

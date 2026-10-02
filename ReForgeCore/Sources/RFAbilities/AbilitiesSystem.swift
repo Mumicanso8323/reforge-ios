@@ -3,16 +3,12 @@ import RFKernel
 import RFRules
 import RFWorld
 
-/// 特別な力(CORE-15)。
+/// 人ごとの能力(CORE-15)。画面に出す値はコンテンツが決める。
 ///
-/// - R1: 伏線だけ。ノアの手(純度の見当)は発明の担当(U6)が使い、ここは何も見せない。
-///   力の定義は visibleWhen が成り立つまで「見えない」: 使えず、範囲も付けず、問い合わせにも出ない。
-///   ノアだけの数値を比べられる画面は作らない(REQ-S5。テストで Frame に出ないことを確かめる)。
-/// - R2: 配属の効き(AbilityDef.passives の perceives・speed)を各システムが ContentDB.workModifiers で読む
-///   (検品台にノア以外を付けると読めない = BEAT-03。比べて気づくのはプレイヤー)。
-/// - R3: 不思議な力の体系(BEAT-25)。キーパーソンの力を配属の効き(passives)・持ち主のまわりの範囲(auras)・
-///   使う行為(effects。場所は PlaceSelector.trigger = 使った場所)にする。代償型: 力の元を使い、足りない分は傷で払う。
-///   名前は認識の表(ability:<id>)が事実で解禁するまで伏せる。
+/// - R1: 定義は visibleWhen が成り立つまで使えず、範囲も付けず、問い合わせにも出ない。
+/// - R2: 配属の効き(AbilityDef.passives の perceives・speed)を各システムが ContentDB.workModifiers で読む。
+/// - R3: 後で解禁される能力を、配属の効き(passives)・持ち主のまわりの範囲(auras)・
+///   使う行為(effects。場所は PlaceSelector.trigger = 使った場所)にする。
 ///
 /// 書いてよい切れ端: abilities(と、力が付ける範囲の効果 auras.active の自分の分)。乱数の流れ: .abilities。
 public struct AbilitiesSystem: SimSystem {
@@ -143,7 +139,7 @@ public struct AbilitiesSystem: SimSystem {
 public enum AbilityRules {
     public static let defaultHealthPerShortfall = 5
 
-    /// 存在が見えてよいか(visibleWhen が無い力は見せない = 伏線のまま)。
+    /// 存在が見えてよいか(visibleWhen が無い能力は見せない)。
     public static func isVisible(_ d: AbilityDef, _ w: WorldState, _ c: ContentDB) -> Bool {
         guard let v = d.visibleWhen else { return false }
         return ConditionEvaluator.evaluatePure(v, world: w, content: c) == true
@@ -160,7 +156,7 @@ public enum AbilityRules {
         return Milli(m)
     }
 
-    /// 画面に出してよい力(見えている力で、その人が持つもの。ID 順)。R1 の伏線の力は入らない。
+    /// 画面に出してよい能力(見えている能力で、その人が持つもの。ID 順)。
     public static func visibleAbilities(of p: PersonID, _ w: WorldState, _ c: ContentDB) -> [AbilityID] {
         c.abilities.keys.sorted().filter { a in
             guard let d = c.abilities[a] else { return false }

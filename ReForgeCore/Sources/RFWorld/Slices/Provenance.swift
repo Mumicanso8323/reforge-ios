@@ -127,7 +127,7 @@ public enum SubjectRef: Codable, Hashable, Sendable {
     case part(EntityID, String)
     case sheet(SheetID)
     case aura(AuraKindID, EntityID?)
-    /// 特別な力(使った・効いた)。
+    /// 能力(使った・効いた)。
     case ability(AbilityID)
 
     /// 種類の鍵(「初めて」の判定用。実体の番号を除く)。

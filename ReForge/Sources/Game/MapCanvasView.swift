@@ -158,7 +158,7 @@ struct MapCanvasView: View {
         }
     }
 
-    /// 残骸のパネル(残骸の装置の資料など)。読める行と ■ の行、読める割合。閉じるまで地図は動いたまま。
+    /// 残骸のパネル(段階つきの資料など)。読める行と ■ の行、読める割合。閉じるまで地図は動いたまま。
     @ViewBuilder private var forgePanel: some View {
         if let page = store.panel {
             VStack(alignment: .leading, spacing: 8) {

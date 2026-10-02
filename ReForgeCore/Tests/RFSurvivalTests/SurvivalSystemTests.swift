@@ -207,7 +207,7 @@ final class SurvivalSystemTests: XCTestCase {
         XCTAssertEqual(w.people[noah]?.body.mind, Milli(100))  // 上限
     }
 
-    /// 局所の範囲の効果(排気など)は、範囲の中の人の精神力だけを削る(R2 の中身の仕組み)。
+    /// 局所の範囲の効果は、範囲の中の人の精神力だけを削る。
     func testAuraReducesMindOnlyInside() throws {
         let rig = try Fixture.rig(Fixture.survival)
         var w = rig.factory.newWorld(seed: 8)
@@ -341,9 +341,9 @@ final class SurvivalSystemTests: XCTestCase {
         w.auras.active[id] = Aura(id: id, kind: "aura.test.extra", source: .point(w.people[noah]!.position!),
                                   radius: 1, origin: ProvenanceLedger.unknownOrigin)
         _ = rig.simulation.runSteps(rig.stepsPerDay, &w)
-        XCTAssertEqual(w.survival.stat("stat.test.gas.base").raw, 810)
+        XCTAssertEqual(w.survival.stat("stat.test.gas.base").raw, 830)
         XCTAssertEqual(w.survival.stat("stat.test.gas.extra").raw, 10 * 26)
-        XCTAssertEqual(w.survival.stat("stat.test.gas").raw, 810 + 260)
+        XCTAssertEqual(w.survival.stat("stat.test.gas").raw, 830 + 260)
         XCTAssertEqual(w.survival.stat("stat.test.calendar").raw, 0)  // 暦は回る
         // 出来事の効果が内訳に足した分も合計に入る
         var ctx = StepContext(world: w, content: rig.content)
@@ -353,11 +353,11 @@ final class SurvivalSystemTests: XCTestCase {
         XCTAssertEqual(w.survival.stat("stat.test.gas").raw,
                        w.survival.stat("stat.test.gas.base").raw + w.survival.stat("stat.test.gas.extra").raw)
         XCTAssertGreaterThanOrEqual(w.survival.stat("stat.test.gas.extra").raw, 360)
-        XCTAssertTrue(rig.content.stats["stat.test.gas"]!.isAlert(1400))
-        XCTAssertFalse(rig.content.stats["stat.test.gas"]!.isAlert(1399))
+        XCTAssertTrue(rig.content.stats["stat.test.gas"]!.isAlert(1305))
+        XCTAssertFalse(rig.content.stats["stat.test.gas"]!.isAlert(1304))
     }
 
-    /// 警告と期限は日数でなく値で判定する。上積みが無ければ Day 80・120・150 に届く(OPEN-S2・§3.1)。
+    /// 警告と期限は日数でなく値で判定する。
     func testMarksAndDeadlineReachedOnSchedule() throws {
         let rig = try Fixture.rig(Fixture.stats)
         let sim = Simulation(content: rig.content, systems: [TimeSystem(), SurvivalSystem(), FailureSystem()])
@@ -369,8 +369,8 @@ final class SurvivalSystemTests: XCTestCase {
             for e in r.events { if case .statCrossed("stat.test.gas", _) = e { crossedDays.append(w.clock.day) } }
             guardDays += 1
         }
-        XCTAssertEqual(crossedDays, [80, 120, 150])
-        XCTAssertEqual(w.clock.day, 150)
+        XCTAssertEqual(crossedDays, [11, 21, 31])
+        XCTAssertEqual(w.clock.day, 31)
         guard case .failed(let cause, _) = w.run.outcome else { return XCTFail("期限で失敗していない") }
         XCTAssertEqual(cause, "text.test.deadline")
     }
@@ -384,6 +384,6 @@ final class SurvivalSystemTests: XCTestCase {
         EffectApplier.apply([.stat(id: "stat.test.gas.extra", add: 700)], &ctx, cause: nil)
         w = ctx.world
         while w.run.isActive, w.clock.day < 200 { _ = sim.runSteps(rig.stepsPerDay, &w) }
-        XCTAssertEqual(w.clock.day, 10)  // 上積みが無ければ 150
+        XCTAssertEqual(w.clock.day, 3)
     }
 }

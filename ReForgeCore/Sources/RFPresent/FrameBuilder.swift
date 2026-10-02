@@ -357,24 +357,34 @@ public struct FrameBuilder: Sendable {
                 }
                 tally = ProcessSheet.Tally(filled: entries.count, slots: n)
             }
-            if let m = def.manifest, m.when.map({ ConditionEvaluator.evaluatePure($0, world: w, content: content) == true }) ?? true {
+            if let m = def.roster, m.when.map({ ConditionEvaluator.evaluatePure($0, world: w, content: content) == true }) ?? true {
                 for person in SheetRules.candidates(w) {
                     out.append(ProcessSheet.Row(title: p.name(Subject.person(person)), note: nil,
-                                                aboard: prog.chosen[person] ?? prog.declared[person],
+                                                included: prog.chosen[person] ?? prog.declared[person],
                                                 declared: prog.declared[person], person: person))
                 }
             }
             var sheet = ProcessSheet(source: source, title: p.name(def.title), rows: out, result: nil, tally: tally)
-            if let im = def.imprint, SheetRules.imprintOpen(im, w, content) {
-                sheet.imprint = ProcessSheet.Imprint(
+            func label(_ id: TextID, _ fallback: String) -> String { content.texts[id] ?? fallback }
+            sheet.labels = .init(
+                rosterInclude: label("ui.roster.include", "含める"),
+                rosterExclude: label("ui.roster.exclude", "含めない"),
+                rosterConfirm: label("ui.roster.confirm", "確定する"),
+                rosterConfirmHint: label("ui.roster.confirm_hint", "長押しで確定"),
+                grantTitle: label("ui.grant.title", "技能を付ける"),
+                grantSkip: label("ui.grant.skip", "付けない"),
+                grantRefused: label("ui.grant.refused", "本人が断った")
+            )
+            if let im = def.grant, SheetRules.grantOpen(im, w, content) {
+                sheet.grant = ProcessSheet.SkillGrant(
                     skills: im.skills.map { .init(id: $0, name: p.name(Subject.skill($0))) },
-                    targets: SheetRules.candidates(w).filter { SheetRules.imprintTarget(im, $0, w, content) }.map { person in
+                    targets: SheetRules.candidates(w).filter { SheetRules.grantTarget(im, $0, w, content) }.map { person in
                         .init(person: person, name: p.name(Subject.person(person)),
-                              written: (prog.imprinted[person] ?? []).map { p.name(Subject.skill($0)) },
+                              written: (prog.granted[person] ?? []).map { p.name(Subject.skill($0)) },
                               declined: prog.declined[person])
                     })
             }
-            if def.manifest != nil { sheet.manifestLocked = prog.locked != nil }
+            if def.roster != nil { sheet.rosterConfirmed = prog.locked != nil }
             return sheet
         case .recordEntry(let sid, let slot):
             guard let def = content.sheets[sid],

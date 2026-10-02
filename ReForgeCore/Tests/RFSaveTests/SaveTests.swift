@@ -57,6 +57,18 @@ final class SaveTests: XCTestCase {
         XCTAssertEqual(back.summary.seed, 11)
     }
 
+    func testPreMigrationSaveNamesDecodeAndWriteCurrentNames() throws {
+        let rig = try TestRig.publicOnly()
+        var world = Fixture.world(rig)
+        world.narrative.updateSheet("sheet.test.compat") { $0.granted["person.test_a"] = ["skill.test.kindling"] }
+        let envelope = SaveEnvelope(slot: .resume, world: world, content: Fixture.stamp)
+        let previous = LegacyNames.legacy(try CanonicalJSON.tree(envelope))
+        let decoded = try SaveCodec.decode(Data(CanonicalJSON.bytes(previous)))
+        XCTAssertEqual(decoded, envelope)
+        let rewritten = String(decoding: try SaveCodec.encode(decoded), as: UTF8.self)
+        XCTAssertTrue(rewritten.contains("\"granted\""))
+    }
+
     /// 同じ値なら、集合と辞書に入れた順が違っても同じバイト列(標準の JSONEncoder ではハッシュの順で揺れる)。
     func testCanonicalBytesIgnoreInsertionOrder() throws {
         let rig = try TestRig.publicOnly()

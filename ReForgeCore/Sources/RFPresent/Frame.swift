@@ -395,11 +395,11 @@ public struct ProcessSheet: Equatable, Sendable {
         public var answerRow: String?
         /// 置いた答え(来歴の 1 行)。
         public var answer: String?
-        /// 名簿: 乗る(true)/ 残る(false)/ まだ(nil)。
-        public var aboard: Bool?
-        /// 名簿: 本人が言った「乗る / 残る」。
+        /// 選ぶ表: 含める(true)/ 含めない(false)/ まだ(nil)。
+        public var included: Bool?
+        /// 選ぶ表: 本人が言った「含める / 含めない」。
         public var declared: Bool?
-        /// 名簿・装置: その人。
+        /// 選ぶ表・工程表: その人。
         public var person: PersonID?
         /// 工程の行なら、その段の番号(0 始まり)。設計画面が段を入れ替え・外すのに使う。
         public var step: Int?
@@ -411,7 +411,7 @@ public struct ProcessSheet: Equatable, Sendable {
         public var inputs: [String] = []
 
         public init(title: String, note: String?, slot: Int? = nil, empty: Bool = false, figure: Int? = nil,
-                    answerRow: String? = nil, answer: String? = nil, aboard: Bool? = nil, declared: Bool? = nil,
+                    answerRow: String? = nil, answer: String? = nil, included: Bool? = nil, declared: Bool? = nil,
                     person: PersonID? = nil) {
             self.title = title
             self.note = note
@@ -420,7 +420,7 @@ public struct ProcessSheet: Equatable, Sendable {
             self.figure = figure
             self.answerRow = answerRow
             self.answer = answer
-            self.aboard = aboard
+            self.included = included
             self.declared = declared
             self.person = person
         }
@@ -449,13 +449,13 @@ public struct ProcessSheet: Equatable, Sendable {
     public var expected: Sensed?
     /// 試作の結果カード(試作の表のとき)。
     public var card: Card?
-    /// 装置で技能を書き足せる表なら、その候補(使える条件が成り立っているときだけ)。
-    public var imprint: Imprint?
-    /// 名簿の表なら、締めたか(名簿でなければ nil)。
-    public var manifestLocked: Bool?
+    /// 工程表で技能を付けられる表なら、その候補(使える条件が成り立っているときだけ)。
+    public var grant: SkillGrant?
+    /// 選ぶ表の表なら、締めたか(選ぶ表でなければ nil)。
+    public var rosterConfirmed: Bool?
 
-    /// 装置の候補(書き足せる技能と、書き足せる人)。
-    public struct Imprint: Equatable, Sendable {
+    /// 工程表の候補(付けられる技能と、付けられる人)。
+    public struct SkillGrant: Equatable, Sendable {
         public struct Skill: Equatable, Sendable {
             public var id: SkillID
             public var name: String
@@ -463,14 +463,38 @@ public struct ProcessSheet: Equatable, Sendable {
         public struct Target: Equatable, Sendable {
             public var person: PersonID
             public var name: String
-            /// この表で書き足した技能の名前。
+            /// この表で付けた技能の名前。
             public var written: [String]
-            /// 使わなかった(true = 本人が拒んだ / false = 使わないと決めた / nil = まだ)。
+            /// 未選択の状態(true = 本人が断った / false = 付けないと決めた / nil = まだ)。
             public var declined: Bool?
         }
         public var skills: [Skill]
         public var targets: [Target]
     }
+
+    /// Labels supplied by the content text table for sheet controls.
+    public struct Labels: Equatable, Sendable {
+        public var rosterInclude: String
+        public var rosterExclude: String
+        public var rosterConfirm: String
+        public var rosterConfirmHint: String
+        public var grantTitle: String
+        public var grantSkip: String
+        public var grantRefused: String
+
+        public init(rosterInclude: String, rosterExclude: String, rosterConfirm: String, rosterConfirmHint: String,
+                    grantTitle: String, grantSkip: String, grantRefused: String) {
+            self.rosterInclude = rosterInclude
+            self.rosterExclude = rosterExclude
+            self.rosterConfirm = rosterConfirm
+            self.rosterConfirmHint = rosterConfirmHint
+            self.grantTitle = grantTitle
+            self.grantSkip = grantSkip
+            self.grantRefused = grantRefused
+        }
+    }
+
+    public var labels: Labels?
 
     public init(source: Source, title: String, rows: [Row], result: String?, tally: Tally? = nil,
                 head: Sensed? = nil, expected: Sensed? = nil, card: Card? = nil) {
@@ -540,7 +564,7 @@ public struct FootCard: Equatable, Sendable {
     public var point: GridPoint
     public var title: String
     public var actions: [Action]
-    /// このマスの残骸から開ける資料(残骸の装置の資料など。行為の数には数えない。U18)。
+    /// このマスの残骸から開ける資料(残骸の工程表の資料など。行為の数には数えない。U18)。
     public var documents: [DocumentLink] = []
 
     public struct DocumentLink: Equatable, Sendable {

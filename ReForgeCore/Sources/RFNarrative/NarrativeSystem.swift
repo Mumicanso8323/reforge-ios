@@ -48,7 +48,7 @@ public struct NarrativeSystem: SimSystem {
             guard let def = ctx.content.events[id] else { return .rejected(Rejection("reason.narrative.no_event")) }
             if Self.mayFire(id, def, ctx.world) { fire(id, def, &ctx, trigger: cause) }
             return .done
-        case .openSheet, .imprint, .placeAnswer, .setBoarding, .lockManifest:
+        case .openSheet, .grant, .placeAnswer, .setRosterPick, .confirmRoster:
             return SheetActions.handle(c, &ctx) ?? .notMine
         }
     }

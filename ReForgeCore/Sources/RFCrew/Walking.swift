@@ -41,7 +41,7 @@ struct PathPlanner {
         world.people[person]?.personalKnown?[layer] ?? world.knowledge.mapKnown[layer]
     }
 
-    /// 本当の地形で通れるマスか(霧は見ない)。
+    /// 記録済みの地形で通れるマスか(霧は見ない)。
     mutating func passableTruth(_ p: GridPoint, _ layer: LayerID) -> Bool {
         guard let l = world.map[layer], let b = l.biome(at: p), costs.cost(b) != nil else { return false }
         return !blocked(layer).contains(p)

@@ -47,17 +47,17 @@ enum Fixture {
     static let stats = """
     {
       "stats": [
-        { "id": "stat.test.gas.base", "initial": 805, "perDay": 5 },
+        { "id": "stat.test.gas.base", "initial": 805, "perDay": 25 },
         { "id": "stat.test.gas.extra", "initial": 0 },
         { "id": "stat.test.gas", "initial": 805, "sumOf": ["stat.test.gas.base", "stat.test.gas.extra"],
-          "marks": [1200, 1400, 1550], "alertAtLeast": 1400 },
+          "marks": [1055, 1305, 1555], "alertAtLeast": 1305 },
         { "id": "stat.test.calendar", "initial": 339000, "perDay": 1000, "wrap": 340000 }
       ],
       "auras": [
         { "id": "aura.test.extra", "modifiers": [ { "statPerHour": { "stat": "stat.test.gas.extra", "amount": 10 } } ] }
       ],
       "failureRules": [
-        { "id": "failure.test.deadline", "when": { "stat": { "id": "stat.test.gas", "cmp": "ge", "value": 1550 } }, "cause": "text.test.deadline" }
+        { "id": "failure.test.deadline", "when": { "stat": { "id": "stat.test.gas", "cmp": "ge", "value": 1555 } }, "cause": "text.test.deadline" }
       ]
     }
     """

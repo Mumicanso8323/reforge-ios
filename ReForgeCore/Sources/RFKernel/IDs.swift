@@ -123,7 +123,7 @@ public typealias FindingID = TypedID<FindingTag>
 public typealias HintID = TypedID<HintTag>
 public typealias ResearchID = TypedID<ResearchTag>
 public typealias SkillID = TypedID<SkillTag>
-/// ノアや仲間の特別な力(名前は認識の層で引く)。
+/// ノアや仲間の人ごとの能力(名前は認識の層で引く)。
 public typealias AbilityID = TypedID<AbilityTag>
 public typealias EnemyKindID = TypedID<EnemyKindTag>
 public typealias CounterID = TypedID<CounterTag>

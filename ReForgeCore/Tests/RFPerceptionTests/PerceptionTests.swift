@@ -61,12 +61,12 @@ final class PerceptionTests: XCTestCase {
         XCTAssertTrue(learn.changes.areas.contains(.perception), "見え方を引き直す印が付く")
         let after = render(learn.world)
         XCTAssertTrue(after.values.contains("禁句Aの石"), "\(after)")
-        XCTAssertEqual(after["placed"], "本当の炉")
-        XCTAssertTrue(after["codex"]!.contains("本当の鉄") && !before["codex"]!.contains("本当の鉄"), "\(after)")
+        XCTAssertEqual(after["placed"], "試験の名前B")
+        XCTAssertTrue(after["codex"]!.contains("試験の材料B") && !before["codex"]!.contains("試験の材料B"), "\(after)")
         XCTAssertEqual(after["source"], "試験の出典")
-        XCTAssertEqual(after["map"], "本当の残骸")
-        XCTAssertEqual(after["journal\(placed.raw)"], "ノアが本当の炉を置いた")
-        XCTAssertTrue(after.values.contains("試験の仲間Aが本当の残骸を漁った"), "\(after)")
+        XCTAssertEqual(after["map"], "試験の場所B")
+        XCTAssertEqual(after["journal\(placed.raw)"], "ノアが試験の名前Bを置いた")
+        XCTAssertTrue(after.values.contains("試験の仲間Aが試験の場所Bを漁った"), "\(after)")
 
         // 保存されている物・置いた物・ノート・地図は同じ ID のまま。保存データに名前は入っていない
         XCTAssertEqual(learn.world.inventory, world.inventory)
@@ -142,11 +142,11 @@ final class PerceptionTests: XCTestCase {
         XCTAssertEqual(a.violations, [])
         XCTAssertEqual(a.inspectedCount, 3)
         // 開示の前に真実の見え方の文字列を直接出してしまう(漏れ)
-        _ = p.text("text.item.test_ore.true")
+        _ = p.text("text.item.test_ore.variant_b")
         XCTAssertEqual(a.violations.map(\.rule), ["rule.test.a"])
         // 開示の後なら同じ文字列は違反でない
         let b = PerceptionAuditor()
-        _ = Perceiver(content: db, known: ["fact.test.revealed"], auditor: b).text("text.item.test_ore.true")
+        _ = Perceiver(content: db, known: ["fact.test.revealed"], auditor: b).text("text.item.test_ore.variant_b")
         XCTAssertEqual(b.violations, [])
     }
 

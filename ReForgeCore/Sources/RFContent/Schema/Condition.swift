@@ -75,9 +75,9 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     case chance(basisPoints: Int)
     /// 何周目以降か(巻き戻しの後だけ起きる出来事)。
     case runAtLeast(index: Int)
-    /// 工程表(記録・答え・装置・名簿)の進み(U15)。
+    /// 工程表(記録・答え・工程表・選ぶ表)の進み(U15)。
     case sheet(id: SheetID, test: SheetTest)
-    /// 拠点の格が atLeast 以上(BaseDef.grades と拠点の格の大きい方)。
+    /// 拠点の段階が atLeast 以上(BaseDef.grades と拠点の段階の大きい方)。
     case baseGrade(atLeast: Int)
     /// どこかの火床(焚き火台・炉)がこの段以上で燃えている(U20。§2.7 の「火が燃えている以上」)。
     case hearthAtLeast(level: HearthLevel)
@@ -137,15 +137,15 @@ public enum SheetTest: Codable, Hashable, Sendable {
     case emptySlotsSeen(atLeast: Int)
     /// 行に答えを置いた(query があれば、置いた来歴がそれに合う)。
     case answered(row: String, query: ProvenanceQuery?)
-    /// 装置で書き足した(person nil = 誰でも。atLeast 既定 1 人)。
-    case imprinted(person: PersonID?, atLeast: Int?)
-    /// 使わなかった(プレイヤーが使わないと決めたか、本人が拒んだ)。
+    /// 工程表で技能を付けた(person nil = 誰でも。atLeast 既定 1 人)。
+    case granted(person: PersonID?, atLeast: Int?)
+    /// 使わなかった(プレイヤーが使わないと決めたか、本人が断った)。
     case declined(person: PersonID?, atLeast: Int?)
-    /// 乗る人(person nil = 人数)。
-    case aboard(person: PersonID?, atLeast: Int?)
-    /// 残る人。
-    case staying(person: PersonID?, atLeast: Int?)
-    /// 名簿を締めた(出発した)。
+    /// 含める人(person nil = 人数)。
+    case included(person: PersonID?, atLeast: Int?)
+    /// 含めない人。
+    case excluded(person: PersonID?, atLeast: Int?)
+    /// 選ぶ表を確定した。
     case locked
 }
 
@@ -312,7 +312,7 @@ extension ContentValidator {
         for (id, d) in db.people.sorted(by: { $0.key < $1.key }) {
             for k in d.auras ?? [] where db.auras[k] == nil { missing("範囲の効果", k.rawValue, "person \(id)") }
         }
-        // 工程表(U15): 記録の席・答えの行・装置・名簿
+        // 工程表(U15): 記録の席・答えの行・工程表・選ぶ表
         for (id, sh) in db.sheets.sorted(by: { $0.key < $1.key }) {
             let o = "sheet \(id)"
             checkCondition(sh.when, o)
@@ -334,11 +334,11 @@ extension ContentValidator {
                     out.append(Issue(level: .error, rule: "sheet.slot", message: "\(o) の席 \(e.slot) が重なるか範囲の外"))
                 }
             }
-            if let im = sh.imprint {
+            if let im = sh.grant {
                 checkCondition(im.when, o)
                 for k in im.skills where db.skills[k] == nil { missing("技能", k.rawValue, o) }
             }
-            if let m = sh.manifest { checkCondition(m.when, o) }
+            if let m = sh.roster { checkCondition(m.when, o) }
         }
         for g in db.base.grades ?? [] { checkCondition(g.when, "base grade \(g.grade)") }
     }

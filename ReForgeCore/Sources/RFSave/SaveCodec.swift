@@ -136,7 +136,7 @@ public enum SaveCodec {
 
     /// 版を上げてから読む。
     public static func decode(tree original: Value, migrations: [SaveMigration] = migrations) throws -> SaveEnvelope {
-        let tree = try migrate(original, migrations: migrations)
+        let tree = try migrate(LegacyNames.translate(original), migrations: migrations)
         return try JSONDecoder().decode(SaveEnvelope.self, from: Data(CanonicalJSON.bytes(tree)))
     }
 

@@ -1,17 +1,38 @@
 import ReForgeEngine
 import RFTestSupport
 import XCTest
+import Foundation
 
-/// 期限の数値(日ごとに上がり、しきい値を 3 つ持つ拠点全体の数値)が、何もしなければ決めた日にしきい値へ届くこと。
-/// 届く日は Day 80・120・150(±1 日)。炉の数とは連動しない(置いた物の数で変わらない)ので、時間・生存・出来事の
-/// システムだけで回す。季節の上積みは非公開の層の出来事(範囲の効果)なので、非公開の層があるときだけ回す。
-///
-/// どの数値かは名前で書かず、形で選ぶ(perDay があり、しきい値が 3 つで、暦のように回らない数値はただ 1 つ)。
+/// 非公開層の進行用数値が、期待値ファイルの予定どおりにしきい値へ届くこと。
 final class PacingStatTests: XCTestCase {
-    static let expectedDays = [80, 120, 150]
+    private static let expectationsFile = "tools/pacing-expectations.json"
+
+    private static func expectedDays(in privateLayer: URL) throws -> [Int] {
+        let data = try Data(contentsOf: privateLayer.appendingPathComponent(expectationsFile))
+        let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        guard let days = object?["expectedDays"] as? [Int], !days.isEmpty else {
+            throw NSError(domain: "PacingStatTests", code: 1)
+        }
+        return days
+    }
+
+    func testExpectationFileFormat() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory.appendingPathComponent("tools"), withIntermediateDirectories: true)
+        try "{\"expectedDays\":[7,11,19]}".write(to: directory.appendingPathComponent(Self.expectationsFile), atomically: true,
+                                                      encoding: .utf8)
+        XCTAssertEqual(try Self.expectedDays(in: directory), [7, 11, 19])
+    }
 
     func testDeadlineStatReachesMarksOnSchedule() throws {
         try XCTSkipUnless(TestContent.hasPrivateLayer, "非公開のコンテンツが無い(公開 CI では飛ばす)")
+        guard let privateLayer = ContentLoader.privateLayer(publicLayer: TestContent.publicLayer,
+                                                             environment: ProcessInfo.processInfo.environment),
+              FileManager.default.fileExists(atPath: privateLayer.appendingPathComponent(Self.expectationsFile).path) else {
+            throw XCTSkip("期待値ファイルが無い")
+        }
+        let expectedDays = try Self.expectedDays(in: privateLayer)
         var content = try TestContent.full()
         let candidates = content.stats.values.filter { ($0.perDay ?? 0) > 0 && $0.marks?.count == 3 && $0.wrap == nil }
         XCTAssertEqual(candidates.count, 1, "期限の数値の形のものが 1 つでない")
@@ -19,7 +40,7 @@ final class PacingStatTests: XCTestCase {
         // 失敗で走行が止まらないように(届く日だけを見る)
         content.failureRules = [:]
         // 出来事は、この数値を足す・この数値を時間あたりに足す範囲の効果を付け外すものだけを残す(季節の上積み)。
-        // 全部の出来事を毎ステップ調べると 150 日の走行が CI の時間に収まらない
+        // 全部の出来事を毎ステップ調べると試験時間に収まらない
         let pacingAuras = Set(content.auras.values.filter { a in
             a.modifiers.contains { if case .statPerHour(let st, _) = $0 { st == stat.id } else { false } }
         }.map(\.id))
@@ -42,18 +63,18 @@ final class PacingStatTests: XCTestCase {
         var reached: [Int?] = Array(repeating: nil, count: marks.count)
         let stepsPerDay = Int(TimeSystem.dayLength(content.clock).seconds / SimStep.gameSeconds)
         var steps = 0
-        while reached.contains(where: { $0 == nil }), world.clock.day <= 200, steps < stepsPerDay * 210 {
+        while reached.contains(where: { $0 == nil }), world.clock.day <= 240, steps < stepsPerDay * 250 {
             _ = sim.runSteps(1, &world)
             steps += 1
             let v = world.survival.stats[stat.id]?.raw ?? 0
             for (i, m) in marks.enumerated() where reached[i] == nil && v >= Int64(m) { reached[i] = world.clock.day }
         }
-        for (i, want) in Self.expectedDays.enumerated() {
+        for (i, want) in expectedDays.enumerated() {
             guard let got = reached[i] else {
-                XCTFail("しきい値 \(i + 1) に Day 200 までに届かない")
+                XCTFail("しきい値 \(i + 1) に予定範囲内で届かない")
                 continue
             }
-            XCTAssertLessThanOrEqual(abs(got - want), 1, "しきい値 \(i + 1) に届いた日 Day \(got)(決めた日は Day \(want))")
+            XCTAssertLessThanOrEqual(abs(got - want), 1, "しきい値 \(i + 1) の到達日が期待値と違う")
         }
     }
 }

@@ -100,7 +100,7 @@ public struct Perceiver: Sendable {
 
     // MARK: 来歴・日誌・ノート
 
-    /// 来歴が指す対象の名前(日誌・仲間の記憶・最後の場面に並べる記録で使う)。
+    /// 来歴が指す対象の名前(日誌・仲間の記憶・場面に並べる記録で使う)。
     public func name(of ref: SubjectRef) -> String {
         audited(rawName(of: ref), origin: "ref:\(ref.kindKey)")
     }

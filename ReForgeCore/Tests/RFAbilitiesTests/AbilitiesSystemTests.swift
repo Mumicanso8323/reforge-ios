@@ -8,7 +8,7 @@ import RFTestSupport
 import RFWorld
 import XCTest
 
-/// U10 研究と力: 力は R1 で比べられる画面を作らない(REQ-S5)/ 見えてからの代償型の力の仕組み(R3 の土台)。
+/// U10 研究と能力: 画面に出す値はコンテンツが決める。
 final class AbilitiesSystemTests: XCTestCase {
     static let sense: AbilityID = "ability.test.sense"
     static let calm: AbilityID = "ability.test.calm"
@@ -22,11 +22,11 @@ final class AbilitiesSystemTests: XCTestCase {
         XCTAssertEqual(AbilitiesSystem().handle(foreign, &ctx), .notMine)
     }
 
-    // MARK: R1 — 伏線だけ。比べられる形にしない(REQ-S5)
+    // MARK: R1 — 初期状態
 
-    /// ノアの手(道具なしで純度が読める)は定義の上にだけあり、見えない・使えない・一覧に出ない。
-    /// 読める/読めないの差は、R2 で検品台に付けたときにプレイヤーが自分で比べて気づく(BEAT-03)。
-    func testForeshadowedAbilityIsInvisibleAndUnusable() throws {
+    /// 定義は初期状態では見えず、使えず、一覧にも出ない。
+    /// 表示の内容はコンテンツが決める。
+    func testInitialAbilityIsInvisibleAndUnusable() throws {
         let rig = try TestRig.publicOnly()
         var w = rig.factory.newWorld(seed: 3)
         XCTAssertTrue(rig.content.perceives(person: .noah, skills: [], sense: "purity"))
@@ -35,11 +35,11 @@ final class AbilitiesSystemTests: XCTestCase {
         let r = rig.simulation.apply(.abilities(.use(person: .noah, ability: Self.sense, target: nil)), to: &w)
         XCTAssertEqual(r.rejection?.reason, AbilityReasons.unknown)
         _ = rig.playDay(&w)
-        XCTAssertEqual(w.abilities, AbilitiesState(), "R1 の伏線の力は世界に数値を作らない")
+        XCTAssertEqual(w.abilities, AbilitiesState(), "初期状態の能力は世界に数値を作らない")
     }
 
-    /// 画面(Frame)に「ノアだけの数値」が無い: 力の切れ端にノアだけの値を入れても Frame は 1 文字も変わらず、
-    /// その値は Frame のどこにも現れない(数・文字列のどちらでも)。
+    /// 画面(Frame)に能力の内部値が無い: 値を入れても Frame は 1 文字も変わらず、
+    /// 内部値は Frame のどこにも現れない(数・文字列のどちらでも)。
     func testFrameHasNoNoahOnlyNumbers() throws {
         let rig = try TestRig.publicOnly()
         var plain = rig.factory.newWorld(seed: 5)
@@ -58,7 +58,7 @@ final class AbilitiesSystemTests: XCTestCase {
         for marker in ["7654321", "9876543", "9876.543", "5555555"] {
             XCTAssertFalse(leaves.contains { $0.contains(marker) }, "Frame に \(marker) が出ている")
         }
-        // 人ごとの見え方は、ノアと仲間で同じ項目の形(ノアだけの欄が無い)
+        // 人ごとの見え方は、同じ項目の形
         let noah = b.actors.first { $0.id == PersonID.noah.rawValue }
         let other = b.actors.first { $0.id != PersonID.noah.rawValue }
         XCTAssertNotNil(noah)
@@ -73,7 +73,7 @@ final class AbilitiesSystemTests: XCTestCase {
         return m.children.flatMap { leaves(of: $0.value) }
     }
 
-    // MARK: R3 の土台 — 見えてからの代償型の力
+    // MARK: R3 の土台 — 後で解禁される能力
 
     func revealedWorld(_ rig: TestRig) -> WorldState {
         var w = rig.factory.newWorld(seed: 9)

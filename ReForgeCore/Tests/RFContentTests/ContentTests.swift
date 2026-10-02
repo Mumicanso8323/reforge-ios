@@ -15,6 +15,37 @@ final class ContentTests: XCTestCase {
         XCTAssertEqual(errors, [], "\(errors)")
     }
 
+    func testPreMigrationContentNamesLoadAsCurrentContent() throws {
+        let current = Data(#"""
+        {"sheets":[{"id":"sheet.test.compat","title":"misc:test","rows":[],"when":{"always":{}},
+        "roster":{"leanings":[]},"grant":{"skills":[]}}]}
+        """#.utf8)
+        var expected = ContentDB()
+        var actual = ContentDB()
+        try ContentLoader.apply(json: current, to: &expected)
+        try ContentLoader.apply(json: LegacyNames.legacy(json: current), to: &actual)
+        XCTAssertEqual(actual, expected)
+    }
+
+    /// 古い名前の無いデータは、読み替えでバイトも変わらない(数の書き方を作り直さない)。
+    func testCurrentNamesPassThroughUnchanged() {
+        let current = Data(#"{"a":0.1,"b":[1,2.50,"roster"],"grant":{"skills":[]}}"#.utf8)
+        XCTAssertEqual(LegacyNames.translate(json: current), current)
+    }
+
+    /// 古い名前と新しい名前が両方あるデータでも落ちず、もとから新しい名前の方を残す。
+    func testOldAndNewKeysTogetherKeepTheNewOne() throws {
+        let current = Data(#"{"grant":{"skills":["new"]}}"#.utf8)
+        let old = LegacyNames.legacy(json: Data(#"{"grant":{"skills":["old"]}}"#.utf8))
+        var both = try XCTUnwrap(JSONSerialization.jsonObject(with: old) as? [String: Any])
+        both.merge(try XCTUnwrap(JSONSerialization.jsonObject(with: current) as? [String: Any])) { a, _ in a }
+        XCTAssertEqual(both.count, 2)
+        let out = LegacyNames.translate(json: try JSONSerialization.data(withJSONObject: both))
+        let obj = try XCTUnwrap(JSONSerialization.jsonObject(with: out) as? [String: Any])
+        XCTAssertEqual(obj.count, 1)
+        XCTAssertEqual((obj["grant"] as? [String: Any])?["skills"] as? [String], ["new"])
+    }
+
     /// 非公開の層は同じ ID を丸ごと置き換え、remove で消せる。
     func testPrivateLayerOverridesAndRemoves() throws {
         let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("rf-\(UUID().uuidString)")

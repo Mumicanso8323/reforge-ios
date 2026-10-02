@@ -1,16 +1,16 @@
 {
-  "//": "工程表の仕組み(U15)の試験用。物語は無い。記録の並びと空いた席・装置で技能を書き足す・行に来歴を答えとして置く・乗る人の名簿を確かめる。",
+  "//": "工程表の仕組み(U15)の試験用。物語は無い。記録の並びと空いた席・工程表で技能を付ける・行に来歴を答えとして置く・選ぶ表を確かめる。",
   "facts": [
     {
       "id": "fact.test.device_fixed"
     },
     {
-      "id": "fact.test.vessel_ready"
+      "id": "fact.test.roster_open"
     }
   ],
   "memoryKinds": [
     {
-      "id": "memory.test.gap",
+      "id": "memory.test.kind_b",
       "persistsAcrossRewind": true
     }
   ],
@@ -61,7 +61,7 @@
           "subject": "misc:test.step_write"
         }
       ],
-      "imprint": {
+      "grant": {
         "skills": [
           "skill.test.kindling"
         ],
@@ -136,15 +136,15 @@
       ]
     },
     {
-      "id": "sheet.test.manifest",
-      "title": "sheet:sheet.test.manifest",
+      "id": "sheet.test.roster",
+      "title": "sheet:sheet.test.roster",
       "rows": [],
       "when": {
         "known": {
-          "expr": "fact.test.vessel_ready"
+          "expr": "fact.test.roster_open"
         }
       },
-      "manifest": {
+      "roster": {
         "capacity": 2,
         "leanings": [
           {
@@ -156,7 +156,7 @@
                 }
               }
             ],
-            "aboard": false,
+            "included": false,
             "firm": true
           },
           {
@@ -165,7 +165,7 @@
                 "member": {}
               }
             ],
-            "aboard": true
+            "included": true
           }
         ]
       }
@@ -173,7 +173,7 @@
   ],
   "events": [
     {
-      "id": "event.test.gap_seen",
+      "id": "event.test.memory_seen",
       "trigger": {
         "on": [
           "sheet.opened"
@@ -193,7 +193,7 @@
         {
           "remember": {
             "person": "person.test_a",
-            "memory": "memory.test.gap",
+            "memory": "memory.test.kind_b",
             "persists": true
           }
         },
@@ -231,11 +231,11 @@
       ]
     },
     {
-      "subject": "sheet:sheet.test.manifest",
+      "subject": "sheet:sheet.test.roster",
       "variants": [
         {
           "when": true,
-          "name": "text.test.sheet_manifest"
+          "name": "text.test.sheet_roster"
         }
       ]
     },

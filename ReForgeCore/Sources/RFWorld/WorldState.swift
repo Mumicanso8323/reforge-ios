@@ -47,7 +47,7 @@ public struct WorldState: Codable, Equatable, Sendable {
     public var research: ResearchState
     /// 範囲の効果。持ち主: 共通(付け外しは効果と定義から)
     public var auras: AuraState
-    /// 特別な力(R1 は伏線のみ)。持ち主: RFAbilities
+    /// 人ごとの能力。持ち主: RFAbilities
     public var abilities: AbilitiesState
     /// 出来事・決断待ち・カウンタ・目標・章・結末。持ち主: RFNarrative
     public var narrative: NarrativeState

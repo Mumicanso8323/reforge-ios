@@ -71,7 +71,7 @@ public struct MapPath: Codable, Equatable, Sendable {
 
 /// 経路探索の結果。
 public enum PathOutcome: Equatable, Sendable {
-    /// 見たことのあるマスだけで目的地まで届く(本当のコスト)。
+    /// 見たことのあるマスだけで目的地まで届く(既定のコスト)。
     case known(MapPath)
     /// 霧の先(未踏のマス)を仮定のコストで通る。歩いて霧が晴れるたびに引き直す。
     /// `firstUnknownStep` は steps の中で最初に未踏のマスの番号。
@@ -96,7 +96,7 @@ public enum FogPolicy: Equatable, Sendable {
     case knownOnly
     /// 未踏のマスはこの地形とみなして通れると仮定する(プレイヤーのタップ用の既定。平地)。
     case assume(Biome)
-    /// 霧を見ない(本当の地形で探す。生成の検査・仲間の自動行動など)。
+    /// 霧を見ない(記録済みの地形で探す。生成の検査・仲間の自動行動など)。
     case ignore
 }
 
@@ -138,7 +138,7 @@ public struct PathOptions: Sendable {
     public static let tap = PathOptions()
     /// 見たことのあるマスだけ。
     public static let knownOnly = PathOptions(fog: .knownOnly)
-    /// 本当の地形で(霧を見ない)。
+    /// 記録済みの地形で(霧を見ない)。
     public static let truth = PathOptions(fog: .ignore)
 }
 

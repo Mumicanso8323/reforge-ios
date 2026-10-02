@@ -465,7 +465,7 @@ public struct ResearchDef: ContentDef, Equatable {
     public var nodes: [ResearchNodeDef]?
     /// 一覧に出る条件(存在を伏せる研究)。nil は常に出る。名前を伏せるのは認識の表(research:<id>)。
     public var visibleWhen: Condition?
-    /// 進む時間帯(既定は昼だけ。天体の観測のような夜の研究は nightWork を入れる)。
+    /// 進む時間帯(既定は昼だけ。夜の研究は nightWork を入れる)。
     public var phases: [DayPhase]?
     /// 選んだときに使う物(部品を組んで調べる研究など)。
     public var cost: [Ingredient]?
@@ -505,14 +505,14 @@ public struct SkillDef: ContentDef, Equatable {
     public var visibleWhen: Condition?
 }
 
-/// 特別な力(代償型)。名前・説明は認識の表(ability:<id>)で、解禁の事実まで出さない。
+/// 人ごとの能力。名前・説明は認識の表(ability:<id>)で、コンテンツが決める。
 /// 力は配属の効き(passives)と、使う行為(effects + cost)の 2 つの形を持てる。
 public struct AbilityDef: ContentDef, Equatable {
     public var id: AbilityID
     public var parameters: Value?
     /// 生まれつき持っている人。
     public var holders: [PersonID]?
-    /// 存在が見えてよい条件(nil は見せない = R1 の伏線の力)。見えない力は使えず、画面にも出ない。
+    /// 存在が見えてよい条件(nil は見せない)。見えない能力は使えず、画面にも出ない。
     public var visibleWhen: Condition?
     /// 一員でいる間の作業への効き(配属の効き。BEAT-25)。
     public var passives: [WorkModifier]?
@@ -729,7 +729,7 @@ public struct SceneDef: ContentDef, Equatable {
     public var then: SceneID?
 }
 
-/// 工程表(設計画面と同じ部品で開ける表)。ライン札・試作のほか、ある装置の記録なども表として開ける。
+/// 工程表(設計画面と同じ部品で開ける表)。ライン札・試作のほか、ある工程表の記録なども表として開ける。
 public struct SheetDef: ContentDef, Equatable {
     public struct Row: Codable, Equatable, Sendable {
         /// 行の見出し(認識の表)。
@@ -765,10 +765,10 @@ public struct SheetDef: ContentDef, Equatable {
     public var entries: [SheetEntryDef]?
     /// 記録の 1 件を開いたときの既定の行。entry.rows があればそちら。
     public var entryRows: [Row]?
-    /// この表の装置で、人に技能を書き足せる(BEAT-06)。
-    public var imprint: ImprintDef?
-    /// この表は乗る人の名簿(BEAT-29)。
-    public var manifest: ManifestDef?
+    /// この表の工程表で、人に技能を付けられる(BEAT-06)。
+    public var grant: SkillGrantDef?
+    /// この表は選ぶ表(BEAT-29)。
+    public var roster: RosterDef?
 }
 
 /// 記録の並びの 1 件。
@@ -797,15 +797,15 @@ public enum SheetMeasure: Codable, Hashable, Sendable {
     case maxDetail(query: ProvenanceQuery, key: String)
 }
 
-/// 装置で技能を書き足す(習得の日数を飛ばす)。使うかどうかは一人ずつプレイヤーが決め、本人が拒むこともある。
-public struct ImprintDef: Codable, Equatable, Sendable {
-    /// 書き足せる技能。
+/// 工程表で技能を付ける(習得の日数を飛ばす)。使うかどうかは一人ずつプレイヤーが決め、本人が断ることもある。
+public struct SkillGrantDef: Codable, Equatable, Sendable {
+    /// 付けられる技能。
     public var skills: [SkillID]
-    /// 使える条件(装置を直した、など)。
+    /// 使える条件(工程表を直した、など)。
     public var when: Condition?
-    /// 書き足せる人(一員で生きている人のうち、全部に合う人)。
+    /// 付けられる人(一員で生きている人のうち、全部に合う人)。
     public var targets: [PersonTest]?
-    /// 本人が拒む条件(全部に合えば拒む。思想・関係・記憶で書く)。
+    /// 本人が断る条件(全部に合えば断る。思想・関係・記憶で書く)。
     public var refuseWhen: [PersonTest]?
     /// 使った記録に付ける印(仲間の思想がこれで賛否を言う)。
     public var tags: [ProvenanceTag]?
@@ -813,9 +813,9 @@ public struct ImprintDef: Codable, Equatable, Sendable {
     public var declineTags: [ProvenanceTag]?
 }
 
-/// 乗る人の名簿。仲間は自分で「乗る / 残る」を言う。
-public struct ManifestDef: Codable, Equatable, Sendable {
-    /// 名簿が開く条件(コンテンツが決める)。
+/// 選ぶ表。仲間は自分で「含める / 含めない」を言う。
+public struct RosterDef: Codable, Equatable, Sendable {
+    /// 選ぶ表が開く条件(コンテンツが決める)。
     public var when: Condition?
     /// 乗れる人数(ノアを含む)。
     public var capacity: Int?
@@ -825,11 +825,11 @@ public struct ManifestDef: Codable, Equatable, Sendable {
 
 public struct LeaningDef: Codable, Equatable, Sendable {
     public var tests: [PersonTest]
-    /// 乗る(true)/ 残る(false)。
-    public var aboard: Bool
+    /// 含める(true)/ 含めない(false)。
+    public var included: Bool
     /// 譲らない(プレイヤーが逆にできない)。
     public var firm: Bool?
-    /// 言うときの一言の文脈(LineDef.context。無ければ "boarding.aboard" / "boarding.stay")。
+    /// 言うときの一言の文脈(LineDef.context。無ければ "roster.include" / "roster.exclude")。
     public var line: String?
 }
 
@@ -852,7 +852,7 @@ public struct EndingDef: ContentDef, Equatable {
     /// 自分から届く条件(効果 ending で直接届くこともある)。
     public var when: Condition
     public var scene: SceneID?
-    /// 届いたときの効果(帰る人・残る人が分かれる、など)。
+    /// 届いたときの効果。
     public var effects: [Effect]?
 }
 

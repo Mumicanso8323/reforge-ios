@@ -6,8 +6,8 @@ import RFWorld
 ///
 /// - 記録の並び: 席 1...slots のうち、entries に無い番号は「空いた席」。空いた席は数えられ、開ける(開いたことが来歴に残る)。
 /// - 答えの席: 行に、プレイヤー自身の来歴を 1 つ置く。置ける来歴は AnswerSlotDef.accepts のどれかに合うもの。
-/// - 装置: 書き足せる人・本人が拒むかは PersonTest で決める(思想・関係・記憶)。
-/// - 名簿: 仲間の言い分は LeaningDef の上から順に、tests に全部合う最初のもの。
+/// - 工程表: 付けられる人・本人が断るかは PersonTest で決める(思想・関係・記憶)。
+/// - 選ぶ表: 仲間の言い分は LeaningDef の上から順に、tests に全部合う最初のもの。
 public enum SheetRules {
     // MARK: 条件
 
@@ -20,18 +20,18 @@ public enum SheetRules {
             guard let rec = p.answers[row] else { return false }
             guard let q else { return true }
             return w.ledger.record(rec).map { ProvenanceQueries.matches(q, $0) } ?? false
-        case .imprinted(let person, let n):
-            let who = person.map { p.imprinted[$0] != nil ? 1 : 0 } ?? p.imprinted.count
+        case .granted(let person, let n):
+            let who = person.map { p.granted[$0] != nil ? 1 : 0 } ?? p.granted.count
             return who >= (n ?? 1)
         case .declined(let person, let n):
             let who = person.map { p.declined[$0] != nil ? 1 : 0 } ?? p.declined.count
             return who >= (n ?? 1)
-        case .aboard(let person, let n):
-            if let person { return p.aboard(person) && isPresent(person, w) }
-            return aboardList(p, w).count >= (n ?? 1)
-        case .staying(let person, let n):
-            if let person { return !p.aboard(person) && isPresent(person, w) }
-            return candidates(w).filter { !p.aboard($0) }.count >= (n ?? 1)
+        case .included(let person, let n):
+            if let person { return p.included(person) && isPresent(person, w) }
+            return includedList(p, w).count >= (n ?? 1)
+        case .excluded(let person, let n):
+            if let person { return !p.included(person) && isPresent(person, w) }
+            return candidates(w).filter { !p.included($0) }.count >= (n ?? 1)
         case .locked: return p.locked != nil
         }
     }
@@ -76,27 +76,27 @@ public enum SheetRules {
         }
     }
 
-    // MARK: 装置
+    // MARK: 工程表
 
-    public static func imprintOpen(_ im: ImprintDef, _ w: WorldState, _ c: ContentDB) -> Bool {
+    public static func grantOpen(_ im: SkillGrantDef, _ w: WorldState, _ c: ContentDB) -> Bool {
         im.when.map { ConditionEvaluator.evaluatePure($0, world: w, content: c) == true } ?? true
     }
 
-    /// 書き足せる人か(一員で生きていて、targets に全部合う)。
-    public static func imprintTarget(_ im: ImprintDef, _ person: PersonID, _ w: WorldState, _ c: ContentDB) -> Bool {
+    /// 技能を付けられる人か(一員で生きていて、targets に全部合う)。
+    public static func grantTarget(_ im: SkillGrantDef, _ person: PersonID, _ w: WorldState, _ c: ContentDB) -> Bool {
         guard let ps = w.people[person], ps.presence.isMember, ps.presence.isAlive else { return false }
         return (im.targets ?? []).allSatisfy { ConditionEvaluator.testPerson(ps, $0, w, c) }
     }
 
-    /// 本人が拒むか。
-    public static func refuses(_ im: ImprintDef, _ person: PersonID, _ w: WorldState, _ c: ContentDB) -> Bool {
+    /// 本人が断るか。
+    public static func refuses(_ im: SkillGrantDef, _ person: PersonID, _ w: WorldState, _ c: ContentDB) -> Bool {
         guard let rw = im.refuseWhen, !rw.isEmpty else { return false }
         return rw.allSatisfy { ConditionEvaluator.testPerson(w.people[person], $0, w, c) }
     }
 
-    // MARK: 名簿
+    // MARK: 選ぶ表
 
-    /// 名簿に載る人(ノアと、生きている一員)。
+    /// 選ぶ表の対象者(ノアと、生きている一員)。
     public static func candidates(_ w: WorldState) -> [PersonID] {
         w.people.order.filter { isPresent($0, w) }
     }
@@ -106,18 +106,18 @@ public enum SheetRules {
         return ps.presence.isAlive && (p == .noah || ps.presence.isMember)
     }
 
-    public static func aboardList(_ p: SheetProgress, _ w: WorldState) -> [PersonID] {
-        candidates(w).filter { p.aboard($0) }
+    public static func includedList(_ p: SheetProgress, _ w: WorldState) -> [PersonID] {
+        candidates(w).filter { p.included($0) }
     }
 
     /// 仲間の言い分(nil = 何も言わない)。ノアは言わない(プレイヤーが決める)。
-    public static func leaning(_ m: ManifestDef, _ person: PersonID, _ w: WorldState, _ c: ContentDB) -> LeaningDef? {
+    public static func leaning(_ m: RosterDef, _ person: PersonID, _ w: WorldState, _ c: ContentDB) -> LeaningDef? {
         guard person != .noah, let ps = w.people[person] else { return nil }
         return m.leanings.first { l in l.tests.allSatisfy { ConditionEvaluator.testPerson(ps, $0, w, c) } }
     }
 }
 
-/// 拠点の格(結末の条件が読む)。格 n は、1...n の条件が全部成り立つとき。保存した格(world.base.grade)より下がらない。
+/// 拠点の段階(条件が読む)。格 n は、1...n の条件が全部成り立つとき。保存した格(world.base.grade)より下がらない。
 public enum BaseGrades {
     public static func current(_ w: WorldState, _ c: ContentDB) -> Int {
         var g = 1

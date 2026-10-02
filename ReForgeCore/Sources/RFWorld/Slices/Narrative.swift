@@ -20,7 +20,7 @@ public struct NarrativeState: Codable, Equatable, Sendable {
     /// 直近の仲間の一言(新しい順でなく言った順。上限 lineLogLimit)。同じ一言を続けて言わないためと、画面の帯のため。
     public var lineLog: [SpokenLine] = []
 
-    /// 工程表の進み(記録を開いた・答えを置いた・装置を使った・名簿)。無い保存は空として読む。
+    /// 工程表の進み(記録を開いた・答えを置いた・工程表を使った・選ぶ表)。無い保存は空として読む。
     public var sheets: [SheetID: SheetProgress]?
 
     public static let lineLogLimit = 16
@@ -128,19 +128,19 @@ public struct SheetProgress: Codable, Equatable, Sendable {
     public var emptySeen: Set<Int> = []
     /// 行 → 置いた答えの来歴。
     public var answers: [String: ProvenanceID] = [:]
-    /// 装置で書き足した技能(人 → 技能)。
-    public var imprinted: [PersonID: [SkillID]] = [:]
-    /// 使わなかった人(人 → 本人が拒んだか)。
+    /// 工程表で付けた技能(人 → 技能)。
+    public var granted: [PersonID: [SkillID]] = [:]
+    /// 使わなかった人(人 → 本人が断ったか)。
     public var declined: [PersonID: Bool] = [:]
-    /// 仲間が自分で言った「乗る(true)/ 残る(false)」。
+    /// 仲間が自分で言った「含める(true)/ 含めない(false)」。
     public var declared: [PersonID: Bool] = [:]
-    /// プレイヤーが決めた「乗る / 残る」。
+    /// プレイヤーが決めた「含める / 含めない」。
     public var chosen: [PersonID: Bool] = [:]
-    /// 名簿を締めた来歴。
+    /// 選ぶ表を締めた来歴。
     public var locked: ProvenanceID?
 
     public init() {}
 
-    /// 乗るか(プレイヤーの決定 → 本人の言い分 → 残る)。
-    public func aboard(_ p: PersonID) -> Bool { chosen[p] ?? declared[p] ?? false }
+    /// 含めるか(プレイヤーの決定 → 本人の言い分 → 含めない)。
+    public func included(_ p: PersonID) -> Bool { chosen[p] ?? declared[p] ?? false }
 }
