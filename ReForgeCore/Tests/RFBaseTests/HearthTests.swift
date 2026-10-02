@@ -385,4 +385,23 @@ final class HearthTests: XCTestCase {
         XCTAssertEqual(tries(500, skilled: false), plain, "同じ世界からなら同じ結果(決定的)")
         XCTAssertEqual(tries(0, skilled: false), 0)
     }
+
+    /// 最初の「火を起こす」: 効果 placeStructure で焚き火台をそばの空いたマスに置き、同じ並びの ignite がそれに効く。
+    func testPlaceStructureThenIgnite() throws {
+        var rig = try Rig()
+        rig.content.structures["structure.campfire"]?.hearth?.initialSeconds = 0
+        rig.content.structures["structure.campfire"]?.hearth?.igniteSeconds = 14_400
+        let here = WorldPoint(.surface, rig.center)
+        _ = rig.sim.apply(.base(.build(structure: "structure.storage", at: here, facing: .north)), to: &rig.world)
+        var ctx = StepContext(world: rig.world, content: rig.content)
+        let cause = ctx.record(.chose, .none, actor: .noah, place: here)
+        EffectApplier.apply([.placeStructure(structure: "structure.campfire", at: .trigger, built: true),
+                             .hearth(at: .trigger, op: .ignite())], &ctx, cause: cause)
+        XCTAssertTrue(ctx.warnings.isEmpty, "\(ctx.warnings)")
+        let fire = ctx.world.placements.items.values.first { $0.kind == .structure("structure.campfire") }!
+        XCTAssertEqual(fire.at.point, rig.center + GridPoint(-1, -1), "空いたマスを決定的に選ぶ")
+        XCTAssertEqual(fire.status, .running)
+        XCTAssertEqual(Hearths.level(of: fire, rig.content), .flickering, "置いたその場で灯る")
+        XCTAssertTrue(ctx.drainEvents().contains { if case .built = $0 { true } else { false } })
+    }
 }

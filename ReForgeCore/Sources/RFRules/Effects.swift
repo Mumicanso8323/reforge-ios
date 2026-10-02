@@ -278,6 +278,11 @@ public enum EffectApplier {
             guard let at = resolve(place), let target = Hearths.nearest(to: at, in: w, content: ctx.content)
             else { return missing(&ctx, e) }
             Hearths.applyEffect(op, to: target, &ctx)
+        case .placeStructure(let kind, let place, let built):
+            guard let at = resolve(place) else { return missing(&ctx, e) }
+            if case .failure(let r) = StructureSites.placeFromEffect(kind, near: at, built: built, &ctx) {
+                ctx.warnings.append("placeStructure: \(r.reason)")
+            }
         }
     }
 

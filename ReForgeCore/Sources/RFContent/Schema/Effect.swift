@@ -82,6 +82,9 @@ public enum Effect: Codable, Hashable, Sendable {
     case groupBattle(group: GroupID, at: PlaceSelector, members: [PersonID]? = nil, lethal: Bool? = nil)
     /// 場所にある(無ければ最も近い)火床に、くべる・点ける・埋める(U21。「くべる」「火を起こす」「火を埋める」の行為)。
     case hearth(at: PlaceSelector, op: HearthEffectOp)
+    /// 場所のそばの空いたマス(決定的に選ぶ)に建造物を置く(費用は取らない。built なら建ち終えた状態)。
+    /// 同じ効果の並びの後ろの hearth は、置いたその場で効く(最初の「火を起こす」)。U21
+    case placeStructure(structure: StructureKindID, at: PlaceSelector, built: Bool)
 }
 
 /// 部品の状態の名前(RFWorld の PartState と対応)。
