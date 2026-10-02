@@ -65,6 +65,7 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 - 効果から来るコマンド(U11 が各枝の末尾に `…FromEffect` などを足す。cause = 引き金の来歴で、自分の来歴の inputs に入れる)は持ち主が処理する: U5 = meet・join・leave・die・injure / U8 = revealMap・setTerrain・setPart / U9 = spawnEnemy / U7 = convertPlacements。処理を入れるまでは「どのシステムも受けないコマンド」の警告が出る。
 - アプリの画面のファイルの持ち主(ぶつからないように 1 ファイル 1 担当): `Game/GameScreen.swift`(タブの並べ方)= 統合担当 / `Game/Tabs/DesignTab.swift`・`NotesTab.swift` = U17 / `Game/Tabs/BaseTab.swift`・`CrewTab.swift`・`Game/GameOverView.swift`・`Game/TabBarView.swift` = U18 / `Theme/`・`Screens/TitleView.swift` = art-director / 地図・足元の札(`MapCanvasView`・`MapScene`・`FootCardView`・`StatusBandView`)= U13。他の担当のファイルを直すときは持ち主に知らせる。タブを足すときは統合担当に頼む(GameTab と PanelView に 1 行)。
 - 保存される型に Data・Double・Date を持たせない(正準 JSON で読み戻せない。17f8133)。要るときは明示的に文字列か整数で書く。`AcceptanceTests/ResumeRoundTripTests` が見張る。
+- 保存の見本は 2 種類。`Fixtures/save-v1-dev-<hash>.json` は dev ビルドで配った保存の形を凍らせたもので、**作り直さない・飛ばさない**(`testFrozenDevSavesStillRead` で読めなければ失敗。オーナーの端末の保存を守る)。新しい項目は decodeIfPresent と既定値か、版の移行(D §4)で受ける。作り直してよいのは最新の形を写す `save-v1.json` だけ(`REFORGE_UPDATE_SAVE_FIXTURES=1`、コミットに書く)。
 - 世界状態の形を変えたら D §4 の手順(版を上げて移行を 1 つ足す)。ただし最初のリリースまでは版 1 のまま形を変えてよい(セーブの互換は R1 のリリースから守る)。
 
 ## 5. 物語と工業の結合設計からの要求への対応
