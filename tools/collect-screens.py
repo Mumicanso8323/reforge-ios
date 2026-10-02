@@ -70,14 +70,24 @@ def main() -> int:
     expected = [f"{lang}_{screen}" for lang in LANGS for screen in SCREENS]
     missing = [n for n in expected if n not in pngs]
     findings = [f for r in reports for f in r.get("findings", [])]
+    # 画面ごとの行(offscreen から外した幅か高さ 1pt 以下の要素の数と、研究の節の有無。後で増えたら気づくため)
+    rows = sorted(
+        ({"language": r.get("language", ""), "screen": r.get("screen", ""),
+          "ignoredZeroSize": r.get("ignoredZeroSize", 0), **({"research": r["research"]} if r.get("research") else {})}
+         for r in reports),
+        key=lambda r: (r["language"], r["screen"]))
     report = {
         "device": a.device,
         "expected": len(expected),
         "shots": len([n for n in expected if n in pngs]),
         "missing": missing,
+        "screens": rows,
         "findings": sorted(findings, key=lambda f: (f["language"], f["screen"], f["kind"], f["id"])),
     }
     (out / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    empty = [f"{r['language']}_{r['screen']}" for r in rows if r.get("research") == "empty"]
+    if empty:
+        print("research: empty " + ", ".join(empty))
     print(f"撮れた {report['shots']}/{report['expected']} 枚・検査に当たった {len(findings)} 件")
     for f in report["findings"][:40]:
         print(f"  {f['language']}_{f['screen']}: {f['kind']} {f['id']} {f['detail']}")

@@ -22,6 +22,7 @@ struct BaseTabView: View {
             }
             if store.ui.isOpen(UIElements.research), let research, !research.entries.isEmpty || research.hiddenCount > 0 {
                 ResearchSection(view: research, store: store)
+                    .id("researchSection")
             }
             if store.ui.isOpen(UIElements.saveManual) { saves }
             InkSection {
@@ -38,6 +39,9 @@ struct BaseTabView: View {
             points = store.savePoints()
         }
         .accessibilityIdentifier("baseTab")
+        #if DEBUG
+        .modifier(ResearchSectionScrollModifier(researchLoaded: research != nil))
+        #endif
     }
 
     private func stock(_ v: BaseView) -> some View {
@@ -141,6 +145,27 @@ struct BaseTabView: View {
         }
     }
 }
+
+#if DEBUG
+private struct ResearchSectionScrollModifier: ViewModifier {
+    let researchLoaded: Bool
+
+    func body(content: Content) -> some View {
+        ScrollViewReader { proxy in
+            content.onChange(of: researchLoaded) { _, loaded in
+                guard loaded, ScreenshotMode.screen == .research else { return }
+                Task { @MainActor in
+                    for _ in 0..<10 {
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        guard !Task.isCancelled else { return }
+                        proxy.scrollTo("researchSection", anchor: .top)
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
 
 /// 研究: 選ぶ(別のを選べば切り替わる。進みは残る)と進み具合。
 struct ResearchSection: View {

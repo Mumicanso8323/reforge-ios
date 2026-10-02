@@ -59,7 +59,7 @@ struct TitleView: View {
                         Text("設定")
                     }
                     .buttonStyle(.ink(.quiet))
-                    .accessibilityIdentifier("settingsButton")
+                    .accessibilityIdentifier("titleSettingsButton")
                 }
                 .frame(maxWidth: 280)
                 Spacer().frame(height: 40)
