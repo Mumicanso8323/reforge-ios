@@ -5,12 +5,12 @@
   python3 tools/collect-screens.py screens-raw screens --device "iPhone 17"
 
 出すもの(artifact に上げるのはこの 2 種だけ。ログは上げない):
-  screens/<言語>_<画面>.png   … 40 枚(ja_map.png … ko_settings.png)
+  screens/<言語>_<画面>.png   … 60 枚(ja_map.png … ko_bootFailure.png)
   screens/report.json         … 検査に当たった要素(言語・画面・要素の識別子・種類・大きさ)と、撮れた枚数
 
 export attachments は manifest.json(各添付の exportedFileName と suggestedHumanReadableName)と、UUID 名のファイルを出す。
 suggestedHumanReadableName は「<添付の名前>_<連番>_<UUID>.<拡張子>」の形なので、連番と UUID を落として元の名前に戻す。
-撮れた PNG が期待の 40 枚に満たなければ終了コード 1(失敗してもテスト側の結果は別に出る)。
+撮れた PNG が期待の 60 枚に満たなければ終了コード 1(失敗してもテスト側の結果は別に出る)。
 """
 import argparse
 import json
@@ -20,7 +20,8 @@ import shutil
 import sys
 
 LANGS = ["ja", "en", "zh-Hans", "zh-Hant", "ko"]
-SCREENS = ["map", "foot", "design", "base", "crew", "research", "gameOver", "settings"]
+SCREENS = ["map", "foot", "design", "base", "crew", "research", "gameOver", "settings",
+           "title", "notes", "decisionBand", "bootFailure"]
 SUFFIX = re.compile(r"^(?P<name>.+?)_\d+_[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}(?P<ext>\.[A-Za-z0-9]+)?$")
 
 

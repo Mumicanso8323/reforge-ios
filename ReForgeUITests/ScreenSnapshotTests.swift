@@ -1,11 +1,13 @@
 import XCTest
 
-/// 画面の写真(docs/briefs/screen-snapshots.md)。言語 5 × 画面 8 = 40 枚を、1 枚ごとにアプリを起動し直して撮る。
+/// 画面の写真(docs/briefs/screen-snapshots.md)。言語 5 × 画面 12 = 60 枚を、1 枚ごとにアプリを起動し直して撮る。
 /// アプリの側は `-ReForgeScreenshot <画面>` で、公開の層の束・固定の種の新しい世界・解放は全部開く・時計は止める(DEBUG のみ)。
 /// 撮るだけでは止めず、次の検査に当たれば失敗にする(PNG は失敗しても残す)。
 ///  1. 画面の外に出る(横。下に伸びるスクロールの中身は縦に出て当然なので、縦は見ない)
 ///  2. 切れる(アプリが測った overflow。Theme の inkFitCheck)
 ///  3. 重なり(下のタブの帯・上の状態の帯と、パネルの見出し)
+///  4. TEST-L16: 設定のボタン(settingsButton)が、ある・押せる・右上の 52×52pt にある・ほかの要素と重ならない。
+///     ボタンはまだ無い(L-10 で入る)。無ければ飛ばす。入ったら、右上の 52×52pt に入った要素で落ちる。
 /// 結果は添付 `report_<言語>_<画面>`(JSON)にも残す。CI が xcresult から PNG と report.json に出す。
 @MainActor
 final class ScreenSnapshotTests: XCTestCase {
@@ -13,7 +15,12 @@ final class ScreenSnapshotTests: XCTestCase {
     private static let languages: [(code: String, locale: String)] = [
         ("ja", "ja_JP"), ("en", "en_US"), ("zh-Hans", "zh_CN"), ("zh-Hant", "zh_TW"), ("ko", "ko_KR"),
     ]
-    private static let screens = ["map", "foot", "design", "base", "crew", "research", "gameOver", "settings"]
+    /// 主な画面 8 つと、タイトル・ノート・決断の帯・読み込みの失敗(説明書 §8)。
+    /// 序(冒頭の文章)は画面が無い(W-16 待ち)ので撮らない。入ったらここと ScreenshotMode.swift に足す。
+    private static let screens = ["map", "foot", "design", "base", "crew", "research", "gameOver", "settings",
+                                  "title", "notes", "decisionBand", "bootFailure"]
+    /// アプリの一番上の透明の窓に置かれる設定のボタン(L-10)。右上のこの大きさの角に来る(TEST-L16)。
+    private static let cornerSize: CGFloat = 52
 
     /// 検査から外す要素(識別子 → 理由)。その要素と中身は「画面の外に出る」を見ない。ここ 1 か所に持つ。
     private static let offscreenExclusions: [String: String] = [
@@ -118,6 +125,14 @@ final class ScreenSnapshotTests: XCTestCase {
             _ = element(app, "recovery-restart").waitForExistence(timeout: 30)
         case "settings":
             _ = element(app, "cardClose").waitForExistence(timeout: 30)
+        case "title":
+            _ = element(app, "newGameButton").waitForExistence(timeout: 30)
+        case "notes":
+            _ = element(app, "InkPanel.title").waitForExistence(timeout: 30)
+        case "decisionBand":
+            _ = element(app, "statusBand").waitForExistence(timeout: 30)
+        case "bootFailure":
+            _ = element(app, "contentError").waitForExistence(timeout: 30)
         default:
             XCTFail("知らない画面: \(screen)")
         }
@@ -141,9 +156,19 @@ final class ScreenSnapshotTests: XCTestCase {
         var overflowIDs = Set<String>()
         var bands: [String: CGRect] = [:]   // "status" / "tabs" の frame(中身の和)
         var headings: [(id: String, frame: CGRect)] = []
+        var settingsFrame: CGRect?
+        // 右上の角に入りうる要素(中身を持たない末端だけ。設定のボタンの中身と、印の要素は除く)
+        var leaves: [(id: String, frame: CGRect, length: Int)] = []
 
-        func visit(_ node: XCUIElementSnapshot, excluded: Bool) {
+        func visit(_ node: XCUIElementSnapshot, excluded: Bool, insideSettings: Bool = false) {
             let id = node.identifier
+            let isSettings = id == "settingsButton"
+            if isSettings, !node.frame.isEmpty { settingsFrame = node.frame }
+            let probe = id == "screenshotGuard" || id == "inkFitReport" || id.hasPrefix("Ink")  // アプリの印(inkFitCheck の面)
+            if node.children.isEmpty, !insideSettings, !isSettings, !probe, node.elementType != .window,
+               node.elementType != .application, node.frame.width > 1, node.frame.height > 1 {
+                leaves.append((id, node.frame, node.label.count))
+            }
             let skip = excluded || Self.offscreenExclusions[id] != nil
             let f = node.frame
             let visible = !f.isEmpty && f.width > 1 && f.height > 1 && f.intersects(window)
@@ -162,7 +187,7 @@ final class ScreenSnapshotTests: XCTestCase {
                 add(id.isEmpty ? "(識別子なし \(node.elementType.rawValue))" : id, "offscreen",
                     "frame x \(Int(f.minX))...\(Int(f.maxX)) 画面 \(Int(window.minX))...\(Int(window.maxX)) 文字の長さ \(node.label.count)")
             }
-            for c in node.children { visit(c, excluded: skip) }
+            for c in node.children { visit(c, excluded: skip, insideSettings: insideSettings || isSettings) }
         }
         visit(root, excluded: false)
 
@@ -178,6 +203,19 @@ final class ScreenSnapshotTests: XCTestCase {
         for h in headings {
             for (name, band) in bands where h.frame.insetBy(dx: 0, dy: 1).intersects(band.insetBy(dx: 0, dy: 1)) {
                 add(h.id, "overlap", "\(name) の帯と重なる 見出し y \(Int(h.frame.minY))...\(Int(h.frame.maxY)) 帯 y \(Int(band.minY))...\(Int(band.maxY))")
+            }
+        }
+
+        // 4. TEST-L16: 設定のボタン。無ければ(L-10 の前は)飛ばす。
+        if let sf = settingsFrame {
+            let corner = CGRect(x: window.maxX - Self.cornerSize, y: window.minY, width: Self.cornerSize, height: Self.cornerSize)
+            if !element(app, "settingsButton").isHittable { add("settingsButton", "settings", "押せない") }
+            if sf.minX < corner.minX - 1 || sf.maxX > corner.maxX + 1 || sf.minY < corner.minY - 1 || sf.maxY > corner.maxY + 1 {
+                add("settingsButton", "settings", "右上の \(Int(Self.cornerSize))x\(Int(Self.cornerSize)) の外 frame \(Int(sf.minX)),\(Int(sf.minY)) \(Int(sf.width))x\(Int(sf.height))")
+            }
+            let zone = corner.union(sf)
+            for l in leaves where l.frame.intersection(zone).width > 1 && l.frame.intersection(zone).height > 1 {
+                add(l.id.isEmpty ? "(識別子なし)" : l.id, "settings", "右上の角に入っている frame \(Int(l.frame.minX)),\(Int(l.frame.minY)) \(Int(l.frame.width))x\(Int(l.frame.height)) 文字の長さ \(l.length)")
             }
         }
         return findings

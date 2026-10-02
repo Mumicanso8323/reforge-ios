@@ -284,7 +284,7 @@ jobs:
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
 
-      # 40 枚(5 言語 × 8 画面)。検査に当たると失敗する。ログは artifact に上げない(公開の層だけだが、小さく保つ)。
+      # 60 枚(5 言語 × 12 画面)。検査に当たると失敗する。ログは artifact に上げない(公開の層だけだが、小さく保つ)。
       - name: 画面の写真を撮る
         run: |
           set -o pipefail
