@@ -14,6 +14,7 @@ Codex(relay:codex-impl)は 1 本ずつ回す。上から順に渡す。「渡せ
 | 1c | [PT-B2 夜の締め・再開・考える画面の時計](PT-B2-day-wrap-and-resume.md) | 統合に入った(2fcfc3b) | GAP-06 |
 | 1c2 | [PT-B6 序を画面を覆う場面に](PT-B6-prologue-full-screen.md) | 統合に入った(103c821) | オーナーの指摘。見せ方だけ。文は変えない |
 | 1c0 | [PT-B8 最初の行為の前は暗い場面](PT-B8-dark-before-fire.md) | **渡せる**(main 1d33989 の上。dev の hotfix。最優先) | オーナーの決定。保留の間に歩けない不具合(HF-01 は取り下げ)もこれで消える |
+| 1c1 | [W-22 解禁の要る行為を解禁まで出さず受けない](W-22-interaction-unlock-gate.md) | 渡せる(Codex の枠が戻ってから。main の上) | 本体の不具合。U14 はそれまでデータの when で隠す |
 | 1c3 | [PT-B5 地図の触り心地(方向のボタン)](PT-B5-map-touch.md) | **渡せる**(B6 の後。最優先) | オーナーの決定(方向のボタン・縦が既定) |
 | 1d | [PT-B3 反応の表と最小の音と触覚](PT-B3-feedback-pulses.md) | **渡せる**(1b の後) | GAP-04。音の素材は仮に生成 |
 | 1e | [PT-B4 端末の中だけの行動の記録](PT-B4-play-log.md) | **渡せる** | GAP-08。通信しない |
