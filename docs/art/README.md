@@ -73,7 +73,7 @@
 
 ## 2. 文字組み(`InkFont`)
 
-書体は同梱の BIZ UDGothic の 1 つだけにする(地図と同じ書体。全角の幅がそろう)。大きさは 5 段で、Dynamic Type に追従する。
+書体は言語ごとに 1 つ。日本語・英語は同梱の BIZ UDGothic(地図と同じ書体)、簡体字は PingFang SC、繁体字は PingFang TC、韓国語は Apple SD Gothic Neo(iOS の標準の書体なので同梱しない。BIZ UDGothic にはハングルと簡体字の字形が無い)。選ぶ入口は `InkFont.setLanguage` の 1 か所。地図の 1 マス 1 文字は言語によらず BIZ UDGothic。大きさは 5 段で、Dynamic Type に追従する。
 
 | 名前 | 大きさ | 用途 |
 |---|---|---|
