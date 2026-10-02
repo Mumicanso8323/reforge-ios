@@ -16,6 +16,7 @@ struct InkPanel<Content: View>: View {
                         .tracking(InkFont.headingTracking)
                         .foregroundStyle(InkColor.text)
                         .accessibilityAddTraits(.isHeader)
+                        .padding(.trailing, InkMetric.settingsReserve)
                 }
                 content
             }

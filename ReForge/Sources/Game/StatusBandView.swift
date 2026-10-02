@@ -78,7 +78,9 @@ struct StatusBandView: View {
         }
         .font(InkFont.small)
         .foregroundStyle(InkColor.text)
-        .padding(.horizontal, 12)
+        .padding(.leading, 12)
+        // 右上は設定のボタンの場所(InkMetric.settingsReserve)
+        .padding(.trailing, InkMetric.settingsReserve)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(InkColor.ground)
