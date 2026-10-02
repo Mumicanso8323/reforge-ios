@@ -19,14 +19,21 @@ struct TabBarView: View {
                 } label: {
                     title(t)
                         .frame(maxWidth: .infinity, minHeight: 44)
-                        .foregroundStyle(tab == t ? Color(red: 1, green: 1, blue: 0.5) : Color(white: 0.6))
+                        .foregroundStyle(tab == t ? InkColor.text : InkColor.textDim)
+                        .overlay(alignment: .top) {
+                            // いま開いているタブにだけ錆の線
+                            Rectangle().fill(tab == t ? InkColor.accent : .clear).frame(height: 2)
+                        }
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("tab-\(t.rawValue)")
             }
         }
-        .font(.custom(FontBook.mapFont, size: 15))
-        .background(Color(white: 0.04))
+        .font(InkFont.body)
+        .background(InkColor.ground)
+        .overlay(alignment: .top) {
+            Rectangle().fill(InkColor.rule).frame(height: InkMetric.rule)
+        }
     }
 
     @ViewBuilder private func title(_ t: GameTab) -> some View {

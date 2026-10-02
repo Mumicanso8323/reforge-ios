@@ -1,32 +1,32 @@
 {
   "sourceLanguage": "ja",
   "strings": {
+    "‹ 設定にもどる": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "‹ 設定にもどる"
+          }
+        }
+      }
+    },
+    "›": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "›"
+          }
+        }
+      }
+    },
     "◎": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "◎"
-          }
-        }
-      }
-    },
-    "いまの状態とセーブ地点がすべて消えます。元には戻せません。": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "いまの状態とセーブ地点がすべて消えます。元には戻せません。"
-          }
-        }
-      }
-    },
-    "いまの記録を消して最初からはじめますか?": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "いまの記録を消して最初からはじめますか?"
           }
         }
       }
@@ -87,16 +87,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "はじめから"
-          }
-        }
-      }
-    },
-    "やめる": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "やめる"
           }
         }
       }
@@ -481,12 +471,12 @@
         }
       }
     },
-    "消す": {
+    "物語のデータを読めなかったので、試遊用のデータで動いています": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "消す"
+            "value": "物語のデータを読めなかったので、試遊用のデータで動いています"
           }
         }
       }
@@ -547,16 +537,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "記録"
-          }
-        }
-      }
-    },
-    "記録を消しますか?": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記録を消しますか?"
           }
         }
       }
@@ -627,6 +607,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "購入を復元しました"
+          }
+        }
+      }
+    },
+    "長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。"
+          }
+        }
+      }
+    },
+    "長押しで、いまの記録を消してはじめる": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長押しで、いまの記録を消してはじめる"
+          }
+        }
+      }
+    },
+    "長押しで、いまの記録を消して最初から": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長押しで、いまの記録を消して最初から"
           }
         }
       }

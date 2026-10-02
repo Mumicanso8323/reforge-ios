@@ -8,7 +8,7 @@ struct CrewTabView: View {
 
     var body: some View {
         PlaceholderPanel {
-            Text("仲間").font(.custom(FontBook.mapFont, size: 20)).bold()
+            Text("仲間").font(InkFont.heading)
             ForEach(store.actors.filter(\.isMember), id: \.id) { a in
                 HStack(spacing: 8) {
                     Text(verbatim: a.glyph).frame(width: 24)

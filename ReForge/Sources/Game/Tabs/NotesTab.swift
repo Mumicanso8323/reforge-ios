@@ -8,7 +8,7 @@ struct NotesTabView: View {
 
     var body: some View {
         PlaceholderPanel {
-            Text("ノート").font(.custom(FontBook.mapFont, size: 20)).bold()
+            Text("ノート").font(InkFont.heading)
             Text("試したこと・所見・素材の図鑑が載ります。まだできていません。")
         }
     }

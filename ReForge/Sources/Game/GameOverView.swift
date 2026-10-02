@@ -1,40 +1,28 @@
 import SwiftUI
 import ReForgeEngine
 
-/// ゲームオーバーの 4 択(同じ重さで並べる。D-save.md §3)。
+/// ゲームオーバーの 4 択(同じ重さで並べる。D-save.md §3)。担当: U18。見た目は Theme(InkPlate)。
 /// いまは「最初から」だけが動く(巻き戻し・失って続ける・セーブ地点からは保存と失敗の担当の中身が入ってから)。
+/// 「最初から」は記録を消すので、確かめのダイアログの代わりに長押しで確定する(InkHoldButton)。
 struct GameOverView: View {
     @Bindable var app: AppModel
-    @State private var confirmRestart = false
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("ここまで").font(.custom(FontBook.mapFont, size: 24)).bold()
-            choice(Text("最初から"), enabled: true) { confirmRestart = true }
-            choice(Text("記憶を持って巻き戻す"), enabled: false) {}
-            choice(Text("失って続ける"), enabled: false) {}
-            choice(Text("セーブ地点からロード"), enabled: false) {}
-        }
-        .font(.custom(FontBook.mapFont, size: 16))
-        .padding(24)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.black.opacity(0.9))
-        .accessibilityIdentifier("gameOver")
-        .alert(Text("いまの記録を消して最初からはじめますか?"), isPresented: $confirmRestart) {
-            Button(role: .destructive) {
+        InkPlate(title: Text("ここまで")) {
+            InkHoldButton(label: Text("最初から"), hint: Text("長押しで、いまの記録を消して最初から")) {
                 app.startNewGame()
-            } label: {
-                Text("最初から")
             }
-            Button(role: .cancel) {} label: { Text("やめる") }
+            .accessibilityIdentifier("restartHold")
+            choice(Text("記憶を持って巻き戻す"))
+            choice(Text("失って続ける"))
+            choice(Text("セーブ地点からロード"))
         }
+        .accessibilityIdentifier("gameOver")
     }
 
-    private func choice(_ label: Text, enabled: Bool, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            label.frame(maxWidth: 280, minHeight: 44)
-        }
-        .buttonStyle(.bordered)
-        .disabled(!enabled)
+    private func choice(_ label: Text) -> some View {
+        Button {} label: { label }
+            .buttonStyle(.ink(.secondary))
+            .disabled(true)
     }
 }

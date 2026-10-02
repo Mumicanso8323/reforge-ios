@@ -30,7 +30,7 @@ struct GameScreen: View {
             TabBarView(tab: $tab)
         }
         .padding(.vertical, AdLayout.contentGap)
-        .background(Color.black)
+        .background(InkColor.field)
         .task { await store.run() }
     }
 }
@@ -61,14 +61,9 @@ struct PlaceholderPanel<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        // 見た目は Theme の InkPanel(各担当は InkPanel を直接使ってよい)
+        InkPanel {
             content
-            Spacer()
         }
-        .font(.custom(FontBook.mapFont, size: 15))
-        .foregroundStyle(Color(white: 0.92))
-        .padding(16)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(Color.black)
     }
 }

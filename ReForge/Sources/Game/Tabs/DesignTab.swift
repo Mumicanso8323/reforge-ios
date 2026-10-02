@@ -8,7 +8,7 @@ struct DesignTabView: View {
 
     var body: some View {
         PlaceholderPanel {
-            Text("設計").font(.custom(FontBook.mapFont, size: 20)).bold()
+            Text("設計").font(InkFont.heading)
             Text("縦の工程表で並びを決め、試したり札にしたりする画面です。まだできていません。")
         }
     }

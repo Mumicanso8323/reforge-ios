@@ -9,23 +9,23 @@ struct BaseTabView: View {
 
     var body: some View {
         PlaceholderPanel {
-            Text("拠点").font(.custom(FontBook.mapFont, size: 20)).bold()
+            Text("拠点").font(InkFont.heading)
             Text("蓄え・建てた物・セーブが載ります。まだできていません。")
             Button {
-                showSettings = true
+                showSettings.toggle()
             } label: {
                 Text("設定")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.ink(.secondary))
             Button {
                 Task { await app.backToTitle() }
             } label: {
                 Text("タイトルへ")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.ink(.secondary))
         }
-        .sheet(isPresented: $showSettings) {
-            SettingsView(app: app)
+        .inkCard(isPresented: $showSettings, title: Text("設定")) {
+            SettingsView(app: app, close: { showSettings = false })
         }
     }
 }
