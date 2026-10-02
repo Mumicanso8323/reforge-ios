@@ -54,15 +54,34 @@ final class AppTests: XCTestCase {
         XCTAssertNil(store.prologue, "序を読み終えた")
     }
 
+    /// 診断用: 世界の今の様子を 1 行にする(CI で落ちた時に原因を読むため)。
+    private func darkStartDiagnosis(_ store: GameStore, _ label: String, rejection: String? = nil, steps: Int? = nil) async -> String {
+        let w = await store.host.world
+        let noah = w.people[.noah]
+        let active = w.exploration.active[.noah]
+        return "[\(label)] rejection=\(String(describing: rejection)) notice=\(String(describing: store.notice)) "
+            + "darkStart=\(String(describing: store.darkStart)) running=\(store.clock.running) held=\(w.clock.held) "
+            + "phase=\(w.clock.phase) now=\(w.clock.now.seconds) active=\(String(describing: active)) "
+            + "pos=\(String(describing: noah?.position)) motion=\(String(describing: noah?.motion)) "
+            + "alive=\(String(describing: noah?.presence.isAlive)) prologue=\(store.prologue != nil) steps=\(String(describing: steps)) "
+            + "footCard=\(String(describing: store.footCard?.actions))"
+    }
+
     private func startDarkStartAction(_ store: GameStore) async throws {
         let action = try XCTUnwrap(store.darkStart?.action, "最初の行為の前は暗い場面を出す")
-        store.act(action, pressing: true)
-        for _ in 0..<100 where store.darkStart != nil {
+        let before = await darkStartDiagnosis(store, "押す前")
+        let rejection = await store.perform(action.start)
+        var log = [before, await darkStartDiagnosis(store, "押した直後", rejection: rejection)]
+        var totalSteps = 0
+        for i in 0..<100 where store.darkStart != nil {
             try await Task.sleep(nanoseconds: 20_000_000)
-            let (frame, _) = await store.host.tick(realSeconds: 0.25)
+            let (frame, report) = await store.host.tick(realSeconds: 0.25)
+            totalSteps += report.steps
             await store.refresh(frame)
+            if i < 3 { log.append(await darkStartDiagnosis(store, "tick \(i)", steps: report.steps)) }
         }
-        XCTAssertNil(store.darkStart, "最初の行為で火が点いた後は通常画面になる")
+        log.append(await darkStartDiagnosis(store, "最後", steps: totalSteps))
+        XCTAssertNil(store.darkStart, "最初の行為で火が点いた後は通常画面になる\n" + log.joined(separator: "\n"))
     }
 
     func testBundledContentLoads() throws {
@@ -118,14 +137,7 @@ final class AppTests: XCTestCase {
         let store = GameStore(content: start.content, world: start.world, saves: tempSaves())
         await store.load()
         try await readThroughPrologue(store)
-        let action = try XCTUnwrap(store.darkStart?.action)
-        store.act(action, pressing: true)
-        for _ in 0..<100 where store.darkStart != nil {
-            try await Task.sleep(nanoseconds: 20_000_000)
-            let (frame, _) = await store.host.tick(realSeconds: 0.25)
-            await store.refresh(frame)
-        }
-        XCTAssertNil(store.darkStart)
+        try await startDarkStartAction(store)
         XCTAssertTrue(store.clock.running)
     }
 
