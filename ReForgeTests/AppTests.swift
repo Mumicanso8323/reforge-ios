@@ -17,7 +17,9 @@ final class AppTests: XCTestCase {
 
     /// 公開の束だけで、保留中の最初の押し続ける行為を作る。地図を見る試験はこれを終えてから確かめる。
     private func heldStartContent() throws -> (content: ContentDB, world: WorldState) {
-        var db = try content()
+        // 公開の層だけで作る。非公開の層を重ねると、ノアの始まりのマスに残骸があって焚き火を置けず、火が点かない。
+        let dir = try XCTUnwrap(Bundle.main.url(forResource: "content", withExtension: nil))
+        var db = try ContentLoader.load(layers: [dir.appendingPathComponent("public", isDirectory: true)])
         let probe = GameBootstrap.newWorld(content: db, seed: 3)
         let position = try XCTUnwrap(probe.people[.noah]?.position)
         let terrain = try XCTUnwrap(probe.map[position.layer]?.terrain(at: position.point))
