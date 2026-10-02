@@ -45,6 +45,14 @@ public struct Frame: Equatable, Sendable {
     public var ui: UIUnlocks = UIUnlocks()
     /// 進行中の戦闘(上の帯と地図に出す。止めない)。
     public var battles: [BattleBand] = []
+    /// 地図の題(INV-O12)。認識の層の主題 place:base の今の名前。見え方の表に無ければ nil(題を出さない)。
+    /// 状態を別に持たないので、点火と同じステップの事実で、同じフレームのうちに変わる。
+    public var placeTitle: String?
+    /// 前のフレームから新しく開いた画面の要素(W-07。画面が一度だけ光らせる)。前のフレームが無ければ空。
+    public var newlyOpened: Set<UIElementID> = []
+    /// 半分の気配の影の行(HNT-17)。まだ解放されていない建造物とモジュールのうち、HintRule.halfway が真のもの。
+    /// 押せない。「まだ作り方を知らない」と出し、解放の条件は書かない。
+    public var shadows: [ShadowRow] = []
     /// 戦闘が始まったときの方針(寝ている間の戦闘もこれ)。
     public var defaultStance: BattleState.Stance = .keepDistance
 
@@ -511,5 +519,22 @@ public struct FootCard: Equatable, Sendable {
         self.point = point
         self.title = title
         self.actions = actions
+    }
+}
+
+/// 半分の気配の影の行 1 つ(HNT-17・W-07)。押せない。
+public struct ShadowRow: Equatable, Sendable {
+    public var kind: PlaceableKind
+    /// 今の呼び名(認識の層)。
+    public var name: String
+    /// 費用の合計と、いま持っている数(費用ごとに上限で切った和)。
+    public var have: Int
+    public var need: Int
+
+    public init(kind: PlaceableKind, name: String, have: Int, need: Int) {
+        self.kind = kind
+        self.name = name
+        self.have = have
+        self.need = need
     }
 }
