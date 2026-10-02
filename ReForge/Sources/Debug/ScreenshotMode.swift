@@ -5,9 +5,12 @@ import ReForgeEngine
 /// 画面の写真(CI のシミュレータで主な画面を言語ごとに撮る。docs/briefs/screen-snapshots.md)。
 /// 起動引数 `-ReForgeScreenshot <画面>` のときだけ働く。公開の層の束で、固定の種の新しい世界を作り、
 /// 画面の要素の解放を全部開き(撮るためだけの上書き。保存しない・世界の状態を変えない)、時計を止めて、指定の画面を開く。
+/// 画面: 主な画面 8 つと、タイトル・ノート・決断の帯・読み込みの失敗(説明書 §8)。
+/// 序(冒頭の文章)は、W-16 が入るまで画面が無いので撮らない(入ったらここに足す)。
 /// 言語は `-AppleLanguages (xx)` と `-AppleLocale xx` で与える(InkFont.language の初期値が拾う)。
 enum ScreenshotScreen: String, CaseIterable {
     case map, foot, design, base, crew, research, gameOver, settings
+    case title, notes, decisionBand, bootFailure
 
     /// 最初に選ぶタブ。研究は拠点のタブ(研究の節までのスクロールは UI テストの側)。
     var tab: GameTab {
@@ -20,6 +23,10 @@ enum ScreenshotScreen: String, CaseIterable {
         case .research: .base
         case .gameOver: .map
         case .settings: .map
+        case .title: .map
+        case .notes: .notes
+        case .decisionBand: .map
+        case .bootFailure: .map
         }
     }
 }
@@ -42,11 +49,23 @@ enum ScreenshotMode {
         guard let screen else { return AppModel() }
         let dir = FileManager.default.temporaryDirectory
             .appendingPathComponent("reforge-screenshot-\(UUID().uuidString)", isDirectory: true)
-        let model = AppModel(saves: FileSaveStorage(directory: dir))
+        let saves = FileSaveStorage(directory: dir)
         GameStore.forceAllUIOpen = true
         GameStore.freezeClock = true
-        model.startScreenshotGame(failed: screen == .gameOver)
-        return model
+        switch screen {
+        case .bootFailure:
+            // 束を読まずに失敗の画面を出す(中身の無い束を渡す)。書体は本物の束から入れておく(失敗の画面も本物の書体で出る)
+            FontBook.register()
+            let empty = dir.appendingPathComponent("empty-bundle", isDirectory: true)
+            try? FileManager.default.createDirectory(at: empty, withIntermediateDirectories: true)
+            return AppModel(saves: saves, bundle: Bundle(url: empty) ?? Bundle())
+        case .title:
+            return AppModel(saves: saves)
+        case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand:
+            let model = AppModel(saves: saves)
+            model.startScreenshotGame(failed: screen == .gameOver, decision: screen == .decisionBand)
+            return model
+        }
     }
 
     /// 公開の層だけであること(鍵が無く、束に封をした非公開の層も絵も無く、読んだ層が公開だけ)。
@@ -59,7 +78,8 @@ enum ScreenshotMode {
         for name in ["private.sealed", "art.sealed", "private"] where fm.fileExists(atPath: root.appendingPathComponent(name).path) {
             return "private-present"
         }
-        guard let layers = app.content?.layers, layers.allSatisfy({ $0.id == "public" }) else { return "layer-present" }
+        // 束を読まない画面(読み込みの失敗)は content が nil。読んだなら層は公開だけ
+        if let layers = app.content?.layers, !layers.allSatisfy({ $0.id == "public" }) { return "layer-present" }
         return "ok"
     }
 }
