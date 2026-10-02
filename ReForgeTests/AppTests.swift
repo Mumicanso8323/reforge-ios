@@ -15,6 +15,16 @@ final class AppTests: XCTestCase {
 
     private func content() throws -> ContentDB { try AppModel.loadBundledContent(bundle: .main) }
 
+    /// 非公開の層は序の場面(W-16)から始まる。地図や命令を確かめるテストは、序を読み終えてから見る。
+    /// 公開の層には序が無いので、そのまま抜ける。
+    private func readThroughPrologue(_ store: GameStore) async throws {
+        for _ in 0..<200 where store.prologue != nil {
+            store.send(.narrative(.advanceScene))
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertNil(store.prologue, "序を読み終えた")
+    }
+
     func testBundledContentLoads() throws {
         let c = try content()
         XCTAssertFalse(c.terrains.isEmpty, "content/ がアプリの束に入っている")
@@ -42,6 +52,7 @@ final class AppTests: XCTestCase {
         let c = try content()
         let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3), saves: tempSaves())
         await store.load()
+        try await readThroughPrologue(store)
         XCTAssertEqual(store.chunks.count, store.mapView.chunkColumns * store.mapView.chunkRows, "全区画を引いた")
         XCTAssertNotNil(store.focus, "ノアの位置に追従する")
         XCTAssertNotNil(store.footCard, "足元カードはノアの足元")
@@ -54,6 +65,7 @@ final class AppTests: XCTestCase {
         let c = try content()
         let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3), saves: tempSaves())
         await store.load()
+        try await readThroughPrologue(store)
         store.choose(.sleep)
         for _ in 0..<100 where store.notice == nil { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertEqual(store.notice, "まだ昼だ")
