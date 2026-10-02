@@ -241,6 +241,16 @@
         }
       }
     },
+    "まだ作り方を知らない": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "まだ作り方を知らない"
+          }
+        }
+      }
+    },
     "まだ無い。": {
       "localizations": {
         "ja": {
