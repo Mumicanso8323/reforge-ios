@@ -165,6 +165,15 @@ jobs:
           lipo -info "$APP/ReForge"
           # 平文の非公開の層が ipa に入っていないこと。見張りの文字列(値はログに出さない)が平文で現れないこと
           test ! -e "$APP/content/private" || { echo "平文の非公開の層が ipa に入っている"; exit 1; }
+          # 非公開の絵(content/private/art)の中身そのものが ipa に入っていないこと(ハッシュで突き合わせる。名前は出さない)
+          if [ -d content/private/art ]; then
+            find content/private/art -type f -exec shasum -a 256 {} + | awk '{print $1}' | sort -u > private-art.sha
+            find Payload -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \) -exec shasum -a 256 {} + \
+              | awk '{print $1}' | sort -u > payload-art.sha
+            if [ -n "$(comm -12 private-art.sha payload-art.sha)" ]; then
+              echo "非公開の絵が ipa に平文で入っている"; exit 1
+            fi
+          fi
           if [ -f content/private/bundle.json ]; then
             canary=$(python3 -c 'import json; print(json.load(open("content/private/bundle.json"))["bundle"].get("canary") or "")')
             if [ -n "$canary" ] && grep -rqF -- "$canary" Payload; then

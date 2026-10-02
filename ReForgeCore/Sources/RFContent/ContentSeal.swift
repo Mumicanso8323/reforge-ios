@@ -38,6 +38,11 @@ public enum ContentSeal {
 
     /// 封をする。nonce は毎回乱数。
     public static func seal(_ files: [String: Data], key: Data) throws -> Data {
+        try seal(files, key: key, magic: magic)
+    }
+
+    /// 合図を変えて封をする(絵の封 ArtSeal と共用)。
+    static func seal(_ files: [String: Data], key: Data, magic: Data) throws -> Data {
         guard key.count == keyBytes else { throw ContentLoader.LoadError.sealed("鍵の長さが違う") }
         var strings: [String: String] = [:]
         for (path, data) in files {
@@ -57,6 +62,10 @@ public enum ContentSeal {
 
     /// 開封する。鍵違い・1 バイトでも変わった・形式が違う、はすべてエラー。
     public static func open(_ sealed: Data, key: Data) throws -> [String: Data] {
+        try open(sealed, key: key, magic: magic)
+    }
+
+    static func open(_ sealed: Data, key: Data, magic: Data) throws -> [String: Data] {
         guard key.count == keyBytes else { throw ContentLoader.LoadError.sealed("鍵の長さが違う") }
         guard sealed.count >= magic.count + 12 + 16, sealed.prefix(magic.count) == magic else {
             throw ContentLoader.LoadError.sealed("合図が無い・短すぎる")

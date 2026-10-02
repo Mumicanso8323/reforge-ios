@@ -79,6 +79,7 @@ public enum HandworkTag {}
 public enum GroupTag {}
 public enum SheetTag {}
 public enum DocumentTag {}
+public enum ArtTag {}
 public enum FailureRuleTag {}
 
 /// 知っている事実(認識の層の単位)。例: "fact.sky.double_moon_seen"。
@@ -139,6 +140,8 @@ public typealias AuraKindID = TypedID<AuraKindTag>
 public typealias SheetID = TypedID<SheetTag>
 /// 記録から開ける資料(DocumentDef)。
 public typealias DocumentID = TypedID<DocumentTag>
+/// 絵(立ち絵・山場・タイトル)。中身の分からない中立の番号にする(例 portrait.k03・beat.12)。
+public typealias ArtID = TypedID<ArtTag>
 /// 失敗の規則(何がどうなったら失敗か。期限は日数でなく値で判定する)。
 public typealias FailureRuleID = TypedID<FailureRuleTag>
 

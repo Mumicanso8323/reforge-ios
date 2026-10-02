@@ -53,7 +53,7 @@ var targets: [Target] = [
         "RFSave", "RFFailure", "RFSim", "RFPresent",
     ] + systems.map { .target(name: $0) }),
     // 非公開の層に封をして、アプリに埋める鍵の Swift ファイルを書く道具(CI の ios ジョブで使う。U3)
-    .executableTarget(name: "rf-seal", dependencies: ["RFContent"]),
+    .executableTarget(name: "rf-seal", dependencies: ["RFContent", "RFKernel"]),
     // テストの道具(公開の試験用コンテンツの場所・ボットの枠)。アプリには入れない
     .target(name: "RFTestSupport", dependencies: ["ReForgeEngine"]),
 ]
