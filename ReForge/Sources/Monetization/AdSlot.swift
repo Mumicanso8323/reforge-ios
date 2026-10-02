@@ -10,6 +10,11 @@ enum AdLayout {
     static let bottomButtonGap: CGFloat = 12
 }
 
+/// 広告を出すか(オーナーの決定 2026-10-02 で広告はやめた。型の整理は M-01 で行い、それまでは枠も設定の節も出さない)。
+enum AdPolicy {
+    static let shown = false
+}
+
 /// 広告の供給元。P1 は何も出さない NoopAdProvider(AdMob は P3)。
 protocol AdProvider {
     /// 枠に広告を出せるか。false なら枠はダミー表示のまま(高さは保つ)。
@@ -35,7 +40,7 @@ struct AdBannerContainer<Content: View>: View {
         VStack(spacing: 0) {
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if !adsRemoved { AdSlot() }
+            if AdPolicy.shown && !adsRemoved { AdSlot() }
         }
     }
 }
