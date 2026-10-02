@@ -18,6 +18,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import unicodedata
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
@@ -73,6 +74,8 @@ def matcher(words: list[str], patterns: list[str], identifiers: list[str], excep
     大文字と小文字は区別する(書かれたとおり。題名の Re:Forge と大文字の固有名を分ける)。日本語の語は部分一致。"""
     import re
     pats = []
+    words = [unicodedata.normalize("NFC", w) for w in words]
+    patterns = [unicodedata.normalize("NFC", p) for p in patterns]
     for w in words:
         if re.search(r"[A-Za-z0-9]", w):
             pats.append(re.compile(r"(?<![A-Za-z0-9_])" + re.escape(w) + r"(?![A-Za-z0-9_])"))
@@ -87,6 +90,7 @@ def matcher(words: list[str], patterns: list[str], identifiers: list[str], excep
     exception_words = {word.lower() for word in exceptions}
 
     def hit(line: str) -> bool:
+        line = unicodedata.normalize("NFC", line)
         if any(p.search(line) for p in pats) or any(p.search(line) for p in pattern_pats):
             return True
         for token in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", line):
@@ -94,6 +98,17 @@ def matcher(words: list[str], patterns: list[str], identifiers: list[str], excep
             if lowered not in exception_words and any(word in lowered for word in identifier_words):
                 return True
         return False
+
+    def hit_across_lines(text: str) -> int | None:
+        """正規表現のうち、行をまたいで当たるもの(`\\s` が改行に当たる等)の、最初の当たりの行の番号。"""
+        text = unicodedata.normalize("NFC", text)
+        for p in pattern_pats:
+            m = p.search(text)
+            if m and "\n" in m.group(0):
+                return text.count("\n", 0, m.start()) + 1
+        return None
+
+    hit.across_lines = hit_across_lines
     return hit
 
 
@@ -136,7 +151,7 @@ def main() -> int:
             if "\x00" not in entry:
                 continue
             sha, body = entry.split("\x00", 1)
-            if hit(body):
+            if hit(body) or hit.across_lines(body) is not None:
                 found.append(f"コミット {sha.strip()[:10]} のメッセージ")
     elif args:
         print(__doc__)
@@ -150,6 +165,9 @@ def main() -> int:
             for n, line in enumerate(text.splitlines(), 1):
                 if hit(line):
                     found.append(f"{rel}:{n}")
+            n = hit.across_lines(text)
+            if n is not None:
+                found.append(f"{rel}:{n}(行をまたぐ)")
 
     for f in found:
         print(f)

@@ -40,6 +40,27 @@ final class ContentTests: XCTestCase {
         for id in ids { XCTAssertEqual(db.texts[TextID(id)], "x", id) }
     }
 
+    /// 古い名前を、逆向きの表(legacy)を使わずに文字で書いた見本で確かめる(表の両向きが同じ向きに間違っていても見逃さない)。
+    func testLiteralOldNamesTranslateWithoutReverseMap() throws {
+        let old = Data(#"{"manifest":{"aboard":["a"],"staying":["b"]},"lockManifest":true,"imprint":"x","r":"reason.manifest.locked"}"#.utf8)
+        let new = try XCTUnwrap(JSONSerialization.jsonObject(with: LegacyNames.translate(json: old)) as? [String: Any])
+        let roster = try XCTUnwrap(new["roster"] as? [String: Any])
+        XCTAssertEqual(roster["included"] as? [String], ["a"])
+        XCTAssertEqual(roster["excluded"] as? [String], ["b"])
+        XCTAssertEqual(new["confirmRoster"] as? Bool, true)
+        XCTAssertEqual(new["grant"] as? String, "x")
+        XCTAssertEqual(new["r"] as? String, "reason.roster.confirmed")
+        XCTAssertNil(new["manifest"])
+    }
+
+    /// 逃がしで書いた古い名前(\u006d = m)も読み替える(前の振り分けで飛ばさない)。
+    func testEscapedOldNamesAreTranslated() throws {
+        let old = Data(#"{"\u006danifest":{"aboard":["a"]}}"#.utf8)
+        let new = try XCTUnwrap(JSONSerialization.jsonObject(with: LegacyNames.translate(json: old)) as? [String: Any])
+        XCTAssertNotNil(new["roster"])
+        XCTAssertNil(new["manifest"])
+    }
+
     /// 非公開の層の remove が、名前を替える前の公開の試験の ID を挙げていても、今の ID が消える。
     func testPreMigrationRemoveListRemovesRenamedPublicTestIDs() throws {
         var db = try TestContent.publicOnly()

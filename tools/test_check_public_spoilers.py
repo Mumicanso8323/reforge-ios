@@ -53,6 +53,20 @@ class PublicSpoilerCheckerTests(unittest.TestCase):
         result = self.run_checker("SafeZorbleftType\n", rules)
         self.assertEqual(result.returncode, 0)
 
+    def test_pattern_across_lines_hits(self) -> None:
+        rules = {"publicOnlyWords": [], "publicOnlyPatterns": ["zorb\\s+left"],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("ok\nzorb\nleft\n", rules)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sample.txt:2", result.stdout)
+        self.assertNotIn("zorb", result.stdout)
+
+    def test_decomposed_japanese_hits(self) -> None:
+        rules = {"publicOnlyWords": ["\u304c\u3089\u304f\u305f"], "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("\u304b\u3099\u3089\u304f\u305f\n", rules)
+        self.assertEqual(result.returncode, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -113,7 +113,10 @@ public enum LegacyNames {
     }
 
     /// 古い名前の文字列(引用符つき、または接頭辞)がデータの中にあるか。
+    /// JSON の文字列の中に逃がし(`\u0061` など)があると、古い名前がバイトの並びでは見つからないので、
+    /// 逃がしが 1 つでもあれば「あるかもしれない」とする(読み替えを飛ばさない)。
     static func mayContainLegacy(_ data: Data) -> Bool {
+        if data.range(of: Data("\\u".utf8)) != nil { return true }
         let needles = exact.keys.map { "\"\($0)\"" } + prefixes.map { "\"\($0.0)" }
         return needles.contains { data.range(of: Data($0.utf8)) != nil }
     }
