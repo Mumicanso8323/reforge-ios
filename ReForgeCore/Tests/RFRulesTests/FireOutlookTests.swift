@@ -80,16 +80,31 @@ final class FireOutlookTests: XCTestCase {
                                                       clock: Self.clock, structuresInLight: 0), .beforeDawn)
     }
 
-    /// 薪の山の本数を入れた見込みは、山が無ければ今と同じで、山があれば良くなる。
+    /// 薪の山の本数を入れた見込みは、番がいて山があれば良くなる。山が無い・番がいなければ今と同じ(実際の燃え方と同じ)。
     func testOutlookWithPile() {
         let s = HearthState(fuel: 14_400_000, lit: true, pile: 4)
         let now = GameTime(seconds: 40_000)
         let plain = HearthRule.outlook(s, Self.def, now: now, clock: Self.clock, structuresInLight: 0)
-        let withPile = HearthRule.outlookWithPile(s, Self.def, now: now, clock: Self.clock, structuresInLight: 0)
+        let withPile = HearthRule.outlookWithPile(s, Self.def, now: now, clock: Self.clock, structuresInLight: 0, tended: true)
         XCTAssertEqual(plain, .beforeDawn)
         XCTAssertEqual(withPile, .throughNight)
+        XCTAssertEqual(HearthRule.outlookWithPile(s, Self.def, now: now, clock: Self.clock, structuresInLight: 0, tended: false), plain,
+                       "番がいなければ山は燃えない")
         var empty = s
         empty.pile = 0
-        XCTAssertEqual(HearthRule.outlookWithPile(empty, Self.def, now: now, clock: Self.clock, structuresInLight: 0), plain)
+        XCTAssertEqual(HearthRule.outlookWithPile(empty, Self.def, now: now, clock: Self.clock, structuresInLight: 0, tended: true), plain)
+    }
+
+    /// 見込みと実際: 番がいる・いないの両方で、見込みの段が、burn で夜明けまで燃やした結果と食い違わない。
+    func testOutlookWithPileMatchesBurn() {
+        let now = GameTime(seconds: 40_000)
+        let dayLength = Int(Self.clock.dayGameSeconds + Self.clock.nightGameSeconds)
+        let untilDawn = dayLength - 40_000 % dayLength
+        for tended in [true, false] {
+            let s = HearthState(fuel: 14_400_000, lit: true, pile: 4)
+            let o = HearthRule.outlookWithPile(s, Self.def, now: now, clock: Self.clock, structuresInLight: 0, tended: tended)
+            let burned = HearthRule.burn(s, Self.def, seconds: untilDawn, structuresInLight: 0, nightWork: false, tended: tended)
+            XCTAssertEqual(o == .throughNight, burned.lit, "tended=\(tended)")
+        }
     }
 }

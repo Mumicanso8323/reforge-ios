@@ -101,10 +101,15 @@ final class ContinuePresentTests: XCTestCase {
         XCTAssertNil(b.build(w, revision: 1, previous: nil, report: nil).clock.fireOutlook, "昼は出さない")
         w.clock.phase = .dusk
         w.clock.now = GameTime(seconds: 28_800)
-        let withPile = try XCTUnwrap(b.build(w, revision: 2, previous: nil, report: nil).clock.fireOutlook)
-        w.placements.items[w.placements.sortedIDs[0]]?.structure?.hearth?.pile = 0
+        let unattended = try XCTUnwrap(b.build(w, revision: 2, previous: nil, report: nil).clock.fireOutlook)
+        // 番がいる時だけ、山を入れて見込む(実際も番がいる時だけ山から足す)
+        let fire = w.placements.sortedIDs[0]
+        w.people[.noah]?.assignment = .tendHearth(placement: fire)
+        let withPile = try XCTUnwrap(b.build(w, revision: 4, previous: nil, report: nil).clock.fireOutlook)
+        w.placements.items[fire]?.structure?.hearth?.pile = 0
         let without = try XCTUnwrap(b.build(w, revision: 3, previous: nil, report: nil).clock.fireOutlook)
         let order: [FireOutlook] = [.untilEvening, .midnight, .beforeDawn, .throughNight]
         XCTAssertGreaterThan(order.firstIndex(of: withPile)!, order.firstIndex(of: without)!)
+        XCTAssertEqual(unattended, without, "番がいなければ山は入れない")
     }
 }

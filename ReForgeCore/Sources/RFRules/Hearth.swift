@@ -154,13 +154,17 @@ extension HearthRule {
         return outlook(more, def, now: now, clock: clock, structuresInLight: structuresInLight)
     }
 
-    /// 薪の山に残る本数ぶんを燃料に足した見込み(日没の帯・夜の締め用)。山は番が燃料の減るたびに足すので、
-    /// 上限を考えずにそのまま足して数える。山が無ければ今と同じ。
+    /// 薪の山に残る本数ぶんを入れた見込み(日没の帯・夜の締め用)。実際の燃え方(burn)と同じく、
+    /// 山から足すのは番が火を見ているとき(tended)だけ。番がいなければ山は燃えず、今と同じ見込み。
+    /// 番は燃料が tendBelowSeconds 以下になるたびに 1 本足し、上限(capSeconds)で切れるので、1 本の分は
+    /// min(燃料の値, 上限 − 足す点) で数える。山が無ければ今と同じ。
     public static func outlookWithPile(_ state: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
-                                       structuresInLight: Int) -> FireOutlook {
+                                       structuresInLight: Int, tended: Bool) -> FireOutlook {
         var o = state
-        if let item = def.pileItem, let v = fuelValue(item, def), o.pile > 0, o.lit || o.fuel > 0 {
-            o.fuel += v * o.pile
+        if tended, let item = def.pileItem, let v = fuelValue(item, def), o.pile > 0, o.lit, o.fuel > 0 {
+            let tendAt = (def.tendBelowSeconds ?? defaultTendBelowSeconds) * 1000
+            let each = max(0, min(v, def.capSeconds * 1000 - min(tendAt, o.fuel)))
+            o.fuel += each * o.pile
             o.pile = 0
         }
         return outlook(o, def, now: now, clock: clock, structuresInLight: structuresInLight)

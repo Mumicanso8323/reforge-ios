@@ -124,6 +124,17 @@ final class AppTests: XCTestCase {
         XCTAssertGreaterThan(afterClose, whileOpen, "閉じたら再開する")
     }
 
+    /// L-10a: 角の窓は、ボタン(44×44pt)の外の押下を下の窓へ通す(角の 4pt の余白も通す)。
+    func testSettingsCornerWindowPassesTouchesOutsideButton() {
+        let w = SettingsCornerWindow(frame: CGRect(x: 0, y: 0, width: 393, height: 852))
+        let b = w.buttonFrame
+        XCTAssertEqual(b.size, CGSize(width: 44, height: 44))
+        XCTAssertEqual(b.maxX, 393 - SettingsCorner.margin, accuracy: 0.5)
+        XCTAssertNil(w.hitTest(CGPoint(x: 393 - 1, y: b.midY), with: nil), "右の余白は下へ通す")
+        XCTAssertNil(w.hitTest(CGPoint(x: b.midX, y: b.maxY + 2), with: nil), "下の余白は下へ通す")
+        XCTAssertNil(w.hitTest(CGPoint(x: 100, y: 400), with: nil), "画面の中ほどは下へ通す")
+    }
+
     /// L-10a: 開閉は AppModel.settingsOpen が持ち、ゲームの時計の止め方に渡す。ゲームの入れ替わりで開いたままにしない。
     func testSettingsOpenPausesGameAndResetsOnGameChange() throws {
         let app = AppModel(saves: tempSaves())

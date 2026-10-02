@@ -36,6 +36,8 @@ extension GameStore {
               let at = defaults.object(forKey: Self.lastOperationKey) as? Double else { return }
         guard now().timeIntervalSince1970 - at >= Double(Self.resumeAfterMinutes * 60) else { return }
         let line = await host.resumeLine()
+        // 待っている間に命令が来た(操作の時刻が替わった)なら出さない
+        guard (defaults.object(forKey: Self.lastOperationKey) as? Double) == at, resumeBanner == nil, !runEnded else { return }
         guard line.last != nil || line.next != nil else { return }
         resumeBanner = line
     }

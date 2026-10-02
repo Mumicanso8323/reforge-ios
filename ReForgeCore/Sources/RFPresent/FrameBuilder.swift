@@ -351,14 +351,15 @@ public struct FrameBuilder: Sendable {
         return FireOutlookView(now: now, afterOneMore: after)
     }
 
-    /// 日没の帯の火の見込み(薪の置き場の本数を入れた 4 段)。拠点の焚き火のうち ID が最初のもの。
+    /// 日没の帯の火の見込み(番が火を見ていれば薪の置き場の本数も入れた 4 段)。拠点の焚き火のうち ID が最初のもの。
     func duskFireOutlook(_ w: WorldState) -> FireOutlook? {
         guard w.clock.phase != .day else { return nil }
         for id in Hearths.structureHearths(w, content) {
             guard let pl = w.placements.items[id], Hearths.isCompleteForOutlook(pl), let d = Hearths.def(pl, content),
                   let s = Hearths.state(pl, content) else { continue }
             let n = Hearths.structuresInLight(id, in: w, content: content)
-            return HearthRule.outlookWithPile(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n)
+            return HearthRule.outlookWithPile(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n,
+                                              tended: Hearths.isTended(id, in: w))
         }
         return nil
     }
