@@ -25,13 +25,27 @@
 3. 履歴の書き換え(リーダー)が終わった。凍らせた見本の古いキーは、書き換えの対応表(`persistsAcrossRewind` → `carriesOver` を足した)で、履歴ごと新しいキーになる。書き換えの前に LegacyNames を消すと、凍らせた見本が読めずにテストが落ちる。
 消すときは、LegacyNames と、その読み替えのテストと、起動の書き直しを同じコミットで消す。凍らせた見本が古い名前を持っていないことを、その回でもう一度確かめる(統合担当)。
 
-## まだ残る同じ系の言葉(この単位では替えない。リーダーが決める)
-公開のコードに `rewind` の系の言葉が、ほかにも 28 のファイル・81 か所ある(例: 走りの状態の `rewinds` の数・保存の要約の `rewinds`・失敗からの戻りの型の名前・`content/public/run/rewind.json`)。凍らせた見本にも `rewinds` のキーがある。替えるなら、同じ形(LegacyNames の対応表・起動の書き直し・書き換えの対応表)で N-01c にする。今の公開の検査(`check-public-spoilers.py`)では止まっていない。
+## 巻き戻しで「何が残るか」を中立にする(リーダー 2026-10-02)
+巻き戻しそのものは遊ぶ人に見える仕組みなので、`rewind` の系の名前(走りの `rewinds`・戻りの型・`run/rewind.json`)は残す。漏れは名前ではなく中身で、「特定の人の記憶や関係が巻き戻しを越えて残る」「仲間が前の周回を覚えている」と読める所が公開のコード・内容・テスト・文書に残っている。**試験の人を入れ替えても意味が同じになる形**(誰に何が残るかはデータが決め、本体は仕組みだけを持つ)に直す。
+| 今 | 直し |
+|---|---|
+| `RewindDef.dejaVuMemory`(巻き戻した後、ノアを除く一員に付ける記憶)と、一言の文脈 `"rewind.deja_vu"` | `RewindDef.restartMemory: RestartMemoryDef?`(`kind: MemoryKindID`・`exclude: [PersonID]?`。巻き戻した後、夜明けの時点の一員のうち `exclude` に挙げた人を除く全員に付ける。誰を除くかはデータ)。文脈は `"rewind.after"`。本体のコードに「ノアを除く」を書かない |
+| `RewindDef.memorableTags`(前の周回の記録のうち、仲間が覚えておく印) | `keptTags`(巻き戻しの後も、前の周回の記録の写しに残す来歴の印) |
+| `RewindDef.relationPermille`(既定 1000 = 全部持ち越す) | 名前はそのまま。既定を持たない(nil は 0)。持ち越す割合はデータが書く |
+| `RunState.pastLives`(前の周回で起きたことのうち覚えておくもの。説明に仲間の「前にも」の気配) | `priorRuns`(前の周回の記録の写し)。型 `PastLife` は `PriorRun` |
+| コメント・テストの名前・D-save・B-data-model の「前の周回を覚えている仲間」「前にもこうなった気がする」などの言い方 | 「巻き戻しの後に、データが挙げた記憶を付ける」「前の周回の記録の写し」の形に。試験の記憶 `memory.test.deja_vu` は `memory.test.after`、一言 `line.test.deja_vu` は `line.test.after` |
+- 保存のキー(`pastLives`)と内容のキー(`dejaVuMemory`・`memorableTags`)は、上の `persistsAcrossRewind` と同じく `LegacyNames` の対応表に足し(文脈の文字列 `"rewind.deja_vu"` も値として足す)、起動の書き直しでも新しい名前にする。書き換えの対応表にも足す(統合担当が足した)。
+- 非公開の層: U14 が同じ名前に替える。**順番**: `relationPermille` の既定を外すと、非公開の層がその値を書いていなければ関係を持ち越さなくなる。U14 が先に、非公開の層の巻き戻しの定義に今の値(1000)をはっきり書き、その後にこの単位を入れる(統合担当が非公開の層を重ねて確かめる)。
+- テスト: 公開の層の試験の人(test_a・test_b)を入れ替えた内容でも、同じテストが同じに通る(誰に残るかが本体に書かれていないことの確かめ)。
+
+## まだ残る同じ系の言葉(リーダーの判断: 替えない)
+`rewind` の系の名前(走りの `rewinds` の数・保存の要約の `rewinds`・戻りの型の名前・`content/public/run/rewind.json`)は残す。巻き戻しは遊ぶ人に見える仕組みで、名前そのものは答えを明かさないため(リーダー 2026-10-02)。
 
 ## 受け入れ
 - `swift test --package-path ReForgeCore` が公開の層で全部通る。統合担当が非公開の層を重ねて回す(U14 の替えの前と後の両方で読める)。
 - 静的: `check-app-switches.py`・`check-app-names.py`・`gen-xcstrings.py --check`・`check-public-spoilers.py`。
-- `git grep persistsAcrossRewind` が、LegacyNames の対応表と、そのテストと、凍らせた見本だけになる。
+- `git grep` で `persistsAcrossRewind`・`pastLives`・`dejaVu`・`deja_vu`・`memorableTags` を探すと、LegacyNames の対応表と、そのテストと、凍らせた見本だけになる。
+- codex-review の問いに「巻き戻しで何が残るかから、物語の形が読み取れないか(誰に何が残るかが本体・公開の内容・テスト・文書に書かれていないか)」を入れる。
 
 ## コミット
 メッセージは中立に(古い名前をメッセージに書かない。「記憶の持ち越しの欄の名前を替える」)。末尾は統合担当の決まりの 2 行:
