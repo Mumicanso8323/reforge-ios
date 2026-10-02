@@ -162,6 +162,10 @@ enum Interactions {
             if !inReach(pos, target) {
                 // 続けて採るで次のマスへ歩いている間は、着くまで待つ
                 if def.continues == true, a.holding, p.motion != nil { continue }
+                // 歩きが通らなかった(歩き出せなかった)ノアは、黙って取り消さず「近くにもう無い」で止まる
+                if def.continues == true, a.holding, actor == .noah {
+                    ctx.world.exploration.continueStop = ContinueStop(interaction: def.id, at: a.at)
+                }
                 cancel(actor, &ctx)
                 continue
             }
