@@ -60,6 +60,8 @@ final class WorkbenchTests: XCTestCase {
         let before = try XCTUnwrap(b.sheet(.draft(steps: steps, input: sel), in: w))
         XCTAssertEqual(before.rows.map(\.title), ["炉"])
         XCTAssertEqual(before.rows[0].step, 0)
+        XCTAssertEqual(before.rows[0].inputs.count, 1, "段に入れた物は名前の並びで渡す(区切りは画面)")
+        XCTAssertNil(before.rows[0].note)
         XCTAssertNil(before.rows[0].forecast)
         XCTAssertNil(before.expected)
         XCTAssertEqual(before.head?.percent, 30)

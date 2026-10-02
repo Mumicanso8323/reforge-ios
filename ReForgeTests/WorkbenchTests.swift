@@ -13,9 +13,9 @@ final class WorkbenchAppTests: XCTestCase {
     }
 
     func testSenseWordsNeverShowNumbers() {
-        XCTAssertEqual(SenseWords.phrase(30), "三割くらい")
-        XCTAssertEqual(SenseWords.phrase(2), "ほとんど無い")
-        XCTAssertEqual(SenseWords.phrase(100), "混じり気がほぼ無い")
+        XCTAssertEqual(SenseWords.tenths(30), 3)
+        XCTAssertEqual(SenseWords.tenths(2), 0)
+        XCTAssertEqual(SenseWords.tenths(96), 10)
     }
 
     /// 下書きは画面側の状態: 積む・動かす・崩すが本体を変えずにでき、タブを替えても残る(store が持つ)。

@@ -37,7 +37,10 @@ struct NotesTabView: View {
                     row {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: "\(t.input.name) → \(t.result.name)")
-                            Text(verbatim: "  \(t.day)日目・\(t.steps)段・\(t.quantity)個・手: \(SenseWords.phrase(t.result.percent))")
+                            HStack(spacing: 4) {
+                                Text("\(t.day)日目・\(t.steps)段・\(t.quantity)個・手:")
+                                SenseWords.phrase(t.result.percent)
+                            }
                                 .font(InkFont.small).foregroundStyle(InkColor.textDim)
                         }
                     } open: { Task { await wb.open(.sheet(.trial(t.record)), store) } }
@@ -64,7 +67,7 @@ struct NotesTabView: View {
                             }
                         }
                         ForEach(c.clues, id: \.self) { t in
-                            Text(verbatim: "  「\(t)」").font(InkFont.small).foregroundStyle(InkColor.textDim)
+                            Text("「\(t)」").font(InkFont.small).foregroundStyle(InkColor.textDim)  // xcstrings: @
                         }
                     }
                 }
@@ -94,7 +97,7 @@ struct NotesTabView: View {
                 }
             }
             if nb.trials.isEmpty && nb.codex.isEmpty && nb.clues.isEmpty && nb.records.isEmpty && nb.documents.isEmpty {
-                Text(verbatim: "まだ何も書いていない。").foregroundStyle(InkColor.textDim)
+                Text("まだ何も書いていない。").foregroundStyle(InkColor.textDim)
             }
         }
     }
@@ -108,8 +111,8 @@ struct NotesTabView: View {
             ProcessSheetView(sheet: s, actions: actions(for: source))
             if let a = wb.answering, let sid = sheetID(source) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(verbatim: "── 置く記録").foregroundStyle(InkColor.textDim)
-                    if a.candidates.isEmpty { Text(verbatim: "まだ無い。").foregroundStyle(InkColor.textDim) }
+                    Text("置く記録").foregroundStyle(InkColor.textDim)
+                    if a.candidates.isEmpty { Text("まだ無い。").foregroundStyle(InkColor.textDim) }
                     ForEach(a.candidates, id: \.record) { c in
                         row { Text(verbatim: c.label) } open: { Task { await wb.place(c, sheet: sid, store) } }
                     }
@@ -134,8 +137,8 @@ struct NotesTabView: View {
             ForEach(im.targets, id: \.person) { t in
                 VStack(alignment: .leading, spacing: 6) {
                     InkRow(title: Text(verbatim: t.name),
-                           detail: t.written.isEmpty ? nil : Text(verbatim: t.written.joined(separator: "・")),
-                           value: t.declined == nil ? nil : Text(t.declined == true ? "拒んだ" : "使わない"))
+                           detail: t.written.isEmpty ? nil : Text(verbatim: t.written.formatted(.list(type: .and))),
+                           value: t.declined == nil ? nil : (t.declined == true ? Text("拒んだ") : Text("使わない")))
                     if t.declined == nil {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -197,8 +200,8 @@ struct NotesTabView: View {
 
     // MARK: 部品
 
-    private func section(_ title: String) -> some View {
-        Text(verbatim: title).font(InkFont.small).foregroundStyle(InkColor.textDim).padding(.top, 8)
+    private func section(_ title: LocalizedStringKey) -> some View {
+        Text(title).font(InkFont.small).foregroundStyle(InkColor.textDim).padding(.top, 8)
     }
 
     private func row<C: View>(@ViewBuilder _ content: () -> C, open: @escaping () -> Void) -> some View {

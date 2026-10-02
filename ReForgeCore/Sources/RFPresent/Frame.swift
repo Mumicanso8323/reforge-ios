@@ -373,6 +373,8 @@ public struct ProcessSheet: Equatable, Sendable {
         public var forecast: Sensed?
         /// この段で載った所見(文)。
         public var findings: [String] = []
+        /// 工程の段に入れた物の名前(並べ方・区切りは画面が言語に合わせる)。
+        public var inputs: [String] = []
 
         public init(title: String, note: String?, slot: Int? = nil, empty: Bool = false, figure: Int? = nil,
                     answerRow: String? = nil, answer: String? = nil, aboard: Bool? = nil, declared: Bool? = nil,

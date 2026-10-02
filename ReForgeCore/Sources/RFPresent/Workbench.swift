@@ -269,8 +269,8 @@ extension FrameBuilder {
         case .subject(let s): p.name(s)
         }
         let rows = m.rows.enumerated().map { i, r -> ProcessSheet.Row in
-            var row = ProcessSheet.Row(title: p.name(r.subject),
-                                       note: r.inputs.isEmpty ? nil : r.inputs.map { p.name(Subject.item($0)) }.joined(separator: "・"))
+            var row = ProcessSheet.Row(title: p.name(r.subject), note: nil)
+            row.inputs = r.inputs.map { p.name(Subject.item($0)) }
             row.step = r.step == nil ? nil : i
             row.forecast = r.forecast.map { sensed($0.name, $0.sensed, p) }
             row.findings = r.forecast.map { f in f.findings.map { findingText($0, [], p) } } ?? []

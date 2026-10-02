@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SwiftUI
 import ReForgeEngine
 
 /// 設計・ノートのタブの画面側の状態(下書き・選んだ物・開いている頁)。本体の世界状態には入れない(C-engine-ui.md §6)。
@@ -196,12 +197,14 @@ final class WorkbenchModel {
 
 /// ノアの手の見当の言い回し(画面の固定文言。数そのものは出さない)。
 enum SenseWords {
-    static let numerals = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
+    /// 見当の十分率(0〜10。四捨五入)。
+    static func tenths(_ percent: Int) -> Int { min(10, max(0, (percent + 5) / 10)) }
 
-    static func phrase(_ percent: Int) -> String {
-        let k = min(10, max(0, (percent + 5) / 10))
-        if k == 0 { return "ほとんど無い" }
-        if k == 10 { return "混じり気がほぼ無い" }
-        return "\(numerals[k])割くらい"
+    /// 見当の言い回し(文言のカタログのキー)。
+    static func phrase(_ percent: Int) -> Text {
+        let k = tenths(percent)
+        if k == 0 { return Text("ほとんど無い") }
+        if k == 10 { return Text("混じり気がほぼ無い") }
+        return Text("\(k)割くらい")
     }
 }
