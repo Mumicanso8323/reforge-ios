@@ -15,6 +15,16 @@ final class AppTests: XCTestCase {
 
     private func content() throws -> ContentDB { try AppModel.loadBundledContent(bundle: .main) }
 
+    /// 非公開の層は序の場面(W-16)から始まる。地図や命令を確かめるテストは、序を読み終えてから見る。
+    /// 公開の層には序が無いので、そのまま抜ける。
+    private func readThroughPrologue(_ store: GameStore) async throws {
+        for _ in 0..<200 where store.prologue != nil {
+            store.send(.narrative(.advanceScene))
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        XCTAssertNil(store.prologue, "序を読み終えた")
+    }
+
     func testBundledContentLoads() throws {
         let c = try content()
         XCTAssertFalse(c.terrains.isEmpty, "content/ がアプリの束に入っている")
@@ -42,6 +52,7 @@ final class AppTests: XCTestCase {
         let c = try content()
         let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3), saves: tempSaves())
         await store.load()
+        try await readThroughPrologue(store)
         XCTAssertEqual(store.chunks.count, store.mapView.chunkColumns * store.mapView.chunkRows, "全区画を引いた")
         XCTAssertNotNil(store.focus, "ノアの位置に追従する")
         XCTAssertNotNil(store.footCard, "足元カードはノアの足元")
@@ -54,6 +65,7 @@ final class AppTests: XCTestCase {
         let c = try content()
         let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3), saves: tempSaves())
         await store.load()
+        try await readThroughPrologue(store)
         store.choose(.sleep)
         for _ in 0..<100 where store.notice == nil { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertEqual(store.notice, "まだ昼だ")
@@ -90,22 +102,22 @@ final class AppTests: XCTestCase {
         var world = GameBootstrap.newWorld(content: c, seed: 3)
         world.clock.held = false
         let store = GameStore(content: c, world: world, saves: tempSaves())
-        let runner = Task { await store.run() }
-        defer { runner.cancel() }
+        await store.load()
+        // 実時間を待たず、時計の 1 回ぶん(clockStep)を直に呼ぶ(CI で揺れない)
+        func step(_ n: Int) async { for _ in 0..<n { await store.clockStep(realSeconds: 0.25) } }
         func now() async -> GameTime { await store.host.world.clock.now }
-        try await Task.sleep(nanoseconds: 500_000_000)
+        await step(2)
         let beforeOpen = await now()
         XCTAssertGreaterThan(beforeOpen, GameTime.zero, "開く前は時計が進んでいる")
 
         store.isPaused = true
-        try await Task.sleep(nanoseconds: 150_000_000)  // 進行中の 1 歩が終わるのを待つ
         let atOpen = await now()
-        try await Task.sleep(nanoseconds: 800_000_000)
+        await step(4)
         let whileOpen = await now()
         XCTAssertEqual(whileOpen, atOpen, "設定が開いている間は時計が進まない")
 
         store.isPaused = false
-        try await Task.sleep(nanoseconds: 500_000_000)
+        await step(2)
         let afterClose = await now()
         XCTAssertGreaterThan(afterClose, whileOpen, "閉じたら再開する")
     }
