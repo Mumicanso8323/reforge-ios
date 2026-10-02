@@ -111,9 +111,13 @@ public struct CrewSystem: SimSystem {
             }
         case .guardArea(let c, _), .gather(_, let c):
             guard w.map[c.layer]?.size.contains(c.point) == true else { return .rejected(Rejection("reason.assign.no_target")) }
+        case .tendHearth(let e):
+            guard w.placements.items[e] != nil else { return .rejected(Rejection("reason.assign.no_target")) }
         case .idle, .rest:
             break
         }
+        // 手が先(INV-O8)・働ける人数(INV-O10)
+        if let r = CrewWork.refusal(a, for: id, w, ctx.content) { return .rejected(r) }
         var p = ps
         p.assignment = a
         p.haulLeg = nil
@@ -181,11 +185,12 @@ public struct CrewSystem: SimSystem {
             }
         }
 
-        // 配属を実行する
+        // 配属を実行する(働ける人数を超えた仲間は焚き火のそばで休む。INV-O10)
         planner = PathPlanner(world: ctx.world, content: ctx.content, workspace: workspace)
+        let allowed = CrewWork.working(ctx.world, ctx.content)
         for id in order {
             guard let ps = ctx.world.people[id], ps.presence.isMember, ps.position != nil else { continue }
-            Duties.run(id, &ctx, planner: &planner)
+            Duties.run(id, &ctx, planner: &planner, allowed: allowed)
         }
     }
 

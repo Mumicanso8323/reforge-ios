@@ -87,9 +87,11 @@ enum WorldMapGenerator {
             let layout = planLayout(base: base, scale: scale, rules: rules, rng: &layoutRng)
             var t = natural
             let st = stamp(layout, base: base, rules: rules, seed: seed, terrain: &t)
+            if let o = config.opening { OpeningGuarantee.stampForests(&t, base: base, rules: o) }
             guard let lm = finishLandmarks(layout, stamped: st, base: base, terrain: t) else { continue }
             if fallback == nil { fallback = (t, lm, attempt) }
-            if verify(lm, terrain: t, rules: rules, workspace: ws) {
+            if verify(lm, terrain: t, rules: rules, workspace: ws),
+               config.opening.map({ OpeningGuarantee.verifyTerrain(lm, terrain: t, rules: $0, workspace: ws) }) ?? true {
                 chosen = (t, lm, attempt)
                 break
             }
@@ -112,6 +114,7 @@ enum WorldMapGenerator {
 
         var layer = MapLayer(id: .surface, terrain: terrain)
         placeFixedContent(&layer, landmarks: landmarks, seed: seed)
+        if let o = config.opening { OpeningGuarantee.placeFixed(&layer, landmarks: landmarks, rules: o, seed: seed) }
         if let sites = config.sites, !sites.isEmpty { Sites.place(sites, in: &layer, landmarks: landmarks, seed: seed) }
         if let rule = config.deepVein { DeepVein.place(rule, in: &layer, landmarks: landmarks, seed: seed) }
 

@@ -23,7 +23,8 @@ enum Duties {
         var slack: Int = 0
     }
 
-    static func run(_ id: PersonID, _ ctx: inout StepContext, planner: inout PathPlanner) {
+    static func run(_ id: PersonID, _ ctx: inout StepContext, planner: inout PathPlanner,
+                    allowed: Set<PersonID>? = nil) {
         guard let ps = ctx.world.people[id], ps.presence.isMember, let pos = ps.position else { return }
         let now = ctx.world.clock.now
 
@@ -65,7 +66,11 @@ enum Duties {
             return
         }
 
-        guard let station = station(for: id, assignment, fresh, &ctx) else {
+        // 働ける人数の外: 焚き火のそばで休む(配属はそのまま。枠が開けばまた働く)
+        let benched = !playerControlled && allowed.map { !$0.contains(id) } == true
+            && (CrewWork.isWork(assignment) || assignment == .idle)
+        let chosen = benched ? restByFire(id, fresh, &ctx) : station(for: id, assignment, fresh, &ctx)
+        guard let station = chosen else {
             settle(id, activity: idleActivity(ctx.world), &ctx)
             return
         }
@@ -109,6 +114,17 @@ enum Duties {
         Walking.start(id, anchor: anchor, path: r.path, goal: r.goal, throughFog: r.throughFog, &ctx)
         ctx.world.people[id]?.activity = walkingActivity(station, to: WorldPoint(pos.layer, r.goal))
         ctx.world.people[id]?.workSpeed = nil
+    }
+
+    /// 焚き火(灯りを持つ建て終えた建造物)のそばで休む。無ければその場で。
+    static func restByFire(_ id: PersonID, _ ps: PersonState, _ ctx: inout StepContext) -> Station? {
+        guard let pos = ps.position else { return nil }
+        let activity = idleActivity(ctx.world)
+        if let fire = nearestStructure(providing: "light", from: pos, ctx.world, ctx.content) {
+            return Station(layer: pos.layer, target: footprint(fire, ctx.world), standOn: false, activity: activity,
+                           slack: 2)
+        }
+        return Station(layer: pos.layer, target: [pos.point], standOn: true, activity: activity)
     }
 
     /// 行き先へ歩いている間の動作(運搬は運んでいる間ずっと carrying。他は walking)。
@@ -157,6 +173,14 @@ enum Duties {
             ctx.world.people[id]?.activity = activity
             ctx.changes.mark(.people)
         }
+        // ノアが自分で建てる・運ぶ(手が先の種類。W-04)
+        if id == .noah {
+            if case .working(let e) = activity, let p = ctx.world.placements.items[e], isUnderConstruction(p) {
+                CrewWork.noteHand(.build, &ctx.world)
+            } else if case .carrying = activity {
+                CrewWork.noteHand(.haul, &ctx.world)
+            }
+        }
         if case .working(let e) = activity {
             let speed = WorkSpeed.permille(id, at: e, ctx.world, ctx.content)
             if ps.workSpeed != speed { ctx.world.people[id]?.workSpeed = speed }
@@ -187,7 +211,7 @@ enum Duties {
                                slack: 1)
             }
             return Station(layer: pos.layer, target: [pos.point], standOn: true, activity: .sleeping)
-        case .operate(let e), .build(let e):
+        case .operate(let e), .build(let e), .tendHearth(let e):
             guard let p = w.placements.items[e] else {
                 drop(id, &ctx)
                 return nil

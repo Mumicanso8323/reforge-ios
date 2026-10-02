@@ -84,6 +84,16 @@ public enum FailureRuleTag {}
 
 /// 知っている事実(認識の層の単位)。例: "fact.sky.double_moon_seen"。
 public typealias FactID = TypedID<FactTag>
+/// 手が先(INV-O8)で数える行為の種類(序盤の設計 v0.4 の W-04)。本体の決める種類は下の static。
+public enum HandFamilyTag {}
+public typealias HandFamilyID = TypedID<HandFamilyTag>
+
+extension TypedID where Tag == HandFamilyTag {
+    /// 運ぶ(手で運ぶ・経路の運搬)。本体が決める。
+    public static let haul = HandFamilyID("family.haul")
+    /// 建てる(建造物とモジュール)。本体が決める。
+    public static let build = HandFamilyID("family.build")
+}
 /// 持ち物・投入物(燃料・混ぜ物・水・食料…)の種類。原作の item_id と同じ綴り(例: "iron_ore")。
 /// 純度・形・熱の状態を持つ物(鉱石・鉄)は RFMatter の Matter で表し、在庫では Matter を持つ。
 public typealias ItemID = TypedID<ItemTag>

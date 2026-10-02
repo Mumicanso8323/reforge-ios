@@ -83,6 +83,14 @@ enum Hauling {
     /// いま運べる数(limit で打ち切る)。
     static func pending(_ r: HaulRoute, _ w: WorldState, limit: Int) -> Int {
         switch (r.from, r.to) {
+        case (.placement(let a), .placement(let b)) where w.placements.items[a]?.module == nil:
+            // 建造物の中に溜めた物(P-12)
+            guard let bm = w.placements.items[b]?.module else { return 0 }
+            var n = 0
+            for e in w.inventory.entries(.placement(a)) where n < limit { n += min(e.quantity, bm.room(for: e.stuff)) }
+            return n
+        case (.placement(let a), .base) where w.placements.items[a]?.module == nil:
+            return w.inventory.entries(.placement(a)).reduce(0) { $0 + $1.quantity }
         case (.placement(let a), .placement(let b)):
             guard let am = w.placements.items[a]?.module, let bm = w.placements.items[b]?.module else { return 0 }
             var n = 0
@@ -103,6 +111,26 @@ enum Hauling {
         guard let r = ctx.world.logistics.routes[id] else { return 0 }
         var moved = 0
         switch (r.from, r.to) {
+        case (.placement(let a), .placement(let b)) where ctx.world.placements.items[a]?.module == nil:
+            // 建造物の中に溜めた物を、モジュールの入口へ(空きの分だけ。P-12)
+            for e in ctx.world.inventory.entries(.placement(a)) where moved < n {
+                guard let room = ctx.world.placements.items[b]?.module?.room(for: e.stuff), room > 0 else { continue }
+                let k = min(room, n - moved, e.quantity)
+                guard let origins = ctx.takeStock(k, from: .placement(a), where: { $0.stuff == e.stuff && $0.unique == e.unique })
+                else { continue }
+                ModuleRuntime.put(StockEntry(stuff: e.stuff, quantity: k, origins: origins),
+                                  into: &ctx.world.placements.items[b]!.module!.input)
+                moved += k
+            }
+            ctx.world.placements.items[b]?.module?.today.received += moved
+        case (.placement(let a), .base) where ctx.world.placements.items[a]?.module == nil:
+            for e in ctx.world.inventory.entries(.placement(a)) where moved < n {
+                let k = min(n - moved, e.quantity)
+                guard let origins = ctx.takeStock(k, from: .placement(a), where: { $0.stuff == e.stuff && $0.unique == e.unique })
+                else { continue }
+                toBase(StockEntry(stuff: e.stuff, quantity: k, origins: origins), &ctx)
+                moved += k
+            }
         case (.placement(let a), .placement(let b)):
             guard let am = ctx.world.placements.items[a]?.module else { return 0 }
             for e in am.output where moved < n {

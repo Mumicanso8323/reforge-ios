@@ -177,6 +177,40 @@ final class LogisticsSystemTests: XCTestCase {
         XCTAssertFalse(w.logistics.routes.values.contains { $0.to == .placement(b) })
     }
 
+    /// P-12: 建造物の中に溜めた物(窯の木炭)を、経路の始まりにして炉へ運ぶ。終わりにはできない。
+    func testStructureStockIsARouteSource() throws {
+        let rig = try TestRig.publicOnly()
+        var w = world(rig)
+        XCTAssertNil(rig.simulation.apply(.production(.place(module: .anvil, at: wp(4, 16), facing: .east)), to: &w).rejection)
+        let anvil = w.placements.at(wp(4, 16))[0]
+        let kiln = w.newEntityID()
+        w.placements.items[kiln] = Placement(id: kiln, kind: .structure("structure.shelter"), at: wp(10, 16), facing: .north,
+                                             origin: ProvenanceLedger.unknownOrigin, status: .running)
+        var ctx = StepContext(world: w, content: rig.content)
+        ctx.addStock(.item(.charcoal), 6, to: .placement(kiln))
+        w = ctx.world
+        let before = w.inventory.quantity(.charcoal)
+        // 建造物を終わりにはできない。始まりにはできる(手で結ぶ)
+        XCTAssertEqual(rig.simulation.apply(.logistics(.link(from: .placement(anvil), to: .placement(kiln))), to: &w)
+            .rejection?.reason, HaulRules.unknownEnd)
+        XCTAssertNil(rig.simulation.apply(.logistics(.link(from: .placement(kiln), to: .base)), to: &w).rejection)
+        _ = rig.simulation.runSteps(1, &w)
+        let route = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .placement(kiln) })
+        XCTAssertEqual(route.origin, .manual)
+        restAll(&w)
+        w.people["person.test_a"]?.assignment = .haul(route: route.id)
+        _ = rig.simulation.runSteps(Int(8 * 3600 / SimStep.gameSeconds), &w)
+        XCTAssertGreaterThan(w.logistics.routes[route.id]!.movedToday, 0)
+        XCTAssertEqual(w.inventory.quantity(.charcoal, in: .placement(kiln)) + w.inventory.quantity(.charcoal) - before, 6,
+                       "窯の中から拠点へ移っただけ")
+        XCTAssertGreaterThan(w.inventory.quantity(.charcoal), before)
+        // 建造物が無くなれば経路も消える
+        w.placements.items[kiln] = nil
+        w.logistics.builtForTopology = -1
+        _ = rig.simulation.runSteps(1, &w)
+        XCTAssertNil(w.logistics.routes[route.id])
+    }
+
     // MARK: 道具
 
     func world(_ rig: TestRig) -> WorldState {

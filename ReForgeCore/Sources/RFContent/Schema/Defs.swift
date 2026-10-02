@@ -340,6 +340,12 @@ public struct InteractionDef: ContentDef, Equatable {
     public var cooldownDays: Int?
     /// 対象のそばに何人いないと進まないか(大きすぎる扉や設備。既定 1)。
     public var requiredPeople: Int?
+    /// 手が先(INV-O8)で数える行為の種類(序盤の設計 v0.4 の W-04)。同じ種類の行為を 1 度手でやれば、
+    /// その種類の行為を仲間に頼める。nil なら行為 ID が種類。例 "family.scavenge"(漁る)・"family.stoke"(くべる)。
+    public var handFamily: HandFamilyID?
+    /// 得た物の行き先(既定 base = 拠点の蓄え)。site なら対象の置いた物の中(HolderID.placement)に溜め、
+    /// そこを運搬の経路の始まりにできる(炭焼き窯の木炭。序盤の設計 v0.4 の P-12)。持ち主: U22
+    public var yieldsTo: YieldTarget?
     // 以下は U19 が足した(対象が deposit のときだけ見る)。
     /// 掘れる鉱脈の種類(nil は全部)。ほかの種類のマスは対象にならない。
     public var depositCategories: [DepositCategory]?
@@ -892,4 +898,12 @@ public struct StartDef: Codable, Equatable, Sendable {
         self.chapter = chapter
         self.events = events
     }
+}
+
+/// 行為で得た物の行き先(InteractionDef.yieldsTo)。
+public enum YieldTarget: String, Codable, Equatable, Sendable {
+    /// 拠点の蓄え(既定)。
+    case base
+    /// 対象の置いた物の中(置いた物に対する行為だけ。それ以外は拠点の蓄え)。
+    case site
 }

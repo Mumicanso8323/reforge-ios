@@ -125,7 +125,8 @@ enum Interactions {
             if def.hold && !a.holding { continue }
             if p.motion != nil { continue }
             if let need = def.requiredPeople, need > 1, helpers(target, world: ctx.world) < need { continue }
-            let speed = workSpeed(at: pos, ctx)
+            // 人の速さ(仲間の採取はノアの 0.6 倍。W-04)
+            let speed = workSpeed(at: pos, ctx) * CrewWork.gatherPermille(actor, ctx.world, ctx.content) / 1000
             ctx.world.exploration.active[actor]?.progress += SimStep.gameSeconds * Int64(speed) / 1000
             if (ctx.world.exploration.active[actor]?.progress ?? 0) >= Int64(def.seconds) {
                 let done = ctx.world.exploration.active.removeValue(forKey: actor)!
@@ -137,10 +138,12 @@ enum Interactions {
     /// 「採取を続ける」配属の仲間が届く所にいれば、行為を始める(終わればまた始める)。
     static func startAssignedGathering(_ ctx: inout StepContext) {
         guard ctx.world.clock.phase == .day else { return }
+        let allowed = CrewWork.working(ctx.world, ctx.content)
         for pid in ctx.world.people.members where pid != .noah {
             guard let p = ctx.world.people[pid], ctx.world.exploration.active[pid] == nil, p.motion == nil else { continue }
             let a = p.override?.assignment ?? p.assignment
             guard case .gather(let iid, let at) = a, let def = ctx.content.interactions[iid] else { continue }
+            if let allowed, !allowed.contains(pid) { continue }   // 働ける人数の外(INV-O10)
             _ = start(def, at: at, holding: true, actor: pid, &ctx)
         }
     }
@@ -177,7 +180,9 @@ enum Interactions {
 
         // 得られる物
         let yields = def.partOp.flatMap { op in a.part.flatMap { op.partYields?[$0] } } ?? def.yields
-        Loot.give(yields, origin: rec, &ctx)
+        // 行き先(P-12): 置いた物に対する行為で yieldsTo = site なら、その置いた物の中に溜める
+        let holder: HolderID = def.yieldsTo == .site ? target.placement.map { HolderID.placement($0) } ?? .base : .base
+        Loot.give(yields, origin: rec, to: holder, &ctx)
         if let dep = target.deposit {
             var map = ctx.world.map
             let ores = ctx.random(.exploration) { rng in map.extract(dep, layer: target.layer, rng: &rng) } ?? []
@@ -217,6 +222,8 @@ enum Interactions {
         ctx.world.exploration.interactionCounts[key, default: 0] += 1
         if (def.cooldownDays ?? 0) > 0 { ctx.world.exploration.harvestedDay[key] = ctx.world.clock.day }
 
+        // 手でやった(INV-O8。知識の側)
+        if actor == .noah { CrewWork.noteHand(CrewWork.family(of: def), &ctx.world) }
         ctx.emit(.interacted(person: actor, interaction: def.id, at: at, record: rec))
         ctx.changes.mark([.people, .inventory])
         if let effects = def.effects, !effects.isEmpty { EffectApplier.apply(effects, &ctx, cause: rec) }

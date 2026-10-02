@@ -218,6 +218,8 @@ public enum Assignment: Codable, Equatable, Sendable {
     case gather(interaction: InteractionID, at: WorldPoint)
     case follow(person: PersonID)
     case rest
+    /// 火の番(火床のある置いた物。薪の山からくべる。序盤の設計 W-04)。
+    case tendHearth(placement: EntityID)
 }
 
 /// いまの動作(描画と「誰が何をしているか」の表示に使う)。

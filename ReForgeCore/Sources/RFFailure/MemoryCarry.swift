@@ -40,6 +40,8 @@ public enum MemoryCarry {
         w.knowledge.inspected.formUnion(failed.knowledge.inspected)
         // 開示(INV-O4): 知識で開いたものだけを運ぶ。世界の状態で開いたものは夜明けの世界のまま
         for (id, kind) in failed.knowledge.disclosed where kind == .knowledge { w.knowledge.disclosed[id] = kind }
+        // 手でやった行為は知識の側(INV-O4・INV-O8)
+        w.knowledge.handDone.formUnion(failed.knowledge.handDone)
 
         // 実験ノート(丸ごと: 失敗した周回の方が新しく、夜明けの分を含む)
         w.notebook = failed.notebook

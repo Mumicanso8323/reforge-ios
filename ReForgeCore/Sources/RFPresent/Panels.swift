@@ -349,6 +349,7 @@ extension FrameBuilder {
         case .guardArea: return (.guardArea, nil)
         case .build(let e): return (.build, placed(e))
         case .follow(let o): return (.follow, p.name(Subject.person(o)))
+        case .tendHearth(let e): return (.operate, placed(e))
         }
     }
 

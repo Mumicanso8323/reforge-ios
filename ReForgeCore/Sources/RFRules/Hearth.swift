@@ -155,6 +155,8 @@ public enum Hearths {
         case .structure: return provides(p, content)["light"] ?? 0
         case .module:
             guard isComplete(p), let d = def(p, content), let s = state(p, content) else { return 0 }
+            // 炉は熱で灯る(1100℃ 以上で半径 3。W-03)
+            if let r = FurnaceHeat.lightRadius(p, content) { return r }
             return HearthRule.lightRadius(s, d)
         }
     }
@@ -164,8 +166,11 @@ public enum Hearths {
     public static func isTended(_ id: EntityID, in w: WorldState) -> Bool {
         w.people.order.contains { pid in
             guard let ps = w.people[pid], ps.presence.isAlive, ps.position != nil else { return false }
-            if case .operate(let e) = ps.assignment, e == id { return true }
-            return false
+            switch ps.override?.assignment ?? ps.assignment {
+            case .tendHearth(let e) where e == id: return true
+            case .operate(let e) where e == id: return true  // 火の番の配属が入る前の形(古い保存)
+            default: return false
+            }
         }
     }
 

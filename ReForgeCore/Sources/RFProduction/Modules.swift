@@ -28,6 +28,8 @@ enum Modules {
             if inBase.contains(id), ctx.world.placements.items[id]?.status != .broken { pullFromBase(id, &ctx) }
         }
         Power.update(ids, &ctx)
+        // 炉の熱(W-03): 予熱・熱を保つ燃料・冷める
+        for id in ids { FurnaceHeat.advance(id, seconds: Int(SimStep.gameSeconds), &ctx) }
         for id in ids { advance(id, &ctx) }
         for id in ids { pushOut(id, down: links[id], inBase: inBase.contains(id), &ctx) }
     }
@@ -141,6 +143,9 @@ enum Modules {
               let def = content.modules[kind] else { return (ProductionText.notAModule, nil) }
         // 電力を使うモジュールは、供給が無ければ止まる(U16)
         if (def.power?.draw ?? 0) > 0, w.logistics.powerSupply <= 0 { return (ProductionText.noPower, nil) }
+        // 炉: 熱が足りなければ止まる。燃料は火床で燃えているので、段の物の数には入れない(W-03)
+        let fuels = FurnaceHeat.fuels(p, content)
+        if !fuels.isEmpty, !FurnaceHeat.isHot(p, content) { return (FurnaceHeat.furnaceCold, nil) }
         switch Self.kind(of: m, def) {
         case .generate:
             if let fuel = def.power?.fuel, m.inputCount(fuel) < 1 { return (ProductionText.noAux, fuel) }
@@ -150,23 +155,23 @@ enum Modules {
             guard let dep = m.deposit, let d = w.map[p.at.layer]?.deposits[dep] else { return (ProductionText.noDeposit, nil) }
             if d.isDepleted { return (ProductionText.depleted, nil) }
             if m.outputCount + 3 * m.batch > m.capacity { return (ProductionText.outputFull, nil) }
-            return auxBlocker(m)
+            return auxBlocker(m, skip: fuels)
         case .produce:
             let most = (def.produces ?? []).reduce(0) { $0 + $1.max } * m.batch
             if m.outputCount + most > m.capacity { return (ProductionText.outputFull, nil) }
-            return auxBlocker(m)
+            return auxBlocker(m, skip: fuels)
         case .process:
             if m.mainInputCount < 1 { return (ProductionText.noInput, nil) }
             if m.outputCount + 1 > m.capacity { return (ProductionText.outputFull, nil) }
-            return auxBlocker(m)
+            return auxBlocker(m, skip: fuels)
         case .idle:
             return (ProductionText.noInput, nil)
         }
     }
 
     /// 1 単位ぶんの段の物が揃っているか。
-    static func auxBlocker(_ m: ModuleRuntime) -> (TextID, ItemID?)? {
-        for i in m.auxPerUnit.keys.sorted() where !m.freeItems.contains(i) {
+    static func auxBlocker(_ m: ModuleRuntime, skip: Set<ItemID> = []) -> (TextID, ItemID?)? {
+        for i in m.auxPerUnit.keys.sorted() where !m.freeItems.contains(i) && !skip.contains(i) {
             if m.inputCount(i) < m.auxPerUnit[i]! { return (ProductionText.noAux, i) }
         }
         return nil
@@ -242,7 +247,11 @@ enum Modules {
         let o = ProcessChain.advance(matter, through: step, at: m.stepIndex ?? 0, rules: ctx.content.ruleBook)
         // 規則が使う物が揃っているか(先に確かめてから取る)
         var need: [ItemID: Int] = [:]
-        for a in o.consumed where !m.freeItems.contains(a.item) { need[a.item, default: 0] += a.quantity }
+        // 炉の燃料は火床で燃えている(W-03): 入口から 1 単位ごとには取らない
+        let fuels = ctx.world.placements.items[id].map { FurnaceHeat.fuels($0, ctx.content) } ?? []
+        for a in o.consumed where !m.freeItems.contains(a.item) && !fuels.contains(a.item) {
+            need[a.item, default: 0] += a.quantity
+        }
         for (i, n) in need where m.inputCount(i) < n {
             setStatus(id, .stopped(reason: ProductionText.noAux), waiting: i, &ctx)
             return false

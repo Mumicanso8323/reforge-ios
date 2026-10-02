@@ -13,6 +13,14 @@ public struct HearthState: Codable, Equatable, Sendable {
     public var pile: Int = 0
     /// 日没から今まで一度も消えていないか(夜明けに夜の数を数える)。
     public var litSinceDusk: Bool = false
+    /// 炉の熱(℃ × 1000。炉だけ。nil は冷えている)。持ち主: U22
+    public var heat: Int?
+    /// 予熱の残り(ゲーム秒。nil は予熱していない)。
+    public var preheatLeft: Int?
+    /// 燃料の使いかけ(百万分の 1 個)。
+    public var burnCarry: Int?
+    /// いま燃えている燃料。
+    public var fuelItem: ItemID?
 
     public init(fuel: Int = 0, lit: Bool = false, banked: Bool = false, pile: Int = 0, litSinceDusk: Bool = false) {
         self.fuel = fuel
@@ -22,7 +30,7 @@ public struct HearthState: Codable, Equatable, Sendable {
         self.litSinceDusk = litSinceDusk
     }
 
-    enum CodingKeys: String, CodingKey { case fuel, lit, banked, pile, litSinceDusk }
+    enum CodingKeys: String, CodingKey { case fuel, lit, banked, pile, litSinceDusk, heat, preheatLeft, burnCarry, fuelItem }
 
     public init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -31,6 +39,10 @@ public struct HearthState: Codable, Equatable, Sendable {
         banked = try c.decodeIfPresent(Bool.self, forKey: .banked) ?? false
         pile = try c.decodeIfPresent(Int.self, forKey: .pile) ?? 0
         litSinceDusk = try c.decodeIfPresent(Bool.self, forKey: .litSinceDusk) ?? false
+        heat = try c.decodeIfPresent(Int.self, forKey: .heat)
+        preheatLeft = try c.decodeIfPresent(Int.self, forKey: .preheatLeft)
+        burnCarry = try c.decodeIfPresent(Int.self, forKey: .burnCarry)
+        fuelItem = try c.decodeIfPresent(ItemID.self, forKey: .fuelItem)
     }
 }
 
@@ -44,4 +56,6 @@ public enum HearthOp: Codable, Equatable, Sendable {
     case ignite(from: EntityID?)
     /// 火を埋める。
     case bank
+    /// 冷えた炉の予熱を始める(炉の入口か拠点の蓄えから予熱の燃料を払う。W-03)。
+    case preheat
 }

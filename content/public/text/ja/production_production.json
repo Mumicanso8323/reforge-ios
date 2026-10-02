@@ -40,6 +40,10 @@
     "reason.haul.same_ends": "同じ所",
     "reason.haul.unknown_end": "つなぐ先が無い",
     "reason.haul.unknown_route": "その道はもう無い",
-    "reason.haul.auto_route": "自動の道は外せない"
+    "reason.haul.auto_route": "自動の道は外せない",
+    "reason.production.furnace_cold": "炉が冷えた",
+    "reason.hearth.not_furnace": "炉ではない",
+    "reason.hearth.already_hot": "もう熱い",
+    "reason.hearth.no_preheat_fuel": "予熱の{0}が足りない"
   }
 }
