@@ -40,6 +40,20 @@ final class ContentTests: XCTestCase {
         for id in ids { XCTAssertEqual(db.texts[TextID(id)], "x", id) }
     }
 
+    /// 非公開の層の remove が、名前を替える前の公開の試験の ID を挙げていても、今の ID が消える。
+    func testPreMigrationRemoveListRemovesRenamedPublicTestIDs() throws {
+        var db = try TestContent.publicOnly()
+        XCTAssertNotNil(db.sheets["sheet.test.roster"])
+        XCTAssertNotNil(db.events["event.test.memory_seen"])
+        let current = try JSONSerialization.data(withJSONObject: [
+            "remove": ["sheets": ["sheet.test.roster"], "events": ["event.test.memory_seen"]]])
+        let old = LegacyNames.legacy(json: current)
+        XCTAssertNotEqual(old, current, "見本は古い名前の形になっている")
+        try ContentLoader.apply(json: old, to: &db)
+        XCTAssertNil(db.sheets["sheet.test.roster"])
+        XCTAssertNil(db.events["event.test.memory_seen"])
+    }
+
     /// 古い名前の無いデータは、読み替えでバイトも変わらない(数の書き方を作り直さない)。
     func testCurrentNamesPassThroughUnchanged() {
         let current = Data(#"{"a":0.1,"b":[1,2.50,"roster"],"grant":{"skills":[]}}"#.utf8)

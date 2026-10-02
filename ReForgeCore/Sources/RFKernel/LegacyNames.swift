@@ -20,7 +20,19 @@ public enum LegacyNames {
         "boarding.stay": "roster.exclude",
         "imprint.declined": "grant.declined",
         "imprint.refuse": "grant.refuse",
-        "reason.manifest.locked": "reason.roster.confirmed"
+        "reason.manifest.locked": "reason.roster.confirmed",
+        // 公開の層の試験用の ID(非公開の層の remove が今も古い ID を挙げている)
+        "sheet.test.manifest": "sheet.test.roster",
+        "sheet:sheet.test.manifest": "sheet:sheet.test.roster",
+        "text.test.sheet_manifest": "text.test.sheet_roster",
+        "fact.test.vessel_ready": "fact.test.roster_open",
+        "memory.test.gap": "memory.test.kind_b",
+        "event.test.gap_seen": "event.test.memory_seen",
+        "text.item.test_ore.true": "text.item.test_ore.variant_b",
+        "text.module.furnace.true": "text.module.furnace.variant_b",
+        "text.matter.fe.true": "text.matter.fe.variant_b",
+        "text.poi.wreck.true": "text.poi.wreck.variant_b",
+        "text.source.hand.true": "text.source.hand.variant_b"
     ]
 
     private static let prefixes: [(String, String)] = [
