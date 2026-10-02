@@ -28,7 +28,7 @@ def private_layer() -> pathlib.Path | None:
     return p if p.is_dir() else None
 
 
-def load_words(layer: pathlib.Path) -> list:
+def load_rules(layer: pathlib.Path) -> tuple[list[str], list[str], list[str], list[str]]:
     words = set()
     for f in sorted(layer.rglob("*.json")):
         rel = f.relative_to(layer).as_posix()
@@ -45,6 +45,9 @@ def load_words(layer: pathlib.Path) -> list:
                         words.add(w.strip())
     # 禁止語から外したが(気配として出す等)公開リポジトリには書かない語。読み込みの対象外の tools/ に置く
     # (ContentLoader は tools/ を読まず、封にも入らない)。形: {"publicOnlyWords": ["…", …]}
+    patterns: list[str] = []
+    identifiers: list[str] = []
+    exceptions: list[str] = []
     extra = layer / "tools" / "public-words.json"
     if extra.is_file():
         try:
@@ -56,10 +59,16 @@ def load_words(layer: pathlib.Path) -> list:
         for w in data["publicOnlyWords"]:
             if isinstance(w, str) and w.strip():
                 words.add(w.strip())
-    return sorted(words, key=len, reverse=True)
+        for key, destination in [("publicOnlyPatterns", patterns), ("publicOnlyIdentifiers", identifiers),
+                                 ("identifierExceptions", exceptions)]:
+            values = data.get(key, [])
+            if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
+                raise SystemExit(f"tools/public-words.json の形が違う({key} の文字列配列)")
+            destination.extend(value for value in values if value)
+    return sorted(words, key=len, reverse=True), patterns, identifiers, exceptions
 
 
-def matcher(words: list):
+def matcher(words: list[str], patterns: list[str], identifiers: list[str], exceptions: list[str]):
     """ラテン文字を含む語は、前後がラテン文字・数字・_ でないときだけ当たる(環境変数の名前の一部などは当たらない)。
     大文字と小文字は区別する(書かれたとおり。題名の Re:Forge と大文字の固有名を分ける)。日本語の語は部分一致。"""
     import re
@@ -70,16 +79,41 @@ def matcher(words: list):
         else:
             pats.append(re.compile(re.escape(w)))
 
+    try:
+        pattern_pats = [re.compile(pattern) for pattern in patterns]
+    except re.error as error:
+        raise SystemExit(f"tools/public-words.json の正規表現が違う: {error}")
+    identifier_words = [word.lower() for word in identifiers]
+    exception_words = {word.lower() for word in exceptions}
+
     def hit(line: str) -> bool:
-        return any(p.search(line) for p in pats)
+        if any(p.search(line) for p in pats) or any(p.search(line) for p in pattern_pats):
+            return True
+        for token in re.findall(r"[A-Za-z_][A-Za-z0-9_]*", line):
+            lowered = token.lower()
+            if lowered not in exception_words and any(word in lowered for word in identifier_words):
+                return True
+        return False
     return hit
 
 
-def public_files() -> list:
+def public_files(excluded_layer: pathlib.Path | None = None) -> list:
     out = subprocess.run(["git", "-C", str(ROOT), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
                          check=True, capture_output=True).stdout
     paths = [p for p in out.decode("utf-8").split("\0") if p]
-    return [p for p in paths if not p.startswith("content/private/") and (ROOT / p).is_file()]
+    files = []
+    for path in paths:
+        candidate = ROOT / path
+        if path.startswith("content/private/") or not candidate.is_file():
+            continue
+        if excluded_layer:
+            try:
+                candidate.resolve().relative_to(excluded_layer.resolve())
+                continue
+            except ValueError:
+                pass
+        files.append(path)
+    return files
 
 
 def main() -> int:
@@ -87,11 +121,11 @@ def main() -> int:
     if layer is None:
         print("非公開の層が無いので、物語の語の検査は飛ばす")
         return 0
-    words = load_words(layer)
-    if not words:
-        print("非公開の層に禁止語が無い(forbidden.json を確かめる)")
+    words, patterns, identifiers, exceptions = load_rules(layer)
+    if not words and not patterns and not identifiers:
+        print("非公開の層に検査規則が無い(forbidden.json と tools/public-words.json を確かめる)")
         return 1
-    hit = matcher(words)
+    hit = matcher(words, patterns, identifiers, exceptions)
     found = []
 
     args = sys.argv[1:]
@@ -108,7 +142,7 @@ def main() -> int:
         print(__doc__)
         return 2
     else:
-        for rel in public_files():
+        for rel in public_files(layer):
             try:
                 text = (ROOT / rel).read_text(encoding="utf-8")
             except (UnicodeDecodeError, OSError):
@@ -122,7 +156,7 @@ def main() -> int:
     if found:
         print(f"物語の語が公開リポジトリに {len(found)} か所ある(語はログに出さない。手元で該当の行を見て直す)")
         return 1
-    print(f"物語の語は見つからない(語 {len(words)})")
+    print(f"物語の語は見つからない(語 {len(words)}、正規表現 {len(patterns)}、識別子 {len(identifiers)})")
     return 0
 
 
