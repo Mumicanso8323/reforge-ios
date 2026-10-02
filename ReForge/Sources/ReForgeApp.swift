@@ -161,7 +161,7 @@ final class AppModel {
     }
 }
 
-/// 全画面の共通の土台。広告枠コンテナの内側に画面を置くので、どの画面でも上下の枠は残る。
+/// 全画面の共通の土台。広告枠コンテナの内側に画面を置くので、どの画面でも下の枠は残る。
 struct RootView: View {
     @Bindable var app: AppModel
     @Environment(\.scenePhase) private var scenePhase

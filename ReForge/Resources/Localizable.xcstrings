@@ -391,16 +391,6 @@
         }
       }
     },
-    "上下の広告を消します。ゲームの内容は変わりません。": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "上下の広告を消します。ゲームの内容は変わりません。"
-          }
-        }
-      }
-    },
     "下の段を選んで積む": {
       "localizations": {
         "ja": {
@@ -707,6 +697,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "広告は非表示です"
+          }
+        }
+      }
+    },
+    "広告を消します。ゲームの内容は変わりません。": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "広告を消します。ゲームの内容は変わりません。"
           }
         }
       }

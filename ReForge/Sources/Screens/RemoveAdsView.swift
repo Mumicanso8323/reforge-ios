@@ -21,7 +21,7 @@ struct RemoveAdsView: View {
             Text("広告を消す")
                 .font(InkFont.heading)
                 .tracking(InkFont.headingTracking)
-            Text("上下の広告を消します。ゲームの内容は変わりません。")
+            Text("広告を消します。ゲームの内容は変わりません。")
                 .lineSpacing(InkFont.bodyLineSpacing / 2)
             if let price {
                 Text(verbatim: price)

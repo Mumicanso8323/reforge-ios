@@ -1,8 +1,8 @@
 import SwiftUI
 import ReForgeEngine
 
-/// 主画面(order.md §5.5)。縦の並び: (上の広告枠) / 状態の帯 / 地図(残り全部) / 足元カード / タブ / (下の広告枠)。
-/// 広告枠は RootView の AdBannerContainer が上下に確保する。
+/// 主画面(order.md §5.5)。縦の並び: 状態の帯 / 地図(残り全部) / 足元カード / タブ / (下の広告枠)。
+/// 広告枠は RootView の AdBannerContainer が下に 1 つ確保する。
 struct GameScreen: View {
     @Bindable var app: AppModel
     let store: GameStore
