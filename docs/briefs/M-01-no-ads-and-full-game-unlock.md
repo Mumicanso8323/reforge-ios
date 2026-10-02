@@ -68,7 +68,7 @@
   - **アプリが書く印を権利の根拠にしない**(`UserDefaults` に権利を書かない。G §1.2)。
 - ビルドの設定で門を開ける口(リーダーの指示 2026-10-02。dev の版をどうするかはオーナーの答え待ち):
   - `Info.plist` の値 `ReForgeTrialGateOpen`(Bool)を、ビルドの設定 `REFORGE_TRIAL_GATE_OPEN`(`project.yml` の設定。**既定 `NO`**)から入れる。`YES` のビルドでは、アプリが本体に渡す `Entitlements.fullGame` を常に `true` にする(StoreKit の権利とは別の口。権利の表示は StoreKit のまま)。
-  - 既定のビルド(release も含む)は `NO`。dev の版を `YES` にするかは、CI の dev のジョブの 1 行(`xcodebuild … REFORGE_TRIAL_GATE_OPEN=YES`)で切り替えられるようにし、**この作業では `NO` のまま**にする(ジョブの行はコメントで用意だけ)。
+  - 既定のビルド(release も含む)は `NO`。**dev の版(SideStore で配る `releases/download/dev` の ipa)は `YES`**(オーナーの決定 2026-10-02。店に出すまで。出すときに決め直す)。CI の dev のジョブの xcodebuild に `REFORGE_TRIAL_GATE_OPEN=YES` を付ける。ほかのジョブ(単体テスト・画面の写真・release)は `NO` のまま。
   - 口の値はアプリの起動時に 1 度だけ読み、実行中に変えられない(`UserDefaults` や設定の画面からは変えられない)。
   - テスト: 既定のビルドで値が `NO`(`Bundle.main` から読めること)を `ReForgeTests` で確かめる。
 - `AppModel` が権利(`Entitlements`)を持ち、`GameStore` の `Simulation`・`FrameBuilder` に渡す。権利が変わったら作り直して渡す(世界はそのまま)。
