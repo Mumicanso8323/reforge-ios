@@ -4,8 +4,6 @@ import SwiftUI
 enum AdLayout {
     /// 枠の高さ。読み込み前から確保し、読み込みに失敗しても畳まない。
     static let bannerHeight: CGFloat = 50
-    /// 枠とゲームの操作要素の間の、押せない余白(8pt 以上)。
-    static let contentGap: CGFloat = 8
     /// 最下段の「休む」と下の枠の間(12pt 以上)。
     static let bottomButtonGap: CGFloat = 12
 }

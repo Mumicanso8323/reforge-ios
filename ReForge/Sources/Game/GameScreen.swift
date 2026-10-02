@@ -1,8 +1,8 @@
 import SwiftUI
 import ReForgeEngine
 
-/// 主画面(order.md §5.5)。縦の並び: 状態の帯 / 地図(残り全部) / 足元カード / タブ / (下の広告枠)。
-/// 広告枠は RootView の AdBannerContainer が下に 1 つ確保する。
+/// 主画面(order.md §5.5)。縦の並び: 状態の帯 / 地図(残り全部) / 足元カード / タブ。
+/// 縦の余白は安全域に任せる(広告はやめた)。序の間は、何も描かない(序は RootView の PrologueScene が画面全体で覆う。時計だけ回す)。
 struct GameScreen: View {
     @Bindable var app: AppModel
     let store: GameStore
@@ -15,35 +15,32 @@ struct GameScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if store.prologue == nil {
+            if app.activePrologue == nil {
                 StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed || ArtProvider.shared.failed)
                 BattleBandView(store: store)
             }
             ZStack {
                 // 地図は他のタブの間も残す(視点を保つ。時計も止めない)
-                MapCanvasView(store: store)
-                    .opacity(tab == .map ? 1 : 0)
-                    .allowsHitTesting(tab == .map)
-                if tab != .map {
+                if app.activePrologue == nil {
+                    MapCanvasView(store: store)
+                        .opacity(tab == .map ? 1 : 0)
+                        .allowsHitTesting(tab == .map)
+                }
+                if tab != .map, app.activePrologue == nil {
                     PanelView(tab: tab, app: app, store: store)
                 }
                 if store.runEnded {
                     GameOverView(app: app, store: store)
                 }
-                if let prologue = store.prologue {
-                    PrologueLayer(prologue: prologue, store: store)
-                        .transition(.opacity.animation(.easeOut(duration: 0.8)))
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if tab == .map, store.prologue == nil {
+            if tab == .map, app.activePrologue == nil {
                 FootCardView(store: store)
             }
-            if store.prologue == nil {
+            if app.activePrologue == nil {
                 TabBarView(tab: $tab, ui: store.ui)
             }
         }
-        .padding(.vertical, AdLayout.contentGap)
         .background(InkColor.field)
         .task { await store.run() }
         .onChange(of: store.requestedTab) { _, t in

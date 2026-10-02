@@ -7,6 +7,8 @@ enum InkColor {
     // 地
     /// 遊びの面の地(地図の下)。原作どおりの黒。
     static let field = Color.black
+    /// 序の場面だけの地(PT-B6)。画面全体を覆う語りの地。黒(field)ともふつうの地(ground)とも違う、ごく暗い藍。
+    static let prologueGround = Color(red: 0.027, green: 0.031, blue: 0.047)
     /// 画面の地(帯・札・パネルの外側)。
     static let ground = Color(red: 0.067, green: 0.075, blue: 0.098)
     /// パネルの地(一段持ち上がった面)。

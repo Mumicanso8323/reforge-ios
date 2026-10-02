@@ -293,7 +293,7 @@ jobs:
           xcrun simctl bootstatus "$udid" -b
           xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
 
-      # 60 枚(5 言語 × 12 画面)。検査に当たると失敗する。ログは artifact に上げない(公開の層だけだが、小さく保つ)。
+      # 65 枚(5 言語 × 13 画面)。序の動画のテスト(PrologueVideoTests)は次の step で、録画しながら回す。検査に当たると失敗する。ログは artifact に上げない(公開の層だけだが、小さく保つ)。
       - name: 画面の写真を撮る
         run: |
           set -o pipefail
@@ -301,9 +301,36 @@ jobs:
           xcodebuild test -project ReForge.xcodeproj -scheme ReForgeScreens \
             -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build-screens \
             -resultBundlePath screens.xcresult \
+            -skip-testing:ReForgeUITests/PrologueVideoTests \
             CODE_SIGNING_ALLOWED=NO > screens-test.log 2>&1 \
             || { grep -E "error:|failed|Undefined symbol" screens-test.log | sort -u | head -80; tail -40 screens-test.log; exit 1; }
           grep -E "Test Case .*(passed|failed)|Executed|\*\* TEST" screens-test.log | tail -20
+
+      # 序の短い動画(PT-B6 §3)。simctl の recordVideo を回したまま、UI テストが序の見本を起動から地図まで送る(案 A・B・C の 3 本)。
+      # 動画は試験の見本の文だけを写す(公開の層)。録画が止まる等で撮れなくても、ジョブは落とさない(要約に 1 行出す)。
+      - name: 序の動画を撮る(案 A・B・C)
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p screens-video
+          for s in A B C; do
+            out="screens-video/prologue-$(echo "$s" | tr 'A-Z' 'a-z').mp4"
+            xcrun simctl io "${{ steps.sim.outputs.udid }}" recordVideo --codec=h264 --force "$out" > /dev/null 2>&1 &
+            rec=$!
+            sleep 3
+            xcodebuild test-without-building -project ReForge.xcodeproj -scheme ReForgeScreens \
+              -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build-screens \
+              -only-testing:ReForgeUITests/PrologueVideoTests/testStyle$s \
+              CODE_SIGNING_ALLOWED=NO > "video-$s.log" 2>&1 || echo "動画 $s: テストが落ちた(動画はあれば残す)"
+            kill -INT "$rec" 2>/dev/null || true
+            wait "$rec" 2>/dev/null || true
+            if [ -s "$out" ]; then
+              echo "動画 $s: 撮れた($(stat -f%z "$out") バイト)"
+            else
+              echo "動画 $s: 撮れなかった(ランナーで録画が止まった)"
+              echo "序の動画 $s: 撮れなかった(ジョブは落とさない)" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          done
 
       # xcresult の添付を PNG と report.json に出す(Xcode 16 以降の xcresulttool export attachments)。失敗しても出す。
       - name: 添付を取り出す
@@ -323,5 +350,6 @@ jobs:
           path: |
             screens/*.png
             screens/report.json
+            screens-video/*.mp4
           if-no-files-found: warn
           retention-days: 14

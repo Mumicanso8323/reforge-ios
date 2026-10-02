@@ -54,7 +54,12 @@ final class SettingsCornerWindow: UIWindow {
 enum SettingsCornerWindows {
     private static var windows: [ObjectIdentifier: SettingsCornerWindow] = [:]
 
-    static func install(in scene: UIWindowScene, app: AppModel) {
+    /// 角のボタンを出すか(序の間は隠す。窓ごと isHidden。PT-B6)。
+    static func setVisible(_ visible: Bool, in scene: UIWindowScene) {
+        windows[ObjectIdentifier(scene)]?.isHidden = !visible
+    }
+
+    static func install(in scene: UIWindowScene, app: AppModel, visible: Bool = true) {
         let key = ObjectIdentifier(scene)
         if windows[key] != nil { return }
         let window = SettingsCornerWindow(windowScene: scene)
@@ -63,7 +68,7 @@ enum SettingsCornerWindows {
         window.rootViewController = host
         window.backgroundColor = .clear
         window.windowLevel = UIWindow.Level.normal + 1
-        window.isHidden = false
+        window.isHidden = !visible
         windows[key] = window
     }
 }
@@ -71,10 +76,13 @@ enum SettingsCornerWindows {
 /// RootView の背面に置き、シーンが分かった時点で角の窓を入れる。
 struct SettingsCornerInstaller: UIViewRepresentable {
     let app: AppModel
+    /// 角のボタンを出すか(AppModel.cornerButtonVisible。序の間は false)。
+    var visible = true
 
     func makeUIView(context: Context) -> InstallerView {
         let v = InstallerView()
         v.app = app
+        v.visible = visible
         v.isUserInteractionEnabled = false
         v.isAccessibilityElement = false
         return v
@@ -82,11 +90,13 @@ struct SettingsCornerInstaller: UIViewRepresentable {
 
     func updateUIView(_ uiView: InstallerView, context: Context) {
         uiView.app = app
+        uiView.visible = visible
         uiView.installIfPossible()
     }
 
     final class InstallerView: UIView {
         var app: AppModel?
+        var visible = true
 
         override func didMoveToWindow() {
             super.didMoveToWindow()
@@ -95,7 +105,11 @@ struct SettingsCornerInstaller: UIViewRepresentable {
 
         func installIfPossible() {
             guard let scene = window?.windowScene, let app else { return }
-            MainActor.assumeIsolated { SettingsCornerWindows.install(in: scene, app: app) }
+            let visible = visible
+            MainActor.assumeIsolated {
+                SettingsCornerWindows.install(in: scene, app: app, visible: visible)
+                SettingsCornerWindows.setVisible(visible, in: scene)
+            }
         }
     }
 }

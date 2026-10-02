@@ -58,7 +58,6 @@ struct TitleView: View {
                 Spacer().frame(height: 40)
             }
             .padding(.horizontal, 24)
-            .padding(.vertical, AdLayout.contentGap)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
