@@ -9,6 +9,7 @@
 @_exported import RFFailure
 @_exported import RFInvention
 @_exported import RFKernel
+@_exported import RFText
 @_exported import RFLogistics
 @_exported import RFMap
 @_exported import RFMatter
