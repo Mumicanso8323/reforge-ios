@@ -25,6 +25,12 @@ struct StatusBandView: View {
                                 Text(verbatim: item.label).foregroundStyle(InkColor.textDim)
                                 Text(verbatim: item.value)
                                     .foregroundStyle(item.alert ? InkColor.alert : InkColor.text)
+                                if let g = item.gauge {
+                                    // 棒と、意味の書かれていない目盛り(§10 HNT-05。U18)
+                                    Text(verbatim: GaugeText.render(g, width: 12))
+                                        .foregroundStyle(InkColor.textDim)
+                                        .accessibilityIdentifier("gauge-\(item.key)")
+                                }
                             }
                         }
                     }

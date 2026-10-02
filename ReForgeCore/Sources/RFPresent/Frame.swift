@@ -117,6 +117,8 @@ public struct StatusItem: Equatable, Sendable {
     public var value: String
     /// 危ない(赤く出す)。
     public var alert: Bool
+    /// 棒と目盛り(見え方が showMarks のときだけ。U18)。
+    public var gauge: StatGauge? = nil
 
     public init(key: String, label: String, value: String, alert: Bool) {
         self.key = key
@@ -511,10 +513,43 @@ public struct FootCard: Equatable, Sendable {
     public var point: GridPoint
     public var title: String
     public var actions: [Action]
+    /// このマスの残骸から開ける資料(残骸の装置の資料など。行為の数には数えない。U18)。
+    public var documents: [DocumentLink] = []
+
+    public struct DocumentLink: Equatable, Sendable {
+        public var id: DocumentID
+        public var title: String
+
+        public init(id: DocumentID, title: String) {
+            self.id = id
+            self.title = title
+        }
+    }
 
     public init(point: GridPoint, title: String, actions: [Action]) {
         self.point = point
         self.title = title
         self.actions = actions
+    }
+}
+
+/// 数値の棒と目盛り(千分率の位置。目盛りの意味は書かない)。
+public struct StatGauge: Equatable, Sendable {
+    /// 棒の満ち(0...1000)。
+    public var fillPermille: Int
+    /// 目盛りの位置(0...1000)。
+    public var marks: [Int]
+
+    public init(fillPermille: Int, marks: [Int]) {
+        self.fillPermille = fillPermille
+        self.marks = marks
+    }
+
+    /// 値と目盛り(どちらも raw)から。一番大きな目盛りが右端の手前(1/11 の余白)に来る。
+    public static func make(value: Int64, marks: [Int]) -> StatGauge? {
+        guard let top = marks.max(), top > 0 else { return nil }
+        let scale = Int64(top) + Int64(top) / 10
+        func pos(_ v: Int64) -> Int { Int(max(0, min(1000, v * 1000 / max(1, scale)))) }
+        return StatGauge(fillPermille: pos(value), marks: marks.sorted().map { pos(Int64($0)) })
     }
 }

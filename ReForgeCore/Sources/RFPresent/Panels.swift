@@ -162,6 +162,8 @@ public struct BaseView: Equatable, Sendable {
     public var built: [Built]
     public var buildable: [BuildOption]
     public var lines: [Line]
+    /// まだ解禁されていない建造物の数(建てる一覧の「？」。名前は出さない。§10 HNT-13)。
+    public var unknownStructures: Int = 0
 }
 
 extension FrameBuilder {
@@ -203,7 +205,8 @@ extension FrameBuilder {
                                  movedToday: r.movedToday, blocked: r.blocked.map { p.text($0) })
         }
         return BaseView(stock: order.map { BaseView.StockLine(name: $0, quantity: stock[$0] ?? 0) }, built: built,
-                        buildable: buildable, lines: lines)
+                        buildable: buildable, lines: lines,
+                        unknownStructures: content.structures.keys.filter { !w.research.unlocked.structures.contains($0) }.count)
     }
 
     func buildPermille(_ pl: Placement, _ progress: Int) -> Int {
@@ -261,6 +264,8 @@ public struct CrewMemberView: Equatable, Sendable {
     public var relationNext: Int
     /// 出来事が配属を上書きしている(本人の割り当てに従っていない)。
     public var overridden: Bool
+    /// 立ち絵(無ければ枠ごと出さない)。
+    public var art: ArtID? = nil
 }
 
 /// 割り当ての選択肢 1 つ(どの一員にも同じ並びで出す)。
@@ -299,7 +304,8 @@ extension FrameBuilder {
                             conditions: ps.body.conditions.keys.sorted().filter { (ps.body.conditions[$0] ?? 0) > 0 }
                                 .map { p.name(Subject.stat($0)) }),
                 relationRank: ps.relation.rank, relationPoints: ps.relation.points,
-                relationNext: RelationState.threshold(rank: ps.relation.rank), overridden: ps.override != nil)
+                relationNext: RelationState.threshold(rank: ps.relation.rank), overridden: ps.override != nil,
+                art: p.art(Subject.person(id)))
         }
         return CrewView(members: members, choices: assignChoices(w, p, researchDesks))
     }
@@ -414,6 +420,8 @@ public struct ResearchView: Equatable, Sendable {
     public var studying: [String]
     /// 研究机があるか(無ければ選んでも進まない)。
     public var hasDesk: Bool
+    /// まだ見えていない研究の数(「この先にまだ n 件」。名前は出さない。§10 HNT-16)。
+    public var hiddenCount: Int = 0
 }
 
 extension FrameBuilder {
@@ -427,8 +435,9 @@ extension FrameBuilder {
             guard case .structure(let k) = pl.kind, pl.status == .running else { return false }
             return (content.structures[k]?.provides["research"] ?? 0) > 0
         }
+        let hidden = content.research.values.filter { !ResearchRules.isVisible($0, w, content) }.count
         return ResearchView(entries: entries, studying: w.research.studying.map { p.name(Subject.person($0)) },
-                            hasDesk: desk)
+                            hasDesk: desk, hiddenCount: hidden)
     }
 }
 

@@ -141,6 +141,16 @@
         }
       }
     },
+    "この先にまだ %lld 件": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この先にまだ %lld 件"
+          }
+        }
+      }
+    },
     "すべての権利を留保": {
       "localizations": {
         "ja": {
@@ -1347,6 +1357,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "読む"
+          }
+        }
+      }
+    },
+    "読める割合 %lld%%": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "読める割合 %lld%%"
           }
         }
       }

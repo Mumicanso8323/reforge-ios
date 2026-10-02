@@ -22,6 +22,12 @@ struct CrewTabView: View {
                         .buttonStyle(.inkRow)
                         .accessibilityIdentifier("crew-\(m.id.rawValue)")
                         if selected == m.id {
+                            if let a = m.art {
+                                // 立ち絵の全身(11:25 のまま縮める。絵が無ければ ArtView は場所を取らない)
+                                ArtView(id: a)
+                                    .frame(maxWidth: 160, maxHeight: 364)
+                                    .frame(maxWidth: .infinity)
+                            }
                             BodyGauges(vitals: m.body)
                             if store.ui.isOpen(UIElements.crewAssign) {
                                 AssignChips(member: m, choices: crew.choices, store: store)
@@ -54,7 +60,7 @@ struct CrewTabView: View {
 
     private func relation(_ m: CrewMemberView) -> Text? {
         guard !m.isNoah, store.ui.isOpen(UIElements.crewRelation) else { return nil }
-        return Text(verbatim: "♥\(m.relationRank)")
+        return Text("♥\(m.relationRank)")
     }
 }
 
