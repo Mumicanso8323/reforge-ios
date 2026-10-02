@@ -345,6 +345,8 @@ public struct InteractionDef: ContentDef, Equatable {
     public var depositCategories: [DepositCategory]?
     /// この行為に要る刃の段(MiningDef の硬さと大きい方)。足りなければ理由つきで断る。
     public var bladeTier: Int?
+    /// 木を伐る行為か(獣の縄張りの入力。RaidLureDef.territory)。持ち主: U21
+    public var felling: Bool?
 }
 
 /// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。

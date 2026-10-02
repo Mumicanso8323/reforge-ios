@@ -133,7 +133,9 @@ enum Threats {
                                          modifiers: nil, known: ctx.world.knowledge.factSet)
                 guard gate > 0, !ctx.world.combat.plannedRaids.contains(where: { $0.kind == kind }),
                       lure(kind, raid, darkOnly: false, ctx) >= th else { continue }
+                let before = ctx.world.combat.plannedRaids.count
                 planRaid(kind, raid, target: target, def: def, &ctx)
+                if ctx.world.combat.plannedRaids.count > before { ctx.emit(.lured(enemy: kind)) }
                 continue
             }
             let base = darkOnly ? 0 : raid.perNight
@@ -169,7 +171,7 @@ enum Threats {
             PlannedRaid(kind: kind, count: count, at: ctx.world.clock.now + .hours(hours), nest: nest))
     }
 
-    /// 獣が寄る 3 つの入力の足し(確率の型では万分率、しきい値の型では点)。煙 = 燃えている火床の数、縄張り = 巣のそばの置いた物、闇 = 焚き火が消えている。
+    /// 獣が寄る 3 つの入力の足し(確率の型では万分率、しきい値の型では点)。煙 = 燃えている火床の数、縄張り = その日に巣のそばで伐った回数、闇 = 焚き火が消えている。
     static func lure(_ kind: EnemyKindID, _ raid: RaidDef, darkOnly: Bool, _ ctx: StepContext) -> Int {
         guard let l = raid.lure else { return 0 }
         let w = ctx.world
@@ -178,17 +180,21 @@ enum Threats {
         let dark = !hearths.isEmpty && lit == 0 ? (l.dark ?? 0) : 0
         if darkOnly { return dark }
         var add = lit * (l.smoke ?? 0) + dark
-        if let t = l.territory, t > 0, let fc = l.fellingCounter {
-            add += (w.narrative.counters[fc] ?? 0) * t
-        } else if let t = l.territory, t > 0 {
-            let r = l.territoryRadius ?? 6
-            let nestPoints = nests(of: kind, ctx).map(\.1.at)
-            let near = w.placements.items.values.filter { p in
-                p.at.layer == .surface && nestPoints.contains { $0.chebyshev(to: p.at.point) <= r }
-            }.count
-            add += near * t
+        if let t = l.territory, t > 0 {
+            add += (w.combat.felledToday?[kind] ?? 0) * t
         }
         return add
+    }
+
+    /// 木を伐った出来事: その場所が、その獣の巣(見つけていなくても)から lure の半径以内なら、その日の縄張りに 1 足す。
+    static func noteFelling(at pos: WorldPoint, _ ctx: inout StepContext) {
+        guard pos.layer == .surface else { return }
+        for (kind, d) in ctx.content.enemies.sorted(by: { $0.key < $1.key }) {
+            guard let l = d.raid?.lure, (l.territory ?? 0) > 0 else { continue }
+            let r = l.territoryRadius ?? 15
+            guard nests(of: kind, ctx).contains(where: { $0.1.at.chebyshev(to: pos.point) <= r }) else { continue }
+            ctx.world.combat.felledToday = (ctx.world.combat.felledToday ?? [:]).merging([kind: 1], uniquingKeysWith: +)
+        }
     }
 
     /// 時刻の来た群れを出す(夜だけ)。

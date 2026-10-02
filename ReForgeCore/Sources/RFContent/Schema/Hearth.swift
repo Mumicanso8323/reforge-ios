@@ -70,8 +70,10 @@ public struct HearthDef: Codable, Equatable, Sendable {
 public enum HearthEffectOp: Codable, Hashable, Sendable {
     /// 燃料を足す(材料は行為の cost で払う)。消えていれば足すだけで、点けるのは ignite。
     case addFuel(item: ItemID, quantity: Int)
-    /// 消えた火を点ける。定義の igniteSeconds まで燃料を入れる(必ず点く)。埋めた火は起こす。
-    case ignite
+    /// 消えた火を点ける。定義の igniteSeconds まで燃料を入れる。埋めた火は起こす。
+    /// chancePermille があれば、その確率でだけ点く(失敗しても行為の cost は払ったまま)。行為をした人が skill を
+    /// 持っていれば skillChancePermille になる。乱数は決定的な流れ "hearth"。省略はどれも必ず点く。
+    case ignite(chancePermille: Int? = nil, skill: SkillID? = nil, skillChancePermille: Int? = nil)
     /// 火を埋める(減りが少なく、灯りは小さい。起こすと戻る)。
     case bank
 }
