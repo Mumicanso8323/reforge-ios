@@ -70,6 +70,25 @@ public struct FrameBuilder: Sendable {
         frame.battles = battles(w, p)
         frame.defaultStance = w.combat.defaultStance
         frame.benchRevision = Self.benchRevision(previous: previous, report: report, revision: revision, day: w.clock.day)
+        if let prologue = prologue(w, p) {
+            frame.prologue = prologue
+            frame.status = []
+            frame.objective = nil
+            frame.map.vision = []
+            frame.map.beacons = []
+            frame.map.chunkRevisions = Array(repeating: revision, count: frame.map.chunkRevisions.count)
+            frame.map.chunkSignatures = Array(repeating: -1, count: frame.map.chunkSignatures.count)
+            frame.actors = []
+            frame.placements = []
+            frame.route = []
+            frame.focus = nil
+            frame.decision = nil
+            frame.sceneLines = []
+            frame.battles = []
+            frame.ui = UIUnlocks(gated: Set(UIElements.all), open: [])
+            frame.newlyOpened = []
+            frame.shadows = []
+        }
         return frame
     }
 
@@ -172,13 +191,26 @@ public struct FrameBuilder: Sendable {
 
     func sceneLines(_ w: WorldState, _ p: Perceiver) -> [String] {
         guard let s = w.narrative.scene, let def = content.scenes[s.scene] else { return [] }
+        guard def.style != .prologue else { return [] }
         return def.lines.prefix(s.line + 1).suffix(3).map { p.text($0.text) }
+    }
+
+    func prologue(_ w: WorldState, _ p: Perceiver) -> PrologueView? {
+        guard let s = w.narrative.scene, let def = content.scenes[s.scene], def.style == .prologue else { return nil }
+        return PrologueView(lines: def.lines.prefix(s.line + 1).map { p.text($0.text) }, waiting: true)
     }
 
     // MARK: - 地図の引き出し
 
     /// 区画の中身(画面が版の変わった区画だけ引く)。
     public func chunks(_ w: WorldState, _ indices: [Int], map: MapView) -> [MapChunk] {
+        if prologue(w, Perceiver(content: content, world: w)) != nil {
+            return indices.filter { $0 >= 0 && $0 < map.chunkRevisions.count }.map { index in
+                let rect = map.chunkRect(index)
+                return MapChunk(index: index, revision: map.chunkRevisions[index], rect: rect,
+                                tiles: Array(repeating: .void, count: rect.size.count))
+            }
+        }
         let proj = MapProjector(world: w, content: content, perceiver: Perceiver(content: content, world: w), layer: layer)
         let n = map.chunkColumns * map.chunkRows
         return indices.filter { $0 >= 0 && $0 < n }.map { proj.chunk($0, map: map) }
@@ -220,6 +252,9 @@ public struct FrameBuilder: Sendable {
     /// 足元カード: 注目しているマスの名前と、いまできる行為(1〜3 個)。
     /// 行為はコンテンツの InteractionDef(対象・昼夜・条件)から引く。距離・回数の上限は探索の担当が断る(理由は足元カードに 1 行)。
     public func footCard(_ w: WorldState, at pt: GridPoint) -> FootCard? {
+        if prologue(w, Perceiver(content: content, world: w)) != nil {
+            return FootCard(point: pt, title: "", actions: [])
+        }
         let p = Perceiver(content: content, world: w)
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
         guard let l = proj.layer, proj.size.contains(pt), let terrain = l.terrain(at: pt) else { return nil }

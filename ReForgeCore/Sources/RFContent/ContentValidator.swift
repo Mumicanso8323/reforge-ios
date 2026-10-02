@@ -35,6 +35,7 @@ public enum ContentValidator {
         startMembersExist(db, &out)
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)
+        scenesWellFormed(db, &out)
         narrativeRules(db, &out)  // 出来事まわり(U11。Schema/Condition.swift)
         worldTypeRules(db, &out)
         codexShadowsWellFormed(db, &out)  // 図鑑の影の欄(U17。Schema/CodexShadows.swift)
@@ -350,6 +351,81 @@ public enum ContentValidator {
         }
         for (id, e) in db.events.sorted(by: { $0.key < $1.key }) where usesDay(e.trigger.when) {
             out.append(Issue(level: .warning, rule: "event.no-day-trigger", message: "\(id) の引き金が日数"))
+        }
+    }
+
+    /// 場面のページ送りと、冒頭の文章だけの制約。
+    static func scenesWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        let scenes = db.scenes
+        for (id, scene) in scenes.sorted(by: { $0.key < $1.key }) {
+            if let next = scene.then, scenes[next] == nil {
+                out.append(Issue(level: .error, rule: "scene.then", message: "\(id) の次の場面 \(next) が無い"))
+            }
+        }
+
+        enum Mark { case visiting, done }
+        var marks: [SceneID: Mark] = [:]
+        var reported = Set<SceneID>()
+        func visit(_ id: SceneID) {
+            switch marks[id] {
+            case .visiting?:
+                if reported.insert(id).inserted {
+                    out.append(Issue(level: .error, rule: "scene.then", message: "\(id) を含む次の場面が輪になっている"))
+                }
+                return
+            case .done?: return
+            case nil: break
+            }
+            marks[id] = .visiting
+            if let next = scenes[id]?.then, scenes[next] != nil { visit(next) }
+            marks[id] = .done
+        }
+        for id in scenes.keys.sorted() { visit(id) }
+
+        let prologues = Set(scenes.compactMap { $0.value.style == .prologue ? $0.key : nil })
+        guard !prologues.isEmpty else { return }
+
+        func reportUnexpectedStart(_ scene: SceneID, _ origin: String) {
+            guard prologues.contains(scene) else { return }
+            out.append(Issue(level: .error, rule: "scene.prologue.start", message: "\(origin) が冒頭の場面 \(scene) を始める"))
+        }
+        func sceneEffects(_ effects: [Effect], _ origin: String) {
+            for effect in effects {
+                if case .startScene(let scene) = effect { reportUnexpectedStart(scene, origin) }
+            }
+        }
+
+        let startEvents = Set(db.start.events ?? [])
+        for (id, event) in db.events.sorted(by: { $0.key < $1.key }) {
+            let origin = "event \(id)"
+            if !startEvents.contains(id) {
+                if let scene = event.scene { reportUnexpectedStart(scene, origin) }
+                sceneEffects(event.effects, origin)
+            }
+            for choice in event.choices ?? [] { sceneEffects(choice.effects, "\(origin) / \(choice.id)") }
+        }
+        for (id, objective) in db.objectives.sorted(by: { $0.key < $1.key }) {
+            sceneEffects(objective.effects ?? [], "objective \(id)")
+        }
+        for (id, ending) in db.endings.sorted(by: { $0.key < $1.key }) {
+            if let scene = ending.scene { reportUnexpectedStart(scene, "ending \(id)") }
+            sceneEffects(ending.effects ?? [], "ending \(id)")
+        }
+        for (id, scene) in scenes.sorted(by: { $0.key < $1.key }) {
+            if let next = scene.then, scene.style != .prologue { reportUnexpectedStart(next, "scene \(id)") }
+        }
+
+        let prohibited = #"[0-9０-９A-Za-zＡ-Ｚａ-ｚ]"#
+        let japanese = db.textTables.tables[.ja] ?? [:]
+        for (id, scene) in scenes.sorted(by: { $0.key < $1.key }) where scene.style == .prologue {
+            for line in scene.lines {
+                if line.when != nil {
+                    out.append(Issue(level: .error, rule: "scene.prologue.when", message: "\(id) の行に when がある"))
+                }
+                if let text = japanese[line.text], text.range(of: prohibited, options: .regularExpression) != nil {
+                    out.append(Issue(level: .error, rule: "scene.prologue.text", message: "\(id) の行に数字かラテン文字がある"))
+                }
+            }
         }
     }
 

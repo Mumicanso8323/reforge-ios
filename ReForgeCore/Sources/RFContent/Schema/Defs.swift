@@ -699,6 +699,11 @@ public struct ChoiceDef: Codable, Equatable, Sendable {
     public var tags: [ProvenanceTag]?
 }
 
+public enum SceneStyle: String, Codable, Sendable {
+    case bubble
+    case prologue
+}
+
 /// 場面: 定型文の並び。地図の上に 3 行まで。長い本文は資料(SheetDef / ノート)に置く。
 public struct SceneDef: ContentDef, Equatable {
     public struct Line: Codable, Equatable, Sendable {
@@ -709,6 +714,10 @@ public struct SceneDef: ContentDef, Equatable {
 
     public var id: SceneID
     public var lines: [Line]
+    /// nil は従来どおり地図上のふきだし。
+    public var style: SceneStyle?
+    /// 最後の行の次に続けて始める場面。
+    public var then: SceneID?
 }
 
 /// 工程表(設計画面と同じ部品で開ける表)。ライン札・試作のほか、ある装置の記録なども表として開ける。

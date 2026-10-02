@@ -52,6 +52,14 @@ public struct Simulation: Sendable {
             report.rejection = Rejection("reason.run.not_active")
             return report
         }
+        if let scene = world.narrative.scene,
+           content.scenes[scene.scene]?.style == .prologue,
+           command != .narrative(.advanceScene),
+           !isFireFromEffect(command)
+        {
+            report.rejection = Rejection("reason.scene.prologue")
+            return report
+        }
         var ctx = StepContext(world: world, content: content)
         let result = dispatch(command, &ctx)
         if ctx.world.clock.held, case .accepted = result, Self.releasesHold(command) {
@@ -79,6 +87,11 @@ public struct Simulation: Sendable {
         case .crew(.walk), .crew(.stop), .narrative(.advanceScene), .narrative(.fireFromEffect): false
         default: true
         }
+    }
+
+    private func isFireFromEffect(_ command: Command) -> Bool {
+        if case .narrative(.fireFromEffect) = command { return true }
+        return false
     }
 
     /// 「寝る」を押したらどうなるかの見込み(W-11)。世界の写しに同じ規則で .time(.sleep) を当てた結果。

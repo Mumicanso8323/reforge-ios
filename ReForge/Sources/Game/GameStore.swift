@@ -28,6 +28,7 @@ final class GameStore {
     private(set) var focus: GridPoint?
     private(set) var decision: DecisionView?
     private(set) var sceneLines: [String]
+    private(set) var prologue: PrologueView?
     private(set) var runEnded: Bool
     /// 設計・ノートのタブが引き直す印(Frame.benchRevision。U17)。
     private(set) var benchRevision = 0
@@ -92,6 +93,7 @@ final class GameStore {
         focus = f.focus
         decision = f.decision
         sceneLines = f.sceneLines
+        prologue = f.prologue
         runEnded = f.runEnded
         ui = Self.shownUI(f)
         battles = f.battles
@@ -216,6 +218,7 @@ final class GameStore {
         if focus != f.focus { focus = f.focus }
         if decision != f.decision { decision = f.decision }
         if sceneLines != f.sceneLines { sceneLines = f.sceneLines }
+        if prologue != f.prologue { prologue = f.prologue }
         if runEnded != f.runEnded { runEnded = f.runEnded }
         if benchRevision != f.benchRevision { benchRevision = f.benchRevision }
         if ui != Self.shownUI(f) { ui = Self.shownUI(f) }

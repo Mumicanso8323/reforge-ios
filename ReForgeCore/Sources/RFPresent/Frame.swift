@@ -33,6 +33,8 @@ public struct Frame: Equatable, Sendable {
     public var decision: DecisionView?
     /// 流れている場面の行(地図の上のふきだしに 3 行まで)。
     public var sceneLines: [String]
+    /// 冒頭の文章を読んでいる間だけある。地図と通常の操作は隠す。
+    public var prologue: PrologueView?
     /// 短い知らせ(足元カードの上に数秒)。
     public var notices: [String]
     /// 見え方が書き換わった物(「書き換わった」演出の対象)。
@@ -59,7 +61,7 @@ public struct Frame: Equatable, Sendable {
     public init(revision: Int, clock: ClockView, status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,
                 decision: DecisionView?, sceneLines: [String], notices: [String], renamed: [String],
-                runEnded: Bool = false) {
+                runEnded: Bool = false, prologue: PrologueView? = nil) {
         self.revision = revision
         self.clock = clock
         self.status = status
@@ -71,9 +73,22 @@ public struct Frame: Equatable, Sendable {
         self.focus = focus
         self.decision = decision
         self.sceneLines = sceneLines
+        self.prologue = prologue
         self.notices = notices
         self.renamed = renamed
         self.runEnded = runEnded
+    }
+}
+
+public struct PrologueView: Equatable, Sendable {
+    public var lines: [String]
+    public var waiting: Bool
+    public var art: ArtID?
+
+    public init(lines: [String], waiting: Bool, art: ArtID? = nil) {
+        self.lines = lines
+        self.waiting = waiting
+        self.art = art
     }
 }
 

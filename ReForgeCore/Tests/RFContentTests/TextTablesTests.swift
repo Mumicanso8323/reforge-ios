@@ -83,8 +83,8 @@ final class TextTablesTests: XCTestCase {
 
     func testPublicJapaneseTextsPreservePreMoveCountAndContents() throws {
         let db = try TestContent.publicOnly()
-        XCTAssertEqual(db.texts.count, 205)
-        XCTAssertEqual(fingerprint(db.texts), 0xe86bc08f462bde8b)
+        XCTAssertEqual(db.texts.count, 206)
+        XCTAssertEqual(fingerprint(db.texts), 0x1f708a482f22ba49)
         XCTAssertEqual(ContentValidator.validate(db).filter { $0.level == .error }, [])
     }
 
