@@ -84,9 +84,9 @@ public enum TilePalette {
         case noah: return TileStyle(foreground: [RGB(255, 255, 100)])
         case member: return TileStyle(foreground: [RGB(230, 210, 170)])
         case stranger: return TileStyle(foreground: [RGB(200, 190, 170)])
-        case enemy: return TileStyle(foreground: [RGB(220, 60, 60)])
+        case enemy: return TileStyle(foreground: [RGB(170, 55, 55)])  // 暗い赤(予約の鮮やかな赤と見分ける)
         case module: return TileStyle(foreground: [RGB(220, 200, 60)])
-        case stopped: return TileStyle(foreground: [RGB(220, 80, 80)])
+        case stopped: return TileStyle(foreground: [RGB(150, 72, 72)])  // くすんだ赤(予約の鮮やかな赤と見分ける)
         case route: return TileStyle(foreground: [RGB(200, 200, 100)])
         default: break
         }
