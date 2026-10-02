@@ -3,6 +3,8 @@ name: ci
 # Re:Forge の CI。
 #   core: ReForgeCore を Linux で swift test(安くて速い)
 #   ios : xcodegen → シミュレータで単体テスト → 未署名 ipa を作る → (手動起動で release=true なら) プレリリース公開
+#   screens: 手動起動で screens=true のときだけ。公開の層だけのアプリで主な画面を 5 言語で撮り、PNG を artifact に上げる
+#            (docs/briefs/screen-snapshots.md。非公開の層は取り込まない)
 # ipa は未署名。SideStore が自分の Apple ID で再署名して入れる。
 
 on:
@@ -20,6 +22,10 @@ on:
         description: 'シミュレータでアプリの単体テストを回す'
         type: boolean
         default: true
+      screens:
+        description: '画面の写真を撮る(公開の層だけ。PNG を artifact screens に上げる)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -82,6 +88,12 @@ jobs:
       - name: 型の名前の重なり
         if: always()
         run: python3 tools/check-app-names.py
+      - name: ストアの原稿の置き場
+        if: always()
+        run: python3 tools/check-store-metadata.py
+      - name: 文字列カタログが画面の文言と合っている
+        if: always()
+        run: python3 tools/gen-xcstrings.py --check
       # 公開リポジトリに物語の語が入っていないこと(語は非公開の層の perception/forbidden.json)。
       # 当たった語・文はログに出さず、ファイルと行だけを出す。fork の PR など鍵が無いときは飛ばす。
       - name: 非公開のコンテンツを取り込む(物語の語の一覧のため)
@@ -224,3 +236,86 @@ jobs:
             gh release create dev --repo "${{ github.repository }}" --target "${{ github.sha }}" \
               --title "Re:Forge 最新の開発版" --notes "更新ショートカット用。常に最新のプレリリースと同じ ipa。" --prerelease
           gh release upload dev ReForge.ipa --repo "${{ github.repository }}" --clobber
+
+  # 画面の写真(docs/briefs/screen-snapshots.md)。公開リポジトリの artifact は誰でも見られるので、撮るのは公開の層だけ。
+  # 非公開のコンテンツ(reforge-content)も REFORGE_CONTENT_DEPLOY_KEY もこのジョブでは使わない。
+  # 手動起動で screens=true のときだけ回す(main への push では回さない)。core と app-switches は手動起動でも回るので、needs で飛ばされない。
+  screens:
+    name: 画面の写真(公開の層・5 言語)
+    if: github.event_name == 'workflow_dispatch' && inputs.screens
+    needs: [core, app-switches]
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Xcode
+        run: |
+          x=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1); echo "using $x"
+          sudo xcode-select -s "$x"; xcodebuild -version
+
+      # 非公開の層が無いこと(取り込む手順がこのジョブに無いので、あれば何かが紛れている)
+      - name: 非公開の層が無いこと
+        run: test ! -e content/private || { echo "content/private がある"; exit 1; }
+
+      - name: コンテンツの束を作る(公開の層だけ)
+        run: tools/content/stage.sh
+
+      # 束と鍵が公開の層だけであること(アプリの中でも撮る前に UI テストが同じことを確かめる)
+      - name: 束に非公開の層・鍵が無いこと
+        run: |
+          test ! -e AppContent/content/private.sealed || { echo "private.sealed がある"; exit 1; }
+          test ! -e AppContent/content/art.sealed || { echo "art.sealed がある"; exit 1; }
+          test ! -e AppContent/content/private || { echo "平文の private がある"; exit 1; }
+          grep -q 'static let key: Data? = nil' ReForge/Generated/ContentKey.swift || { echo "鍵が nil ではない"; exit 1; }
+
+      - name: XcodeGen
+        run: |
+          command -v xcodegen || brew install xcodegen
+          xcodegen --version
+          xcodegen generate
+
+      # 使える最初の iPhone を 1 機種に固定する(ios ジョブと同じ選び方)。時計は 9:41 に固定する。
+      - name: シミュレータを選ぶ
+        id: sim
+        run: |
+          v=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; x=next(x for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")); print(x["udid"] + "|" + x["name"])')
+          udid="${v%%|*}"; name="${v#*|}"
+          echo "simulator $udid ($name)"
+          echo "udid=$udid" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          xcrun simctl bootstatus "$udid" -b
+          xcrun simctl status_bar "$udid" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3 || true
+
+      # 60 枚(5 言語 × 12 画面)。検査に当たると失敗する。ログは artifact に上げない(公開の層だけだが、小さく保つ)。
+      - name: 画面の写真を撮る
+        run: |
+          set -o pipefail
+          rm -rf screens.xcresult
+          xcodebuild test -project ReForge.xcodeproj -scheme ReForgeScreens \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build-screens \
+            -resultBundlePath screens.xcresult \
+            CODE_SIGNING_ALLOWED=NO > screens-test.log 2>&1 \
+            || { grep -E "error:|failed|Undefined symbol" screens-test.log | sort -u | head -80; tail -40 screens-test.log; exit 1; }
+          grep -E "Test Case .*(passed|failed)|Executed|\*\* TEST" screens-test.log | tail -20
+
+      # xcresult の添付を PNG と report.json に出す(Xcode 16 以降の xcresulttool export attachments)。失敗しても出す。
+      - name: 添付を取り出す
+        if: always()
+        run: |
+          rm -rf screens-raw screens
+          if [ -d screens.xcresult ]; then
+            xcrun xcresulttool export attachments --path screens.xcresult --output-path screens-raw
+          fi
+          mkdir -p screens-raw screens
+          python3 tools/collect-screens.py screens-raw screens --device "${{ steps.sim.outputs.name }}"
+
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: screens
+          path: |
+            screens/*.png
+            screens/report.json
+          if-no-files-found: warn
+          retention-days: 14

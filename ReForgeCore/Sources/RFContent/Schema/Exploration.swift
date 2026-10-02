@@ -113,6 +113,10 @@ public struct BaseDef: Codable, Equatable, Sendable {
     public var housingTag: String?
     /// 拠点の格(低い順。格 n は、それより下の格の条件も全部成り立つときに付く)。結末の条件 baseGrade が読む。
     public var grades: [BaseGradeDef]?
+    /// 拠点の範囲の建設が進むのに要る火のタグ(例 "fire")。このタグを provides する建造物が効いている間だけ進む
+    /// (火床なら whenLit の段以上)。拠点の外に建てる物と、自分がこのタグを出す物(焚き火台)は火を見ない。
+    /// nil は火を見ない。持ち主: U21(W-02c)
+    public var constructionFireTag: String?
 
     public init(welcomeRequires: [Ingredient]? = nil, welcomeConsumes: Bool? = nil, housingTag: String? = nil) {
         self.welcomeRequires = welcomeRequires

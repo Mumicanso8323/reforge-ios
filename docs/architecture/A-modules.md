@@ -8,7 +8,7 @@ ReForgeCore パッケージ(Linux の `swift test` で全部確かめられる�
 
 ```
 L0  RFKernel                 型付き ID・座標・乱数(流れ別)・数(Purity/Milli)・時間・事実の式・Value
-L1  RFMap   RFMatter         葉: 地図(生成・視界・経路) / 物質(純度・形・命名の部品・工程の計算)
+L1  RFText  RFMap   RFMatter 葉: 文言の書式 / 地図(生成・視界・経路) / 物質(純度・形・命名の部品・工程の計算)
 L2  RFWorld  RFContent       世界状態(値型)・コマンド・出来事 / コンテンツのスキーマ・読み込み・検証
 L3  RFRules  RFPerception    システムの約束(SimSystem・StepContext)・条件と効果の評価・範囲の効果 / 認識の層・禁止語の監査
 L4  RFTime RFSurvival RFInvention RFProduction RFLogistics RFCrew RFExploration

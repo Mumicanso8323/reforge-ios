@@ -89,6 +89,9 @@ public struct POIDef: ContentDef, Equatable {
     /// 有限の部品の名前(残骸の区画など)。
     public var parts: [String]?
     public var parameters: Value
+    /// 遠景の半径(U19)。知っているマスからこのマス数以内なら、まだ踏んでいなくても霧の向こうに影が見える
+    /// (霧の端の手がかり 2 マスの代わり)。nil は 2 マス。
+    public var landmarkRadius: Int?
 }
 
 // MARK: - 作る・置く
@@ -198,6 +201,8 @@ public struct ModuleDef: ContentDef, Equatable {
     /// 壊れた物(Placement.destroyedBy がある)を片付けたときに戻る、払った材料の割合(千分率・端数は切り捨て)。
     /// 既定 500。壊れていない物は全部戻る。
     public var refundPermilleBroken: Int?
+    /// 火床(炉の熱。U22 が W-03 で使う。形は U21 の HearthDef)。
+    public var hearth: HearthDef?
 
     public init(id: ModuleKindID, cost: [Ingredient], placement: PlacementRule, ports: [PortDef], cycleSeconds: Int,
                 specialty: String? = nil, auras: [AuraKindID]? = nil, parameters: Value? = nil,
@@ -295,6 +300,10 @@ public struct StructureDef: ContentDef, Equatable {
     public var placement: PlacementRule?
     /// 付くと速く建つ専門(タグ)。持ち主: U8
     public var specialty: String?
+    /// 火床(燃料で燃え、放っておけば消える。焚き火台)。持ち主: U21
+    public var hearth: HearthDef?
+    /// provides と auras が効く火床の段の下限(nil は常に効く)。焚き火台は smoldering。持ち主: U21
+    public var whenLit: HearthLevel?
 }
 
 /// マス・POI・置いた物に対してできる行為(漁る・汲む・掘る・観測する…)。
@@ -331,6 +340,13 @@ public struct InteractionDef: ContentDef, Equatable {
     public var cooldownDays: Int?
     /// 対象のそばに何人いないと進まないか(大きすぎる扉や設備。既定 1)。
     public var requiredPeople: Int?
+    // 以下は U19 が足した(対象が deposit のときだけ見る)。
+    /// 掘れる鉱脈の種類(nil は全部)。ほかの種類のマスは対象にならない。
+    public var depositCategories: [DepositCategory]?
+    /// この行為に要る刃の段(MiningDef の硬さと大きい方)。足りなければ理由つきで断る。
+    public var bladeTier: Int?
+    /// 木を伐る行為か(獣の縄張りの入力。RaidLureDef.territory)。持ち主: U21
+    public var felling: Bool?
 }
 
 /// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。
@@ -829,6 +845,22 @@ public struct FindingDef: ContentDef, Equatable {
 }
 
 /// 始まりの世界。
+/// 始まりの時計(W-14)。
+public struct StartClockDef: Codable, Equatable, Sendable {
+    /// 始まりの日の番号(既定 1。序盤の設計では 0 =「目覚めた日」)。
+    public var day: Int?
+    /// 日没の何時間前から始めるか(既定: 夜明けから = 昼の長さ)。
+    public var hoursBeforeDusk: Int?
+    /// 最初の行為まで時計を止めるか(既定 false)。
+    public var held: Bool?
+
+    public init(day: Int? = nil, hoursBeforeDusk: Int? = nil, held: Bool? = nil) {
+        self.day = day
+        self.hoursBeforeDusk = hoursBeforeDusk
+        self.held = held
+    }
+}
+
 public struct StartDef: Codable, Equatable, Sendable {
     /// 最初からいる一員(ノアを含む)。
     public var members: [PersonID]
@@ -841,10 +873,13 @@ public struct StartDef: Codable, Equatable, Sendable {
     public var chapter: ChapterID?
     /// 始めに起こす出来事(目覚めの場面など)。
     public var events: [EventID]?
+    /// 始まりの時刻と時計の保留(W-14・W-01)。省略すると 1 日目の夜明けから、止めずに始める(今までどおり)。
+    public var clock: StartClockDef?
 
     public init(members: [PersonID], unmet: [PersonID]? = nil, items: [Yield] = [], facts: [FactID] = [],
                 unlocks: [UnlockTarget] = [], objectives: [ObjectiveID]? = nil, chapter: ChapterID? = nil,
-                events: [EventID]? = nil) {
+                events: [EventID]? = nil, clock: StartClockDef? = nil) {
+        self.clock = clock
         self.members = members
         self.unmet = unmet
         self.items = items

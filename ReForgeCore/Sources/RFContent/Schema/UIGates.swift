@@ -1,19 +1,19 @@
 import RFKernel
 
-public enum UIElementTag {}
-/// 画面の要素(タブ・ボタン・行為・パネル)の ID。文字列で決める(例 "tab.base"・"crew.assign"・
-/// "interaction.<InteractionID>")。表(ContentDB.uiGates)に無い要素はいつも出す。
-public typealias UIElementID = TypedID<UIElementTag>
-
 /// 画面の要素を出す条件(A Dark Room 式の段階的な解放)。条件は毎回評価する(状態は持たない)ので、
 /// 知った事実・建てた物の数のような戻らない条件で書く。どの要素をいつ出すかの中身は非公開の層が決める。
 public struct UIGateDef: ContentDef, Equatable {
     public var id: UIElementID
     public var when: Condition
+    /// 一度開いたら開いたままにするか(W-01)。nil は毎回評価する(今までどおり)。
+    /// 付いていれば、一度成り立った時に KnowledgeState.disclosed に理由と一緒に記録する。
+    /// 巻き戻しでは .knowledge だけが残り、.world は巻き戻した先の世界に従う(INV-O4)。
+    public var latch: DisclosureKind?
 
-    public init(id: UIElementID, when: Condition) {
+    public init(id: UIElementID, when: Condition, latch: DisclosureKind? = nil) {
         self.id = id
         self.when = when
+        self.latch = latch
     }
 }
 

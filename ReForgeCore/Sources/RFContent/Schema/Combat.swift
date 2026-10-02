@@ -112,10 +112,13 @@ public struct RaidDef: Codable, Equatable, Sendable {
     public var untilFact: FactExpr?
     /// 事実ごとの率の増減。
     public var factModifiers: [FactRateModifier]?
+    /// 獣が寄る 3 つの入力(煙・縄張り・闇。序盤の設計 W-02c)。nil なら率は perNight のまま。持ち主: U21
+    public var lure: RaidLureDef?
 
     public init(perNight: Int, fromDay: Int? = nil, min: Int? = nil, max: Int? = nil, requiresNest: Bool? = nil,
                 requiresKnownNest: Bool? = nil, requiresFact: FactExpr? = nil, untilFact: FactExpr? = nil,
-                factModifiers: [FactRateModifier]? = nil) {
+                factModifiers: [FactRateModifier]? = nil, lure: RaidLureDef? = nil) {
+        self.lure = lure
         self.perNight = perNight
         self.fromDay = fromDay
         self.min = min
@@ -125,6 +128,31 @@ public struct RaidDef: Codable, Equatable, Sendable {
         self.requiresFact = requiresFact
         self.untilFact = untilFact
         self.factModifiers = factModifiers
+    }
+}
+
+/// 獣が寄る入力の重み(どれも万分率で一晩の率に足す。省略は 0)。持ち主: U21
+public struct RaidLureDef: Codable, Equatable, Sendable {
+    /// 煙: 日没に燃えている火床 1 つあたり。
+    public var smoke: Int?
+    /// 縄張り: その日に、その獣の巣(見つけていなくても)から territoryRadius マス以内で木を伐った 1 回あたり。
+    /// 伐ったかは InteractionDef.felling の行為の出来事で、本体が数える(夜明けに 0)。
+    public var territory: Int?
+    /// 既定 15。
+    public var territoryRadius: Int?
+    /// 闇: 日没に焚き火が 1 つも燃えていないとき。夜のうちに火が消えたときも、この重みでもう一度だけ寄るかを振る。
+    public var dark: Int?
+    /// しきい値(序盤の設計 v0.4: 合計 6 以上の夜に寄る)。あれば確率で振らず、重みの合計がこれ以上の夜に必ず寄る
+    /// (perNight と factModifiers は使わない。requiresFact・untilFact は効く)。一晩に 1 回まで。
+    public var threshold: Int?
+
+    public init(smoke: Int? = nil, territory: Int? = nil, territoryRadius: Int? = nil, dark: Int? = nil,
+                threshold: Int? = nil) {
+        self.threshold = threshold
+        self.smoke = smoke
+        self.territory = territory
+        self.territoryRadius = territoryRadius
+        self.dark = dark
     }
 }
 

@@ -3,12 +3,24 @@ import ReForgeEngine
 
 @main
 struct ReForgeApp: App {
-    @State private var app = AppModel()
+    @State private var app: AppModel
+
+    init() {
+#if DEBUG
+        // 撮る起動(-ReForgeScreenshot)なら、公開の層の新しい世界を開いた状態で始める(Debug/ScreenshotMode.swift)
+        _app = State(initialValue: ScreenshotMode.makeModel())
+#else
+        _app = State(initialValue: AppModel())
+#endif
+    }
 
     var body: some Scene {
         WindowGroup {
             RootView(app: app)
                 .preferredColorScheme(.dark)
+#if DEBUG
+                .screenshotSupport(app: app)
+#endif
         }
     }
 }
@@ -74,6 +86,23 @@ final class AppModel {
         }
         return dir
     }
+
+#if DEBUG
+    /// 撮る起動(Debug/ScreenshotMode.swift): 保存を読まず・書かない、固定の種の新しい世界を開く。
+    /// failed なら走行が終わった形(ゲームオーバーの 4 択)にする。
+    /// decision なら、公開の層の試験用の決断を 1 つ出した形にする(決断の帯)。
+    func startScreenshotGame(failed: Bool, decision: Bool) {
+        guard let content else { return }
+        var world = GameBootstrap.newWorld(content: content, seed: 1)
+        if failed { world.run.outcome = .failed(cause: "text.screenshot.cause", record: nil) }
+        if decision {
+            world.narrative.pending = [PendingDecision(id: world.newEntityID(), event: "event.test.decision",
+                                                       choices: ["choice.test.yes", "choice.test.no"], blocking: false,
+                                                       since: world.clock.now, origin: nil)]
+        }
+        game = GameStore(content: content, world: world, saves: saves)
+    }
+#endif
 
     func startNewGame() {
         guard let content else { return }
@@ -171,5 +200,6 @@ struct ContentErrorView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(InkColor.ground)
+        .accessibilityIdentifier("contentError")
     }
 }

@@ -43,6 +43,8 @@ final class GameStore {
     var placing: StructureKindID?
     /// 置くモードの照準(地図に、置けるかどうかを色で描く)。
     var preview: PlacementPreview?
+    /// 地図の上に開いた残骸のパネル(残骸の装置の資料など。U18)。
+    var panel: DocumentPage?
     /// パネルから地図へ移りたいとき(置くモード)。GameScreen がタブを切り替えて nil に戻す。
     var requestedTab: GameTab?
     /// 区画の中身(番号 → 中身)。
@@ -60,6 +62,13 @@ final class GameStore {
 
     /// 設計・ノートの画面側の状態(タブを切り替えても下書きを保つ。C-engine-ui.md §6。U17)。
     @ObservationIgnored let workbench = WorkbenchModel()
+
+#if DEBUG
+    /// 撮る起動だけの上書き(Debug/ScreenshotMode.swift)。保存せず、世界の状態も変えない。
+    /// 画面の要素の解放を全部開く / 時計を止める(止めている間は保存も書かない)。
+    static var forceAllUIOpen = false
+    static var freezeClock = false
+#endif
 
     /// 画面が前に出ているか(false の間は時計を進めない)。
     @ObservationIgnored var isActive = true
@@ -84,10 +93,18 @@ final class GameStore {
         decision = f.decision
         sceneLines = f.sceneLines
         runEnded = f.runEnded
-        ui = f.ui
+        ui = Self.shownUI(f)
         battles = f.battles
         defaultStance = f.defaultStance
         lastPhase = f.clock.phase
+    }
+
+    /// 画面に出す解放(撮る起動の DEBUG のときだけ、Frame の値を全部開いた形に上書きする)。
+    private static func shownUI(_ f: Frame) -> UIUnlocks {
+#if DEBUG
+        if forceAllUIOpen { return UIUnlocks(gated: f.ui.gated, open: f.ui.gated) }
+#endif
+        return f.ui
     }
 
     /// 地図に注目しているマス(足元カードの対象)。
@@ -105,6 +122,9 @@ final class GameStore {
             // 引っかかり(重い処理・背面からの復帰)で一度に大きく進めない。
             let dt = min(now - last, 0.25)
             last = now
+#if DEBUG
+            if Self.freezeClock { continue }
+#endif
             guard isActive, clock.running else { continue }
             let (f, _) = await host.tick(realSeconds: dt)
             await refresh(f)
@@ -198,7 +218,7 @@ final class GameStore {
         if sceneLines != f.sceneLines { sceneLines = f.sceneLines }
         if runEnded != f.runEnded { runEnded = f.runEnded }
         if benchRevision != f.benchRevision { benchRevision = f.benchRevision }
-        if ui != f.ui { ui = f.ui }
+        if ui != Self.shownUI(f) { ui = Self.shownUI(f) }
         if battles != f.battles { battles = f.battles }
         if defaultStance != f.defaultStance { defaultStance = f.defaultStance }
         revision = f.revision
@@ -242,6 +262,9 @@ final class GameStore {
 
     /// 「つづきから」を書く(背面に回る・日没・夜明け)。時計は止めた状態で戻す(閉じている間は進まない)。
     func saveResume() async {
+#if DEBUG
+        if Self.freezeClock { return }  // 撮る起動は保存を書かない
+#endif
         let world = await host.world
         let env = SaveEnvelope(slot: .resume, world: world,
                                content: content.layers.map { ContentStamp(layer: $0.id, version: $0.version) })

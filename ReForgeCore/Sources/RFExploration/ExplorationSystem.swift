@@ -24,6 +24,12 @@ public struct ExplorationSystem: SimSystem {
             return MapEffects.setTerrain(at: at, terrain: terrain, cause: cause, &ctx)
         case .setPart(let poi, let part, let state):
             return MapEffects.setPart(poi: poi, part: part, state: state, &ctx)
+        case .setBeacon(let id, let at, _):
+            let old = ctx.world.exploration.beacons[id]
+            guard old != at else { return .done }
+            ctx.world.exploration.beacons[id] = at
+            for p in [old, at].compactMap({ $0 }) { ctx.changes.markTile(p, .fog) }
+            return .done
         }
     }
 

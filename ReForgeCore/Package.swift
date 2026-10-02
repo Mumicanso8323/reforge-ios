@@ -4,7 +4,7 @@
 // 構成と依存の向きは docs/architecture/A-modules.md が正本。上の層は下の層だけを import する。
 //
 //   L0 RFKernel                       型付き ID・座標・乱数・数値・時間・事実の式
-//   L1 RFMap  RFMatter                葉: 地図(生成・視界・経路) / 物質(純度・形・命名の部品・工程の計算)
+//   L1 RFText RFMap  RFMatter         葉: 文言の書式 / 地図(生成・視界・経路) / 物質(純度・形・命名の部品・工程の計算)
 //   L2 RFWorld  RFContent             世界状態(値型・Codable) / コンテンツのスキーマと読み込み
 //   L3 RFRules  RFPerception          規則の土台(システムの約束・条件と効果の評価) / 認識の層
 //   L4 RFTime RFSurvival RFInvention RFProduction RFLogistics RFCrew RFExploration
@@ -27,6 +27,7 @@ var targets: [Target] = [
     // L0
     .target(name: "RFKernel"),
     // L1(葉)
+    .target(name: "RFText", dependencies: ["RFKernel"]),
     .target(name: "RFMap", dependencies: ["RFKernel"], exclude: ["README.md"]),
     .target(name: "RFMatter", dependencies: ["RFKernel"], exclude: ["README.md"]),
     // L2
@@ -53,7 +54,7 @@ var targets: [Target] = [
     ]),
     // 傘
     .target(name: "ReForgeEngine", dependencies: [
-        "RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception",
+        "RFKernel", "RFText", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception",
         "RFSave", "RFFailure", "RFSim", "RFPresent",
     ] + systems.map { .target(name: $0) }),
     // 非公開の層に封をして、アプリに埋める鍵の Swift ファイルを書く道具(CI の ios ジョブで使う。U3)
@@ -65,7 +66,7 @@ var targets: [Target] = [
 targets += systems.map { .target(name: $0, dependencies: systemDeps) }
 
 /// テストはモジュールごとに 1 つ。実装担当は自分のテストターゲットだけを触る。
-let testedModules = ["RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception",
+let testedModules = ["RFKernel", "RFText", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception",
                      "RFSave", "RFFailure", "RFSim", "RFPresent"] + systems
 /// テストが #filePath で直接読む固定のファイル(SwiftPM のリソースにしない)。
 let testExcludes: [String: [String]] = ["RFSave": ["Fixtures"]]

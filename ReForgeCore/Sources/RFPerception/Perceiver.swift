@@ -128,6 +128,9 @@ public struct Perceiver: Sendable {
     // MARK: 地図
 
     /// 地図の文字(見え方 → 既定の文字の表 → "？")。
+    /// 立ち絵(いまの見え方の art。無ければ nil = 枠ごと出さない)。場面の札・仲間のタブで共用。
+    public func art(_ s: SubjectID) -> ArtID? { variant(s)?.art }
+
     public func glyph(_ s: SubjectID) -> String {
         audited(variant(s)?.glyph ?? content.glyphs[s] ?? "？", origin: "glyph \(s.rawValue)")
     }

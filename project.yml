@@ -62,6 +62,19 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.yusukedoi.reforge.tests
         GENERATE_INFOPLIST_FILE: YES
 
+  # 画面の写真用の UI テスト(docs/briefs/screen-snapshots.md)。スキーム ReForgeScreens だけが回す(普段の単体テストには入れない)。
+  ReForgeUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: ReForgeUITests
+    dependencies:
+      - target: ReForge
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yusukedoi.reforge.uitests
+        GENERATE_INFOPLIST_FILE: YES
+
 schemes:
   ReForge:
     build:
@@ -71,3 +84,14 @@ schemes:
       config: Debug
       targets:
         - ReForgeTests
+
+  # 撮るためだけのスキーム。Debug のアプリ(撮る起動は DEBUG にだけある)で ReForgeUITests だけを回す。
+  ReForgeScreens:
+    build:
+      targets:
+        ReForge: all
+        ReForgeUITests: [test]
+    test:
+      config: Debug
+      targets:
+        - ReForgeUITests

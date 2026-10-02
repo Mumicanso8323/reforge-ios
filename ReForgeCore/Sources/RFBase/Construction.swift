@@ -59,30 +59,7 @@ enum Construction {
 
     /// 置ける場所か(拠点の範囲・地形・重なり)。
     static func checkSite(_ def: StructureDef, at: WorldPoint, footprint: [GridPoint], _ ctx: StepContext) -> Rejection? {
-        let w = ctx.world
-        guard let layer = w.map[at.layer] else { return Rejection("reason.base.blocked") }
-        for off in footprint {
-            let c = at.point + off
-            let cell = WorldPoint(at.layer, c)
-            guard layer.size.contains(c), let t = layer.terrain(at: c) else { return Rejection("reason.base.blocked") }
-            if def.requiresBaseArea ?? true {
-                guard at.layer == .surface, w.base.area?.contains(c) == true else { return Rejection("reason.base.outside") }
-            }
-            let tdef = ctx.content.terrains[t]
-            if tdef?.passable == false || tdef?.isWater == true || Biome(terrainID: t)?.isWet == true {
-                return Rejection("reason.base.blocked")
-            }
-            if let rule = def.placement {
-                if let tags = rule.terrainTags, !tags.contains(where: { (tdef?.tags ?? [t.rawValue]).contains($0) }) {
-                    return rule.reasonIfBlocked.map { Rejection($0) } ?? Rejection("reason.base.terrain")
-                }
-                if rule.requiresWaterAdjacent == true, !layer.touchesWater(c) {
-                    return rule.reasonIfBlocked.map { Rejection($0) } ?? Rejection("reason.base.terrain")
-                }
-            }
-            if !w.placements.at(cell).isEmpty || layer.placements.isOccupied(c) { return Rejection("reason.base.occupied") }
-        }
-        return nil
+        StructureSites.check(def, at: at, footprint: footprint, ctx)
     }
 
     /// 向きで足跡を回す(north = 定義のまま、時計回りに east・south・west)。
@@ -107,6 +84,8 @@ enum Construction {
             return true
         }
         guard !sites.isEmpty else { return }
+        let fireTag = ctx.content.base.constructionFireTag
+        let hasFire = fireTag.map { BaseRules.total($0, w, ctx.content) > 0 } ?? true
         var work: [EntityID: Int64] = [:]
         for pid in w.people.members {
             guard let ps = w.people[pid], ps.motion == nil, let pos = ps.position else { continue }
@@ -122,6 +101,9 @@ enum Construction {
                     helping = false
                 }
                 guard helping else { continue }
+                // 拠点の範囲の建設は、火が燃えている間だけ進む(W-02c)
+                if !hasFire, let tag = fireTag, let sd = ctx.content.structures[kind], sd.requiresBaseArea != false,
+                   sd.provides[tag] == nil { continue }
                 // 距離の縛り(PersonDef.tether。U16): 縛る人から遠い間は手伝えない
                 if let t = ctx.content.people[pid]?.tether {
                     guard let other = ctx.world.people[t.person]?.position, other.layer == pos.layer,

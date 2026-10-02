@@ -70,8 +70,8 @@ struct MapProjector {
 
     /// 未踏の目印のマスで、既知のマスが近くにあるか。
     func isHint(_ p: GridPoint) -> Bool {
-        guard poiAt[p] != nil, !isKnown(p), known != nil else { return false }
-        let r = Self.hintReach
+        guard let poi = poiAt[p], !isKnown(p), known != nil else { return false }
+        let r = landmarkRadius(poi.poi.kind) ?? Self.hintReach
         for dy in -r...r { for dx in -r...r where isKnown(GridPoint(p.x + dx, p.y + dy)) { return true } }
         return false
     }
@@ -82,20 +82,39 @@ struct MapProjector {
         let fog: TileView.Fog = isKnown(p) ? .remembered : (isHint(p) ? .hint : .unknown)
         var glyph: String
         var tint: String
+        var glow = false
         if let poi = poiAt[p] {
-            glyph = poiGlyph(poi.poi.kind)
+            let v = partSubject(poi.poi, at: p).flatMap { perceiver.variant($0) }
+            glyph = v?.glyph ?? poiGlyph(poi.poi.kind)
             tint = TilePalette.poi
+            glow = v?.glow ?? perceiver.variant(Subject.poi(poi.poi.kind))?.glow ?? false
         } else if let d = depositAt[p], d.deposit.remainingExtractions > 0 {
-            glyph = perceiver.variant(PresentSubject.deposit(d.deposit))?.glyph
-                ?? content.glyphs[PresentSubject.deposit(d.deposit)] ?? "晶"
+            let v = perceiver.variant(PresentSubject.deposit(d.deposit))
+            glyph = v?.glyph ?? content.glyphs[PresentSubject.deposit(d.deposit)] ?? "晶"
             tint = TilePalette.deposit(d.deposit.category.rawValue)
+            glow = v?.glow ?? false
         } else {
             glyph = TilePalette.pickGlyph(l.biome(at: p).flatMap { terrainGlyphs[$0] } ?? "？", at: p)
             tint = l.terrain(at: p).map(TilePalette.terrain) ?? TilePalette.void
         }
         var shadow: String?
-        if fog == .hint, let poi = poiAt[p] { shadow = poi.anchor ? "？" : poiGlyph(poi.poi.kind) }
-        return TileView(glyph: glyph, tint: tint, fog: fog, shadow: shadow)
+        if fog == .hint, let poi = poiAt[p] {
+            // 遠景(landmarkRadius)は起点も目印の影。ふつうの手がかりは起点が「？」
+            shadow = poi.anchor && landmarkRadius(poi.poi.kind) == nil ? "？" : poiGlyph(poi.poi.kind)
+        }
+        if fog == .unknown { glow = false }
+        return TileView(glyph: glyph, tint: tint, fog: fog, shadow: shadow, glow: glow)
+    }
+
+    /// 遠景の半径(POIDef.landmarkRadius)。
+    func landmarkRadius(_ kind: POIKindID) -> Int? { content.pois[kind]?.landmarkRadius }
+
+    /// マスに当たる有限の部品の見出し(part:<名前>。部品の見え方が認識の表にあるときだけ)。
+    func partSubject(_ poi: POIState, at p: GridPoint) -> SubjectID? {
+        guard let parts = content.pois[poi.kind]?.parts,
+              let name = PlacementPartIndex.part(atOffset: p - poi.at, footprint: poi.footprint, parts: parts) else { return nil }
+        let s = Subject.part(name)
+        return content.perception[s] == nil ? nil : s
     }
 
     func poiGlyph(_ kind: POIKindID) -> String {

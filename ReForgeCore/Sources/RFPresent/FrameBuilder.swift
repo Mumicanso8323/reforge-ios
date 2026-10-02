@@ -27,6 +27,7 @@ public struct FrameBuilder: Sendable {
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
         let size = proj.size
         var map = MapView(layer: layer, size: size, chunkRevisions: [], vision: vision.areas(w, layer: layer))
+        map.beacons = w.exploration.beacons.sorted { $0.key < $1.key }.compactMap { $0.value.layer == layer ? $0.value.point : nil }
         let count = map.chunkColumns * map.chunkRows
         let signatures = (0..<count).map { proj.signature(map.chunkRect($0)) }
         var revs: [Int]
@@ -63,10 +64,31 @@ public struct FrameBuilder: Sendable {
             renamed: [],
             runEnded: !w.run.isActive)
         frame.ui = unlocks(w)
+        frame.placeTitle = content.perception[Self.placeSubject] == nil ? nil : p.name(Self.placeSubject)
+        frame.newlyOpened = previous.map { frame.ui.open.subtracting($0.ui.open) } ?? []
+        frame.shadows = shadows(w, p)
         frame.battles = battles(w, p)
         frame.defaultStance = w.combat.defaultStance
         frame.benchRevision = Self.benchRevision(previous: previous, report: report, revision: revision, day: w.clock.day)
         return frame
+    }
+
+    /// 地図の題の主題(INV-O12)。
+    public static let placeSubject: SubjectID = "place:base"
+
+    /// 半分の気配の影の行(W-07)。まだ解放されていない建造物・モジュールを ID 順に。
+    public func shadows(_ w: WorldState, _ p: Perceiver) -> [ShadowRow] {
+        func row(_ kind: PlaceableKind, _ cost: [Ingredient]) -> ShadowRow? {
+            guard HintRule.halfway(cost: cost, world: w) else { return nil }
+            let have = cost.reduce(0) { $0 + min(ConditionEvaluator.stockCount($1, w), $1.quantity) }
+            return ShadowRow(kind: kind, name: p.name(of: kind), have: have,
+                             need: cost.reduce(0) { $0 + $1.quantity })
+        }
+        let s = content.structures.keys.sorted().filter { !w.research.unlocked.structures.contains($0) }
+            .compactMap { row(.structure($0), content.structures[$0]!.cost) }
+        let m = content.modules.keys.sorted().filter { !w.research.unlocked.modules.contains($0) }
+            .compactMap { row(.module($0), content.modules[$0]!.cost) }
+        return s + m
     }
 
     /// 設計・ノートのタブが引き直す印。在庫・ノート・知識・研究・物語が変わったとき、日が変わったときに上がる。
@@ -81,17 +103,24 @@ public struct FrameBuilder: Sendable {
     func clockView(_ w: WorldState) -> ClockView {
         let dayLen = content.clock.dayGameSeconds
         let since = (w.clock.now - w.clock.dayStartedAt).seconds
-        return ClockView(
+        var v = ClockView(
             day: w.clock.day, phase: w.clock.phase,
             dayRemainingPermille: w.clock.phase == .day && dayLen > 0 ? Int(max(0, (dayLen - since) * 1000 / dayLen)) : 0,
-            running: w.run.isActive && w.clock.phase == .day && !w.narrative.pending.contains(where: \.blocking))
+            running: w.run.isActive && w.clock.phase == .day && !w.clock.held
+                && !w.narrative.pending.contains(where: \.blocking))
+        v.held = w.clock.held
+        return v
     }
 
     func statusItems(_ w: WorldState, _ p: Perceiver) -> [StatusItem] {
         // 赤の判定は生存の担当が StatDef に足す(alertBelow など)。入ったらここで写す。
         w.survival.stats.keys.sorted().compactMap { id in
             p.stat(id, value: w.survival.stats[id] ?? .zero).map {
-                StatusItem(key: id.rawValue, label: p.name(Subject.stat(id)), value: $0, alert: false)
+                var item = StatusItem(key: id.rawValue, label: p.name(Subject.stat(id)), value: $0, alert: false)
+                if p.variant(Subject.stat(id))?.showMarks == true, let marks = content.stats[id]?.marks {
+                    item.gauge = StatGauge.make(value: (w.survival.stats[id] ?? .zero).raw, marks: marks)
+                }
+                return item
             }
         }
     }
@@ -227,7 +256,16 @@ public struct FrameBuilder: Sendable {
             if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) == false { return nil }
             return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)), hold: def.hold, at: at)
         }
-        return FootCard(point: pt, title: title, actions: Array(actions.prefix(FootCard.maxActions)))
+        var card = FootCard(point: pt, title: title, actions: Array(actions.prefix(FootCard.maxActions)))
+        if let poi {
+            // 残骸から開く資料(段のある資料のうち、この種類の POI に付いていて、いま記録に載るもの)
+            card.documents = content.documents.keys.sorted().compactMap { id in
+                guard let d = content.documents[id], d.stages?.poiKind == poi.poi.kind,
+                      ConditionEvaluator.evaluatePure(d.when, world: w, content: content) == true else { return nil }
+                return FootCard.DocumentLink(id: id, title: p.text(d.title))
+            }
+        }
+        return card
     }
 
     // MARK: - 工程表

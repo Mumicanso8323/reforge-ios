@@ -36,7 +36,8 @@ public enum ContentValidator {
         narrativeRules(db, &out)  // 出来事まわり(U11。Schema/Condition.swift)
         worldTypeRules(db, &out)
         codexShadowsWellFormed(db, &out)  // 図鑑の影の欄(U17。Schema/CodexShadows.swift)
-        uiGatesWellFormed(db, &out)  // 画面の要素の解放(U18。Schema/UIGates.swift)  // 場所・縛り・電力・掘った量・壊す・集団との戦い(U16。Schema/WorldTypes.swift)
+        uiGatesWellFormed(db, &out)  // 画面の要素の解放(U18。Schema/UIGates.swift)
+        artIDsAreNeutral(db, &out)  // 立ち絵の ID の形(U18)
         return out
     }
 
@@ -321,6 +322,19 @@ public enum ContentValidator {
         for (id, d) in db.codexShadows.sorted(by: { $0.key < $1.key }) {
             if db.perception[d.name] == nil {
                 out.append(Issue(level: .error, rule: "codexShadows.name", message: "\(id) の名前 \(d.name) が認識の表に無い"))
+            }
+        }
+    }
+
+    /// 見え方の art は中立の番号の形(英小文字・数字・. と _ だけ。語は check-public-spoilers が別に見る)。
+    static func artIDsAreNeutral(_ db: ContentDB, _ out: inout [Issue]) {
+        let allowed = Set("abcdefghijklmnopqrstuvwxyz0123456789._")
+        for (s, def) in db.perception.sorted(by: { $0.key < $1.key }) {
+            for v in def.variants {
+                guard let a = v.art else { continue }
+                if a.rawValue.isEmpty || !a.rawValue.allSatisfy(allowed.contains) {
+                    out.append(Issue(level: .error, rule: "perception.art", message: "\(s) の絵の ID の形が中立の番号でない"))
+                }
             }
         }
     }

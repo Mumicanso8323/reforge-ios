@@ -20,6 +20,7 @@ struct InkButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
+            .inkFitCheck(id: "InkButton.label")
             .font(InkFont.body)
             .lineLimit(1)
             .padding(.horizontal, 14)
@@ -80,6 +81,7 @@ struct InkHoldButton: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             label
+                .inkFitCheck(id: "InkHoldButton.label")
                 .font(InkFont.body)
                 .lineLimit(1)
                 .foregroundStyle(InkColor.alert)

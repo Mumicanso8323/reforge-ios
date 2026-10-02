@@ -17,9 +17,12 @@ public struct DocumentDef: Codable, Equatable, Sendable {
     /// 並び順(小さいほど上。同じなら id の順)。
     public var order: Int?
     public var material: String?
+    /// 修理の段で本文と読める割合を選ぶ(U19。残骸の装置の資料など)。無ければいつも body。
+    public var stages: DocumentStages?
 
     public init(id: DocumentID, title: TextID, body: TextID, source: SubjectID? = nil, when: Condition,
-                order: Int? = nil, material: String? = nil) {
+                order: Int? = nil, material: String? = nil, stages: DocumentStages? = nil) {
+        self.stages = stages
         self.id = id
         self.title = title
         self.body = body
@@ -31,3 +34,33 @@ public struct DocumentDef: Codable, Equatable, Sendable {
 }
 
 extension DocumentDef: ContentDef {}
+
+/// 資料の段(U19): ある POI の部品の修理の段階(POIProgress.repair。その種類の POI のうち最大)で、
+/// 本文(■ で潰した行の多さ)と「読める割合」を選ぶ。段は atLeast の昇順に調べ、成り立った最後の段を使う。
+/// どの段にも当たらなければ DocumentDef.body で、読める割合は出さない。
+public struct DocumentStages: Codable, Equatable, Sendable {
+    public var poiKind: POIKindID
+    public var part: String
+    public var steps: [DocumentStep]
+
+    public init(poiKind: POIKindID, part: String, steps: [DocumentStep]) {
+        self.poiKind = poiKind
+        self.part = part
+        self.steps = steps
+    }
+}
+
+public struct DocumentStep: Codable, Equatable, Sendable {
+    /// 修理の段階がこれ以上なら(0 = 壊れたまま)。
+    public var atLeast: Int
+    /// この段の本文(無ければ DocumentDef.body)。
+    public var body: TextID?
+    /// 読める割合(千分率。40 = 4%)。
+    public var readablePermille: Int?
+
+    public init(atLeast: Int, body: TextID? = nil, readablePermille: Int? = nil) {
+        self.atLeast = atLeast
+        self.body = body
+        self.readablePermille = readablePermille
+    }
+}

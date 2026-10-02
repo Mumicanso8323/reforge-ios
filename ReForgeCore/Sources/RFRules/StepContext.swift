@@ -88,6 +88,8 @@ public struct StepContext {
         let attrs = attributes?.isEmpty == true ? nil : attributes
         putEntry(StockEntry(stuff: stuff, quantity: n, origins: [o: n], unique: unique, durability: durability,
                             attributes: attrs), to: holder)
+        // 一度でも手にした品(半分の気配 HintRule.halfway が読む。W-07)
+        if case .item(let i) = stuff { world.knowledge.heldItems.insert(i) }
         emit(.itemGained(holder: holder, stuff: stuff, quantity: n, record: origin))
     }
 
