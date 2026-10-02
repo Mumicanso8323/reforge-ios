@@ -113,9 +113,11 @@ public enum ForbiddenAudit {
     /// アプリの固定文言(Localizable.xcstrings のキーなど。いつでも画面に出うる)を全段で調べる。
     public static func auditFixedStrings(_ strings: [String], content: ContentDB, origin: String) -> [Violation] {
         var out = Set<Violation>()
+        // 文字列カタログのキーの書式の指定(%lld・%@・%%・%1$@ など)は文ではないので外してから見る(英字の ID の検査に当たらないように)
+        let plain = strings.map { $0.replacingOccurrences(of: #"%(\d+\$)?(lld|ld|d|@|%)"#, with: " ", options: .regularExpression) }
         for st in stages(content) {
             let known = closure(Set(st.facts), content)
-            for s in strings { out.formUnion(check(s, rules: activeRules(content, known: known), allowed: content.latinAllowed, stage: st.id,
+            for s in plain { out.formUnion(check(s, rules: activeRules(content, known: known), allowed: content.latinAllowed, stage: st.id,
                                                  origin: origin)) }
         }
         return out.sorted { ($0.origin, $0.text, $0.rule) < ($1.origin, $1.text, $1.rule) }
