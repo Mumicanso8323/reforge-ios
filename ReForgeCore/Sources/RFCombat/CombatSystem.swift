@@ -108,6 +108,9 @@ public struct CombatSystem: SimSystem {
             ctx.world.combat.night = NightTally()
             ctx.world.combat.plannedRaids = []
             Threats.planRaids(&ctx, def: def(ctx.content))
+        case .hearthLevelChanged(_, .out) where ctx.world.clock.isNight:
+            // 夜のうちに火が消えたら、闇の重みでもう一度だけ寄るかを振る(W-02c)
+            Threats.planRaids(&ctx, def: def(ctx.content), darkOnly: true)
         case .dawn:
             // 夜の獣は帰る(戦っている群れは戦いの後で)。罠は仕掛け直す。
             let inBattle = Set(ctx.world.combat.battles.values.flatMap(\.enemies))

@@ -28,8 +28,8 @@ enum Threats {
     static func structures(_ tag: String, _ ctx: StepContext) -> [(Placement, Int)] {
         let w = ctx.world
         return w.placements.sortedIDs.compactMap { id in
-            guard let p = w.placements.items[id], case .structure(let k) = p.kind, p.status == .running,
-                  let v = ctx.content.structures[k]?.provides[tag], v > 0 else { return nil }
+            guard let p = w.placements.items[id], case .structure = p.kind, p.status == .running,
+                  let v = Hearths.provides(p, ctx.content)[tag], v > 0 else { return nil }
             return (p, v)
         }
     }
@@ -122,30 +122,71 @@ enum Threats {
     }
 
     /// 日没に今夜の群れを決める。
-    static func planRaids(_ ctx: inout StepContext, def: CombatDef) {
+    /// darkOnly: 夜のうちに火が消えたときの振り直し(闇の重みだけで振る)。
+    static func planRaids(_ ctx: inout StepContext, def: CombatDef, darkOnly: Bool = false) {
         let target = foodTarget(ctx)
         for (kind, d) in ctx.content.enemies.sorted(by: { $0.key < $1.key }) {
             guard let raid = d.raid, ctx.world.clock.day >= (raid.fromDay ?? 1) else { continue }
-            let perNight = FactRate.rate(raid.perNight, requires: raid.requiresFact, until: raid.untilFact,
-                                         modifiers: raid.factModifiers, known: ctx.world.knowledge.factSet)
+            if darkOnly, (raid.lure?.dark ?? 0) <= 0 { continue }
+            if let th = raid.lure?.threshold {
+                let gate = FactRate.rate(10_000, requires: raid.requiresFact, until: raid.untilFact,
+                                         modifiers: nil, known: ctx.world.knowledge.factSet)
+                guard gate > 0, !ctx.world.combat.plannedRaids.contains(where: { $0.kind == kind }),
+                      lure(kind, raid, darkOnly: false, ctx) >= th else { continue }
+                planRaid(kind, raid, target: target, def: def, &ctx)
+                continue
+            }
+            let base = darkOnly ? 0 : raid.perNight
+            let gate = FactRate.rate(10_000, requires: raid.requiresFact, until: raid.untilFact,
+                                     modifiers: nil, known: ctx.world.knowledge.factSet)
+            guard gate > 0 else { continue }
+            var perNight = darkOnly ? 0 : FactRate.rate(base, requires: raid.requiresFact, until: raid.untilFact,
+                                                        modifiers: raid.factModifiers, known: ctx.world.knowledge.factSet)
+            perNight += lure(kind, raid, darkOnly: darkOnly, ctx)
             guard perNight > 0 else { continue }
             let roll = ctx.random(.combat) { $0.int(below: 10_000) }
             guard roll < perNight else { continue }
-            let lo = max(1, raid.min ?? 1)
-            let count = ctx.random(.combat) { $0.int(in: lo...max(lo, raid.max ?? lo)) }
-            let hours = ctx.random(.combat) { $0.int(in: def.raidHours) }
-            let knownOnly = raid.requiresKnownNest == true
-            let nest = nests(of: kind, ctx)
-                .filter { $0.1.at.chebyshev(to: target.point) <= def.nestReach }
-                .filter { !knownOnly || ctx.world.knowledge.discovered.contains($0.0) }
-                .min { a, b in
-                    let da = a.1.at.chebyshev(to: target.point), db = b.1.at.chebyshev(to: target.point)
-                    return da != db ? da < db : a.0 < b.0
-                }?.0
-            if (raid.requiresNest == true || knownOnly) && nest == nil { continue }
-            ctx.world.combat.plannedRaids.append(
-                PlannedRaid(kind: kind, count: count, at: ctx.world.clock.now + .hours(hours), nest: nest))
+            planRaid(kind, raid, target: target, def: def, &ctx)
         }
+    }
+
+    /// 群れを 1 つ予定に入れる(数・時刻・巣を決める)。
+    static func planRaid(_ kind: EnemyKindID, _ raid: RaidDef, target: WorldPoint, def: CombatDef,
+                         _ ctx: inout StepContext) {
+        let lo = max(1, raid.min ?? 1)
+        let count = ctx.random(.combat) { $0.int(in: lo...max(lo, raid.max ?? lo)) }
+        let hours = ctx.random(.combat) { $0.int(in: def.raidHours) }
+        let knownOnly = raid.requiresKnownNest == true
+        let nest = nests(of: kind, ctx)
+            .filter { $0.1.at.chebyshev(to: target.point) <= def.nestReach }
+            .filter { !knownOnly || ctx.world.knowledge.discovered.contains($0.0) }
+            .min { a, b in
+                let da = a.1.at.chebyshev(to: target.point), db = b.1.at.chebyshev(to: target.point)
+                return da != db ? da < db : a.0 < b.0
+            }?.0
+        if (raid.requiresNest == true || knownOnly) && nest == nil { return }
+        ctx.world.combat.plannedRaids.append(
+            PlannedRaid(kind: kind, count: count, at: ctx.world.clock.now + .hours(hours), nest: nest))
+    }
+
+    /// 獣が寄る 3 つの入力の足し(確率の型では万分率、しきい値の型では点)。煙 = 燃えている火床の数、縄張り = 巣のそばの置いた物、闇 = 焚き火が消えている。
+    static func lure(_ kind: EnemyKindID, _ raid: RaidDef, darkOnly: Bool, _ ctx: StepContext) -> Int {
+        guard let l = raid.lure else { return 0 }
+        let w = ctx.world
+        let hearths = Hearths.structureHearths(w, ctx.content).compactMap { w.placements.items[$0] }
+        let lit = hearths.filter { (Hearths.level(of: $0, ctx.content) ?? .out) != .out }.count
+        let dark = !hearths.isEmpty && lit == 0 ? (l.dark ?? 0) : 0
+        if darkOnly { return dark }
+        var add = lit * (l.smoke ?? 0) + dark
+        if let t = l.territory, t > 0 {
+            let r = l.territoryRadius ?? 6
+            let nestPoints = nests(of: kind, ctx).map(\.1.at)
+            let near = w.placements.items.values.filter { p in
+                p.at.layer == .surface && nestPoints.contains { $0.chebyshev(to: p.at.point) <= r }
+            }.count
+            add += near * t
+        }
+        return add
     }
 
     /// 時刻の来た群れを出す(夜だけ)。
