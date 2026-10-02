@@ -169,7 +169,7 @@ public struct FrameBuilder: Sendable {
             if !member, !map.isVisible(pos.point) { return nil }
             let isNoah = id == .noah
             let next = ps.motion?.path.first ?? pos.point
-            return ActorSprite(id: id.rawValue, glyph: isNoah ? ActorSprite.arrow(ps.facing) : p.glyph(Subject.person(id)),
+            return ActorSprite(id: id.rawValue, glyph: member ? TilePalette.noahGlyph : p.glyph(Subject.person(id)),
                                from: pos.point, to: next, progress: ps.motion?.progress ?? 0, facing: ps.facing,
                                label: p.name(Subject.person(id)), isNoah: isNoah, isMember: member,
                                tint: isNoah ? TilePalette.noah : (member ? TilePalette.member : TilePalette.stranger))
@@ -295,7 +295,12 @@ public struct FrameBuilder: Sendable {
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
         guard let l = proj.layer, proj.size.contains(pt), let terrain = l.terrain(at: pt) else { return nil }
         let seen = proj.isKnown(pt) || vision.areas(w, layer: layer).contains { $0.contains(pt) }
-        guard seen else { return FootCard(point: pt, title: p.text(Perceiver.unknownText), actions: []) }
+        guard seen else {
+            var card = FootCard(point: pt, title: p.text(Perceiver.unknownText), actions: [])
+            card.state = .unseen
+            card.hint = p.text("ui.foot.hint.unseen")
+            return card
+        }
         let poi = proj.poiAt[pt]
         let deposit = proj.depositAt[pt]
         let placed = w.placements.sortedIDs.compactMap { w.placements.items[$0] }.filter { pl in
@@ -330,6 +335,20 @@ public struct FrameBuilder: Sendable {
                                    progressPermille: progress(of: def, w))
         }
         var card = FootCard(point: pt, title: title, actions: Array(actions.prefix(FootCard.maxActions)))
+        let busy = w.exploration.active.values.contains { $0.at == at } || placed.contains {
+            if case .underConstruction = $0.status { return true }
+            return false
+        }
+        if busy {
+            card.state = .busy
+            card.hint = p.text("ui.foot.hint.busy")
+        } else if card.actions.isEmpty {
+            card.state = .empty
+            card.hint = p.text("ui.foot.hint.empty")
+        } else if let noah = w.people[.noah]?.position, noah.layer != layer || noah.point.chebyshev(to: pt) > 1 {
+            card.state = .far
+            card.hint = p.text("ui.foot.hint.far")
+        }
         card.nothingNearby = w.exploration.continueStop != nil
         card.fire = placed.lazy.compactMap { fireView($0, w) }.first
         if let poi {

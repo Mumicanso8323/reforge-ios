@@ -1,0 +1,9 @@
+{
+  "language": "zh-Hant",
+  "texts": {
+    "ui.foot.hint.empty": "現在這裡沒有可做的事",
+    "ui.foot.hint.unseen": "靠近後就能看見",
+    "ui.foot.hint.far": "太遠了——靠近後可以操作",
+    "ui.foot.hint.busy": "請等待工作完成"
+  }
+}

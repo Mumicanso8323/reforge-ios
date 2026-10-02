@@ -128,13 +128,13 @@ final class MapPresentTests: XCTestCase {
 
     // MARK: - 主人公・経路・補間
 
-    func testNoahFacingArrowRouteAndInterpolation() throws {
+    func testNoahGlyphRouteAndInterpolation() throws {
         var w = world()
         w.people[.noah]!.facing = .east
         w.people[.noah]!.motion = Motion(path: [GridPoint(17, 16), GridPoint(18, 16)], progress: 500)
         let f = builder.build(w, revision: 1, previous: nil, report: nil)
         let noah = try XCTUnwrap(f.actors.first { $0.isNoah })
-        XCTAssertEqual(noah.glyph, "→")
+        XCTAssertEqual(noah.glyph, TilePalette.noahGlyph)
         XCTAssertEqual(noah.tint, TilePalette.noah)
         XCTAssertEqual(f.route, [GridPoint(17, 16), GridPoint(18, 16)], "点線の経路")
         XCTAssertEqual(f.focus, GridPoint(16, 16))
@@ -149,7 +149,7 @@ final class MapPresentTests: XCTestCase {
         near.progress = 900
         XCTAssertEqual(near.position(elapsed: 5).x, 17.5, accuracy: 1e-9, "次のマスで止まる")
         XCTAssertTrue(noah.isMoving)
-        for d in Direction.allCases { XCTAssertEqual(ActorSprite.arrow(d), ["north": "↑", "east": "→", "south": "↓", "west": "←"][d.rawValue]) }
+        XCTAssertEqual(noah.facing, .east)
 
         w.people[.noah]!.motion = nil
         let still = try XCTUnwrap(builder.build(w, revision: 2, previous: f, report: nil).actors.first { $0.isNoah })
@@ -160,12 +160,12 @@ final class MapPresentTests: XCTestCase {
     // MARK: - 視点
 
     func testCameraSnapsPinchToThreeLevels() {
-        XCTAssertEqual(MapCamera.cellSizes, [18, 24, 32])
+        XCTAssertEqual(MapCamera.cellSizes, [24, 32, 44])
         XCTAssertEqual(MapCamera.snappedZoom(from: 1, pinchScale: 1.0), 1)
         XCTAssertEqual(MapCamera.snappedZoom(from: 1, pinchScale: 1.1), 1)
         XCTAssertEqual(MapCamera.snappedZoom(from: 1, pinchScale: 1.3), 2)
         XCTAssertEqual(MapCamera.snappedZoom(from: 1, pinchScale: 0.8), 0)
-        XCTAssertEqual(MapCamera.snappedZoom(from: 0, pinchScale: 10), 2, "大きく開いても 32pt まで")
+        XCTAssertEqual(MapCamera.snappedZoom(from: 0, pinchScale: 10), 2, "大きく開いても 44pt まで")
         XCTAssertEqual(MapCamera.snappedZoom(from: 2, pinchScale: 0.01), 0)
         XCTAssertEqual(MapCamera.snappedZoom(from: 2, pinchScale: .nan), 2)
     }
@@ -175,19 +175,19 @@ final class MapPresentTests: XCTestCase {
         var cam = MapCamera(center: MapPointF(x: 16.5, y: 16.5), zoom: 1)
         XCTAssertEqual(cam.cell(at: ScreenPoint(x: 120, y: 240), in: view), GridPoint(16, 16), "画面の中央はノアのマス")
         XCTAssertEqual(cam.cell(at: ScreenPoint(x: 120 + 24, y: 240 - 24), in: view), GridPoint(17, 15))
-        XCTAssertEqual(cam.cell(at: ScreenPoint(x: 120 - 13, y: 240), in: view), GridPoint(15, 16))
+        XCTAssertEqual(cam.cell(at: ScreenPoint(x: 120 - 17, y: 240), in: view), GridPoint(15, 16))
         let o = cam.screenOrigin(of: GridPoint(17, 15), in: view)
-        XCTAssertEqual(o.x, 132, accuracy: 1e-9)
-        XCTAssertEqual(o.y, 204, accuracy: 1e-9)
+        XCTAssertEqual(o.x, 136, accuracy: 1e-9)
+        XCTAssertEqual(o.y, 192, accuracy: 1e-9)
         let r = cam.visibleCells(in: view)
-        XCTAssertEqual(r.origin, GridPoint(11, 6))
-        XCTAssertEqual(r.size, GridSize(width: 11, height: 21))
+        XCTAssertEqual(r.origin, GridPoint(12, 9))
+        XCTAssertEqual(r.size, GridSize(width: 9, height: 16))
 
         cam.pan(byScreen: 48, 0, mapSize: GridSize(width: 32, height: 32))
         XCTAssertFalse(cam.following, "見回すと追従が外れる")
-        XCTAssertEqual(cam.center.x, 14.5, accuracy: 1e-9)
+        XCTAssertEqual(cam.center.x, 15, accuracy: 1e-9)
         cam.follow(MapPointF(x: 20, y: 20))
-        XCTAssertEqual(cam.center.x, 14.5, accuracy: 1e-9, "追従が外れている間は動かない")
+        XCTAssertEqual(cam.center.x, 15, accuracy: 1e-9, "追従が外れている間は動かない")
         cam.pan(byScreen: 10_000, 10_000, mapSize: GridSize(width: 32, height: 32))
         XCTAssertEqual(cam.center, MapPointF(x: 0, y: 0), "地図の外へ行き過ぎない")
         cam.recenter(on: MapPointF(x: 16.5, y: 16.5))
@@ -301,6 +301,41 @@ final class MapPresentTests: XCTestCase {
         XCTAssertEqual(night.actions.map(\.id.rawValue),
                        ["interaction.test.present.gated", "interaction.test.present.night", "interaction.test.present.pick"])
         XCTAssertEqual(night.actions.first?.label, "？", "名前の無い行為は英語の ID を出さない")
+    }
+
+    func testFootCardStatesAndHints() throws {
+        let b = FrameBuilder(content: try contentWithInteractions())
+        var w = world()
+        let start = w.map.spawn.point
+        let far = GridPoint(start.x + 4, start.y)
+        know(&w, [start, far, GridPoint(0, 0)])
+
+        let normal = try XCTUnwrap(b.footCard(w, at: start))
+        XCTAssertEqual(normal.state, .normal)
+        XCTAssertNil(normal.hint)
+
+        let distant = try XCTUnwrap(b.footCard(w, at: far))
+        XCTAssertEqual(distant.state, .far)
+        XCTAssertEqual(distant.hint, "遠い — 近づくとできる")
+        XCTAssertFalse(distant.actions.isEmpty)
+
+        let unseen = try XCTUnwrap(b.footCard(w, at: GridPoint(1, 1)))
+        XCTAssertEqual(unseen.state, .unseen)
+        XCTAssertEqual(unseen.hint, "近づけば見える")
+        XCTAssertTrue(unseen.actions.isEmpty)
+
+        var emptyContent = b.content
+        emptyContent.interactions.removeAll()
+        let empty = try XCTUnwrap(FrameBuilder(content: emptyContent).footCard(w, at: start))
+        XCTAssertEqual(empty.state, .empty)
+        XCTAssertEqual(empty.hint, "ここで今できることは無い")
+
+        w.exploration.active[.noah] = ActiveInteraction(interaction: "interaction.test.present.pick",
+                                                         at: WorldPoint(.surface, start), poi: nil, part: nil,
+                                                         holding: true, spent: [], startedAt: w.clock.now)
+        let busy = try XCTUnwrap(b.footCard(w, at: start))
+        XCTAssertEqual(busy.state, .busy)
+        XCTAssertEqual(busy.hint, "作業が終わるのを待つ")
     }
 
     // MARK: - 上の帯

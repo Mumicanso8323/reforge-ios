@@ -35,35 +35,44 @@ public struct ScreenSize: Equatable, Sendable {
 
 /// 地図の視点(order.md §5.5 の操作)。画面側の状態で、本体の世界状態には入れない。
 ///
-/// - 拡大・縮小はピンチで 3 段にスナップ(1 マス 18 / 24 / 32pt)。中間の倍率は使わない。
+/// - 拡大・縮小はピンチで 3 段にスナップ(既定は 24 / 32 / 44pt)。中間の倍率は使わない。
 /// - 1 本指のドラッグで見回すと追従が外れる(画面は右下に「◎」を出し、押すとノアに戻る)。
 /// - 追従している間は、補間したノアの位置を中心にする。
 public struct MapCamera: Equatable, Sendable {
-    public static let cellSizes: [Double] = [18, 24, 32]
+    public static let cellSizes: [Double] = [24, 32, 44]
     public static let defaultZoom = 1
 
     public var zoom: Int
+    /// 画面側が選ぶ三段の拡大率。世界や保存には入れない。
+    public var zoomLevels: [Double]
     /// 画面の中心に来る地図の座標。
     public var center: MapPointF
     public var following: Bool
 
-    public init(center: MapPointF = MapPointF(x: 0, y: 0), zoom: Int = MapCamera.defaultZoom, following: Bool = true) {
+    public init(center: MapPointF = MapPointF(x: 0, y: 0), zoom: Int = MapCamera.defaultZoom, following: Bool = true,
+                zoomLevels: [Double] = MapCamera.cellSizes) {
         self.center = center
-        self.zoom = min(max(zoom, 0), Self.cellSizes.count - 1)
+        self.zoomLevels = zoomLevels.count == 3 ? zoomLevels : Self.cellSizes
+        self.zoom = min(max(zoom, 0), self.zoomLevels.count - 1)
         self.following = following
     }
 
     /// 1 マスの一辺(pt)。
-    public var cellSize: Double { Self.cellSizes[zoom] }
+    public var cellSize: Double { zoomLevels[zoom] }
 
     /// ピンチの倍率(始めた段 × scale)に一番近い段(倍率は対数で比べる)。
     public static func snappedZoom(from start: Int, pinchScale: Double) -> Int {
-        let s = min(max(start, 0), cellSizes.count - 1)
+        snappedZoom(from: start, pinchScale: pinchScale, levels: cellSizes)
+    }
+
+    public static func snappedZoom(from start: Int, pinchScale: Double, levels: [Double]) -> Int {
+        let levels = levels.count == 3 ? levels : cellSizes
+        let s = min(max(start, 0), levels.count - 1)
         guard pinchScale.isFinite, pinchScale > 0 else { return s }
-        let target = log(cellSizes[s] * pinchScale)
+        let target = log(levels[s] * pinchScale)
         var best = s
         var bestD = Double.infinity
-        for (i, c) in cellSizes.enumerated() {
+        for (i, c) in levels.enumerated() {
             let d = abs(log(c) - target)
             if d < bestD { best = i; bestD = d }
         }
@@ -115,7 +124,7 @@ public struct MapCamera: Equatable, Sendable {
 
     /// 段を変える(画面の中心はそのまま)。
     public mutating func setZoom(_ z: Int) {
-        zoom = min(max(z, 0), Self.cellSizes.count - 1)
+        zoom = min(max(z, 0), zoomLevels.count - 1)
     }
 
     /// 見回しで地図の外へ行き過ぎない(中心は地図の中)。

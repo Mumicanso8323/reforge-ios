@@ -1,0 +1,9 @@
+{
+  "language": "ja",
+  "texts": {
+    "ui.foot.hint.empty": "ここで今できることは無い",
+    "ui.foot.hint.unseen": "近づけば見える",
+    "ui.foot.hint.far": "遠い — 近づくとできる",
+    "ui.foot.hint.busy": "作業が終わるのを待つ"
+  }
+}

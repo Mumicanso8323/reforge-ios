@@ -555,6 +555,14 @@ public struct TileInspection: Equatable, Sendable {
 }
 
 /// 足元カード(注目しているマスの名前と、できること 1〜3 個)。
+public enum FootCardState: String, Equatable, Sendable {
+    case empty
+    case unseen
+    case far
+    case busy
+    case normal
+}
+
 public struct FootCard: Equatable, Sendable {
     public struct Action: Equatable, Sendable {
         public var id: InteractionID
@@ -584,6 +592,10 @@ public struct FootCard: Equatable, Sendable {
     public var point: GridPoint
     public var title: String
     public var actions: [Action]
+    /// 画面がそのまま見せる状態。画面側で距離や作業中を推測しない。
+    public var state: FootCardState = .normal
+    /// 押せる物がない理由、または次にすることを示す短い一行。
+    public var hint: String?
     /// このマスの残骸から開ける資料(段階つきの資料など。行為の数には数えない。U18)。
     public var documents: [DocumentLink] = []
     /// 焚き火の足元カードの、火の見込み(今と、1 本くべた後)。焚き火でなければ nil(PT-B1)。

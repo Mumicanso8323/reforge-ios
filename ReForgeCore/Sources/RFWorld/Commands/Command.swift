@@ -32,6 +32,8 @@ public enum TimeCommand: Codable, Equatable, Sendable {
 public enum CrewCommand: Codable, Equatable, Sendable {
     /// ノアを歩かせる(確認なし。歩いている途中に別の行き先を送れば変わる)。
     case walk(to: WorldPoint)
+    /// 画面の操作棒で、一定の向きへ進む。nil は次のマスの中心で止まる。
+    case steer(direction: StickDirection?)
     case stop
     /// 仲間に役割を与える。
     case assign(person: PersonID, assignment: Assignment)
@@ -48,6 +50,26 @@ public enum CrewCommand: Codable, Equatable, Sendable {
     case dieFromEffect(person: PersonID, reason: TextID, cause: ProvenanceID?)
     /// 傷を負う(amount は体力の千分率の raw)。
     case injureFromEffect(person: PersonID, amount: Int, cause: ProvenanceID?)
+}
+
+/// 操作棒が送る八つの向き。画面の角度とは別に、地図のマスで使う値だけを持つ。
+public enum StickDirection: String, Codable, CaseIterable, Sendable {
+    case north, northEast, east, southEast, south, southWest, west, northWest
+
+    public var offset: GridPoint {
+        switch self {
+        case .north: GridPoint(0, -1)
+        case .northEast: GridPoint(1, -1)
+        case .east: GridPoint(1, 0)
+        case .southEast: GridPoint(1, 1)
+        case .south: GridPoint(0, 1)
+        case .southWest: GridPoint(-1, 1)
+        case .west: GridPoint(-1, 0)
+        case .northWest: GridPoint(-1, -1)
+        }
+    }
+
+    public var isDiagonal: Bool { offset.x != 0 && offset.y != 0 }
 }
 
 public enum InventionCommand: Codable, Equatable, Sendable {

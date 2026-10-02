@@ -24,6 +24,7 @@ public struct CrewSystem: SimSystem {
         guard case .crew(let c) = command else { return .notMine }
         switch c {
         case .walk(let to): return walk(to: to, &ctx)
+        case .steer(let direction): return steer(direction, &ctx)
         case .stop: return stop(&ctx)
         case .assign(let p, let a): return assign(p, a, &ctx)
         case .talk(let p): return Relations.talk(p, &ctx)
@@ -47,6 +48,8 @@ public struct CrewSystem: SimSystem {
         guard to.layer == pos.layer, let layer = ctx.world.map[to.layer], layer.size.contains(to.point) else {
             return .rejected(Rejection("reason.walk.unreachable"))
         }
+        ctx.world.people[.noah]?.steer = nil
+        ctx.world.people[.noah]?.steerBlocked = nil
         var planner = PathPlanner(world: ctx.world, content: ctx.content, workspace: PathWorkspace())
         guard let anchor = Walking.anchor(ps, planner: &planner) else { return .rejected(Rejection("reason.walk.no_one")) }
         let known = planner.known(.noah, to.layer)
@@ -71,9 +74,42 @@ public struct CrewSystem: SimSystem {
         return .done
     }
 
+    /// 操作棒は、押した瞬間には動かず、次のシミュレーションの刻みから経路を足す。
+    func steer(_ direction: StickDirection?, _ ctx: inout StepContext) -> CommandResult {
+        guard var person = ctx.world.people[.noah], person.presence.isAlive, person.position != nil else {
+            return .rejected(Rejection("reason.walk.no_one"))
+        }
+        if case .fighting(let battle) = person.activity, ctx.world.combat.battles[battle] != nil {
+            return .rejected(Rejection("reason.walk.in_battle"))
+        }
+        guard person.steer != direction else { return .done }
+        person.steer = direction
+        person.steerBlocked = nil
+        if direction != nil {
+            person.motion = nil
+            person.activity = .idle
+            ctx.world.exploration.active[.noah] = nil
+        } else if var motion = person.motion {
+            if motion.progress > 0, let next = motion.path.first {
+                motion.path = [next]
+                motion.goal = next
+                motion.throughFog = false
+                person.motion = motion
+            } else {
+                person.motion = nil
+                person.activity = .idle
+            }
+        }
+        ctx.world.people[.noah] = person
+        ctx.changes.mark(.people)
+        return .done
+    }
+
     /// 止まる(次のマスへの途中なら、そのマスで止まる)。
     func stop(_ ctx: inout StepContext) -> CommandResult {
         guard var ps = ctx.world.people[.noah], let pos = ps.position else { return .rejected(Rejection("reason.walk.no_one")) }
+        ps.steer = nil
+        ps.steerBlocked = nil
         if var m = ps.motion {
             if m.progress > 0, let next = m.path.first {
                 m.path = [next]
@@ -163,14 +199,18 @@ public struct CrewSystem: SimSystem {
         guard order.contains(where: { ctx.world.people[$0]?.position != nil }) else { return }
         let workspace = PathWorkspace()
         let base = CrewRules.progressPerStep(ctx.content.clock)
+        var planner = PathPlanner(world: ctx.world, content: ctx.content, workspace: workspace)
+
+        if let direction = ctx.world.people[.noah]?.steer {
+            steerStep(direction, &ctx, planner: &planner)
+        }
 
         // 歩く
-        var planner = PathPlanner(world: ctx.world, content: ctx.content, workspace: workspace)
         for id in order {
             guard let ps = ctx.world.people[id], ps.presence.isAlive, ps.motion != nil else { continue }
             if case .fighting(let b) = ps.activity, ctx.world.combat.battles[b] != nil { continue }
             let heavy = id == .noah && ps.override != nil
-            let speed = heavy ? base * CrewRules.heavyStepPermille / 1000 : base
+            let speed = id == .noah && ps.steer != nil ? 400 : (heavy ? base * CrewRules.heavyStepPermille / 1000 : base)
             Walking.advance(id, speed: speed, &ctx, planner: &planner)
         }
 
@@ -192,6 +232,49 @@ public struct CrewSystem: SimSystem {
             guard let ps = ctx.world.people[id], ps.presence.isMember, ps.position != nil else { continue }
             Duties.run(id, &ctx, planner: &planner, allowed: allowed)
         }
+    }
+
+    private func steerStep(_ direction: StickDirection, _ ctx: inout StepContext, planner: inout PathPlanner) {
+        guard var person = ctx.world.people[.noah], let position = person.position else { return }
+        if let motion = person.motion, motion.path.count >= 2 { return }
+        let start = person.motion?.path.last ?? position.point
+        let direct = start + direction.offset
+        let known = planner.known(.noah, position.layer)
+        func passable(_ point: GridPoint) -> Bool {
+            planner.passableBelief(point, position.layer, known: known)
+        }
+        var next: GridPoint?
+        if passable(direct) {
+            next = direct
+        } else if direction.isDiagonal {
+            let horizontal = GridPoint(start.x + direction.offset.x, start.y)
+            let vertical = GridPoint(start.x, start.y + direction.offset.y)
+            let movedHorizontally = person.facing == .east || person.facing == .west
+            let candidates = movedHorizontally ? [horizontal, vertical] : [vertical, horizontal]
+            next = candidates.first(where: passable)
+        }
+        guard let next else {
+            person.motion = nil
+            person.activity = .idle
+            if person.steerBlocked != direction {
+                person.steerBlocked = direction
+                ctx.emit(.steerBlocked(direction: direction))
+            }
+            ctx.world.people[.noah] = person
+            ctx.changes.mark(.people)
+            return
+        }
+        person.steerBlocked = nil
+        if person.motion == nil {
+            person.motion = Motion(path: [next], progress: 0, goal: nil, throughFog: known?[next] != true)
+        } else if var motion = person.motion {
+            motion.path.append(next)
+            motion.throughFog = motion.throughFog == true || known?[next] != true
+            person.motion = motion
+        }
+        person.activity = .walking(to: WorldPoint(position.layer, next))
+        ctx.world.people[.noah] = person
+        ctx.changes.mark(.people)
     }
 
     // MARK: 出来事への反応

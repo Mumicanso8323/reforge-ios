@@ -30,6 +30,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     // 動く・探す
     case arrived(person: PersonID, at: WorldPoint)
     case walked(person: PersonID, tiles: Int, staminaCost: Int)
+    /// 操作棒の向きで、次のマスへ進めなかった。
+    case steerBlocked(direction: StickDirection)
     case entered(person: PersonID, poi: EntityID)
     case interacted(person: PersonID, interaction: InteractionID, at: WorldPoint, record: ProvenanceID)
     case itemGained(holder: HolderID, stuff: Stuff, quantity: Int, record: ProvenanceID?)
@@ -119,6 +121,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .built: "built"
         case .arrived: "arrived"
         case .walked: "walked"
+        case .steerBlocked: "steer.blocked"
         case .entered: "entered"
         case .interacted: "interacted"
         case .itemGained: "item.gained"
