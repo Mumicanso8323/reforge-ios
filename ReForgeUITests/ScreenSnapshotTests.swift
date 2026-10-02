@@ -85,7 +85,8 @@ final class ScreenSnapshotTests: XCTestCase {
         }
 
         prepare(app, screen: screen)
-        Thread.sleep(forTimeInterval: 1.0)  // 組み直しと文字の測りが落ち着くのを待つ
+        Thread.sleep(forTimeInterval: 1.0)  // 組み直しと文字の測りが落ち着くのを待つ(研究の巻き取りの成否は下のポーリングで決める)
+        let researchStatus = screen == "research" ? waitForResearchSection(app, language: lang.code, screen: screen) : nil
 
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         shot.name = "\(lang.code)_\(screen)"
@@ -95,13 +96,12 @@ final class ScreenSnapshotTests: XCTestCase {
         let inspected = inspect(app, lang: lang.code, screen: screen)
         var findings = inspected.findings
         let ignoredZeroSize = inspected.ignoredZeroSize
-        var research: String?
-        if screen == "research" {
-            let any = app.descendants(matching: .any)
-            let shown = any.matching(NSPredicate(format: "identifier BEGINSWITH 'research-'")).firstMatch.exists
-                || element(app, "researchHidden").exists
-            research = shown ? "ok" : "empty"
-            if !shown {
+        let research = researchStatus?.state
+        if let researchStatus {
+            if let finding = researchStatus.finding {
+                findings.append(finding)
+            }
+            if researchStatus.state == "empty" {
                 findings.append(Finding(language: lang.code, screen: screen, id: "researchSection", kind: "research",
                                         detail: "research: empty(研究の節が出ない。空の写真は緑にしない)"))
             }
@@ -133,8 +133,6 @@ final class ScreenSnapshotTests: XCTestCase {
             _ = element(app, "InkPanel.title").waitForExistence(timeout: 30)
         case "research":
             _ = element(app, "InkPanel.title").waitForExistence(timeout: 30)
-            _ = app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH 'research'")).firstMatch
-                .waitForExistence(timeout: 10)
         case "gameOver":
             _ = element(app, "recovery-restart").waitForExistence(timeout: 30)
         case "settings":
@@ -150,6 +148,37 @@ final class ScreenSnapshotTests: XCTestCase {
         default:
             XCTFail("知らない画面: \(screen)")
         }
+    }
+
+    /// 研究の最初の行が上半分に来るまで待つ。写真はこの判定の後に撮る。
+    private func waitForResearchSection(_ app: XCUIApplication, language: String, screen: String) -> (state: String, finding: Finding?) {
+        let deadline = Date().addingTimeInterval(5)
+        var found = false
+        var lastFrame = CGRect.zero
+
+        while Date() < deadline {
+            let rows = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "identifier BEGINSWITH 'research-'"))
+            let firstRow = rows.firstMatch
+            let section = firstRow.exists ? firstRow : element(app, "researchHidden")
+            if section.exists {
+                found = true
+                let frame = section.frame
+                lastFrame = frame
+                let window = app.windows.firstMatch.frame
+                if !window.isEmpty,
+                   frame.minY < window.minY + window.height / 2,
+                   frame.intersects(window),
+                   section.isHittable {
+                    return ("ok", nil)
+                }
+            }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+
+        guard found else { return ("empty", nil) }
+        let detail = "research: notScrolled frame \(Int(lastFrame.minX)),\(Int(lastFrame.minY)),\(Int(lastFrame.width)),\(Int(lastFrame.height))"
+        return ("notScrolled", Finding(language: language, screen: screen, id: "researchSection", kind: "research", detail: detail))
     }
 
     // MARK: - 検査

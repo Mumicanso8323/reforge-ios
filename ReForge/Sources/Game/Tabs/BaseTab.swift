@@ -13,22 +13,6 @@ struct BaseTabView: View {
     @State private var showSettings = false
 
     var body: some View {
-        ScrollViewReader { proxy in
-            panel
-                #if DEBUG
-                // 撮る起動の研究だけ、研究の節が画面の上に来るまでアプリの側で巻き取る(S-02)
-                .onChange(of: research != nil) { _, loaded in
-                    guard loaded, ScreenshotMode.screen == .research else { return }
-                    Task { @MainActor in
-                        try? await Task.sleep(nanoseconds: 500_000_000)
-                        proxy.scrollTo("researchSection", anchor: .top)
-                    }
-                }
-                #endif
-        }
-    }
-
-    private var panel: some View {
         InkPanel(title: Text("拠点")) {
             if let base {
                 if store.ui.isOpen(UIElements.baseStock) { stock(base) }
@@ -55,6 +39,9 @@ struct BaseTabView: View {
             points = store.savePoints()
         }
         .accessibilityIdentifier("baseTab")
+        #if DEBUG
+        .modifier(ResearchSectionScrollModifier(researchLoaded: research != nil))
+        #endif
     }
 
     private func stock(_ v: BaseView) -> some View {
@@ -158,6 +145,27 @@ struct BaseTabView: View {
         }
     }
 }
+
+#if DEBUG
+private struct ResearchSectionScrollModifier: ViewModifier {
+    let researchLoaded: Bool
+
+    func body(content: Content) -> some View {
+        ScrollViewReader { proxy in
+            content.onChange(of: researchLoaded) { _, loaded in
+                guard loaded, ScreenshotMode.screen == .research else { return }
+                Task { @MainActor in
+                    for _ in 0..<10 {
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        guard !Task.isCancelled else { return }
+                        proxy.scrollTo("researchSection", anchor: .top)
+                    }
+                }
+            }
+        }
+    }
+}
+#endif
 
 /// 研究: 選ぶ(別のを選べば切り替わる。進みは残る)と進み具合。
 struct ResearchSection: View {
