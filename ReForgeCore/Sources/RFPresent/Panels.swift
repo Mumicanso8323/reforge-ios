@@ -182,7 +182,9 @@ public struct BaseView: Equatable, Sendable {
     public var built: [Built]
     public var buildable: [BuildOption]
     public var lines: [Line]
-    /// まだ解禁されていない建造物の数(建てる一覧の「？」。名前は出さない。§10 HNT-13)。
+    /// 半分の気配の影の行のうち建造物(押せない。W-07)。
+    public var shadows: [ShadowRow] = []
+    /// 影にもならない未解放の建造物の数(建てる一覧の「？」。名前は出さない。§10 HNT-13)。未解放の数 − 影の数。
     public var unknownStructures: Int = 0
 }
 
@@ -224,9 +226,11 @@ extension FrameBuilder {
                                  haulers: names(w.people.haulers(of: id)), movedYesterday: r.movedYesterday,
                                  movedToday: r.movedToday, blocked: r.blocked.map { p.text($0) })
         }
+        let shadowRows = shadows(w, p).filter { if case .structure = $0.kind { true } else { false } }
+        let locked = content.structures.keys.filter { !w.research.unlocked.structures.contains($0) }.count
         return BaseView(stock: order.map { BaseView.StockLine(name: $0, quantity: stock[$0] ?? 0) }, built: built,
-                        buildable: buildable, lines: lines,
-                        unknownStructures: content.structures.keys.filter { !w.research.unlocked.structures.contains($0) }.count)
+                        buildable: buildable, lines: lines, shadows: shadowRows,
+                        unknownStructures: max(0, locked - shadowRows.count))
     }
 
     func buildPermille(_ pl: Placement, _ progress: Int) -> Int {

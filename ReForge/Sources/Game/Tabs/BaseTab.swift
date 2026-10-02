@@ -17,7 +17,7 @@ struct BaseTabView: View {
             if let base {
                 if store.ui.isOpen(UIElements.baseStock) { stock(base) }
                 built(base)
-                if store.ui.isOpen(UIElements.baseBuild), !base.buildable.isEmpty || base.unknownStructures > 0 { build(base) }
+                if store.ui.isOpen(UIElements.baseBuild), !base.buildable.isEmpty || !base.shadows.isEmpty || base.unknownStructures > 0 { build(base) }
                 if store.ui.isOpen(UIElements.baseLines), !base.lines.isEmpty { lines(base) }
             }
             if store.ui.isOpen(UIElements.research), let research, !research.entries.isEmpty || research.hiddenCount > 0 {
@@ -85,6 +85,12 @@ struct BaseTabView: View {
                 }
                 .buttonStyle(.inkRow)
                 .accessibilityIdentifier("build-\(o.kind.rawValue)")
+            }
+            ForEach(v.shadows, id: \.name) { s in
+                // 半分の気配の影(押せない。解放の条件は書かない。W-07)
+                InkRow(glyph: "？", title: Text(verbatim: s.name), detail: Text("まだ作り方を知らない"),
+                       value: Text("\(s.have)/\(s.need)"))
+                    .foregroundStyle(InkColor.textDim)
             }
             if v.unknownStructures > 0 {
                 // 建てられない物の影(名前は出さない。§10 HNT-13)

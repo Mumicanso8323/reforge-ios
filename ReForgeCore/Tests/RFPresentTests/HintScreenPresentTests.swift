@@ -91,7 +91,9 @@ final class HintScreenPresentTests: XCTestCase {
         XCTAssertEqual(r.entries.count + r.hiddenCount, rig.content.research.count, "見える + 見えない = 全部")
         let base = b.base(w)
         XCTAssertEqual(base.buildable.count <= w.research.unlocked.structures.count, true)
-        XCTAssertEqual(base.unknownStructures,
-                       rig.content.structures.keys.filter { !w.research.unlocked.structures.contains($0) }.count)
+        XCTAssertEqual(base.unknownStructures + base.shadows.count,
+                       rig.content.structures.keys.filter { !w.research.unlocked.structures.contains($0) }.count,
+                       "「？」の数 = 未解放 − 影")
+        XCTAssertTrue(base.shadows.allSatisfy { if case .structure = $0.kind { true } else { false } })
     }
 }
