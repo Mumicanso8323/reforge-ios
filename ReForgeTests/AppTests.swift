@@ -84,4 +84,46 @@ final class AppTests: XCTestCase {
         app.deleteSave()
         XCTAssertFalse(app.hasResume)
     }
+    /// L-10a: 設定が開いている間は GameStore の時計が進まない。閉じたら、止めていた間の実時間を進めず、再開した点から進む。
+    func testClockStopsWhileSettingsOpen() async throws {
+        let c = try content()
+        var world = GameBootstrap.newWorld(content: c, seed: 3)
+        world.clock.held = false
+        let store = GameStore(content: c, world: world, saves: tempSaves())
+        let runner = Task { await store.run() }
+        defer { runner.cancel() }
+        func now() async -> GameTime { await store.host.world.clock.now }
+        try await Task.sleep(nanoseconds: 500_000_000)
+        let beforeOpen = await now()
+        XCTAssertGreaterThan(beforeOpen, GameTime.zero, "開く前は時計が進んでいる")
+
+        store.isPaused = true
+        try await Task.sleep(nanoseconds: 150_000_000)  // 進行中の 1 歩が終わるのを待つ
+        let atOpen = await now()
+        try await Task.sleep(nanoseconds: 800_000_000)
+        let whileOpen = await now()
+        XCTAssertEqual(whileOpen, atOpen, "設定が開いている間は時計が進まない")
+
+        store.isPaused = false
+        try await Task.sleep(nanoseconds: 500_000_000)
+        let afterClose = await now()
+        XCTAssertGreaterThan(afterClose, whileOpen, "閉じたら再開する")
+    }
+
+    /// L-10a: 開閉は AppModel.settingsOpen が持ち、ゲームの時計の止め方に渡す。ゲームの入れ替わりで開いたままにしない。
+    func testSettingsOpenPausesGameAndResetsOnGameChange() throws {
+        let app = AppModel(saves: tempSaves())
+        app.settingsOpen = true
+        app.startNewGame()
+        XCTAssertFalse(app.settingsOpen, "新しいゲームでは閉じて始まる")
+        let game = try XCTUnwrap(app.game)
+        XCTAssertFalse(game.isPaused)
+        app.settingsOpen = true
+        XCTAssertTrue(game.isPaused, "開いている間は時計を止める")
+        app.settingsOpen = false
+        XCTAssertFalse(game.isPaused)
+        app.settingsOpen = true
+        app.deleteSave()
+        XCTAssertFalse(app.settingsOpen, "記録を消したら閉じる")
+    }
 }

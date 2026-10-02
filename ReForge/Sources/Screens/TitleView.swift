@@ -5,7 +5,6 @@ import UIKit
 /// 上 1/3 に題、下 1/4 にボタン。絵が無いときは墨の地だけで出す。
 struct TitleView: View {
     @Bindable var app: AppModel
-    @State private var showSettings = false
 
     var body: some View {
         ZStack {
@@ -54,13 +53,6 @@ struct TitleView: View {
                         .buttonStyle(.ink(.primary))
                         .accessibilityIdentifier("newGameButton")
                     }
-                    Button {
-                        showSettings.toggle()
-                    } label: {
-                        Text("設定")
-                    }
-                    .buttonStyle(.ink(.quiet))
-                    .accessibilityIdentifier("titleSettingsButton")
                 }
                 .frame(maxWidth: 280)
                 Spacer().frame(height: 40)
@@ -69,8 +61,5 @@ struct TitleView: View {
             .padding(.vertical, AdLayout.contentGap)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .inkCard(isPresented: $showSettings, title: Text("設定")) {
-            SettingsView(app: app, close: { showSettings = false })
-        }
     }
 }

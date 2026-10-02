@@ -10,7 +10,6 @@ struct BaseTabView: View {
     @State private var base: BaseView?
     @State private var research: ResearchView?
     @State private var points: [SavePoint] = []
-    @State private var showSettings = false
 
     var body: some View {
         InkPanel(title: Text("拠点")) {
@@ -26,13 +25,10 @@ struct BaseTabView: View {
             }
             if store.ui.isOpen(UIElements.saveManual) { saves }
             InkSection {
-                Button { showSettings.toggle() } label: { Text("設定") }
-                    .buttonStyle(.ink(.quiet))
                 Button { Task { await app.backToTitle() } } label: { Text("タイトルへ") }
                     .buttonStyle(.ink(.quiet))
             }
         }
-        .inkCard(isPresented: $showSettings, title: Text("設定")) { SettingsView(app: app, close: { showSettings = false }) }
         .task(id: store.revision) {
             base = await store.host.base()
             research = await store.host.research()

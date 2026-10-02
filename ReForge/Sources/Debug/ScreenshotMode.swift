@@ -41,7 +41,6 @@ enum ScreenshotMode {
 
     static var isActive: Bool { screen != nil }
     static var firstTab: GameTab { screen?.tab ?? .map }
-    static var opensSettings: Bool { screen == .settings }
 
     /// 撮る起動なら、保存を読み書きしない置き場(使い捨ての場所)で、新しい世界を開いた AppModel を返す。
     @MainActor
@@ -64,6 +63,8 @@ enum ScreenshotMode {
         case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand:
             let model = AppModel(saves: saves)
             model.startScreenshotGame(failed: screen == .gameOver, decision: screen == .decisionBand)
+            // 設定は、角のボタンで開いた形で撮る(札は RootView。L-10a)
+            if screen == .settings { model.settingsOpen = true }
             return model
         }
     }

@@ -1291,6 +1291,26 @@
         }
       }
     },
+    "設定を閉じる": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を閉じる"
+          }
+        }
+      }
+    },
+    "設定を開く": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を開く"
+          }
+        }
+      }
+    },
     "設計": {
       "localizations": {
         "ja": {

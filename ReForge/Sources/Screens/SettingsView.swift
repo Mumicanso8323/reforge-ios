@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// S8 設定。下からの札(InkCard)の中身。効果音(MVP は音なし)とプライバシー(P3 で URL)は出さない。
+/// S8 設定。下からの札(InkCard)の中身。右上の角のボタン(SettingsCorner.swift)で開閉する。効果音(MVP は音なし)とプライバシー(P3 で URL)は出さない。
 /// 広告を消す画面は札を重ねず、この中身を差し替えて出す。
 struct SettingsView: View {
     @Bindable var app: AppModel
@@ -20,6 +20,7 @@ struct SettingsView: View {
             RemoveAdsView(app: app, back: { showRemoveAds = false })
         } else {
             VStack(alignment: .leading, spacing: 24) {
+                // 言語の節の場所(L-10b で作る。いまは空けておくだけ)
                 if AdPolicy.shown {
                     InkSection(title: Text("広告")) {
                         if app.adsRemoved {
