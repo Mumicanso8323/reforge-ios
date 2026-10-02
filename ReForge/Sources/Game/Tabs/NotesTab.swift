@@ -63,7 +63,7 @@ struct NotesTabView: View {
                             Text(verbatim: c.name).foregroundStyle(c.made ? InkColor.text : InkColor.textDim)
                             Spacer()
                             if let p = c.percent {
-                                Text(verbatim: SenseWords.phrase(p)).font(InkFont.small).foregroundStyle(InkColor.textDim)
+                                SenseWords.phrase(p).font(InkFont.small).foregroundStyle(InkColor.textDim)
                             }
                         }
                         ForEach(c.clues, id: \.self) { t in
