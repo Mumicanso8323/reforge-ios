@@ -4,7 +4,6 @@ name: ci
 #   core: ReForgeCore を Linux で swift test(安くて速い)
 #   ios : xcodegen → シミュレータで単体テスト → 未署名 ipa を作る → (手動起動で release=true なら) プレリリース公開
 # ipa は未署名。SideStore が自分の Apple ID で再署名して入れる。
-# 注意: 00:00〜07:00 JST には手動起動しないこと(失敗時のメールがオーナーに飛ぶ)。
 
 on:
   push:
