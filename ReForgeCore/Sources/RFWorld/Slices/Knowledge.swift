@@ -18,10 +18,12 @@ public struct KnowledgeState: Codable, Equatable, Sendable {
     public var disclosed: [UIElementID: DisclosureKind] = [:]
     /// 一度でも手にした品(半分の気配 HintRule.halfway が読む。W-07)。巻き戻しで残る。
     public var heldItems: Set<ItemID> = []
+    /// 長押しで調べたマスの種類(地形 terrain:<ID> と POI poi:<ID> の主題。条件 inspected が読む)。巻き戻しで残る。
+    public var inspected: Set<SubjectID> = []
 
     public init() {}
 
-    private enum CodingKeys: String, CodingKey { case facts, mapKnown, discovered, seen, disclosed, heldItems }
+    private enum CodingKeys: String, CodingKey { case facts, mapKnown, discovered, seen, disclosed, heldItems, inspected }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -31,6 +33,7 @@ public struct KnowledgeState: Codable, Equatable, Sendable {
         seen = try c.decode(Set<SubjectID>.self, forKey: .seen)
         disclosed = try c.decodeIfPresent([UIElementID: DisclosureKind].self, forKey: .disclosed) ?? [:]
         heldItems = try c.decodeIfPresent(Set<ItemID>.self, forKey: .heldItems) ?? []
+        inspected = try c.decodeIfPresent(Set<SubjectID>.self, forKey: .inspected) ?? []
     }
 
     public var factSet: Set<FactID> { Set(facts.keys) }

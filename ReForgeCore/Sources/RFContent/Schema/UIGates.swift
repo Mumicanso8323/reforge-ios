@@ -41,6 +41,29 @@ public enum UIElements {
     public static let combatStance: UIElementID = "combat.stance"
     public static let combatRetreat: UIElementID = "combat.retreat"
     public static let saveManual: UIElementID = "save.manual"
+    // 帯・足元カード・パネルの要素(U20。序盤の設計 §2.4 の UI-xx)。門が無ければいつも出す
+    /// UI-03 帯: 日の残り(時計を止めている間は門に関わらず出さない)。
+    public static let bandDay: UIElementID = "band.day"
+    /// UI-04 帯: 火のゲージ。
+    public static let bandFire: UIElementID = "band.fire"
+    /// UI-05 足元カード: 持ち物の 1 行。
+    public static let cardCarry: UIElementID = "card.carry"
+    /// UI-06 帯: 食料と水の残り日数(StatDef.band で数値を結ぶ)。
+    public static let bandSupplies: UIElementID = "band.supplies"
+    /// UI-08 帯: 夜の選択の見込みの 1 行(寝る・夜作業のボタンそのものは夜に必ず出す。止めないため)。
+    public static let bandNight: UIElementID = "band.night"
+    /// UI-11 帯: 不明なガス(StatDef.band で数値を結ぶ)。
+    public static let bandGas: UIElementID = "band.gas"
+    /// UI-13 人の横の精神力の印。
+    public static let personMind: UIElementID = "person.mind"
+    /// UI-16 炉の熱の棒。
+    public static let furnaceHeat: UIElementID = "furnace.heat"
+    /// UI-11・UI-20 帯: 目標の 1 行。
+    public static let bandObjective: UIElementID = "band.objective"
+    /// UI-22 拠点: 収容の数。
+    public static let baseCapacity: UIElementID = "base.capacity"
+    /// UI-24 経路の運べる量と優先度。
+    public static let routeCapacity: UIElementID = "route.capacity"
     /// 割り当ての種類ごと(crew.assign.<種類>)。種類は RFPresent の CrewMemberView.AssignKind の rawValue。
     public static let assignKinds = ["gather", "haul", "operate", "research", "guard", "build", "rest", "idle", "follow"]
     public static func assign(_ kind: String) -> UIElementID { UIElementID("crew.assign.\(kind)") }
@@ -59,6 +82,8 @@ public enum UIElements {
         tabMap, tabDesign, tabNotes, tabBase, tabCrew, baseStock, baseBuild, baseLines, research, crewAssign,
         crewRelation, combatStance, combatRetreat, saveManual, designSheet, designTrial, designPlate, designHints,
         notesTrials, notesCodex, notesClues, notesDocuments,
+        bandDay, bandFire, cardCarry, bandSupplies, bandNight, bandGas, personMind, furnaceHeat, bandObjective,
+        baseCapacity, routeCapacity,
     ] + assignKinds.map(assign))
 
     /// その ID が画面のどこかの要素か(行為の要素は定義があるか)。

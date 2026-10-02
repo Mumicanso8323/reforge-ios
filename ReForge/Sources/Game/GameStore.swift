@@ -159,6 +159,8 @@ final class GameStore {
         selected = cell
         Task {
             inspection = await host.inspect(at: cell)
+            // 調べたことで開いた要素があれば出す(U20。frame の版が上がっていなければ何もしない)
+            await refresh(await host.frame)
             await refreshCard()
         }
     }

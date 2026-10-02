@@ -581,6 +581,9 @@ public struct StatDef: ContentDef, Equatable {
     /// 掘った量で上がる項(U16。OPEN-S2・BEAT-18)。鉱脈の減った回数を数え、per 回ごとに amount(raw)を足す。
     /// perDay・範囲の上積みとは別の項。掘らなければ 0 なので、他の進み方を変えない。
     public var mined: MinedTerm?
+    /// 上の帯でこの数値を出す要素(U20。例 "band.supplies"・"band.gas")。その要素に門があり閉じていれば出さない。
+    /// 省略すると今どおり常に出す。
+    public var band: UIElementID?
 
     /// 掘った量の項。ores = 鉱脈の種類(DepositCategory の名前)か、組成の物質(MineralID)のどれかに合う鉱脈を数える。
     public struct MinedTerm: Codable, Equatable, Sendable {

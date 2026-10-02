@@ -132,6 +132,14 @@ public enum ConditionEvaluator {
         case .runAtLeast(let i): return w.run.index >= i
         case .sheet(let id, let t): return SheetRules.test(t, w.narrative.sheet(id), w)
         case .baseGrade(let n): return BaseGrades.current(w, content) >= n
+        case .hearthAtLeast(let l):
+            return w.placements.items.values.contains { p in Hearths.level(of: p, content).map { $0 >= l } ?? false }
+        case .stockTotal(let n): return w.inventory.entries(.base).reduce(0) { $0 + $1.quantity } >= n
+        case .findings(let n): return w.notebook.notes.count >= n
+        case .inspected(let t, let poi):
+            if let t { return w.knowledge.inspected.contains(Subject.terrain(t)) }
+            if let poi { return w.knowledge.inspected.contains(Subject.poi(poi)) }
+            return false
         }
     }
 

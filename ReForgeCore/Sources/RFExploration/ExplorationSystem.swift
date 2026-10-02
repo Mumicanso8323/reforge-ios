@@ -30,6 +30,12 @@ public struct ExplorationSystem: SimSystem {
             ctx.world.exploration.beacons[id] = at
             for p in [old, at].compactMap({ $0 }) { ctx.changes.markTile(p, .fog) }
             return .done
+        case .inspected(let t, let poi):
+            let subjects = [t.map(Subject.terrain), poi.map(Subject.poi)].compactMap { $0 }
+            let before = ctx.world.knowledge.inspected.count
+            ctx.world.knowledge.inspected.formUnion(subjects)
+            if ctx.world.knowledge.inspected.count != before { ctx.changes.mark(.narrative) }
+            return .done
         }
     }
 
