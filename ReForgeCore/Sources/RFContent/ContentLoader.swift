@@ -216,6 +216,8 @@ struct LayerKeys {
 struct ContentFile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
         case bundle, clock, mapGen, start, rewind, ruleBook, survival, combat, hauling
+        // 人の自動化(U22)
+        case crewWork
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
         case memoryKinds, lines, hints, research, skills, abilities, enemies, auras, stats, failureRules
         case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings, documents, groups
@@ -238,6 +240,7 @@ struct ContentFile: Codable {
     var survival: SurvivalDef?
     var combat: CombatDef?
     var hauling: HaulingDef?
+    var crewWork: CrewWorkDef?
     var ruleBook: RuleBook?
     var terrains: [TerrainDef]?
     var biomes: [BiomeDef]?
@@ -303,6 +306,7 @@ struct ContentFile: Codable {
         if let v = survival { db.survival = v }
         if let v = combat { db.combat = v }
         if let v = hauling { db.hauling = v }
+        if let v = crewWork { db.crewWork = v }
         if let v = ruleBook { db.ruleBook = v }
         func upsert<D: ContentDef>(_ name: String, _ dict: inout [D.Key: D], _ items: [D]?) {
             for d in items ?? [] {

@@ -19,6 +19,8 @@ public struct ContentDB: Equatable, Sendable {
     public var combat: CombatDef?
     /// 運搬の数(1 人 1 日の数・距離の落ち)。nil なら R1 の仮の値。持ち主: U7
     public var hauling: HaulingDef?
+    /// 人の自動化の規則(人の速さ・手が先・働ける人数)。nil なら縛らない。持ち主: U22
+    public var crewWork: CrewWorkDef?
     /// 発明の規則の表(RFMatter)。コンテンツに無ければ R1 の表。
     public var ruleBook: RuleBook = .r1
 

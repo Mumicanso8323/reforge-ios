@@ -331,6 +331,9 @@ public struct InteractionDef: ContentDef, Equatable {
     public var cooldownDays: Int?
     /// 対象のそばに何人いないと進まないか(大きすぎる扉や設備。既定 1)。
     public var requiredPeople: Int?
+    /// 手が先(INV-O8)で数える行為の種類(序盤の設計 v0.4 の W-04)。同じ種類の行為を 1 度手でやれば、
+    /// その種類の行為を仲間に頼める。nil なら行為 ID が種類。例 "family.scavenge"(漁る)・"family.stoke"(くべる)。
+    public var handFamily: HandFamilyID?
 }
 
 /// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。

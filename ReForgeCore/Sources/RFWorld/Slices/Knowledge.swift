@@ -13,8 +13,31 @@ public struct KnowledgeState: Codable, Equatable, Sendable {
     public var discovered: Set<EntityID> = []
     /// 一度でも見た・触れた対象(図鑑の「影」を出すかどうか)。
     public var seen: Set<SubjectID> = []
+    /// ノアが手で 1 度終えた行為の種類(INV-O8。仲間に頼めるのはこれだけ)。InteractionDef.handFamily か行為 ID、
+    /// 本体が決める "family.haul"(運ぶ)・"family.build"(建てる)。知識の側なので巻き戻しても残る。持ち主: U22
+    public var handDone: Set<HandFamilyID> = []
 
     public init() {}
+
+    private enum CodingKeys: String, CodingKey { case facts, mapKnown, discovered, seen, handDone }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        facts = try c.decodeIfPresent([FactID: FactRecord].self, forKey: .facts) ?? [:]
+        mapKnown = try c.decodeIfPresent([LayerID: GridBitset].self, forKey: .mapKnown) ?? [:]
+        discovered = try c.decodeIfPresent(Set<EntityID>.self, forKey: .discovered) ?? []
+        seen = try c.decodeIfPresent(Set<SubjectID>.self, forKey: .seen) ?? []
+        handDone = try c.decodeIfPresent(Set<HandFamilyID>.self, forKey: .handDone) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(facts, forKey: .facts)
+        try c.encode(mapKnown, forKey: .mapKnown)
+        try c.encode(discovered, forKey: .discovered)
+        try c.encode(seen, forKey: .seen)
+        if !handDone.isEmpty { try c.encode(handDone, forKey: .handDone) }
+    }
 
     public var factSet: Set<FactID> { Set(facts.keys) }
     public func knows(_ f: FactID) -> Bool { facts[f] != nil }
