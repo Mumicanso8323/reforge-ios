@@ -57,6 +57,21 @@ public struct Perceiver: Sendable {
         audited(rawText(id, args), origin: id.rawValue)
     }
 
+    // MARK: 品の色の系統
+
+    /// 見出しのいまの見え方に付いた色の系統(無ければ中立)。真実の素材では分岐しない。
+    public func tint(_ s: SubjectID) -> ItemTint {
+        variant(s)?.tint ?? .neutral
+    }
+
+    /// 品・物質の色の系統。物質は主成分の名前の部品(substance:<ID>)の見え方から引く。
+    public func tint(of stuff: Stuff) -> ItemTint {
+        switch stuff {
+        case .item(let i): tint(Subject.item(i))
+        case .matter(let m): tint(Subject.namePart(.substance(m.substance)))
+        }
+    }
+
     // MARK: 物・置いた物・人
 
     /// 物質の名前(名前の部品を 1 つずつ引いて連結する)。図鑑・在庫・試作の結果で同じ関数を使う。
