@@ -153,6 +153,8 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
     public var capacity: Int = 12
     /// 1 回の処理で通す数。
     public var batch: Int = 1
+    /// 火床(炉の熱。定義に hearth があるモジュールだけ。U22 が W-03 で使う)。持ち主: U21
+    public var hearth: HearthState?
 
     public init(design: EntityID?, step: ProcessStep?) {
         self.design = design
@@ -162,7 +164,7 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case design, step, stepIndex, ports, deposit, input, output, progress, operatorID, today, yesterday, paid
         case finite, finiteRecord, waitingFor, producedRecord, lifetimeProduced
-        case takesMatter, auxPerUnit, freeItems, capacity, batch
+        case takesMatter, auxPerUnit, freeItems, capacity, batch, hearth
     }
 
     public init(from decoder: Decoder) throws {
@@ -189,6 +191,7 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
         freeItems = try c.decodeIfPresent([ItemID].self, forKey: .freeItems) ?? []
         capacity = try c.decodeIfPresent(Int.self, forKey: .capacity) ?? 12
         batch = try c.decodeIfPresent(Int.self, forKey: .batch) ?? 1
+        hearth = try c.decodeIfPresent(HearthState.self, forKey: .hearth)
     }
 
     // MARK: 受け取り・渡し(生産と運搬が同じ規則で使う)
@@ -336,6 +339,8 @@ public struct StructureRuntime: Codable, Equatable, Sendable {
     public var durability: Milli?
     /// 灯り・燃料などの種類ごとの値。形は RFBase の担当が決める。
     public var parameters: [String: Int] = [:]
+    /// 火床(焚き火台。定義に hearth がある建造物だけ)。持ち主: U21
+    public var hearth: HearthState?
 
     public init(durability: Milli? = nil) {
         self.durability = durability

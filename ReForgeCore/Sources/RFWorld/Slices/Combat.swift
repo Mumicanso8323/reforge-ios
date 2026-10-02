@@ -22,6 +22,8 @@ public struct CombatState: Codable, Equatable, Sendable {
     public var lastBattle: BattleState?
     /// 今夜の集計(日没で 0 に戻す。夜明けの要約の材料)。
     public var night = NightTally()
+    /// その日に、その獣の巣のそばで木を伐った回数(縄張り。夜明けに空に戻す。U21・W-02c)。
+    public var felledToday: [EnemyKindID: Int]?
 
     public init() {}
 

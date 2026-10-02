@@ -107,6 +107,8 @@ enum Construction {
             return true
         }
         guard !sites.isEmpty else { return }
+        let fireTag = ctx.content.base.constructionFireTag
+        let hasFire = fireTag.map { BaseRules.total($0, w, ctx.content) > 0 } ?? true
         var work: [EntityID: Int64] = [:]
         for pid in w.people.members {
             guard let ps = w.people[pid], ps.motion == nil, let pos = ps.position else { continue }
@@ -122,6 +124,9 @@ enum Construction {
                     helping = false
                 }
                 guard helping else { continue }
+                // 拠点の範囲の建設は、火が燃えている間だけ進む(W-02c)
+                if !hasFire, let tag = fireTag, let sd = ctx.content.structures[kind], sd.requiresBaseArea != false,
+                   sd.provides[tag] == nil { continue }
                 // 距離の縛り(PersonDef.tether。U16): 縛る人から遠い間は手伝えない
                 if let t = ctx.content.people[pid]?.tether {
                     guard let other = ctx.world.people[t.person]?.position, other.layer == pos.layer,

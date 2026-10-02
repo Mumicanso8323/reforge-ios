@@ -274,6 +274,10 @@ public enum EffectApplier {
             guard let at = resolve(place) else { return missing(&ctx, e) }
             ctx.queue(.combat(.startGroupBattle(group: group, near: at, members: members, lethal: lethal ?? true,
                                                 cause: cause)))
+        case .hearth(let place, let op):
+            guard let at = resolve(place), let target = Hearths.nearest(to: at, in: w, content: ctx.content)
+            else { return missing(&ctx, e) }
+            Hearths.applyEffect(op, to: target, &ctx)
         }
     }
 

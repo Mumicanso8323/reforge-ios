@@ -108,7 +108,14 @@ public struct CombatSystem: SimSystem {
             ctx.world.combat.night = NightTally()
             ctx.world.combat.plannedRaids = []
             Threats.planRaids(&ctx, def: def(ctx.content))
+        case .interacted(_, let interaction, let at, _) where ctx.content.interactions[interaction]?.felling == true:
+            Threats.noteFelling(at: at, &ctx)
+        case .hearthLevelChanged(_, .out) where ctx.world.clock.isNight:
+            // 夜のうちに火が消えたら、闇の重みでもう一度だけ寄るかを振る(W-02c)
+            Threats.planRaids(&ctx, def: def(ctx.content), darkOnly: true)
         case .dawn:
+            // 縄張り(その日に巣のそばで伐った回数)を空に戻す(W-02c)
+            if ctx.world.combat.felledToday != nil { ctx.world.combat.felledToday = nil }
             // 夜の獣は帰る(戦っている群れは戦いの後で)。罠は仕掛け直す。
             let inBattle = Set(ctx.world.combat.battles.values.flatMap(\.enemies))
             for (id, t) in ctx.world.combat.threats.sorted(by: { $0.key < $1.key }) where t.nocturnal && !inBattle.contains(id) {

@@ -135,6 +135,7 @@ public enum Auras {
             guard let p = w.placements.items[id] else { continue }
             if case .underConstruction = p.status { continue }
             if p.status == .broken { continue }  // 壊れた物は範囲を出さない(U16)
+            if !Hearths.effectsActive(p, ctx.content) { continue }  // 火床が燃えていない間は出さない(W-02c)
             let kinds: [AuraKindID]
             switch p.kind {
             case .module(let k): kinds = ctx.content.modules[k]?.auras ?? []

@@ -1,5 +1,7 @@
+import RFContent
 import RFKernel
 import RFMap
+import RFRules
 import RFWorld
 
 /// いま見えている範囲 1 つ(画面の切り抜き用の形)。円の判定と半径の決まりは RFMap の VisionRule が 1 か所で持つ
@@ -47,6 +49,24 @@ public struct VisionRadiusRule: Equatable, Sendable {
         return w.people.members.compactMap { id in
             guard let pos = w.people[id]?.position, pos.layer == layer else { return nil }
             return VisionArea(center: pos.point, radius: r)
+        }
+    }
+
+    /// 一員それぞれの視界(灯りの中にいる人は夜に +4。RFCrew の視界と同じ規則)。
+    public func areas(_ w: WorldState, content: ContentDB, layer: LayerID) -> [VisionArea] {
+        w.people.members.compactMap { id in
+            guard let pos = w.people[id]?.position, pos.layer == layer else { return nil }
+            let lit = w.clock.isNight && Hearths.isLit(pos, in: w, content: content)
+            return VisionArea(center: pos.point, radius: radius(phase: w.clock.phase, hasLight: lit))
+        }
+    }
+
+    /// 灯りの範囲(燃えている火床の段から読んだ半径。消えた火床は出さない)。夜の地図は、この外を黒にする(W-02b)。
+    public static func lightAreas(_ w: WorldState, content: ContentDB, layer: LayerID) -> [VisionArea] {
+        w.placements.sortedIDs.compactMap { id in
+            guard let p = w.placements.items[id], p.at.layer == layer else { return nil }
+            let r = Hearths.lightRadius(p, content)
+            return r > 0 ? VisionArea(center: p.at.point, radius: r) : nil
         }
     }
 }

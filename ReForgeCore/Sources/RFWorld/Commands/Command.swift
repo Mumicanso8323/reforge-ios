@@ -109,6 +109,8 @@ public enum BaseCommand: Codable, Equatable, Sendable {
     case destroyFromEffect(near: WorldPoint, radius: Int, structure: StructureKindID?, max: Int?, cause: ProvenanceID?)
     /// 壊れた建造物を直す(建てるときと同じ材料を払う。U16)。
     case repair(placement: EntityID)
+    /// 火床をくべる・積む・点け直す・埋める(U21)。
+    case hearth(placement: EntityID, op: HearthOp)
 }
 
 public enum CombatCommand: Codable, Equatable, Sendable {
