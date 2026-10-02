@@ -59,7 +59,7 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 - 自分のテストターゲットで受け入れテストを先に書く。複数システムにまたがるボット走行は `Tests/AcceptanceTests` に置く(統合担当に知らせる)。
 - テストのコンテンツは `content/public`(ネタバレの無い試験用)に足す。本物のコンテンツが要るテストは `XCTSkipUnless(TestContent.hasPrivateLayer)`。
 - 他の担当のブランチを取り込んだ後(enum の case が増えた後など)に、増分ビルドのテストが signal 11 で落ちることがある。`swift package clean --package-path ReForgeCore` してから回し直す(clean build で通れば、コードの問題ではない)。
-- テストの置き場(リーダー。2026-10-02 オーナー許可): swift test は **note** で回すのが第一。`~/.local/bin/rf-note-test [-p 非公開の層] [-e KEY=VAL]... <リポジトリ> [swift test の引数]`(例 `rf-note-test -p content/private . --filter HearthTests`)。作業場を rsync で note に送り、swift:6.1-noble を `--cpus=6 -j 6` で回す。note は全員で同時 4 本まで(空きを待つ)。重いビルドとテストは全部 note で。docker に `--gpus` は付けない(note の GPU は画像生成が使う)。終了コードは swift test のもの。`.build` は作業場ごとに note に残る。1 人 1 本の決まりは無い(統合担当は公開と非公開の層を並べて回してよい)。
+- テストの置き場(リーダー。2026-10-02 オーナー許可): swift test は **note** で回すのが第一。`~/.local/bin/rf-note-test [-p 非公開の層] [-e KEY=VAL]... <リポジトリ> [swift test の引数]`(例 `rf-note-test -p content/private . --filter HearthTests`)。作業場を rsync で note に送り、swift:6.1-noble を `--cpus=6 -j 6` で回す。note は全員で同時 4 本まで(空きを待つ)。重いビルドとテストは全部 note で。docker に `--gpus` は付けない(note の GPU は画像生成が使う)。終了コードは swift test のもの。`.build` は作業場ごとに note に残る。**土台を替えた(統合を取り込んだ・別の枝に移った)ときは `rf-note-test -c …` で note の `.build` を消してから回す**(古い `.build` のままだと `ContentDB.init` などで signal 11 が出る)。1 人 1 本の決まりは無い(統合担当は公開と非公開の層を並べて回してよい)。
 - hub の rf-swift-slot は予備(note が落ちているときなど)。hub での Swift のビルドとテストは**全員で同時に 3 本まで**。
   - docker は必ず `~/.local/bin/rf-swift-slot` を通す。`--cpus=3` と `swift … -j 3` を付ける。`--parallel` と `docker run -d` は使わない。枠が空くまで待つのが正しい動き(回避しない)。
   - 手元では変えた所に関わるテストだけを `--filter` で回す。全体は統合担当が統合のときに回す。
