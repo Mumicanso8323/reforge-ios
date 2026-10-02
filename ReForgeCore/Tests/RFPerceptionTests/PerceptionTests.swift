@@ -231,7 +231,7 @@ final class PerceptionTests: XCTestCase {
         try ContentLoader.apply(json: Data(#"{"latinAllowed": ["Re:Forge"]}"#.utf8), to: &db)
         XCTAssertEqual(ForbiddenAudit.check("Re:Forgeの朝", content: db, known: []), [])
         XCTAssertEqual(ForbiddenAudit.check("Re:Forgeとiron_ore", content: db, known: []).count, 1)
-        XCTAssertEqual(ForbiddenAudit.check("Re:Forgedの朝", content: db, known: []).count, 1, "許した語の続きは別の語")
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgexの朝", content: db, known: []).count, 1, "許した語の続きは別の語")
         XCTAssertEqual(ContentValidator.validate(db).filter { $0.rule == "latinAllowed.id" }, [])
         db.latinAllowed += ["iron_ore", "fact.x"]
         XCTAssertEqual(ContentValidator.validate(db).filter { $0.rule == "latinAllowed.id" }.count, 2)

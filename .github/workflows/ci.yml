@@ -71,9 +71,11 @@ jobs:
   # アプリ(ReForge/)は Linux でコンパイルされないので、本体の変更でアプリが壊れても core では気づけない。
   # iOS のジョブより先に静的に確かめる(数秒): switch の網羅と、型の名前の重なり(曖昧な型)。
   app-switches:
-    name: アプリの静的な確かめ(switch の網羅・型の名前)
+    name: アプリの静的な確かめ(switch の網羅・型の名前・物語の語)
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
     steps:
       - uses: actions/checkout@v5
       - name: switch の網羅
@@ -81,6 +83,19 @@ jobs:
       - name: 型の名前の重なり
         if: always()
         run: python3 tools/check-app-names.py
+      # 公開リポジトリに物語の語が入っていないこと(語は非公開の層の perception/forbidden.json)。
+      # 当たった語・文はログに出さず、ファイルと行だけを出す。fork の PR など鍵が無いときは飛ばす。
+      - name: 非公開のコンテンツを取り込む(物語の語の一覧のため)
+        if: always() && env.HAS_CONTENT_KEY == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: Mumicanso8323/reforge-content
+          ssh-key: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY }}
+          path: content/private
+          persist-credentials: false
+      - name: 物語の語が公開リポジトリに無いこと
+        if: always() && env.HAS_CONTENT_KEY == 'true'
+        run: python3 tools/check-public-spoilers.py
 
   ios:
     name: iOS (テスト + ipa)
