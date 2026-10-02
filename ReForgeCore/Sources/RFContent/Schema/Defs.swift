@@ -195,6 +195,9 @@ public struct ModuleDef: ContentDef, Equatable {
     public var finite: FiniteUseDef?
     /// 電力(U16。原作の Generator・PowerDraw)。output > 0 なら発電機、draw > 0 なら電力を使うモジュール。
     public var power: PowerDef?
+    /// 壊れた物(Placement.destroyedBy がある)を片付けたときに戻る、払った材料の割合(千分率・端数は切り捨て)。
+    /// 既定 500。壊れていない物は全部戻る。
+    public var refundPermilleBroken: Int?
 
     public init(id: ModuleKindID, cost: [Ingredient], placement: PlacementRule, ports: [PortDef], cycleSeconds: Int,
                 specialty: String? = nil, auras: [AuraKindID]? = nil, parameters: Value? = nil,
