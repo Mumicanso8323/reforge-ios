@@ -33,14 +33,13 @@
       /// 門が外れた(解放した)ステップで、待たせていた出来事より先に 1 度だけ適用する効果(任意)。
       public var onRelease: [Effect]?
   }
-  /// 再開の仕方(オーナーの答え待ち OPEN-T7。物語の条件。本体はどれも書けるようにだけする)。
+  /// 再開の仕方(オーナーの決定 OPEN-T7 = R-2、2026-10-02: 「区切りの時の余裕から再開する。いつ買っても同じ」)。
   public enum TrialResume: Codable, Equatable, Sendable {
-      /// 外れたステップから、待たせた規則を普通に判定する。
+      /// 外れたステップから、待たせた規則を普通に判定する(R-1。決定では使わない。データが明示したときだけ)。
       case judgeAtRelease
-      /// 外れてから hours のゲーム時間は、待たせた規則を判定しない。その後に普通に判定する。
-      case grace(hours: Int)
-      /// 外れたステップで、待たせた規則の条件に出てくる stat を、待たせ始めた時点の値(`TrialHeld.stats`)に戻してから普通に判定する。
-      case restoreStats
+      /// R-2: 待たせた規則の条件の中の `stat` の比べを、柵の中で動いた分(外れた時の値 − 門が閉じた時の値。符号つき)だけずらす。
+      /// stat の値そのものは戻さない。外れた時点の余裕が、門が閉じた時点の余裕と同じになる。
+      case shiftThresholds
   }
   public enum TrialGateMode: String, Codable, Sendable { case fence, freeze }
   public struct TrialHoldsDef: Codable, Equatable, Sendable {
@@ -67,13 +66,17 @@
         public var noticed: Bool?
         /// 門が外れたゲームの時刻(外れていなければ nil)。
         public var releasedAt: GameTime?
+        /// 門が閉じたステップの、`holds.failures` の規則の条件に出てくる stat の値(R-2 の起点)。
+        public var cutStats: [StatID: Int]?
+        /// 外れたときに決まる、規則ごとの stat のずらし(R-2。外れた後もずっと効く。保存に入る)。
+        public var shifts: [FailureRuleID: [StatID: Int]]?
     }
     public struct TrialHeld: Codable, Equatable, Sendable {
         public enum Kind: String, Codable, Sendable { case event, failure }
         public var kind: Kind
         public var id: String            // EventID か FailureRuleID
         public var since: GameTime       // 待たせ始めた時刻
-        public var stats: [StatID: Int]? // failure のとき、待たせ始めた時点の値(規則の条件に出てくる stat だけ)
+        public var stats: [StatID: Int]? // failure のとき、待たせ始めた時点の値(記録と画面のため)
     }
     ```
   - それ以外(時計・手の作業・生産・運搬・探索・戦闘・ほかの出来事)は、今までどおり進む。
@@ -81,12 +84,15 @@
 - 門が閉じたステップで、出来事 `DomainEvent.trialReached` を 1 回だけ出す(画面が案内の札を出すきっかけ)。閉じたかどうかは世界の条件から毎回出せるので、「出した」の印は `WorldState.trial.noticed: Bool?` に持つ(保存に入る。権利ではなく「札を出した」の記録)。
 - **門が外れる(解放)**: 「門が一度閉じた(`noticed == true`)・まだ外れていない(`releasedAt == nil`)・今は権利がある」がそろった最初のステップで、1 度だけ次の順に行う。世界は作り直さない。
   1. `releasedAt` に今の時刻を入れる。
-  2. `onRelease` の効果を適用する。`resume` が `restoreStats` なら、待たせた規則の stat を写した値に戻す。
+  2. `onRelease` の効果を適用する。`resume` が `shiftThresholds` なら、待たせた規則ごとに、条件に出てくる stat のずらし(今の値 − `cutStats` の値)を `shifts` に入れる。
   3. 待ちの列の出来事を**積んだ順に**起こす(起こす時点で条件をもう一度見ない。待たせたのは本体なので)。
-  4. 待たせていた失敗の規則を、`resume` のとおりに判定し直す(`judgeAtRelease`・`restoreStats` はこのステップから、`grace` は時間がたってから。条件がまだ成り立てば普通の失敗になる)。列を空にする。研究も始められる。出来事 `DomainEvent.trialReleased` を 1 回出す。
+  4. 待たせていた失敗の規則を、このステップから判定し直す。`shifts` のある規則は、条件の `stat(id:cmp:value:)` を「今の値 − ずらし」で比べる(`ConditionEvaluator` に、規則ごとの stat のずらしを渡す口を足す。ほかの条件と、ほかの系の stat の読みは変えない)。条件が成り立てば普通の失敗になる。列を空にする。研究も始められる。出来事 `DomainEvent.trialReleased` を 1 回出す。
   - 同じ口が 2 つの場合を受ける: (a) 携帯で購入・復元して権利が付いた。(b) 門の無い版(Steam の製品版。権利は常にあり)が、体験版の保存(閉じた門と待ちの列を持つ)を初めて読んだ。どちらも最初のステップで同じ手順が 1 度だけ走る。
-  - **再開の仕方はまだ決まっていない**(オーナーの答え待ち OPEN-T7。物語の条件)。本体は `TrialResume` の 3 つをどれも書けるようにし、どれも既定にしない。3 つで足りない答えが来たときのために、条件 `trial(test:)`(`TrialTest`: `.released(hoursAtLeast: Int)`・`.held(id: String)`)も足す(失敗の規則の `when` に書ける)。
-    - 待たせた日だけでは「値を戻す」型が書けないので、`TrialHeld.stats` で値も写して持つ。時刻の型(猶予)は `since` と `releasedAt` で足りる。
+  - **再開の仕方は R-2(オーナーの決定 2026-10-02)**: 買って柵が外れたとき、区切りの時の余裕(約 30 日)から再開する。いつ買っても同じ。Steam の製品版が体験版の保存を初めて読んだときも同じ手順。
+    - 値を戻さず、比べをずらす: stat の値そのもの(大気など)を区切りの時の値に戻すと、買った瞬間に大気の表示が下がって見え、季節・ガスの害など同じ stat を読むほかの系も動いてしまう。比べだけをずらせば、見える値と世界はそのままで、期限までの余裕だけが区切りの時と同じになる。
+    - 季節で下がった分も数える(ずらしは符号つきの差): 柵の中で上がって季節で下がったなら、正味の差だけずらす。正味で下がっていれば、ずらしは負になり、余裕はやはり区切りの時と同じ。上がった分だけを数える(下がった分を捨てる)と、季節の谷で買うほど余裕が増え「いつ買っても同じ」にならず、買う時を選ぶ得が生まれるため。
+    - 待たせた日(`since`)と値(`stats`)は、記録と画面のために残す。起点は失敗が初めて成り立った時ではなく、門が閉じた時(`cutStats`)。失敗が成り立った時を起点にすると余裕が 0 から始まるため。
+  - 既定は無い: `holds.failures` があって `resume` が無い門は確かめでエラー(前のまま)。
   - 払い戻しで権利が消え、門がもう一度閉じたステップでは `releasedAt` を nil に戻す(次に権利が付いたとき、同じ手順がもう一度走る)。
 - 画面の組み立て: `Frame` に `trial: TrialFrame?`(閉じているか・形(fence/freeze)・待っている物の数)を足し、`FrameBuilder` に `entitlements` を渡す口を足す(既定は解放済み)。
 - 文言: `reason.trial.locked` と、案内の札の文言 ID(例 `ui.trial.title`・`ui.trial.body`・`ui.trial.buy`・`ui.trial.restore`・`ui.trial.continue`)を公開の層の `text/ja/` に中立の見本で置く(「ここから先は購入で遊べます」程度。物語の語を使わない)。
@@ -94,7 +100,7 @@
   1. `trialGate` の無い内容では、権利が無くても今とまったく同じ(同じ seed・同じ命令で同じ世界)。
   2. fence: 権利無しで区切りの事実を知った後も、時計・手の作業・生産は進む。研究を始める命令は `reason.trial.locked`。`holds.events` の出来事は起きずに列に積まれ(1 度だけ)、ほかの出来事は起きる。`trialReached` は 1 回だけ。
   3. fence → 権利あり: 次のステップで、`onRelease` の効果 → 列の出来事(積んだ順)の順に起き、列が空になり、`releasedAt` が入り、`trialReleased` が 1 回出る。研究が始められる。
-  3b. 失敗の規則: 権利無しの柵の中で、`holds.failures` の規則の条件が成り立っても失敗にならず、列に `failure` が 1 度だけ積まれる(`since` と `stats` が入る)。挙げていない規則は今までどおり失敗になる。権利ありになったステップで、条件がまだ成り立てば失敗になる。`resume` の 3 つそれぞれで: `judgeAtRelease` はそのステップで失敗、`grace(hours:)` はその時間まで失敗にならない、`restoreStats` は値が待たせ始めた時点に戻り、戻した値で条件が成り立たなければ失敗にならない。
+  3b. 失敗の規則: 権利無しの柵の中で、`holds.failures` の規則の条件が成り立っても失敗にならず、列に `failure` が 1 度だけ積まれる(`since` と `stats` が入る)。挙げていない規則は今までどおり失敗になる。権利ありになったステップで、条件がまだ成り立てば失敗になる。`shiftThresholds` では: 門が閉じた時の値 100・しきい値 250(余裕 150)の規則が、柵の中で 230 まで上がって外れると、ずらしは 130。外れたステップでは失敗にならず、見える値は 230 のまま。そこから 150 上がった 380 で失敗になる(いつ外しても余裕 150)。柵の中で 230 まで上がって 180 に下がってから外れると、ずらしは 80 で、330 で失敗になる。`judgeAtRelease` は外れたステップで普通に判定する。
   3c. 門の無い版で読む: 権利無しで門が閉じ、列を持つ世界を保存し、権利ありの `Simulation` で読み直すと、最初のステップで 3 と同じ手順が 1 度だけ走る。2 度目のステップでは走らない。
   4. freeze: 時計が進まない・命令が断られる・寝るの先読みも止まる。権利ありで同じ世界が続く。
   5. 保存: 待ちの列(出来事と失敗の両方。`since`・`stats` も)のある世界を保存して読み直すと、列が残る(体験版の保存が製品版で続く前提)。`trial` の欄の無い古い保存は空として読む。凍らせた見本 `save-v1-dev-*.json` はそのまま読める。
@@ -110,7 +116,7 @@
   - **アプリが書く印を権利の根拠にしない**(`UserDefaults` に権利を書かない。G §1.2)。
 - ビルドの設定で門を開ける口(リーダーの指示 2026-10-02。dev の版をどうするかはオーナーの答え待ち):
   - `Info.plist` の値 `ReForgeTrialGateOpen`(Bool)を、ビルドの設定 `REFORGE_TRIAL_GATE_OPEN`(`project.yml` の設定。**既定 `NO`**)から入れる。`YES` のビルドでは、アプリが本体に渡す `Entitlements.fullGame` を常に `true` にする(StoreKit の権利とは別の口。権利の表示は StoreKit のまま)。
-  - 既定のビルド(release も含む)は `NO`。**dev の版(SideStore で配る `releases/download/dev` の ipa)は `YES`**(オーナーの決定 2026-10-02。店に出すまで。出すときに決め直す)。CI の dev のジョブの xcodebuild に `REFORGE_TRIAL_GATE_OPEN=YES` を付ける。ほかのジョブ(単体テスト・画面の写真・release)は `NO` のまま。
+  - 既定のビルド(release も含む)は `NO`。**dev の版(SideStore で配る `releases/download/dev` の ipa)は `YES`**(オーナーの決定 2026-10-02。店に出すまで。出すときに決め直す)。CI の dev の ipa のジョブ(`ios`)の env に、`DEV_IPA_CONDITIONS`(PT-B2 で入った dev の ipa だけの切り替え)の隣に `REFORGE_TRIAL_GATE_OPEN: YES` を置き、xcodebuild に渡す(店に出すビルドのジョブには持ち込まない)。ほかのジョブ(単体テスト・画面の写真・release)は `NO` のまま。
   - 口の値はアプリの起動時に 1 度だけ読み、実行中に変えられない(`UserDefaults` や設定の画面からは変えられない)。
   - テスト: 既定のビルドで値が `NO`(`Bundle.main` から読めること)を `ReForgeTests` で確かめる。
 - `AppModel` が権利(`Entitlements`)を持ち、`GameStore` の `Simulation`・`FrameBuilder` に渡す。権利が変わったら作り直して渡す(世界はそのまま)。
