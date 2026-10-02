@@ -778,7 +778,7 @@ public struct ImprintDef: Codable, Equatable, Sendable {
 
 /// 乗る人の名簿。仲間は自分で「乗る / 残る」を言う。
 public struct ManifestDef: Codable, Equatable, Sendable {
-    /// 名簿が開く条件(帰還船ができた、など)。
+    /// 名簿が開く条件(コンテンツが決める)。
     public var when: Condition?
     /// 乗れる人数(ノアを含む)。
     public var capacity: Int?
