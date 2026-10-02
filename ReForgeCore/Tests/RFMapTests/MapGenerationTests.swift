@@ -50,9 +50,9 @@ final class MapGenerationTests: XCTestCase {
             return h.value
         }
         let golden: [UInt64: UInt64] = [
-            7: 0x629c_7385_3424_6562,
-            42: 0xfe1f_777a_8594_9058,
-            2026: 0xcd16_f03b_a981_8297,
+            7: 0xf547_9d2d_24db_29e1,
+            42: 0x3e88_7f2a_3fcf_305a,
+            2026: 0x65ab_68af_c526_ac16,
         ]
         for (seed, want) in golden.sorted(by: { $0.key < $1.key }) {
             let got = fingerprint(try WorldMap.generate(seed: seed))

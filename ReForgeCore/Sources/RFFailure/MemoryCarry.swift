@@ -36,6 +36,8 @@ public enum MemoryCarry {
         }
         w.knowledge.discovered.formUnion(failed.knowledge.discovered)
         w.knowledge.seen.formUnion(failed.knowledge.seen)
+        // 手でやった行為は知識の側(INV-O4・INV-O8)
+        w.knowledge.handDone.formUnion(failed.knowledge.handDone)
 
         // 実験ノート(丸ごと: 失敗した周回の方が新しく、夜明けの分を含む)
         w.notebook = failed.notebook

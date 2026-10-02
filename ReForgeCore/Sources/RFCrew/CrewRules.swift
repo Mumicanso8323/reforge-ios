@@ -57,6 +57,7 @@ public enum AssignmentTags {
         case .haul: return ["tag.assign.haul"]
         case .guardArea: return ["tag.assign.guard"]
         case .follow: return ["tag.assign.follow"]
+        case .tendHearth: return ["tag.assign.tend"]
         case .gather(let i, _): return ["tag.assign.gather", ProvenanceTag("tag.assign.gather.\(i.rawValue)")]
         case .operate(let e): return Set<ProvenanceTag>(["tag.assign.operate"]).union(kindTag("tag.assign.operate", e, w))
         case .build(let e): return Set<ProvenanceTag>(["tag.assign.build"]).union(kindTag("tag.assign.build", e, w))
@@ -79,6 +80,7 @@ public enum AssignmentTags {
         case .haul: "haul"
         case .guardArea: "guard"
         case .follow: "follow"
+        case .tendHearth: "tend"
         case .gather: "gather"
         case .operate: "operate"
         case .build: "build"

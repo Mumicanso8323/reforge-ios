@@ -42,6 +42,8 @@ jobs:
       HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
       # TEST-R1-02 自動化ボットの走る数(既定 100 は手元と夜間。CI は 20 走)
       REFORGE_R1_02_SEEDS: "20"
+      # TEST-O12 地図の保証の種の数(手元の既定は 50。CI は全部の 1000)
+      REFORGE_O12_SEEDS: "1000"
     steps:
       - uses: actions/checkout@v5
       - name: swift test(公開の層だけ)
