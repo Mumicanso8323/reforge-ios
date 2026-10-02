@@ -107,6 +107,19 @@ final class SaveTests: XCTestCase {
         }
     }
 
+    /// dev ビルドで配った保存の形(凍らせた見本。作り直さない)。オーナーの端末の保存を読めること。
+    /// 7ea0791(09:03 の dev)・8697631(10:02 の dev)・397dea8 の save-v1.json はバイト単位で同じなので、この 1 つで 3 つを兼ねる。
+    /// 版を上げたら(W-10)、移行を通して今の版で読めること・書き直しが冪等なことをここで確かめる。
+    func testFrozenDevSavesStillRead() throws {
+        for name in ["save-v1-dev-7ea0791.json"] {
+            let data = try Data(contentsOf: Fixture.directory.appendingPathComponent(name))
+            let decoded = try SaveCodec.decode(data)
+            XCTAssertEqual(decoded.schemaVersion, SaveCodec.schemaVersion, name)
+            let again = try SaveCodec.encode(decoded)
+            XCTAssertEqual(try SaveCodec.encode(SaveCodec.decode(again)), again, "\(name): 書き直しは冪等")
+        }
+    }
+
     /// 古い版は移行を 1 つずつ通して読む。移行が無ければ読まない(壊れた状態で始めない)。
     func testMigrationChain() throws {
         let rig = try TestRig.publicOnly()
