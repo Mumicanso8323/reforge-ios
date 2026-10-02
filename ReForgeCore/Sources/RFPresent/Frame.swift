@@ -1,6 +1,7 @@
 import RFContent
 import RFKernel
 import RFMap
+import RFMatter
 import RFPerception
 import RFWorld
 
@@ -38,6 +39,8 @@ public struct Frame: Equatable, Sendable {
     public var renamed: [String]
     /// 走行が終わった(ゲームオーバーの 4 択を出す)。
     public var runEnded: Bool
+    /// 設計・ノートのタブが引き直す印(在庫・ノート・知識などが変わった・日が変わったときに上がる)。
+    public var benchRevision: Int = 0
 
     public init(revision: Int, clock: ClockView, status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,
@@ -306,6 +309,37 @@ public struct ProcessSheet: Equatable, Sendable {
         case record(SheetID)
         /// 記録の並びの 1 件(席の番号)。開くと試作と同じ形の工程表になる。
         case recordEntry(SheetID, slot: Int)
+        /// 設計画面の下書き(まだ試しても札にしてもいない並び)。input は試すつもりの在庫の山(見込みの照合に使う)。
+        case draft(steps: [ProcessStep], input: StockSelector?)
+    }
+
+    /// 物の見え方(名前と、ノアの手の見当の百分率)。見当の言い回し(「三割くらい」)は画面の固定文言で組む。
+    public struct Sensed: Equatable, Sendable {
+        public var name: String
+        /// ノアの手の見当(0〜100。刻みは HandSense)。
+        public var percent: Int
+
+        public init(name: String, percent: Int) {
+            self.name = name
+            self.percent = percent
+        }
+    }
+
+    /// 試作の結果カード(物・見当・硬さ・粘り・副産物・所見・使った物)。
+    public struct Card: Equatable, Sendable {
+        public struct Used: Equatable, Sendable {
+            public var name: String
+            public var quantity: Int
+        }
+        public var product: Sensed
+        public var hardness: Int
+        public var toughness: Int
+        public var byproducts: [String]
+        public var findings: [String]
+        public var used: [Used]
+        public var quantity: Int
+        /// 唯一品になった(最初の 1 個など)。
+        public var unique: Bool
     }
 
     public struct Row: Equatable, Sendable {
@@ -327,6 +361,12 @@ public struct ProcessSheet: Equatable, Sendable {
         public var declared: Bool?
         /// 名簿・装置: その人。
         public var person: PersonID?
+        /// 工程の行なら、その段の番号(0 始まり)。設計画面が段を入れ替え・外すのに使う。
+        public var step: Int?
+        /// この段を通った後の見込み(同じ入力・同じ並びを試したことがあるときだけ。nil は「？」)。
+        public var forecast: Sensed?
+        /// この段で載った所見(文)。
+        public var findings: [String] = []
 
         public init(title: String, note: String?, slot: Int? = nil, empty: Bool = false, figure: Int? = nil,
                     answerRow: String? = nil, answer: String? = nil, aboard: Bool? = nil, declared: Bool? = nil,
@@ -361,13 +401,45 @@ public struct ProcessSheet: Equatable, Sendable {
     /// 結果(試作・ライン札のとき。記録の 1 件なら名前)。
     public var result: String?
     public var tally: Tally?
+    /// 表の頭(入力の物と見当)。試作・下書き・試したことのあるライン札のとき。
+    public var head: Sensed?
+    /// 並び全体の見込み(下書き・ライン札。同じ並びを試していなければ nil)。
+    public var expected: Sensed?
+    /// 試作の結果カード(試作の表のとき)。
+    public var card: Card?
+    /// 装置で技能を書き足せる表なら、その候補(使える条件が成り立っているときだけ)。
+    public var imprint: Imprint?
+    /// 名簿の表なら、締めたか(名簿でなければ nil)。
+    public var manifestLocked: Bool?
 
-    public init(source: Source, title: String, rows: [Row], result: String?, tally: Tally? = nil) {
+    /// 装置の候補(書き足せる技能と、書き足せる人)。
+    public struct Imprint: Equatable, Sendable {
+        public struct Skill: Equatable, Sendable {
+            public var id: SkillID
+            public var name: String
+        }
+        public struct Target: Equatable, Sendable {
+            public var person: PersonID
+            public var name: String
+            /// この表で書き足した技能の名前。
+            public var written: [String]
+            /// 使わなかった(true = 本人が拒んだ / false = 使わないと決めた / nil = まだ)。
+            public var declined: Bool?
+        }
+        public var skills: [Skill]
+        public var targets: [Target]
+    }
+
+    public init(source: Source, title: String, rows: [Row], result: String?, tally: Tally? = nil,
+                head: Sensed? = nil, expected: Sensed? = nil, card: Card? = nil) {
         self.source = source
         self.title = title
         self.rows = rows
         self.result = result
         self.tally = tally
+        self.head = head
+        self.expected = expected
+        self.card = card
     }
 }
 

@@ -46,7 +46,11 @@ var targets: [Target] = [
     .target(name: "RFSim", dependencies: ["RFKernel", "RFWorld", "RFContent", "RFRules", "RFSave", "RFFailure"]
         + systems.map { .target(name: $0) }),
     // L6
-    .target(name: "RFPresent", dependencies: ["RFKernel", "RFMap", "RFWorld", "RFContent", "RFPerception", "RFSave", "RFFailure", "RFSim"]),
+    // 設計画面の見込み・図鑑(RFInvention の Sheets・Codex)を画面向けに写すので RFInvention も直接引く(L6 → L4。向きは下向き)
+    .target(name: "RFPresent", dependencies: [
+        "RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception", "RFSave", "RFFailure",
+        "RFSim", "RFInvention",
+    ]),
     // 傘
     .target(name: "ReForgeEngine", dependencies: [
         "RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception",

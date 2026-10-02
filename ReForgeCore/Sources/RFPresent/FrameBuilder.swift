@@ -4,6 +4,7 @@ import RFMap
 import RFMatter
 import RFPerception
 import RFRules
+import RFInvention
 import RFSim
 import RFWorld
 
@@ -46,7 +47,7 @@ public struct FrameBuilder: Sendable {
 
         let noah = w.people[.noah]
         let noahPos = noah?.position.flatMap { $0.layer == layer ? $0.point : nil }
-        return Frame(
+        var frame = Frame(
             revision: revision,
             clock: clockView(w),
             status: statusItems(w, p),
@@ -61,6 +62,17 @@ public struct FrameBuilder: Sendable {
             notices: [],
             renamed: [],
             runEnded: !w.run.isActive)
+        frame.benchRevision = Self.benchRevision(previous: previous, report: report, revision: revision, day: w.clock.day)
+        return frame
+    }
+
+    /// 設計・ノートのタブが引き直す印。在庫・ノート・知識・研究・物語が変わったとき、日が変わったときに上がる。
+    static let benchAreas: ChangeSet.Areas = [.inventory, .notebook, .perception, .research, .narrative, .placements]
+
+    static func benchRevision(previous: Frame?, report: StepReport?, revision: Int, day: Int) -> Int {
+        guard let prev = previous, let report else { return revision }
+        if !report.changes.areas.isDisjoint(with: benchAreas) || prev.clock.day != day { return revision }
+        return prev.benchRevision
     }
 
     func clockView(_ w: WorldState) -> ClockView {
@@ -219,20 +231,22 @@ public struct FrameBuilder: Sendable {
     /// 工程表(ライン札・試作・コンテンツの記録)を同じ形にする。
     public func sheet(_ source: ProcessSheet.Source, in w: WorldState) -> ProcessSheet? {
         let p = Perceiver(content: content, world: w)
-        func rows(_ steps: [ProcessStep]) -> [ProcessSheet.Row] {
-            steps.map { s in
-                ProcessSheet.Row(title: p.name(Subject.module(s.module)), note: s.input.map { p.name(Subject.item($0)) })
-            }
-        }
         switch source {
         case .design(let id):
-            guard let d = w.invention.designs[id] else { return nil }
-            return ProcessSheet(source: source, title: p.text("text.sheet.design"), rows: rows(d.steps),
-                                result: d.expected.map { p.name(of: NameGenerator.name(for: $0)) })
+            guard let m = Sheets.model(.design(id), world: w, content: content) else { return nil }
+            var out = inventionSheet(m, source: source, p)
+            // 試していない札でも、札に書いた見込みがあれば結果に出す
+            if out.result == nil, let e = w.invention.designs[id]?.expected {
+                out.result = p.name(of: NameGenerator.name(for: e))
+            }
+            return out
         case .trial(let rec):
-            guard let t = w.notebook.trials.first(where: { $0.record == rec }) else { return nil }
-            return ProcessSheet(source: source, title: p.text("text.sheet.trial"), rows: rows(t.steps),
-                                result: p.name(of: t.outcome.name))
+            guard let m = Sheets.model(.trial(rec), world: w, content: content) else { return nil }
+            return inventionSheet(m, source: source, p)
+        case .draft(let steps, let sel):
+            let input: Matter? = sel.flatMap { if case .matter(let m) = $0.stuff { m } else { nil } }
+            guard let m = Sheets.model(.draft(steps: steps, input: input), world: w, content: content) else { return nil }
+            return inventionSheet(m, source: source, p)
         case .record(let sid):
             guard let def = content.sheets[sid],
                   ConditionEvaluator.evaluatePure(def.when, world: w, content: content) == true else { return nil }
@@ -258,7 +272,18 @@ public struct FrameBuilder: Sendable {
                                                 declared: prog.declared[person], person: person))
                 }
             }
-            return ProcessSheet(source: source, title: p.name(def.title), rows: out, result: nil, tally: tally)
+            var sheet = ProcessSheet(source: source, title: p.name(def.title), rows: out, result: nil, tally: tally)
+            if let im = def.imprint, SheetRules.imprintOpen(im, w, content) {
+                sheet.imprint = ProcessSheet.Imprint(
+                    skills: im.skills.map { .init(id: $0, name: p.name(Subject.skill($0))) },
+                    targets: SheetRules.candidates(w).filter { SheetRules.imprintTarget(im, $0, w, content) }.map { person in
+                        .init(person: person, name: p.name(Subject.person(person)),
+                              written: (prog.imprinted[person] ?? []).map { p.name(Subject.skill($0)) },
+                              declined: prog.declined[person])
+                    })
+            }
+            if def.manifest != nil { sheet.manifestLocked = prog.locked != nil }
+            return sheet
         case .recordEntry(let sid, let slot):
             guard let def = content.sheets[sid],
                   ConditionEvaluator.evaluatePure(def.when, world: w, content: content) == true else { return nil }

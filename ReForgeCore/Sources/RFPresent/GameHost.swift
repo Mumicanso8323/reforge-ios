@@ -75,6 +75,20 @@ public actor GameHost {
     /// 工程表。
     public func sheet(_ s: ProcessSheet.Source) -> ProcessSheet? { builder.sheet(s, in: world) }
 
+    /// 工程表の行に置ける答えの候補(自分の来歴から。新しい順)。
+    public func answerCandidates(_ sheet: SheetID, row: String) -> [AnswerCandidate] {
+        builder.answerCandidates(sheet, row: row, in: world)
+    }
+
+    /// 設計画面の材料(積める段・試す物・段に入れる物・札)。
+    public func designBench() -> DesignBench { builder.designBench(in: world) }
+
+    /// ノート(試したこと・所見・図鑑・手がかり・記録・資料)。
+    public func notebook() -> NotebookPage { builder.notebook(in: world) }
+
+    /// 資料を開く(開く条件が成り立っていなければ nil)。
+    public func document(_ id: DocumentID) -> DocumentPage? { builder.document(id, in: world) }
+
     private func rebuild(_ r: StepReport) -> Frame {
         revision += 1
         frame = builder.build(world, revision: revision, previous: frame, report: r)

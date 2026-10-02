@@ -29,6 +29,8 @@ final class GameStore {
     private(set) var decision: DecisionView?
     private(set) var sceneLines: [String]
     private(set) var runEnded: Bool
+    /// 設計・ノートのタブが引き直す印(Frame.benchRevision。U17)。
+    private(set) var benchRevision = 0
     /// 区画の中身(番号 → 中身)。
     private(set) var chunks: [Int: MapChunk] = [:]
     /// 最後に Frame を受け取った時刻(ProcessInfo.systemUptime)。補間の起点。
@@ -41,6 +43,9 @@ final class GameStore {
     private(set) var inspection: TileInspection?
     /// 断られた理由(足元カードに 1 行。数秒で消える)。
     private(set) var notice: String?
+
+    /// 設計・ノートの画面側の状態(タブを切り替えても下書きを保つ。C-engine-ui.md §6。U17)。
+    @ObservationIgnored let workbench = WorkbenchModel()
 
     /// 画面が前に出ているか(false の間は時計を進めない)。
     @ObservationIgnored var isActive = true
@@ -132,6 +137,15 @@ final class GameStore {
         }
     }
 
+    /// 意図を送り、断られた理由(認識の層を通した 1 行)を返す。地図以外のタブが自分の場所に出す(U17)。
+    @discardableResult
+    func perform(_ command: Command) async -> String? {
+        let (f, rejection) = await host.perform(command)
+        show(notice: rejection)
+        await refresh(f)
+        return rejection
+    }
+
     func send(_ command: Command) {
         Task {
             let (f, rejection) = await host.perform(command)
@@ -157,6 +171,7 @@ final class GameStore {
         if decision != f.decision { decision = f.decision }
         if sceneLines != f.sceneLines { sceneLines = f.sceneLines }
         if runEnded != f.runEnded { runEnded = f.runEnded }
+        if benchRevision != f.benchRevision { benchRevision = f.benchRevision }
 
         let stale = f.map.chunkRevisions.indices.filter { chunks[$0]?.revision != f.map.chunkRevisions[$0] }
         if !stale.isEmpty {
