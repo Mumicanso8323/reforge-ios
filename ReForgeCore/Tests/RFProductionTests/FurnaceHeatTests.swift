@@ -135,6 +135,34 @@ final class FurnaceHeatTests: XCTestCase {
                        FurnaceHeat.notFurnace)
     }
 
+    /// 手で溶かす(工程の燃料に木炭 1)を熱い炉の隣でやっても、木炭は工程から取らない(炉が時間で燃やす分だけ)。
+    /// 冷えた炉の隣では断る。工程の木炭の入力は、熱の定義の無い古い炉のため(RuleBook の燃料)に残してよい。
+    func testHandSmeltAtHotFurnaceDoesNotPayFuelTwice() throws {
+        let fx = try fixture()
+        var w = fx.world(charcoal: 40)
+        let furnace = line(fx, &w)
+        var ctx = StepContext(world: w, content: fx.content)
+        ctx.addStock(.matter(.ironOre(purity: Purity(basisPoints: 3000))), 2, to: .person(.noah))
+        w = ctx.world
+        let ore = try XCTUnwrap(w.inventory.entries(.person(.noah)).first {
+            if case .matter(let m) = $0.stuff { m.stage == .ore } else { false }
+        })
+        let smelt = Command.production(.handwork(id: "handwork.smelt",
+                                                 input: StockSelector(holder: .person(.noah), stuff: ore.stuff),
+                                                 holding: true))
+        XCTAssertEqual(fx.apply(smelt, &w).rejection?.reason, FurnaceHeat.furnaceCold, "冷えた炉の隣では断る")
+        XCTAssertNil(preheat(fx, &w, furnace))
+        _ = fx.run(seconds: 5400, &w)
+        XCTAssertTrue(FurnaceHeat.isHot(w.placements.items[furnace]!, fx.content))
+
+        var idle = w
+        XCTAssertNil(fx.apply(smelt, &w).rejection)
+        _ = fx.run(seconds: 8 * 160, &w)
+        _ = fx.run(seconds: 8 * 160, &idle)
+        XCTAssertEqual(F.matterCount(w, .person(.noah)) { $0.stage == .metal }, 1, "手で溶かした塊")
+        XCTAssertEqual(charcoal(w, furnace), charcoal(idle, furnace), "工程の木炭は取らない(二重に払わない)")
+    }
+
     /// 寝るで一括に進めても、刻んで進めても、同じ熱と燃料になる。
     func testSameHeatWhetherSteppedOrBatched() throws {
         let fx = try fixture()
