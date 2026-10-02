@@ -49,7 +49,7 @@ enum HaulRoutes {
     static func rebuild(_ ctx: inout StepContext) {
         let w = ctx.world
         func alive(_ e: HaulEndpoint) -> Bool {
-            if case .placement(let id) = e { return w.placements.items[id]?.module != nil }
+            if case .placement(let id) = e { return w.placements.items[id] != nil }  // 建造物も始まりになる(P-12)
             return true
         }
         var keep: [EntityID: HaulRoute] = [:]
@@ -112,10 +112,12 @@ enum HaulRoutes {
 
     static func link(_ from: HaulEndpoint, _ to: HaulEndpoint, _ ctx: inout StepContext) -> CommandResult {
         guard from != to else { return .rejected(Rejection(HaulRules.sameEnds)) }
-        for e in [from, to] {
-            if case .placement(let id) = e, ctx.world.placements.items[id]?.module == nil {
-                return .rejected(Rejection(HaulRules.unknownEnd))
-            }
+        // 始まりは置いた物(モジュールか、中に物を溜める建造物。P-12)か拠点、終わりはモジュールか拠点
+        if case .placement(let id) = from, ctx.world.placements.items[id] == nil {
+            return .rejected(Rejection(HaulRules.unknownEnd))
+        }
+        if case .placement(let id) = to, ctx.world.placements.items[id]?.module == nil {
+            return .rejected(Rejection(HaulRules.unknownEnd))
         }
         if let r = ctx.world.logistics.routes.values.first(where: { $0.from == from && $0.to == to }) {
             ctx.world.logistics.routes[r.id]?.origin = .manual

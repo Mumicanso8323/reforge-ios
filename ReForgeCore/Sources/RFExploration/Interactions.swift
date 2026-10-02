@@ -180,7 +180,9 @@ enum Interactions {
 
         // 得られる物
         let yields = def.partOp.flatMap { op in a.part.flatMap { op.partYields?[$0] } } ?? def.yields
-        Loot.give(yields, origin: rec, &ctx)
+        // 行き先(P-12): 置いた物に対する行為で yieldsTo = site なら、その置いた物の中に溜める
+        let holder: HolderID = def.yieldsTo == .site ? target.placement.map { HolderID.placement($0) } ?? .base : .base
+        Loot.give(yields, origin: rec, to: holder, &ctx)
         if let dep = target.deposit {
             var map = ctx.world.map
             let ores = ctx.random(.exploration) { rng in map.extract(dep, layer: target.layer, rng: &rng) } ?? []
