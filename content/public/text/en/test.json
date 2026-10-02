@@ -1,0 +1,8 @@
+{
+  "language": "en",
+  "texts": {
+    "text.journal.built": "{actor} built {subject}",
+    "text.item.wood": "wood",
+    "text.unknown": "?"
+  }
+}

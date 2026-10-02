@@ -77,6 +77,18 @@ public enum Josa {
 
 /// ICU MessageFormat の、この製品で許可する小さな部分集合のレンダラー。
 public enum MessageFormat {
+    /// パターンが読めるか(読めなければ throw。render と同じ解析)。
+    public static func validate(_ pattern: String) throws {
+        var parser = PatternParser(pattern)
+        _ = try parser.parse()
+    }
+
+    /// パターンが使う引数の名前の集まり(入れ子の分岐の中も含む)。
+    public static func argumentNames(_ pattern: String) throws -> Set<String> {
+        var parser = PatternParser(pattern)
+        return argumentNames(in: try parser.parse())
+    }
+
     public static func render(_ pattern: String, args: [String: RenderedArg], language: LanguageID) throws -> String {
         var parser = PatternParser(pattern)
         let nodes = try parser.parse()
@@ -149,6 +161,20 @@ public enum MessageFormat {
         }
         guard (97...122).contains(scalar.value) else { return word }
         return String(first).uppercased() + String(word.dropFirst())
+    }
+
+    private static func argumentNames(in nodes: [PatternNode]) -> Set<String> {
+        nodes.reduce(into: Set<String>()) { names, node in
+            switch node {
+            case .literal, .pound:
+                break
+            case .argument(let name), .josa(let name, _), .cap(let name):
+                names.insert(name)
+            case .plural(let name, let choices), .select(let name, let choices):
+                names.insert(name)
+                for branch in choices.values { names.formUnion(argumentNames(in: branch)) }
+            }
+        }
     }
 }
 

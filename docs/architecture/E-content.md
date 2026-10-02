@@ -30,7 +30,8 @@
 | `fields`・`exploreEvents` | 探索の場と、新しい区画や POI に入ったときに重み付きで引く出来事 | U8 |
 | `documents` | 記録から開ける資料(本文は文字列表。条件が成り立つと記録に載る) | 統合担当(型)・U13(画面)・U14(中身) |
 | `latinAllowed` | 画面に出してよいラテン文字の固有名(英語の ID の検査から外す) | U3 |
-| `perception`・`forbidden`・`auditStages`・`textGates`・`glyphs`・`texts` | 認識の表・禁止語の規則・監査の段・文字列の門・地図の文字・文字列表 | U3 |
+| `perception`・`forbidden`・`auditStages`・`textGates`・`glyphs` | 認識の表・禁止語の規則・監査の段・文字列の門・地図の文字 | U3 |
+| `texts`・`language`・`nameJoin` | 言語ごとの文字列表・表の言語・品名の部品のつなぎ方。`language` が無い旧い表は日本語 | L-02 |
 | `remove` | 前の層の定義を消す(集まりの名前 → ID の並び) | — |
 
 条件と効果は Swift の列挙の既定の JSON の形で書く(case 名がキー、ラベルが中のキー。値の無い case は `{"always": {}}`)。
@@ -43,7 +44,7 @@
 
 ## 3. 層の重ね方
 - 層 = ディレクトリ 1 つ。中の `*.json` を相対パスの昇順に全部読む(**層の中に JSON をコンテンツ以外の用途で置かない**)。
-- 重ねる順: 公開(`content/public`)→ 非公開。同じ ID の定義は後の層が丸ごと置き換える。`clock`・`mapGen`・`start`・`rewind`・`ruleBook` は後の層が勝つ。`texts`・`glyphs` はキーごとに上書き。`forbidden` は足し合わせ。`remove` で前の層の定義を消せる。
+- 重ねる順: 公開(`content/public`)→ 非公開。同じ ID の定義は後の層が丸ごと置き換える。`clock`・`mapGen`・`start`・`rewind`・`ruleBook` は後の層が勝つ。`texts` は言語ごと、`glyphs` はキーごとに上書き。`forbidden` は足し合わせ。`remove` の `texts` は全言語から消す。
 - 知らない最上位のキーはエラー(誤記を黙って読み飛ばさない)。読み込み後に `ContentValidator.validate`(エラーは出荷しない。警告は理由を書いて残せる)。
 
 ## 4. 公開と非公開の分け方・取り込み
@@ -68,7 +69,8 @@ reforge-content/
   research/                research・skills・abilities
   combat/                  enemies
   perception/              perception・forbidden・auditStages・textGates・glyphs
-  text/ja/                 texts(画面ごと・場面ごとに分けてよい)
+  text/<language>/         texts(画面ごと・場面ごとに分けてよい。各ファイルに language を書く。_meta.json は nameJoin)
+  l10n/                    翻訳作業用(JSON でも読み込まない)
   materials/               資料(原作の長い本文・設計の写し)。*.md だけ置く(JSON を置かない: 読み込まれてしまう)
   tools/                   原作の JSON からの変換スクリプト(*.py。出力先は上の各ディレクトリ)
 ```

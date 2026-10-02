@@ -1,0 +1,16 @@
+{
+  "language": "ja",
+  "texts": {
+    "text.sheet.slot_empty": "（空き）",
+    "text.test.sheet_ledger": "試験の名簿の記録",
+    "text.test.sheet_verse": "試験の句",
+    "text.test.sheet_manifest": "試験の乗る人",
+    "text.test.entry1": "試験の一番",
+    "text.test.entry5": "試験の五番",
+    "text.test.entry6": "試験の六番",
+    "text.test.step_origin": "元",
+    "text.test.step_write": "書き込み",
+    "text.test.line_make": "作る句",
+    "text.test.line_keep": "守る句"
+  }
+}

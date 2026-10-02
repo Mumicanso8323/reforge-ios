@@ -1,0 +1,9 @@
+{
+  "language": "ja",
+  "texts": {
+    "text.doc.test.first.title": "試験の書き付け",
+    "text.doc.test.first.body": "試験の書き付けの全文。",
+    "text.doc.test.later.title": "あとで読める書き付け",
+    "text.doc.test.later.body": "試験の事実を知ると読める全文。"
+  }
+}

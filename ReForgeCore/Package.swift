@@ -34,7 +34,7 @@ var targets: [Target] = [
     .target(name: "RFWorld", dependencies: ["RFKernel", "RFMap", "RFMatter"]),
     // 封をした非公開の層(E-content.md §4.5)を開くのに AES-GCM を使う。Apple では CryptoKit、Linux では swift-crypto
     .target(name: "RFContent", dependencies: [
-        "RFKernel", "RFMap", "RFMatter",
+        "RFKernel", "RFText", "RFMap", "RFMatter",
         .product(name: "Crypto", package: "swift-crypto", condition: .when(platforms: [.linux])),
     ]),
     // L3
