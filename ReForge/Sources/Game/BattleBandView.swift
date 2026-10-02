@@ -14,7 +14,7 @@ struct BattleBandView: View {
                         HStack(spacing: 8) {
                             Text(verbatim: b.foe).foregroundStyle(InkColor.alert).lineLimit(1)
                             Text(verbatim: BattleBandView.lane(b))
-                                .font(.custom(FontBook.mapFont, size: 15))
+                                .font(InkFont.body)
                                 .lineLimit(1)
                             Spacer(minLength: 4)
                             if store.ui.isOpen(UIElements.combatStance), !b.retreating {
