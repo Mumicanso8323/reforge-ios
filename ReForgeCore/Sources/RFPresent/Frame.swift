@@ -76,6 +76,8 @@ public struct ClockView: Equatable, Sendable {
     public var dayRemainingPermille: Int
     /// 時計が動くか(昼・続行中・止める決断なし)。
     public var running: Bool
+    /// 最初の行為まで時計を止めている(W-01)。この間は上の帯に日の残りを出さない。
+    public var held: Bool = false
 
     public init(day: Int, phase: DayPhase, dayRemainingPermille: Int, running: Bool) {
         self.day = day
