@@ -36,7 +36,8 @@ struct InkCardModifier<CardContent: View>: ViewModifier {
                                 .buttonStyle(.ink(.quiet, fill: false))
                                 .accessibilityIdentifier("cardClose")
                             }
-                            .padding(.horizontal, InkMetric.gutter)
+                            .padding(.leading, InkMetric.gutter)
+                            .padding(.trailing, InkMetric.settingsReserve)
                             .padding(.top, 12)
                             .padding(.bottom, 8)
                             Rectangle().fill(InkColor.rule).frame(height: InkMetric.rule)

@@ -49,6 +49,9 @@ enum InkFont {
 /// 余白と寸法(4 の倍数)。
 enum InkMetric {
     static let gutter: CGFloat = 16
+    /// 右上に空けておく場所(窓の一番上に 1 つだけ置く設定のボタン。52×52pt)。
+    /// 上の帯・頁の見出し・下からの札の見出しは、右端をこの幅だけ空ける。
+    static let settingsReserve: CGFloat = 52
     static let gap: CGFloat = 8
     static let rowHeight: CGFloat = 44
     static let buttonHeight: CGFloat = 44
