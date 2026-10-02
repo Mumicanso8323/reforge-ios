@@ -37,10 +37,15 @@ concurrency:
 
 jobs:
   core:
-    name: ReForgeCore (Linux)
+    # 公開の層と非公開の層を別のジョブで並べて回す(1 本で続けて回すと 40 分を越えた。2026-10-02)
+    name: ReForgeCore (Linux・${{ matrix.layer }})
     runs-on: ubuntu-latest
     container: swift:6.1-noble
-    timeout-minutes: 40  # 公開の層と非公開の層の 2 回。150 日の受け入れテストがある
+    timeout-minutes: 45  # 150 日の受け入れテストがある
+    strategy:
+      fail-fast: false
+      matrix:
+        layer: [public, private]
     env:
       # 非公開のコンテンツ(物語の本文)を読む読み取り専用のデプロイキー(ed25519)。無い(fork の PR など)ときは公開の層だけで回す。
       # secrets は if: に直接書けないので、有無だけを環境変数にする。docs/architecture/E-content.md §4.3
@@ -53,13 +58,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - name: swift test(公開の層だけ)
+        if: matrix.layer == 'public'
         run: swift test --package-path ReForgeCore
       # actions/checkout の ssh-key には ssh が要る(swift のイメージに無いことがある)
       - name: ssh を用意する
-        if: env.HAS_CONTENT_KEY == 'true'
+        if: matrix.layer == 'private' && env.HAS_CONTENT_KEY == 'true'
         run: command -v ssh || (apt-get update -qq && apt-get install -y -qq --no-install-recommends openssh-client)
       - name: 非公開のコンテンツを取り込む
-        if: env.HAS_CONTENT_KEY == 'true'
+        if: matrix.layer == 'private' && env.HAS_CONTENT_KEY == 'true'
         uses: actions/checkout@v5
         with:
           repository: Mumicanso8323/reforge-content
@@ -69,7 +75,7 @@ jobs:
       # 公開リポジトリのログは誰でも読めるので、非公開の層を重ねたテストは出力を出さない。
       # 失敗したときはテストの名前(公開のコード)だけを出す。ログをアーティファクトにも上げない。
       - name: swift test(非公開の層を重ねて・出力は伏せる)
-        if: env.HAS_CONTENT_KEY == 'true'
+        if: matrix.layer == 'private' && env.HAS_CONTENT_KEY == 'true'
         run: |
           swift test --package-path ReForgeCore > private-test.log 2>&1 && echo "passed" && exit 0
           grep -oE "Test Case '[^']+' failed" private-test.log | sort -u | head -50
