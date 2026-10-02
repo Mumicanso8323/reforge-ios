@@ -307,4 +307,51 @@ final class HearthTests: XCTestCase {
         _ = rig.sim.runSteps(20, &rig.world)
         XCTAssertNotEqual(rig.world.placements.items[sid]?.status, .underConstruction(progress: 0))
     }
+
+    /// 熱い炉(火床を持つモジュール)も灯りになる。冷えれば灯りは消える。
+    func testHotFurnaceGivesLight() throws {
+        var rig = try Rig()
+        let kind: ModuleKindID = "anvil"
+        rig.content.modules[kind]?.hearth = HearthDef(capSeconds: 36_000, fuels: ["charcoal": 36_000],
+                                                      thresholds: [0, 1, 2, 3], light: [0, 3, 3, 3, 3],
+                                                      burnPermille: [0, 1000, 1000, 1000, 1000])
+        let id = rig.world.newEntityID()
+        var p = Placement(id: id, kind: .module(kind), at: WorldPoint(.surface, rig.center + GridPoint(6, 6)),
+                          facing: .north, origin: ProvenanceLedger.unknownOrigin, status: .running)
+        var m = ModuleRuntime(design: nil, step: nil)
+        m.hearth = HearthState(fuel: 10_000_000, lit: true)
+        p.module = m
+        rig.world.placements.items[id] = p
+        let near = WorldPoint(.surface, rig.center + GridPoint(8, 6))
+        XCTAssertEqual(Hearths.lightRadius(rig.world.placements.items[id]!, rig.content), 3)
+        XCTAssertTrue(Hearths.isLit(near, in: rig.world, content: rig.content))
+        rig.world.placements.items[id]?.module?.hearth = HearthState()
+        XCTAssertEqual(Hearths.lightRadius(rig.world.placements.items[id]!, rig.content), 0)
+        XCTAssertFalse(Hearths.isLit(near, in: rig.world, content: rig.content))
+    }
+
+    /// 古い形の内容(焚き火に hearth が無い)では、今までどおり provides の灯り・見張り・範囲の効果が常に効く。
+    /// 獣の寄り方(lure)と建設の火(constructionFireTag)も、無ければ前と同じ。
+    func testOldContentWithoutHearthBehavesAsBefore() throws {
+        var rig = try Rig()
+        rig.content.structures["structure.campfire"]?.hearth = nil
+        rig.sim = Simulation(content: rig.content)
+        XCTAssertNil(rig.content.base.constructionFireTag)
+        let id = rig.campfire(rig.center)
+        _ = rig.sim.runSteps(26 * 3600 / 15 * 2, &rig.world)
+        let p = rig.world.placements.items[id]!
+        XCTAssertNil(p.structure?.hearth)
+        XCTAssertNil(Hearths.level(of: p, rig.content))
+        XCTAssertEqual(Hearths.lightRadius(p, rig.content), 4)
+        XCTAssertEqual(Hearths.provides(p, rig.content), rig.content.structures["structure.campfire"]!.provides)
+        XCTAssertTrue(rig.world.auras.active.values.contains { $0.kind == "aura.test.campfire" })
+        XCTAssertTrue(Hearths.isLit(WorldPoint(.surface, rig.center + GridPoint(4, 0)), in: rig.world, content: rig.content))
+        XCTAssertFalse(Hearths.isLit(WorldPoint(.surface, rig.center + GridPoint(5, 0)), in: rig.world, content: rig.content))
+        let at = WorldPoint(.surface, rig.center + GridPoint(1, 0))
+        rig.world.people[.noah]?.position = at
+        rig.world.clock.phase = .nightWork
+        let withLight = Vision.visibleNow(rig.world, content: rig.content, layer: .surface).count
+        rig.world.placements.items[id]?.status = .broken
+        XCTAssertLessThan(Vision.visibleNow(rig.world, content: rig.content, layer: .surface).count, withLight)
+    }
 }

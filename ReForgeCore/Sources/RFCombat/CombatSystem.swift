@@ -112,6 +112,12 @@ public struct CombatSystem: SimSystem {
             // 夜のうちに火が消えたら、闇の重みでもう一度だけ寄るかを振る(W-02c)
             Threats.planRaids(&ctx, def: def(ctx.content), darkOnly: true)
         case .dawn:
+            // 縄張りのカウンタ(その日に巣のそばで伐った回数)を 0 に戻す(W-02c)
+            for d in ctx.content.enemies.values.compactMap({ $0.raid?.lure?.fellingCounter }).sorted()
+                where ctx.world.narrative.counters[d] != nil {
+                ctx.world.narrative.counters[d] = 0
+                ctx.changes.mark(.narrative)
+            }
             // 夜の獣は帰る(戦っている群れは戦いの後で)。罠は仕掛け直す。
             let inBattle = Set(ctx.world.combat.battles.values.flatMap(\.enemies))
             for (id, t) in ctx.world.combat.threats.sorted(by: { $0.key < $1.key }) where t.nocturnal && !inBattle.contains(id) {

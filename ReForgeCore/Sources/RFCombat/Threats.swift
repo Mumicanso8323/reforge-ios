@@ -178,7 +178,9 @@ enum Threats {
         let dark = !hearths.isEmpty && lit == 0 ? (l.dark ?? 0) : 0
         if darkOnly { return dark }
         var add = lit * (l.smoke ?? 0) + dark
-        if let t = l.territory, t > 0 {
+        if let t = l.territory, t > 0, let fc = l.fellingCounter {
+            add += (w.narrative.counters[fc] ?? 0) * t
+        } else if let t = l.territory, t > 0 {
             let r = l.territoryRadius ?? 6
             let nestPoints = nests(of: kind, ctx).map(\.1.at)
             let near = w.placements.items.values.filter { p in

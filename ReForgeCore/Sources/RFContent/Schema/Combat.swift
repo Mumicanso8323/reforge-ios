@@ -143,9 +143,14 @@ public struct RaidLureDef: Codable, Equatable, Sendable {
     /// しきい値(序盤の設計 v0.4: 合計 6 以上の夜に寄る)。あれば確率で振らず、重みの合計がこれ以上の夜に必ず寄る
     /// (perNight と factModifiers は使わない。requiresFact・untilFact は効く)。一晩に 1 回まで。
     public var threshold: Int?
+    /// 縄張りを、置いた物の数でなく、このカウンタ(その日に巣のそばで伐った回数)で数える。
+    /// 夜明けに RFCombat が 0 に戻す。「巣から 15 マス以内」は伐採の行為の条件(内容の側)で書く。
+    /// 書けない間は nil のままにし、巣のそばの置いた物の数で近似する。
+    public var fellingCounter: CounterID?
 
     public init(smoke: Int? = nil, territory: Int? = nil, territoryRadius: Int? = nil, dark: Int? = nil,
-                threshold: Int? = nil) {
+                threshold: Int? = nil, fellingCounter: CounterID? = nil) {
+        self.fellingCounter = fellingCounter
         self.threshold = threshold
         self.smoke = smoke
         self.territory = territory
