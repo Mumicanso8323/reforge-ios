@@ -118,6 +118,8 @@ public enum ProductionRules {
     public static let operatorReach = 1
     /// 置いた物の範囲の効果の半径の既定(定義に半径が無いとき)。
     public static let defaultAuraRadius = 3
+    /// 壊れた物を片付けたときに戻る、払った材料の割合の既定(千分率。ModuleDef.refundPermilleBroken で変える)。
+    public static let refundPermilleBroken = 500
     /// 有限の品の残りの満タン(千分率)。
     public static let finiteFull = Milli(raw: 1000)
 

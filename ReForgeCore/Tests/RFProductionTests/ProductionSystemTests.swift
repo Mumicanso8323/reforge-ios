@@ -204,6 +204,29 @@ final class ProductionSystemTests: XCTestCase {
             .rejection?.reason, ProductionText.unknownModule)
     }
 
+    /// 壊れた物を片付けると、払った材料は半分(端数切り捨て)だけ戻る。割合は定義で変えられる。
+    /// (待ちの物は壊れたときに失われている。Destruction.destroy)
+    func testDismantlingBrokenModuleRefundsHalf() throws {
+        func remaining(permille: Int?) throws -> (wood: Int, ore: Int) {
+            let fx = try F { if let p = permille { $0.modules[.furnace]?.refundPermilleBroken = p } }
+            var w = fx.world(wood: 10, charcoal: 0)
+            let furnace = fx.place(.furnace, 16, 16, &w)   // 薪 2 を払う
+            var ctx = StepContext(world: w, content: fx.content)
+            ModuleRuntime.put(StockEntry(stuff: .matter(.ironOre(purity: Purity(percent: 25))), quantity: 3),
+                              into: &ctx.world.placements.items[furnace]!.module!.input)
+            XCTAssertNotNil(Destruction.destroy(furnace, cause: nil, &ctx))
+            w = ctx.world
+            XCTAssertNil(fx.apply(.production(.dismantle(placement: furnace)), &w).rejection)
+            return (w.inventory.quantity(.wood), F.matterCount(w) { $0.stage == .ore })
+        }
+        let half = try remaining(permille: nil)
+        XCTAssertEqual(half.wood, 9, "払った薪 2 の半分 = 1 が戻る")
+        XCTAssertEqual(half.ore, 0, "待ちの物は壊れたときに失われている")
+        XCTAssertEqual(try remaining(permille: 700).wood, 9, "2 × 0.7 = 1.4 → 端数は切り捨てて 1")
+        XCTAssertEqual(try remaining(permille: 0).wood, 8)
+        XCTAssertEqual(try remaining(permille: 1000).wood, 10)
+    }
+
     func testMoveKeepsBuffersAndChecksRules() throws {
         let fx = try F()
         var w = fx.world()

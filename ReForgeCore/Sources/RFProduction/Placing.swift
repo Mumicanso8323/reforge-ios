@@ -233,8 +233,16 @@ enum Placing {
     static func dismantle(_ id: EntityID, _ ctx: inout StepContext) -> CommandResult {
         guard let p = ctx.world.placements.items[id] else { return .rejected(Rejection(ProductionText.noSuchPlacement)) }
         guard let kind = p.moduleKind, let m = p.module else { return .rejected(Rejection(ProductionText.notAModule)) }
-        // 材料は全部戻る(払った物・入口と出口の待ち・使っていた有限の品)
-        for e in m.paid { toBase(e, cool: false, &ctx) }
+        // 材料は全部戻る(払った物・入口と出口の待ち・使っていた有限の品)。
+        // 壊れた物は、払った材料だけ refundPermilleBroken(既定 500)の割合で戻る(端数は切り捨て)
+        let refund = p.destroyedBy == nil
+            ? 1000 : max(0, min(1000, ctx.content.modules[kind]?.refundPermilleBroken ?? ProductionRules.refundPermilleBroken))
+        for e in m.paid {
+            let q = e.quantity * refund / 1000
+            guard q > 0 else { continue }
+            var one = [e]
+            for piece in ModuleRuntime.take(q, from: &one, where: { _ in true }) { toBase(piece, cool: false, &ctx) }
+        }
         for e in m.input { toBase(e, cool: true, &ctx) }
         for e in m.output { toBase(e, cool: true, &ctx) }
         if let f = m.finite { toBase(f, cool: false, &ctx) }
