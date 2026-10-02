@@ -11,14 +11,14 @@
 | `ids` | `IDAllocator` | 共通 | **続きから**(番号を重ねない) |
 | `clock` | `ClockState`(now・day・phase・dayStartedAt・realCarry) | RFTime | 戻す |
 | `map` | `MapState`(層 → `MapLayer`) | 地形の変化・鉱脈の残り: RFExploration / RFProduction | 戻す |
-| `people` | `PeopleState`(人 → `PersonState`) | RFCrew | 位置・生死・体は戻す。**関係と、またぐ記憶は残す** |
+| `people` | `PeopleState`(人 → `PersonState`) | RFCrew | 位置・生死・体は戻す。持ち越す欄は巻き戻しの定義のデータが決める |
 | `placements` | `PlacementsState`(実体 → `Placement`) | モジュール: RFProduction、建造物: RFBase | 戻す |
 | `inventory` | `InventoryState`(在り処 → 山の並び) | 共通(`StepContext` の在庫操作) | 戻す |
 | `invention` | ライン札(`LineDesign`) | RFInvention | 戻す |
 | `notebook` | 試作の記録・出典つきの書き留め・図鑑・聞いたヒント | RFInvention | **残す** |
 | `logistics` | 運搬の経路・流量(電力は R2) | RFLogistics | 戻す |
 | `knowledge` | 知っている事実・地図の既知・発見・見たもの | 共通(`StepContext.learn`)・地図の既知は RFCrew | **残す**(事実はコンテンツの scope = memory のもの) |
-| `ledger` | `ProvenanceLedger`(来歴) | 共通(`StepContext.record`) | 戻す(覚えておく印の記録は `run.pastLives` に写す)。番号は続きから |
+| `ledger` | `ProvenanceLedger`(来歴) | 共通(`StepContext.record`) | 戻す(印の付いた記録は前の周回の記録に写す。印はデータが決める)。番号は続きから |
 | `survival` | 拠点全体の数値(隠れた値を含む)・飢えと渇きの日数・天候と季節 | RFSurvival | 戻す |
 | `exploration` | POI の進み・有限の部品の状態・行為の回数 | RFExploration | 戻す |
 | `base` | 拠点グレード・範囲 | RFBase | 戻す |

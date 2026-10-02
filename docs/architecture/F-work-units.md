@@ -19,7 +19,7 @@
 | U9 | 脅威と戦闘 | `Sources/RFCombat`・`RFWorld/Slices/Combat.swift` | `combat` | U5・U8(灯り・柵) | 夜、灯りの外から食料を狙う / 範囲 repelEnemies の中に入らない / 1 次元の帯で自動に進み、方針と撤退だけ選べる / 武器の強さ = 素材の純度と硬さ / 勝ち負けが来歴に残る |
 | U10 | 研究と力 | `Sources/RFResearch`・`Sources/RFAbilities`・`RFWorld/Slices/{Research,Abilities}.swift` | `research`・`abilities` | U5(研究机に付く) | 研究机に付いた仲間が昼に進める / 完了で解禁と効果 / スキルが道筋を増やす / 能力の内部値は Frame に出さない(テストで確かめる) |
 | U11 | 出来事 | `Sources/RFNarrative`・`RFRules/{Conditions,Effects,Auras}.swift`・`RFContent/Schema/{Condition,Effect}.swift`・`RFWorld/Slices/{Narrative,Auras}.swift` | `narrative`・`auras` | U0 | 未実装の効果を 0 に(担当のシステムへコマンドで渡す)/ 予約・クールダウン・優先度・追跡カウンタ(近くにいた時間・観測の夜)・目標の達成・章・結末 / 仲間の一言の選び方(LineDef の文脈と条件)/ TEST-S5 決定性(出来事の列) |
-| U12 | 保存と失敗 | `Sources/RFSave`・`Sources/RFFailure`・`RFWorld/Slices/Run.swift` | `run` | U0 | 夜明けの自動セーブ(直近 3)・手動・続き / 版の移行 / 4 択(最初から・記憶を持って巻き戻す・失って続ける・セーブ地点から)/ TEST-R1-07(巻き戻しの持ち越しと仲間の「前にも」) |
+| U12 | 保存と失敗 | `Sources/RFSave`・`Sources/RFFailure`・`RFWorld/Slices/Run.swift` | `run` | U0 | 夜明けの自動セーブ(直近 3)・手動・続き / 版の移行 / 4 択(最初から・記憶を持って巻き戻す・失って続ける・セーブ地点から)/ TEST-R1-07(巻き戻しの持ち越し) |
 | U13 | 画面 | `Sources/RFPresent`・`ReForge/`(アプリ)・`ReForgeTests/`・`project.yml` | — | U0(Frame)。中身は各単位に追従 | Frame の区画の版が変わった所だけ上がる / 補間の材料 / 工程表(ライン札・試作・記録)/ TEST-R1-09(シミュレータ)/ b7 の旧画面とターゲットを消す |
 | U14 | 非公開コンテンツ | 非公開リポジトリ(E §4) | — | U3(形式) | 非公開の層を重ねて検証エラー 0・監査 0 / Era 1 の R1 の範囲が揃う |
 

@@ -34,12 +34,12 @@
 | 在庫・ライン・置いた物・建造物・運搬 | 知った事実(コンテンツの `FactDef.scope` が memory のもの。timeline のものは消える) |
 | 仲間の生死・位置・体・配属 | 地図の既知・見つけた POI と鉱脈・図鑑の影 |
 | 時計・数値・出来事の進み・範囲の効果 | 実験ノート(試作・所見・出典つきの書き留め・聞いたヒント) |
-| 研究の進み・解禁 | 関係の点とランク(割合は `RewindDef.relationPermille`、既定は全部) |
-| 来歴(夜明けまで) | 巻き戻しをまたぐ記憶(`MemoryRecord.persistsAcrossRewind`) |
-| | 前の周回の「覚えておく」記録(`RewindDef.memorableTags` の印の付いた来歴 → `run.pastLives`) |
+| 研究の進み・解禁 | 関係の点とランク(割合は巻き戻しの定義のデータが書く) |
+| 来歴(夜明けまで) | 持ち越すと定義された記憶(記憶の定義のデータが決める) |
+| | 前の周回の記録の写し(どの印の来歴を写すかは巻き戻しの定義のデータが決める) |
 
 - 周回の番号(`run.index`)を 1 つ増やす。実体の ID と来歴の番号は失敗した世界の続きから振る(前の周回の記録と番号が重ならない)。
-- 仲間の「前にもこうなった気がする」は、`pastLives` の記録を条件(`Condition.runAtLeast`・来歴の問い合わせ `currentRunOnly: false`)で引く一言(`LineDef`)で出す。
+- 前の周回の記録は、条件(`Condition.runAtLeast`・来歴の問い合わせ `currentRunOnly: false`)で引ける。何に使うかはデータが決める。
 
 ## 4. 版と移行
 - 世界状態の形を変えたら、`SaveCodec.schemaVersion` を 1 上げ、`SaveCodec.migrations` に「前の版の JSON の木(`Value`)を次の版の木に書き換える」移行を 1 つ足す。古い struct を残さなくてよい。
@@ -58,7 +58,7 @@
 - 画面の途中の状態は `SaveSlot.screen`(ファイル `resume-ui.json`)に生の Data で置く。
 - 保存の JSON は自前の正準の書き出し(`CanonicalJSON`。Set と非文字列キーの辞書をソート、キーは UTF-8 順)でバイト列を固定する。固定の JSON は `Tests/RFSaveTests/Fixtures/save-v1.json`。リリース前は形が変わるとテストを飛ばし、作り直し方(`REFORGE_UPDATE_SAVE_FIXTURES=1`)を出す。リリース後は失敗にする。
 - 失って続ける: `RewindDef.lossEffects` があればそれだけ。無ければ既定(関係の点が最も低い一員 1 人が去る・拠点の蓄えの唯一品でない物の 500‰ を失う)と、成り立っていた失敗の規則の `onContinue`。適用しても失敗の規則が成り立つなら選べない。
-- 巻き戻しの `pastLives` には、印の付いた記録と失敗の記録に加えて、持ち越した事実・ノート・仲間の記憶が指す記録の写しを残す(`RunState.pastRecord` で引ける)。夜明けの一員(ノア以外)に `RewindDef.dejaVuMemory` の記憶を付ける。
+- 前の周回の記録の写しには、印の付いた記録と失敗の記録に加えて、持ち越した事実・ノート・記憶が指す記録を残す(`RunState.pastRecord` で引ける)。巻き戻しの後に付ける記憶は、巻き戻しの定義のデータが決める。
 - 保存の書き換えは `Recovery.perform` の中: 最初から = 夜明けと続きを消す(手動は残す)/ 巻き戻し = その夜明けを巻き戻した世界で上書きし、先の夜明けを消す / ロード = 先の夜明けを消す。
 - 画面へのつなぎ(統合担当が GameHost に入れる): `SaveBook.autosaveDawn`(出来事に dawn)・`writeResume`(背面に回る時)・`Recovery.choices / perform` → `GameHost.replace`。
 
