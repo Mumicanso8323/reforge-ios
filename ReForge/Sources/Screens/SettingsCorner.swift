@@ -36,16 +36,16 @@ struct SettingsCornerButton: View {
     }
 }
 
-/// ボタンの外の押下を通す窓。
+/// 角(52×52pt)の外の押下を通す窓。
+/// SwiftUI のボタンは自分の UIView を持たず、ホストの面(rootViewController.view)の中で押下を受ける。
+/// だから「面に当たったら下へ通す」とすると、ボタンも押せなくなる。角の中は、この窓が受ける(角は画面の側が空けている)。
 final class SettingsCornerWindow: UIWindow {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let corner = CGRect(x: bounds.maxX - SettingsCorner.side,
                             y: bounds.minY + safeAreaInsets.top,
                             width: SettingsCorner.side, height: SettingsCorner.side)
         guard corner.contains(point) else { return nil }
-        let hit = super.hitTest(point, with: event)
-        // 何も無い所(土台の面そのもの)に当たったなら、下の窓へ通す
-        return hit === rootViewController?.view ? nil : hit
+        return super.hitTest(point, with: event)
     }
 }
 

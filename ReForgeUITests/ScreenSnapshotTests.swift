@@ -226,8 +226,11 @@ final class ScreenSnapshotTests: XCTestCase {
         // 右上の角に入りうる葉(入れ物・設定のボタンの中身・印の要素は除く)
         var leaves: [(id: String, frame: CGRect, length: Int)] = []
 
-        func visit(_ node: XCUIElementSnapshot, excluded: Bool, insideSettings: Bool = false) {
+        // clip: 先祖のスクロールの見えている範囲(巻き取られて帯の下に隠れた行は、木に残っても画面に無い)
+        func visit(_ node: XCUIElementSnapshot, excluded: Bool, insideSettings: Bool = false, clip: CGRect? = nil) {
             let id = node.identifier
+            var clip = clip
+            if [.scrollView, .table, .collectionView].contains(node.elementType), !node.frame.isEmpty { clip = clip.map { $0.intersection(node.frame) } ?? node.frame }
             let isSettings = id == "settingsButton"
             if isSettings, !node.frame.isEmpty { settingsFrame = node.frame }
             let probe = id == "screenshotGuard" || id == "inkFitReport" || id.hasPrefix("Ink")  // アプリの印(inkFitCheck の面)
@@ -236,7 +239,8 @@ final class ScreenSnapshotTests: XCTestCase {
                 || node.frame.width * node.frame.height > window.width * window.height / 4
             if node.children.isEmpty, !insideSettings, !isSettings, !probe, !isContainer, node.elementType != .window,
                node.elementType != .application, node.frame.width > 1, node.frame.height > 1 {
-                leaves.append((id, node.frame, node.label.count))
+                let shown = clip.map { node.frame.intersection($0) } ?? node.frame
+                if !shown.isNull, shown.width > 1, shown.height > 1 { leaves.append((id, shown, node.label.count)) }
             }
             let skip = excluded || Self.offscreenExclusions[id] != nil
             let f = node.frame
@@ -261,7 +265,7 @@ final class ScreenSnapshotTests: XCTestCase {
                 add(id.isEmpty ? "(識別子なし \(node.elementType.rawValue))" : id, "offscreen",
                     "frame x \(Int(f.minX))...\(Int(f.maxX)) 画面 \(Int(window.minX))...\(Int(window.maxX)) 文字の長さ \(node.label.count)")
             }
-            for c in node.children { visit(c, excluded: skip, insideSettings: insideSettings || isSettings) }
+            for c in node.children { visit(c, excluded: skip, insideSettings: insideSettings || isSettings, clip: clip) }
         }
         visit(root, excluded: false)
 

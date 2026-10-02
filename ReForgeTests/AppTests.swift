@@ -52,12 +52,14 @@ final class AppTests: XCTestCase {
         let c = try content()
         let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3), saves: tempSaves())
         await store.load()
+        let startsWithPrologue = store.prologue != nil
         try await readThroughPrologue(store)
         XCTAssertEqual(store.chunks.count, store.mapView.chunkColumns * store.mapView.chunkRows, "全区画を引いた")
         XCTAssertNotNil(store.focus, "ノアの位置に追従する")
         XCTAssertNotNil(store.footCard, "足元カードはノアの足元")
         XCTAssertTrue(store.actors.contains { $0.isNoah })
-        XCTAssertTrue(store.clock.running)
+        // 序から始まる層では、時計は最初の行為(火を起こす)まで止まったまま(意図した動き。序盤の設計 §2.8.3 の 4・W-01)。序の無い層だけ確かめる。
+        if !startsWithPrologue { XCTAssertTrue(store.clock.running) }
     }
 
     /// 断られた操作は足元カードに 1 行(ダイアログは出さない)。

@@ -187,14 +187,7 @@ jobs:
             || { grep -B2 -A8 "error:" build.log | head -200; tail -60 build.log; exit 1; }
           grep -E "\*\* BUILD" build.log || true
 
-      - uses: actions/upload-artifact@v5
-        if: failure()
-        with:
-          name: logs
-          path: |
-            build.log
-            test.log
-          if-no-files-found: ignore
+      # build.log・test.log は成果物に上げない(このジョブは非公開の層を重ねて回すので、記録に物語の文が混ざりうる)
 
       - name: Package ipa
         run: |
