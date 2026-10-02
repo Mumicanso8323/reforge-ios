@@ -98,6 +98,8 @@ public enum ExplorationCommand: Codable, Equatable, Sendable {
     case setTerrain(at: WorldPoint, terrain: TerrainID, cause: ProvenanceID?)
     /// 有限の部品の状態を変える(来歴は出来事の側で作って state に入れてある)。
     case setPart(poi: EntityID, part: String, state: PartState)
+    /// 地図の光の点を置く・消す(at nil で消す。U19)。
+    case setBeacon(id: String, at: WorldPoint?, cause: ProvenanceID?)
 }
 
 public enum BaseCommand: Codable, Equatable, Sendable {

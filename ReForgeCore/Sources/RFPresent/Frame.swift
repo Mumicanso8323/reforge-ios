@@ -136,6 +136,8 @@ public struct MapView: Equatable, Sendable {
     public var chunkSignatures: [Int]
     /// いま見えている範囲(一員ごとの円)。この中は明るく、物と生き物も描く。
     public var vision: [VisionArea]
+    /// 地図の光の点(この層のもの。id の順)。暗闇・霧の中でも描く(効果 beacon。U19)。
+    public var beacons: [GridPoint] = []
 
     public init(layer: LayerID, size: GridSize, chunkRevisions: [Int], chunkSignatures: [Int] = [],
                 vision: [VisionArea] = []) {
@@ -200,12 +202,15 @@ public struct TileView: Hashable, Sendable {
     public var fog: Fog
     /// 手がかりの影の文字(fog == .hint のとき)。
     public var shadow: String?
+    /// 暗闇でも描く光る印(見え方の glow)。夜の灯りの外でも、既知か手がかりのマスなら描く。
+    public var glow: Bool
 
-    public init(glyph: String, tint: String, fog: Fog, shadow: String? = nil) {
+    public init(glyph: String, tint: String, fog: Fog, shadow: String? = nil, glow: Bool = false) {
         self.glyph = glyph
         self.tint = tint
         self.fog = fog
         self.shadow = shadow
+        self.glow = glow
     }
 
     public static let void = TileView(glyph: "", tint: TilePalette.void, fog: .unknown)

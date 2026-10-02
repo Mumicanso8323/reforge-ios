@@ -84,6 +84,7 @@ public enum ConditionEvaluator {
                 case .partsInState(let st, let n):
                     let names = content.pois[kind]?.parts ?? Array(pr.parts.keys)
                     if names.filter({ (pr.parts[$0] ?? .intact).name == st }).count >= n { return true }
+                case .repairAtLeast(let part, let stage): if pr.repair[part, default: 0] >= stage { return true }
                 }
             }
             return false
