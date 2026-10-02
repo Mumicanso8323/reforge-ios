@@ -22,9 +22,9 @@ struct StatusBandView: View {
                     HStack(spacing: 10) {
                         ForEach(store.status, id: \.key) { item in
                             HStack(spacing: 3) {
-                                Text(verbatim: item.label).foregroundStyle(Color(white: 0.6))
+                                Text(verbatim: item.label).foregroundStyle(InkColor.textDim)
                                 Text(verbatim: item.value)
-                                    .foregroundStyle(item.alert ? Color.red : Color(white: 0.92))
+                                    .foregroundStyle(item.alert ? InkColor.alert : InkColor.text)
                             }
                         }
                     }
@@ -39,7 +39,7 @@ struct StatusBandView: View {
                         } label: {
                             Text(verbatim: c.label).frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.ink(.secondary))
                     }
                 }
             } else if !store.clock.bandActions.isEmpty {
@@ -50,32 +50,35 @@ struct StatusBandView: View {
                         } label: {
                             label(a).frame(maxWidth: .infinity)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(a == .sleep ? Color(red: 0.25, green: 0.3, blue: 0.6) : Color(red: 0.55, green: 0.35, blue: 0.15))
+                        // 寝るが主(錆)、夜作業は並びの選択肢
+                        .buttonStyle(.ink(a == .sleep ? .primary : .secondary))
                         .accessibilityIdentifier(a == .sleep ? "sleepButton" : "nightWorkButton")
                     }
                 }
             }
             if sealedContentFailed {
                 Text("物語のデータを読めなかったので、試遊用のデータで動いています")
-                    .font(.custom(FontBook.mapFont, size: 12))
-                    .foregroundStyle(Color(white: 0.6))
+                    .font(InkFont.caption)
+                    .foregroundStyle(InkColor.textDim)
                     .lineLimit(1)
                     .accessibilityIdentifier("sealedContentNotice")
             }
             if let o = store.objective {
                 HStack(spacing: 6) {
-                    Text("目標").foregroundStyle(Color(white: 0.6))
+                    Text("目標").foregroundStyle(InkColor.textDim)
                     Text(verbatim: o).lineLimit(1)
                 }
             }
         }
-        .font(.custom(FontBook.mapFont, size: 14))
-        .foregroundStyle(Color(white: 0.92))
+        .font(InkFont.small)
+        .foregroundStyle(InkColor.text)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(white: 0.07))
+        .background(InkColor.ground)
+        .overlay(alignment: .bottom) {
+            Rectangle().fill(InkColor.rule).frame(height: InkMetric.rule)
+        }
         .accessibilityIdentifier("statusBand")
     }
 
@@ -84,12 +87,12 @@ struct StatusBandView: View {
         case .day:
             // 昼の残り(時間数は出さない)
             ProgressView(value: Double(store.clock.dayRemainingPermille), total: 1000)
-                .tint(Color(red: 0.95, green: 0.8, blue: 0.3))
+                .tint(InkColor.dusk)
                 .frame(width: 64)
         case .dusk:
-            Text("日没").foregroundStyle(Color(red: 0.95, green: 0.6, blue: 0.3))
+            Text("日没").foregroundStyle(InkColor.dusk)
         case .nightWork:
-            Text("夜").foregroundStyle(Color(red: 0.6, green: 0.65, blue: 1))
+            Text("夜").foregroundStyle(InkColor.night)
         }
     }
 

@@ -1,5 +1,6 @@
 import RFContent
 import RFKernel
+import RFMap
 import RFRules
 import RFWorld
 
@@ -24,6 +25,7 @@ enum Stats {
             let auraDefs = ctx.content.auras
             for a in ctx.world.auras.active.values {
                 guard a.strength > 0, a.until.map({ now < $0 }) ?? true, let def = auraDefs[a.kind] else { continue }
+                if def.requiresNear != nil, !Auras.tetherHolds(a, in: ctx.world, content: ctx.content) { continue }
                 for m in def.modifiers {
                     if case .statPerHour(let stat, let amount) = m {
                         fromAuras[stat, default: 0] += Int64(amount) * Int64(a.strength) * daySeconds / (1000 * 3600)
@@ -53,8 +55,40 @@ enum Stats {
                                       seconds: seconds, daySeconds: daySeconds)
             if delta != 0 { ctx.world.survival.stats[id, default: .zero].raw += delta }
         }
+        addMined(&ctx)
         if hasSums { recomputeSums(&ctx.world.survival, defs) }
         ctx.changes.mark(.survival)
+    }
+
+    /// 掘った量の項(StatDef.mined。U16・OPEN-S2)。合う鉱脈の減った回数の合計を数え、前に足した回数からの差だけ足す。
+    /// per 回ごとに amount。端数の回数は次に持ち越す(足した回数を per の倍数で進める)。掘らなければ何もしない。
+    static func addMined(_ ctx: inout StepContext) {
+        let terms = ctx.content.stats.filter { $0.value.mined != nil }
+        guard !terms.isEmpty else { return }
+        for (id, def) in terms.sorted(by: { $0.key < $1.key }) {
+            guard let m = def.mined, m.amount != 0 else { continue }
+            let per = max(1, m.per ?? 1)
+            let total = minedCount(m.ores, ctx.world)
+            let seen = ctx.world.survival.minedSeen?[id] ?? 0
+            let steps = (total - seen) / per
+            guard steps > 0 else { continue }
+            ctx.world.survival.minedSeen = (ctx.world.survival.minedSeen ?? [:]).merging([id: seen + steps * per]) { $1 }
+            ctx.world.survival.stats[id, default: .zero].raw += Int64(steps * m.amount)
+        }
+    }
+
+    /// 合う鉱脈(種類の名前か組成の物質)の、掘った回数の合計(全部の層)。
+    static func minedCount(_ ores: [String], _ w: WorldState) -> Int {
+        let want = Set(ores)
+        var n = 0
+        for (_, layer) in w.map.layers {
+            for d in layer.deposits.all where d.remainingExtractions < d.initialExtractions {
+                if want.contains(d.category.rawValue) || d.composition.contains(where: { want.contains($0.substance.rawValue) }) {
+                    n += d.initialExtractions - d.remainingExtractions
+                }
+            }
+        }
+        return n
     }
 
     /// 合計の値を内訳から足し直す。合計の合計もあるので、変わらなくなるまで(最大で合計の数だけ)繰り返す。

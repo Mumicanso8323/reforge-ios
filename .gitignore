@@ -20,3 +20,4 @@ AppContent/
 # Claude Code の作業場所(担当ごとの worktree・エージェントの定義・ブラウザの記録)。手元だけに置く
 .claude/
 .playwright-mcp/
+__pycache__/

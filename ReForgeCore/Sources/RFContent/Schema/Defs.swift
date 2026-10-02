@@ -193,6 +193,8 @@ public struct ModuleDef: ContentDef, Equatable {
     public var buffer: Int?
     /// 有限の品を使えるか(使うと速いが、減ったら戻らない)。
     public var finite: FiniteUseDef?
+    /// 電力(U16。原作の Generator・PowerDraw)。output > 0 なら発電機、draw > 0 なら電力を使うモジュール。
+    public var power: PowerDef?
 
     public init(id: ModuleKindID, cost: [Ingredient], placement: PlacementRule, ports: [PortDef], cycleSeconds: Int,
                 specialty: String? = nil, auras: [AuraKindID]? = nil, parameters: Value? = nil,
@@ -212,6 +214,30 @@ public struct ModuleDef: ContentDef, Equatable {
         self.consumes = consumes
         self.buffer = buffer
         self.finite = finite
+    }
+}
+
+/// 電力の性質(U16。原作 Power/Generator.cs と PlacedModule.PowerDraw)。
+/// 供給 = 動いている発電機の output の合計(needsWorker なら付いている人の速さの千分率を掛ける。手回し・発電の名手)。
+/// 使う側: 供給が 0 なら止まる。需要(draw の合計)が供給を上回れば速さが半分(原作 IsPowerShortage の 0.5 倍)。
+public struct PowerDef: Codable, Equatable, Sendable {
+    /// 出す電力(W)。
+    public var output: Int?
+    /// 使う電力(W)。
+    public var draw: Int?
+    /// 人が付いている間だけ出す(原作 RequiresManualWork)。
+    public var needsWorker: Bool?
+    /// 燃料(原作 FuelId)。入口に届いた物を、1 日あたり fuelPerDay 個ずつ燃やす。無くなれば止まる。
+    public var fuel: ItemID?
+    public var fuelPerDay: Int?
+
+    public init(output: Int? = nil, draw: Int? = nil, needsWorker: Bool? = nil, fuel: ItemID? = nil,
+                fuelPerDay: Int? = nil) {
+        self.output = output
+        self.draw = draw
+        self.needsWorker = needsWorker
+        self.fuel = fuel
+        self.fuelPerDay = fuelPerDay
     }
 }
 
@@ -333,6 +359,11 @@ public struct PersonDef: ContentDef, Equatable {
     public var behaviors: [CrewBehavior]?
     /// 初めに属している集団(勢力)。nil = どこにも属さない。
     public var group: GroupID?
+    /// 居場所(U16): まだ会っていない間、この種類の POI(EntityID の昇順で最初のもの)にいる。
+    /// プレイヤーが歩いて行けば、条件 at・hook "entered" で出来事が起きる(砦のキーパーソンなど)。
+    public var home: POIKindID?
+    /// 距離の縛り(U16): この人から radius マスより遠くにいる間は働けない(作業の速さ 0)。
+    public var tether: Tether?
 }
 
 public struct IdeologyAxisDef: ContentDef, Equatable {
@@ -497,6 +528,20 @@ public struct AuraDef: ContentDef, Equatable {
     public var affects: [PersonID]?
     /// 置いた物・人の定義から付くときの半径(マス)。効果 addAura で半径を書かないときもこれ。
     public var radius: Int?
+    /// 距離で効きが変わる(U16): 範囲の中心がこの人から radius マスより離れている間は、範囲が効かない
+    /// (ある人の静けさは、その人がノアのそばにいる間だけ獣を寄せない、など)。
+    public var requiresNear: Tether?
+}
+
+/// ある人からの距離の縛り(チェビシェフ距離。同じ層)。範囲の効果(AuraDef.requiresNear)と人(PersonDef.tether)が使う。
+public struct Tether: Codable, Equatable, Sendable {
+    public var person: PersonID
+    public var radius: Int
+
+    public init(person: PersonID, radius: Int) {
+        self.person = person
+        self.radius = radius
+    }
 }
 
 /// 拠点全体の数値(内訳と合計・暦…)。見せない値もここ。見せ方は認識の表。
@@ -514,9 +559,27 @@ public struct StatDef: ContentDef, Equatable {
     /// 画面で赤く出す範囲(raw。isAlert を使う)。
     public var alertBelow: Int?
     public var alertAtLeast: Int?
+    /// 掘った量で上がる項(U16。OPEN-S2・BEAT-18)。鉱脈の減った回数を数え、per 回ごとに amount(raw)を足す。
+    /// perDay・範囲の上積みとは別の項。掘らなければ 0 なので、他の進み方を変えない。
+    public var mined: MinedTerm?
+
+    /// 掘った量の項。ores = 鉱脈の種類(DepositCategory の名前)か、組成の物質(MineralID)のどれかに合う鉱脈を数える。
+    public struct MinedTerm: Codable, Equatable, Sendable {
+        public var ores: [String]
+        /// 何回掘るごとに(既定 1)。
+        public var per: Int?
+        public var amount: Int
+
+        public init(ores: [String], per: Int? = nil, amount: Int) {
+            self.ores = ores
+            self.per = per
+            self.amount = amount
+        }
+    }
 
     public init(id: StatID, initial: Int, perDay: Int? = nil, sumOf: [StatID]? = nil, marks: [Int]? = nil,
-                wrap: Int? = nil, alertBelow: Int? = nil, alertAtLeast: Int? = nil) {
+                wrap: Int? = nil, alertBelow: Int? = nil, alertAtLeast: Int? = nil, mined: MinedTerm? = nil) {
+        self.mined = mined
         self.id = id
         self.initial = initial
         self.perDay = perDay
@@ -636,6 +699,22 @@ public struct SheetDef: ContentDef, Equatable {
         public var subject: SubjectID
         public var note: TextID?
         public var when: Condition?
+        /// 行の名前(答えを置く行を指す。answer があるときは必須)。
+        public var id: String?
+        /// この行に、プレイヤー自身の来歴から「答え」を 1 つ置ける(BEAT-07)。
+        public var answer: AnswerSlotDef?
+        /// 行の横に並べる数(鍛えた量・最高の純度・失った人数など。来歴から数える)。
+        public var measure: SheetMeasure?
+
+        public init(subject: SubjectID, note: TextID? = nil, when: Condition? = nil, id: String? = nil,
+                    answer: AnswerSlotDef? = nil, measure: SheetMeasure? = nil) {
+            self.subject = subject
+            self.note = note
+            self.when = when
+            self.id = id
+            self.answer = answer
+            self.measure = measure
+        }
     }
 
     public var id: SheetID
@@ -643,6 +722,78 @@ public struct SheetDef: ContentDef, Equatable {
     public var rows: [Row]
     /// 開けるようになる条件。
     public var when: Condition
+    /// 記録の並びの席の数(1...slots)。entries に無い番号は「空いた席」として並び、数えられる(BEAT-05)。
+    public var slots: Int?
+    /// 記録の 1 件ずつ(席の番号・名前・人)。開くとプレイヤーの試作と同じ形の工程表になる。
+    public var entries: [SheetEntryDef]?
+    /// 記録の 1 件を開いたときの既定の行。entry.rows があればそちら。
+    public var entryRows: [Row]?
+    /// この表の装置で、人に技能を書き足せる(BEAT-06)。
+    public var imprint: ImprintDef?
+    /// この表は乗る人の名簿(BEAT-29)。
+    public var manifest: ManifestDef?
+}
+
+/// 記録の並びの 1 件。
+public struct SheetEntryDef: Codable, Equatable, Sendable {
+    /// 席の番号(1 から)。
+    public var slot: Int
+    /// 名前(認識の表)。
+    public var subject: SubjectID
+    /// 世界の人(仲間の記録が見つかる、など)。
+    public var person: PersonID?
+    public var rows: [SheetDef.Row]?
+    /// 並びに出る条件(既定: いつも)。
+    public var when: Condition?
+}
+
+/// 答えの席: 置ける来歴の問い合わせ(どれかに合えば置ける)。
+public struct AnswerSlotDef: Codable, Equatable, Sendable {
+    public var accepts: [ProvenanceQuery]
+}
+
+/// 行の横の数。
+public enum SheetMeasure: Codable, Hashable, Sendable {
+    /// 合う来歴の count の合計。
+    case count(query: ProvenanceQuery)
+    /// 合う来歴の detail[key](整数)の最大。純度など。
+    case maxDetail(query: ProvenanceQuery, key: String)
+}
+
+/// 装置で技能を書き足す(習得の日数を飛ばす)。使うかどうかは一人ずつプレイヤーが決め、本人が拒むこともある。
+public struct ImprintDef: Codable, Equatable, Sendable {
+    /// 書き足せる技能。
+    public var skills: [SkillID]
+    /// 使える条件(装置を直した、など)。
+    public var when: Condition?
+    /// 書き足せる人(一員で生きている人のうち、全部に合う人)。
+    public var targets: [PersonTest]?
+    /// 本人が拒む条件(全部に合えば拒む。思想・関係・記憶で書く)。
+    public var refuseWhen: [PersonTest]?
+    /// 使った記録に付ける印(仲間の思想がこれで賛否を言う)。
+    public var tags: [ProvenanceTag]?
+    /// 使わなかった記録に付ける印。
+    public var declineTags: [ProvenanceTag]?
+}
+
+/// 乗る人の名簿。仲間は自分で「乗る / 残る」を言う。
+public struct ManifestDef: Codable, Equatable, Sendable {
+    /// 名簿が開く条件(帰還船ができた、など)。
+    public var when: Condition?
+    /// 乗れる人数(ノアを含む)。
+    public var capacity: Int?
+    /// 仲間の言い分。上から順に、tests に全部合う最初のものを言う。どれにも合わない人は何も言わない。
+    public var leanings: [LeaningDef]
+}
+
+public struct LeaningDef: Codable, Equatable, Sendable {
+    public var tests: [PersonTest]
+    /// 乗る(true)/ 残る(false)。
+    public var aboard: Bool
+    /// 譲らない(プレイヤーが逆にできない)。
+    public var firm: Bool?
+    /// 言うときの一言の文脈(LineDef.context。無ければ "boarding.aboard" / "boarding.stay")。
+    public var line: String?
 }
 
 public struct ObjectiveDef: ContentDef, Equatable {

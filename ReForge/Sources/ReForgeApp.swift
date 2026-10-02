@@ -162,12 +162,14 @@ struct ContentErrorView: View {
     var body: some View {
         VStack(spacing: 12) {
             Text("データを読み込めませんでした")
-                .font(.headline)
+                .font(InkFont.heading)
             Text(verbatim: message)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(InkFont.caption)
+                .foregroundStyle(InkColor.textDim)
         }
+        .foregroundStyle(InkColor.text)
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(InkColor.ground)
     }
 }

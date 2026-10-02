@@ -34,6 +34,7 @@ public enum ContentValidator {
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)
         narrativeRules(db, &out)  // 出来事まわり(U11。Schema/Condition.swift)
+        worldTypeRules(db, &out)  // 場所・縛り・電力・掘った量・壊す・集団との戦い(U16。Schema/WorldTypes.swift)
         return out
     }
 
@@ -101,7 +102,8 @@ public enum ContentValidator {
         need += db.groups.keys.map { (Subject.group($0), "group") }
         for (id, sh) in db.sheets {
             need.append((sh.title, "sheet \(id)"))
-            need += sh.rows.map { ($0.subject, "sheet \(id)") }
+            need += (sh.rows + (sh.entryRows ?? [])).map { ($0.subject, "sheet \(id)") }
+            for e in sh.entries ?? [] { need += [(e.subject, "sheet \(id)")] + (e.rows ?? []).map { ($0.subject, "sheet \(id)") } }
         }
         for (id, h) in db.hints { need += [(h.about, "hint \(id)"), (h.source, "hint \(id)")] }
         for (id, p) in db.pois { need += (p.parts ?? []).map { (Subject.part($0), "poi \(id)") } }
@@ -138,7 +140,10 @@ public enum ContentValidator {
         for (id, c) in db.chapters { refs.append((c.title, "chapter \(id)")) }
         for (id, f) in db.failureRules { refs.append((f.cause, "failureRule \(id)")) }
         for (id, m) in db.modules { if let r = m.placement.reasonIfBlocked { refs.append((r, "module \(id)")) } }
-        for (id, sh) in db.sheets { for r in sh.rows { if let n = r.note { refs.append((n, "sheet \(id)")) } } }
+        for (id, sh) in db.sheets {
+            let rows = sh.rows + (sh.entryRows ?? []) + (sh.entries ?? []).flatMap { $0.rows ?? [] }
+            for r in rows { if let n = r.note { refs.append((n, "sheet \(id)")) } }
+        }
         for (id, d) in db.documents { refs += [(d.title, "document \(id)"), (d.body, "document \(id)")] }
         for (id, e) in db.events {
             for c in e.choices ?? [] {

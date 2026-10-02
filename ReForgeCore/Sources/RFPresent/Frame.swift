@@ -304,23 +304,77 @@ public struct ProcessSheet: Equatable, Sendable {
         case design(EntityID)
         case trial(ProvenanceID)
         case record(SheetID)
+        /// 記録の並びの 1 件(席の番号)。開くと試作と同じ形の工程表になる。
+        case recordEntry(SheetID, slot: Int)
     }
 
     public struct Row: Equatable, Sendable {
         public var title: String
         public var note: String?
+        /// 記録の並びの席の番号(番号の書き方は画面の固定文言)。
+        public var slot: Int?
+        /// 空いた席(記録が無い)。
+        public var empty: Bool = false
+        /// 行の横の数(鍛えた量・最高の純度など)。
+        public var figure: Int?
+        /// 答えを置ける行の名前(placeAnswer に渡す)。
+        public var answerRow: String?
+        /// 置いた答え(来歴の 1 行)。
+        public var answer: String?
+        /// 名簿: 乗る(true)/ 残る(false)/ まだ(nil)。
+        public var aboard: Bool?
+        /// 名簿: 本人が言った「乗る / 残る」。
+        public var declared: Bool?
+        /// 名簿・装置: その人。
+        public var person: PersonID?
 
-        public init(title: String, note: String?) {
+        public init(title: String, note: String?, slot: Int? = nil, empty: Bool = false, figure: Int? = nil,
+                    answerRow: String? = nil, answer: String? = nil, aboard: Bool? = nil, declared: Bool? = nil,
+                    person: PersonID? = nil) {
             self.title = title
             self.note = note
+            self.slot = slot
+            self.empty = empty
+            self.figure = figure
+            self.answerRow = answerRow
+            self.answer = answer
+            self.aboard = aboard
+            self.declared = declared
+            self.person = person
+        }
+    }
+
+    /// 記録の並びの数(記録のある席 / 席の数)。空いた席が数えられる。
+    public struct Tally: Equatable, Sendable {
+        public var filled: Int
+        public var slots: Int
+
+        public init(filled: Int, slots: Int) {
+            self.filled = filled
+            self.slots = slots
         }
     }
 
     public var source: Source
     public var title: String
     public var rows: [Row]
-    /// 結果(試作・ライン札のとき)。
+    /// 結果(試作・ライン札のとき。記録の 1 件なら名前)。
     public var result: String?
+    public var tally: Tally?
+
+    public init(source: Source, title: String, rows: [Row], result: String?, tally: Tally? = nil) {
+        self.source = source
+        self.title = title
+        self.rows = rows
+        self.result = result
+        self.tally = tally
+    }
+}
+
+/// 答えの候補(来歴の 1 件)。
+public struct AnswerCandidate: Equatable, Sendable {
+    public var record: ProvenanceID
+    public var label: String
 }
 
 /// 長押しで調べたマス(ふきだし)。数の言い回し(「残り 3 回」「三割くらい」)は画面の固定文言で組む。

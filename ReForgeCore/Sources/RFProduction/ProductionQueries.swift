@@ -49,7 +49,7 @@ public enum ProductionQueries {
         case .extract: perCycle = 2 * m.batch
         case .produce: perCycle = (def.produces ?? []).reduce(0) { $0 + ($1.min + $1.max) / 2 } * m.batch
         case .process: perCycle = m.batch
-        case .idle: perCycle = 0
+        case .idle, .generate: perCycle = 0
         }
         let s = Int64(Modules.speed(id, w, content))
         return Int(Int64(perCycle) * day * s / (Int64(max(1, def.cycleSeconds)) * 1000))

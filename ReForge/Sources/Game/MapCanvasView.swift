@@ -187,12 +187,12 @@ struct Bubble<Content: View>: View {
 
     var body: some View {
         content
-            .font(.custom(FontBook.mapFont, size: 15))
-            .foregroundStyle(Color(white: 0.92))
+            .font(InkFont.body)
+            .foregroundStyle(InkColor.text)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color(white: 0.08).opacity(0.92)))
-            .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(white: 0.5), lineWidth: 1))
+            .background(RoundedRectangle(cornerRadius: InkMetric.corner).fill(InkColor.panel.opacity(0.94)))
+            .overlay(RoundedRectangle(cornerRadius: InkMetric.corner).stroke(InkColor.rule, lineWidth: InkMetric.rule))
     }
 }
 

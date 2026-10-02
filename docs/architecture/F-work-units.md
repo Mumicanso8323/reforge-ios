@@ -60,7 +60,10 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 - テストのコンテンツは `content/public`(ネタバレの無い試験用)に足す。本物のコンテンツが要るテストは `XCTSkipUnless(TestContent.hasPrivateLayer)`。
 - 他の担当のブランチを取り込んだ後(enum の case が増えた後など)に、増分ビルドのテストが signal 11 で落ちることがある。`swift package clean --package-path ReForgeCore` してから回し直す(clean build で通れば、コードの問題ではない)。
 - コミットの前に `docker run --rm -v "$PWD":/w -w /w swift:6.1-noble swift test --package-path ReForgeCore` が緑。
+- 本体の公開の enum に case を足したら `python3 tools/check-app-switches.py` も、public な型を足したら `python3 tools/check-app-names.py`(アプリの型・本体の別モジュール・SwiftUI/Foundation の型との名前の重なり。93867cf の FileSaveStorage)も通す。アプリ(`ReForge/`)は Linux でコンパイルされないので、アプリの switch が網羅でなくなっても swift test では気づけない(b821798 で iOS のジョブが `SaveSlot.screen` で落ちた)。CI では `app-switches` のジョブが iOS の前に回る。統合担当はマージのたびに回す。
 - 効果から来るコマンド(U11 が各枝の末尾に `…FromEffect` などを足す。cause = 引き金の来歴で、自分の来歴の inputs に入れる)は持ち主が処理する: U5 = meet・join・leave・die・injure / U8 = revealMap・setTerrain・setPart / U9 = spawnEnemy / U7 = convertPlacements。処理を入れるまでは「どのシステムも受けないコマンド」の警告が出る。
+- アプリの画面のファイルの持ち主(ぶつからないように 1 ファイル 1 担当): `Game/GameScreen.swift`(タブの並べ方)= 統合担当 / `Game/Tabs/DesignTab.swift`・`NotesTab.swift` = U17 / `Game/Tabs/BaseTab.swift`・`CrewTab.swift`・`Game/GameOverView.swift`・`Game/TabBarView.swift` = U18 / `Theme/`・`Screens/TitleView.swift` = art-director / 地図・足元の札(`MapCanvasView`・`MapScene`・`FootCardView`・`StatusBandView`)= U13。他の担当のファイルを直すときは持ち主に知らせる。タブを足すときは統合担当に頼む(GameTab と PanelView に 1 行)。
+- 保存される型に Data・Double・Date を持たせない(正準 JSON で読み戻せない。17f8133)。要るときは明示的に文字列か整数で書く。`AcceptanceTests/ResumeRoundTripTests` が見張る。
 - 世界状態の形を変えたら D §4 の手順(版を上げて移行を 1 つ足す)。ただし最初のリリースまでは版 1 のまま形を変えてよい(セーブの互換は R1 のリリースから守る)。
 
 ## 5. 物語と工業の結合設計からの要求への対応

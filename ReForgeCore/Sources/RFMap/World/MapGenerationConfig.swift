@@ -24,6 +24,8 @@ public struct MapGenerationConfig: Codable, Equatable, Sendable {
     /// やり直しの上限に達したとき、未検証の地図を返す(記録に verified = false を残す)。既定は投げる。
     public var allowUnverifiedFallback: Bool
     public var vision: VisionRule
+    /// コンテンツが決める場所(砦など。U16)。nil・空なら何も置かず、乱数も引かない。
+    public var sites: [SiteRule]?
 
     public init(size: MapSize, landmarks: LandmarkRules? = nil, biomes: BiomeThresholds? = nil, denseCellLimit: Int = 1 << 20,
                 chunkSize: Int = 64, poiPercentPerCell: Int = 16, depositPercentPerCell: Int = 12,

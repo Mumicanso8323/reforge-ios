@@ -48,6 +48,8 @@ public struct NarrativeSystem: SimSystem {
             guard let def = ctx.content.events[id] else { return .rejected(Rejection("reason.narrative.no_event")) }
             if Self.mayFire(id, def, ctx.world) { fire(id, def, &ctx, trigger: cause) }
             return .done
+        case .openSheet, .imprint, .placeAnswer, .setBoarding, .lockManifest:
+            return SheetActions.handle(c, &ctx) ?? .notMine
         }
     }
 
@@ -68,6 +70,7 @@ public struct NarrativeSystem: SimSystem {
     public func react(to event: DomainEvent, _ ctx: inout StepContext) {
         if case .dawn = event { Trackers.dawn(&ctx) }
         if event.record != nil { Trackers.refreshLedgerCounts(&ctx) }
+        SheetActions.refreshDeclarations(hook: event.hook, &ctx)
         check(hook: event.hook, trigger: event.record, &ctx)
         checkGoals(&ctx)
     }

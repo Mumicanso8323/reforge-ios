@@ -260,6 +260,20 @@ public enum EffectApplier {
             ctx.world.run.outcome = .ended(id)
             ctx.emit(.endingReached(ending: id))
             ctx.changes.mark([.narrative, .run])
+
+        // MARK: U16 置いた物を壊す・集団との戦い(持ち主のシステムへ)
+        case .destroyPlacements(let near, let radius, let module, let structure, let max):
+            guard let at = resolve(near) else { return missing(&ctx, e) }
+            if structure == nil {
+                ctx.queue(.production(.destroyFromEffect(near: at, radius: radius, module: module, max: max, cause: cause)))
+            }
+            if module == nil {
+                ctx.queue(.base(.destroyFromEffect(near: at, radius: radius, structure: structure, max: max, cause: cause)))
+            }
+        case .groupBattle(let group, let place, let members, let lethal):
+            guard let at = resolve(place) else { return missing(&ctx, e) }
+            ctx.queue(.combat(.startGroupBattle(group: group, near: at, members: members, lethal: lethal ?? true,
+                                                cause: cause)))
         }
     }
 

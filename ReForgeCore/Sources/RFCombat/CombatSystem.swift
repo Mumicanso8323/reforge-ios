@@ -76,6 +76,10 @@ public struct CombatSystem: SimSystem {
                 .map(\.0)
             Battles.start(.encounter, at: pos, threats: [t], persons: persons, &ctx, def: def)
             return .done
+        case .startGroupBattle(let g, let near, let members, let lethal, let cause):
+            guard Battles.startGroup(g, near: near, members: members, lethal: lethal, cause: cause, &ctx, def: def) != nil
+            else { return .rejected(Rejection("reason.combat.no_one")) }
+            return .done
         }
     }
 

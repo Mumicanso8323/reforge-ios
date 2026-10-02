@@ -73,6 +73,10 @@ public enum ProductionCommand: Codable, Equatable, Sendable {
     // 効果から(持ち主 U7 が処理する。cause = 引き金の来歴)
     /// 置いてあるモジュールの種類を変える(過去に置いた物も含めて意味が変わる)。
     case convertPlacements(from: ModuleKindID, to: ModuleKindID, cause: ProvenanceID?)
+    /// 効果から(U16): 近くのモジュールを壊す(近い順、max 個まで)。
+    case destroyFromEffect(near: WorldPoint, radius: Int, module: ModuleKindID?, max: Int?, cause: ProvenanceID?)
+    /// 壊れたモジュールを直す(置くときと同じ材料を払う。U16)。
+    case repair(placement: EntityID)
 }
 
 public enum LogisticsCommand: Codable, Equatable, Sendable {
@@ -101,6 +105,10 @@ public enum BaseCommand: Codable, Equatable, Sendable {
     case demolish(placement: EntityID)
     /// 会った生存者を拠点に迎える(拠点の蓄えの食料と、空いている寝床が要る。人数はシェルターの収容で決まる)。
     case welcome(person: PersonID)
+    /// 効果から(U16): 近くの建造物を壊す(近い順、max 個まで)。
+    case destroyFromEffect(near: WorldPoint, radius: Int, structure: StructureKindID?, max: Int?, cause: ProvenanceID?)
+    /// 壊れた建造物を直す(建てるときと同じ材料を払う。U16)。
+    case repair(placement: EntityID)
 }
 
 public enum CombatCommand: Codable, Equatable, Sendable {
@@ -113,6 +121,8 @@ public enum CombatCommand: Codable, Equatable, Sendable {
     // 効果から(持ち主 U9 が処理する。cause = 引き金の来歴)
     /// 地図の上に敵を出す。
     case spawnEnemy(kind: EnemyKindID, count: Int, near: WorldPoint, cause: ProvenanceID?)
+    /// 効果から(U16): 拠点の外の集団と戦う(groupBattle)。
+    case startGroupBattle(group: GroupID, near: WorldPoint, members: [PersonID]?, lethal: Bool, cause: ProvenanceID?)
 }
 
 public enum ResearchCommand: Codable, Equatable, Sendable {
@@ -137,6 +147,17 @@ public enum NarrativeCommand: Codable, Equatable, Sendable {
     case advanceScene
     /// 効果から: 出来事をすぐ起こす(効果 fire)。
     case fireFromEffect(event: EventID, cause: ProvenanceID?)
+    // 工程表(U15)
+    /// 工程表を開く(slot nil = 表 / 番号 = 記録の 1 件。空いた席も開ける)。開いたことは来歴に残る。
+    case openSheet(sheet: SheetID, slot: Int?)
+    /// 装置で技能を書き足す(skill nil = この人には使わないと決める)。
+    case imprint(sheet: SheetID, person: PersonID, skill: SkillID?)
+    /// 行に自分の来歴を答えとして置く(置き直せる)。
+    case placeAnswer(sheet: SheetID, row: String, record: ProvenanceID)
+    /// 名簿で「乗る / 残る」を決める(ノアも)。
+    case setBoarding(sheet: SheetID, person: PersonID, aboard: Bool)
+    /// 名簿を締める(出発)。
+    case lockManifest(sheet: SheetID)
 }
 
 public enum SurvivalCommand: Codable, Equatable, Sendable {

@@ -70,6 +70,16 @@ public enum Effect: Codable, Hashable, Sendable {
     case objective(id: ObjectiveID, status: ObjectiveStatusName)
     case chapter(id: ChapterID)
     case ending(id: EndingID)
+    // U16: 置いた物を壊す・人の集団どうしの戦い
+    /// 場所の近く(チェビシェフ距離 radius 以内)の置いた物を壊す(近い順、max 個まで。既定は全部)。
+    /// module・structure で種類を絞る(両方 nil なら全部の種類。片方だけならその側だけ)。
+    /// 壊れた物は地図に残って止まり(status broken)、入口と出口の待ちは失われる。来歴 destroyed に残り、直せる。
+    case destroyPlacements(near: PlaceSelector, radius: Int, module: ModuleKindID? = nil,
+                           structure: StructureKindID? = nil, max: Int? = nil)
+    /// 拠点の外の集団と戦う(1 次元の帯の自動戦闘。D11)。味方は at の近くにいる一員、相手はその集団の生きている人
+    /// (members で名指しできる)。lethal = 倒れた人が死ぬか(既定 true。死者は戻らない)。
+    /// 終わると集団の旗 "battle.won" / "battle.lost" / "battle.fled" が立つ(条件 groupFlag で見る)。
+    case groupBattle(group: GroupID, at: PlaceSelector, members: [PersonID]? = nil, lethal: Bool? = nil)
 }
 
 /// 部品の状態の名前(RFWorld の PartState と対応)。

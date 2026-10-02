@@ -50,6 +50,8 @@ public struct Placement: Codable, Equatable, Sendable {
     public var status: PlacementStatus
     public var module: ModuleRuntime?
     public var structure: StructureRuntime?
+    /// 壊されたときの来歴(U16。直したら nil に戻る。直した記録の inputs に入る)。
+    public var destroyedBy: ProvenanceID?
 
     public init(id: EntityID, kind: PlaceableKind, at: WorldPoint, facing: Direction,
                 footprint: [GridPoint] = [GridPoint(0, 0)], origin: ProvenanceID, status: PlacementStatus) {

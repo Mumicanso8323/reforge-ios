@@ -7,32 +7,29 @@ struct FootCardView: View {
     let store: GameStore
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Text(verbatim: store.footCard?.title ?? " ")
-                    .bold()
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                if let n = store.notice {
-                    Text(verbatim: n)
-                        .foregroundStyle(Color(red: 1, green: 0.65, blue: 0.3))
+        InkBand(edge: .top, minHeight: 84) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(verbatim: store.footCard?.title ?? " ")
+                        .font(InkFont.body)
+                        .bold()
                         .lineLimit(1)
-                        .accessibilityIdentifier("notice")
+                    Spacer(minLength: 4)
+                    if let n = store.notice {
+                        Text(verbatim: n)
+                            .foregroundStyle(InkColor.notice)
+                            .lineLimit(1)
+                            .accessibilityIdentifier("notice")
+                    }
                 }
-            }
-            HStack(spacing: 8) {
-                ForEach(store.footCard?.actions ?? [], id: \.id) { a in
-                    ActionButton(action: a, store: store)
+                HStack(spacing: 8) {
+                    ForEach(store.footCard?.actions ?? [], id: \.id) { a in
+                        ActionButton(action: a, store: store)
+                    }
                 }
+                .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
         }
-        .font(.custom(FontBook.mapFont, size: 15))
-        .foregroundStyle(Color(white: 0.92))
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .frame(maxWidth: .infinity, minHeight: 84, alignment: .topLeading)
-        .background(Color(white: 0.07))
         .accessibilityIdentifier("footCard")
     }
 }
@@ -46,10 +43,14 @@ struct ActionButton: View {
     var body: some View {
         if action.hold {
             Text(verbatim: action.label)
+                .font(InkFont.body)
+                .foregroundStyle(pressing ? InkColor.onAccent : InkColor.text)
                 .padding(.horizontal, 14)
                 .frame(height: 36)
-                .background(RoundedRectangle(cornerRadius: 8)
-                    .fill(pressing ? Color(red: 0.55, green: 0.45, blue: 0.2) : Color(white: 0.18)))
+                .background(RoundedRectangle(cornerRadius: InkMetric.corner)
+                    .fill(pressing ? InkColor.accent : InkColor.panel))
+                .overlay(RoundedRectangle(cornerRadius: InkMetric.corner)
+                    .stroke(InkColor.rule, lineWidth: InkMetric.rule))
                 .onLongPressGesture(minimumDuration: 3600, maximumDistance: 40, perform: {}, onPressingChanged: { p in
                     pressing = p
                     store.act(action, pressing: p)
@@ -60,49 +61,9 @@ struct ActionButton: View {
                 store.act(action, pressing: true)
             } label: {
                 Text(verbatim: action.label)
-                    .padding(.horizontal, 14)
                     .frame(height: 36)
-                    .background(RoundedRectangle(cornerRadius: 8).fill(Color(white: 0.18)))
             }
-            .buttonStyle(.plain)
-        }
-    }
-}
-
-enum GameTab: String, CaseIterable, Identifiable {
-    case map, design, notes, base, crew
-    var id: String { rawValue }
-}
-
-/// 下のタブ(地図・設計・ノート・拠点・仲間)。
-struct TabBarView: View {
-    @Binding var tab: GameTab
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(GameTab.allCases) { t in
-                Button {
-                    tab = t
-                } label: {
-                    title(t)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .foregroundStyle(tab == t ? Color(red: 1, green: 1, blue: 0.5) : Color(white: 0.6))
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("tab-\(t.rawValue)")
-            }
-        }
-        .font(.custom(FontBook.mapFont, size: 15))
-        .background(Color(white: 0.04))
-    }
-
-    @ViewBuilder private func title(_ t: GameTab) -> some View {
-        switch t {
-        case .map: Text("地図")
-        case .design: Text("設計")
-        case .notes: Text("ノート")
-        case .base: Text("拠点")
-        case .crew: Text("仲間")
+            .buttonStyle(.ink(.secondary, fill: false))
         }
     }
 }
