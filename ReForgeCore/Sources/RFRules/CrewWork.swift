@@ -80,10 +80,11 @@ public enum CrewWork {
         return max(0, beds - def.noahBedCount)
     }
 
-    /// 拠点の焚き火の段(HearthLevel の raw)。
-    /// U21 の火床(Hearths.campfireLevel)が入るまでの仮: 灯り(provides["light"])を持つ建て終えた建造物があれば
-    /// 「燃えている」(3)、無ければ「消えている」(0)。
+    /// 拠点の焚き火の段(HearthLevel の raw)。火床(Hearths.campfireLevel)から読む。
+    /// 火床を持つ建造物が 1 つも無い内容(古い形)では、灯り(provides["light"])を持つ建て終えた建造物があれば
+    /// 「燃えている」(3)とみなす。
     public static func campfireLevel(_ w: WorldState, _ c: ContentDB) -> Int {
+        if !Hearths.structureHearths(w, c).isEmpty { return Hearths.campfireLevel(w, c).rawValue }
         for id in w.placements.sortedIDs {
             guard let p = w.placements.items[id], case .structure(let k) = p.kind, isBuilt(p) else { continue }
             if (c.structures[k]?.provides["light"] ?? 0) > 0 { return 3 }

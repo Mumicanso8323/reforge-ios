@@ -27,6 +27,16 @@ final class CrewWorkTests: XCTestCase {
         return e
     }
 
+    /// 焚き火を置き、燃料を seconds にする(既定 8.9 時間 =「燃えている」。12 時間の満タンは「盛ん」)。
+    @discardableResult
+    func fire(_ r: inout ExploreRig, at g: GridPoint, seconds: Int = 32_000) -> EntityID {
+        let e = build(&r, "structure.campfire", at: g)
+        var rt = StructureRuntime()
+        rt.hearth = HearthState(fuel: seconds * 1000, lit: true)
+        r.world.placements.items[e]?.structure = rt
+        return e
+    }
+
     func assign(_ r: inout ExploreRig, _ p: PersonID, _ a: Assignment) -> Rejection? {
         r.apply(.crew(.assign(person: p, assignment: a))).rejection
     }
@@ -34,7 +44,7 @@ final class CrewWorkTests: XCTestCase {
     /// TEST-O13: ノアが 1 度もやっていない行為は頼めない。1 度やると頼める。巻き戻しても残る。
     func testHandFirst() throws {
         var r = try rig()
-        build(&r, "structure.campfire", at: r.noahPos.point + GridPoint(-4, 0))
+        fire(&r, at: r.noahPos.point + GridPoint(-4, 0))
         let spot = r.noahPos.point + GridPoint(1, 0)
         r.world.map[.surface]?.setTerrain("forest", at: spot)
         let gather = Assignment.gather(interaction: "interaction.pick_sticks", at: WorldPoint(.surface, spot))
@@ -65,13 +75,18 @@ final class CrewWorkTests: XCTestCase {
         XCTAssertEqual(CrewWork.workable(r.world, r.content), 0)
         XCTAssertEqual(assign(&r, Self.a, guardA)?.reason, "reason.assign.no_slot")
         // 焚き火が燃えている: 1 人
-        build(&r, "structure.campfire", at: r.noahPos.point + GridPoint(-4, 0))
+        fire(&r, at: r.noahPos.point + GridPoint(-4, 0))
         XCTAssertEqual(CrewWork.workable(r.world, r.content), 1)
         XCTAssertNil(assign(&r, Self.a, guardA))
         XCTAssertEqual(assign(&r, Self.b, guardA)?.reason, "reason.assign.no_slot")
         // 休ませれば枠が空く
         XCTAssertNil(assign(&r, Self.a, .rest))
         XCTAssertNil(assign(&r, Self.b, guardA))
+        XCTAssertNil(assign(&r, Self.a, .rest))
+        // 火が「盛ん」なら 2 人
+        fire(&r, at: r.noahPos.point + GridPoint(-6, 0), seconds: 40_000)
+        XCTAssertEqual(CrewWork.workable(r.world, r.content), 2)
+        XCTAssertNil(assign(&r, Self.a, guardA))
         // シェルター(寝床 5): 寝床の枠 4。起きている仲間は 2 人なので 2
         build(&r, "structure.shelter", at: r.noahPos.point + GridPoint(5, 0))
         XCTAssertEqual(CrewWork.bedSlots(r.world, r.content, CrewWorkDef()), 4)
@@ -82,7 +97,7 @@ final class CrewWorkTests: XCTestCase {
     /// 枠が減ったら、最後に頼んだ人から休む(1 ステップごとに数え直す。INV-O10 v0.4)。
     func testLastAskedRestsFirst() throws {
         var r = try rig()
-        build(&r, "structure.campfire", at: r.noahPos.point + GridPoint(-4, 0))
+        fire(&r, at: r.noahPos.point + GridPoint(-4, 0))
         let shelter = build(&r, "structure.shelter", at: r.noahPos.point + GridPoint(5, 0))
         let g = Assignment.guardArea(center: r.noahPos, radius: 2)
         XCTAssertNil(assign(&r, Self.b, g))
@@ -119,11 +134,11 @@ final class CrewWorkTests: XCTestCase {
     /// 働ける人数を超えた仲間は焚き火のそばで休み、配属は残る。
     func testOverflowRestsByTheFire() throws {
         var r = try rig()
-        let fire = build(&r, "structure.campfire", at: r.noahPos.point + GridPoint(-4, 0))
+        let campfire = fire(&r, at: r.noahPos.point + GridPoint(-4, 0))
         let guardA = Assignment.guardArea(center: WorldPoint(.surface, r.noahPos.point + GridPoint(8, 0)), radius: 0)
         XCTAssertNil(assign(&r, Self.a, guardA))
         // 火が消えた(焚き火が無くなった)
-        r.world.placements.items[fire] = nil
+        r.world.placements.items[campfire] = nil
         r.steps(200)
         XCTAssertEqual(r.world.people[Self.a]?.assignment, guardA)
         if case .guarding = r.world.people[Self.a]?.activity { XCTFail("枠の外なのに見張っている") }
@@ -132,7 +147,7 @@ final class CrewWorkTests: XCTestCase {
     /// 人の速さ: 仲間の採取はノアの 0.6 倍(運搬・建設は掛けない)。
     func testCrewGathersAtSixTenths() throws {
         var r = try rig()
-        build(&r, "structure.campfire", at: r.noahPos.point + GridPoint(-4, 0))
+        fire(&r, at: r.noahPos.point + GridPoint(-4, 0))
         let spot = r.noahPos.point + GridPoint(1, 1)
         r.world.map[.surface]?.setTerrain("water", at: spot)
         XCTAssertNil(r.interact("interaction.draw_water", at: spot))

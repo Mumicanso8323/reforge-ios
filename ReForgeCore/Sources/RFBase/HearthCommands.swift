@@ -6,6 +6,13 @@ import RFWorld
 /// 火床へのプレイヤーの操作(くべる・積む・点け直す・埋める)。燃料は拠点の蓄えから取る。持ち主: U21
 enum HearthCommands {
     static func handle(_ id: EntityID, _ op: HearthOp, _ ctx: inout StepContext) -> CommandResult {
+        // 炉の予熱(W-03。持ち主 U22)
+        if case .preheat = op {
+            if let p = ctx.world.placements.items[id], case .underConstruction = p.status {
+                return .rejected(Rejection("reason.hearth.unbuilt"))
+            }
+            return FurnaceHeat.preheat(id, &ctx)
+        }
         guard let p = ctx.world.placements.items[id], let d = Hearths.def(p, ctx.content),
               var s = Hearths.state(p, ctx.content) else { return .rejected(Rejection("reason.hearth.none")) }
         if case .underConstruction = p.status { return .rejected(Rejection("reason.hearth.unbuilt")) }
@@ -38,6 +45,8 @@ enum HearthCommands {
         case .bank:
             guard s.lit else { return .rejected(Rejection("reason.hearth.out")) }
             s.banked = true
+        case .preheat:
+            return .rejected(Rejection(FurnaceHeat.notFurnace))
         }
         Hearths.write(id, s, &ctx)
         ctx.changes.mark([.placements, .inventory])

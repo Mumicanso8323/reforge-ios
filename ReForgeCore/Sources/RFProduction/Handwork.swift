@@ -106,11 +106,32 @@ enum Handwork {
             return Rejection(ProductionText.handworkNoEffect,
                              detail: ["finding": .string(o.findings.first?.id.rawValue ?? "")])
         }
-        for a in o.consumed where a.item != .water || !touchesWater(pos, w, content) {
+        // 炉の工程を手でやる(手で溶かす P-06)は、隣の炉が熱いときだけ。燃料は炉で燃えている(W-03)
+        let fuels: Set<ItemID>
+        switch furnaceFuels(step, pos, w, content) {
+        case .failure(let r): return r
+        case .success(let f): fuels = f
+        }
+        for a in o.consumed where (a.item != .water || !touchesWater(pos, w, content)) && !fuels.contains(a.item) {
             let have = auxHolders(p, pos, w).reduce(0) { $0 + w.inventory.quantity(a.item, in: $1) }
             if have < a.quantity { return Rejection(ProductionText.handworkNoAux, detail: ["item": .string(a.item.rawValue)]) }
         }
         return nil
+    }
+
+    /// 工程の炉が熱を持つ炉なら、手の届く(隣の)熱い炉を探し、その燃料を返す。熱い炉が無ければ理由。
+    /// 熱を持たない工程なら空。
+    static func furnaceFuels(_ step: ProcessStep, _ pos: WorldPoint, _ w: WorldState, _ content: ContentDB)
+        -> Result<Set<ItemID>, Rejection>
+    {
+        guard content.modules[step.module]?.hearth?.furnace != nil else { return .success([]) }
+        for id in w.placements.moduleIDs {
+            guard let p = w.placements.items[id], p.kind == .module(step.module), p.at.layer == pos.layer,
+                  p.footprint.contains(where: { (p.at.point + $0).chebyshev(to: pos.point) <= 1 }),
+                  FurnaceHeat.isHot(p, content) else { continue }
+            return .success(FurnaceHeat.fuels(p, content))
+        }
+        return .failure(Rejection(FurnaceHeat.furnaceCold))
     }
 
     static func auxHolders(_ p: PersonID, _ pos: WorldPoint, _ w: WorldState) -> [HolderID] {
@@ -192,7 +213,8 @@ enum Handwork {
             else { return false }
             var inputs = Array(taken.keys)
             let water = touchesWater(pos, ctx.world, ctx.content)
-            for a in o.consumed where a.item != .water || !water {
+            let fuels = (try? furnaceFuels(step, pos, ctx.world, ctx.content).get()) ?? []
+            for a in o.consumed where (a.item != .water || !water) && !fuels.contains(a.item) {
                 var left = a.quantity
                 for h in auxHolders(p, pos, ctx.world) where left > 0 {
                     let k = min(left, ctx.world.inventory.quantity(a.item, in: h))
