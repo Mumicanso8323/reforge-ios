@@ -27,6 +27,19 @@ final class ContentTests: XCTestCase {
         XCTAssertEqual(actual, expected)
     }
 
+    /// 本体が出す断りの理由の ID は、古い名前の文言の表からも引ける(名前を替えただけでなく語を替えた ID も)。
+    func testPreMigrationReasonTextsReachCurrentReasonIDs() throws {
+        let ids = ["reason.roster.closed", "reason.roster.confirmed", "reason.roster.empty", "reason.roster.firm",
+                   "reason.roster.full", "reason.roster.no_one", "reason.grant.closed", "reason.grant.decided",
+                   "reason.grant.known", "reason.grant.no_skill", "reason.grant.no_target", "reason.grant.refused"]
+        let table = try JSONSerialization.data(withJSONObject: ["texts": Dictionary(uniqueKeysWithValues: ids.map { ($0, "x") })])
+        let old = LegacyNames.legacy(json: table)
+        XCTAssertNotEqual(old, table, "見本は古い名前の形になっている")
+        var db = ContentDB()
+        try ContentLoader.apply(json: old, to: &db)
+        for id in ids { XCTAssertEqual(db.texts[TextID(id)], "x", id) }
+    }
+
     /// 古い名前の無いデータは、読み替えでバイトも変わらない(数の書き方を作り直さない)。
     func testCurrentNamesPassThroughUnchanged() {
         let current = Data(#"{"a":0.1,"b":[1,2.50,"roster"],"grant":{"skills":[]}}"#.utf8)

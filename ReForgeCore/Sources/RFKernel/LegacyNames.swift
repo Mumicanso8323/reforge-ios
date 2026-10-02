@@ -19,7 +19,8 @@ public enum LegacyNames {
         "boarding.aboard": "roster.include",
         "boarding.stay": "roster.exclude",
         "imprint.declined": "grant.declined",
-        "imprint.refuse": "grant.refuse"
+        "imprint.refuse": "grant.refuse",
+        "reason.manifest.locked": "reason.roster.confirmed"
     ]
 
     private static let prefixes: [(String, String)] = [
