@@ -1,6 +1,6 @@
 # 説明書 L-01: 文言の型と書式(RFKernel の型 + 新しいモジュール RFText)
 
-作業の単位: 多言語 L-01(設計: reforge-plan `docs/plans/2026-10-02-localization.md` v0.1 の §4.2・§4.3・§5.1・§13 TEST-L14)。
+作業の単位: 多言語 L-01(設計: reforge-plan `docs/plans/2026-10-02-localization.md` v0.2(ddd6f30)の §4.2・§4.3・§5.1・§13 TEST-L14)。
 実装: relay:codex-impl。受け取り: 統合担当(architect)。依存: なし(最初の単位)。土台: integration-c の先頭。
 
 ## 1. 目的
