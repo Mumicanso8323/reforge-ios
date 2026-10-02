@@ -82,6 +82,9 @@ jobs:
       - name: 型の名前の重なり
         if: always()
         run: python3 tools/check-app-names.py
+      - name: 文字列カタログが画面の文言と合っている
+        if: always()
+        run: python3 tools/gen-xcstrings.py --check
       # 公開リポジトリに物語の語が入っていないこと(語は非公開の層の perception/forbidden.json)。
       # 当たった語・文はログに出さず、ファイルと行だけを出す。fork の PR など鍵が無いときは飛ばす。
       - name: 非公開のコンテンツを取り込む(物語の語の一覧のため)
