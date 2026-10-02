@@ -134,6 +134,7 @@ public struct FrameBuilder: Sendable {
             running: w.run.isActive && w.clock.phase == .day && !w.clock.held
                 && !w.narrative.pending.contains(where: \.blocking))
         v.held = w.clock.held
+        v.fireOutlook = duskFireOutlook(w)
         return v
     }
 
@@ -304,9 +305,13 @@ public struct FrameBuilder: Sendable {
             guard applies, ui.isOpen(.interaction(id)) else { return nil }
             if let phases = def.allowedPhases, !phases.contains(w.clock.phase) { return nil }
             if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) == false { return nil }
-            return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)), hold: def.hold, at: at)
+            return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)),
+                                   hold: def.hold || def.continues == true, at: at,
+                                   progressPermille: progress(of: def, w))
         }
         var card = FootCard(point: pt, title: title, actions: Array(actions.prefix(FootCard.maxActions)))
+        card.nothingNearby = w.exploration.continueStop != nil
+        card.fire = placed.lazy.compactMap { fireView($0, w) }.first
         if let poi {
             // 残骸から開く資料(段のある資料のうち、この種類の POI に付いていて、いま記録に載るもの)
             card.documents = content.documents.keys.sorted().compactMap { id in
@@ -316,6 +321,44 @@ public struct FrameBuilder: Sendable {
             }
         }
         return card
+    }
+
+    /// ノアのいまの 1 単位の進み(千分率)。この行為を押している間だけ。
+    func progress(of def: InteractionDef, _ w: WorldState) -> Int? {
+        guard let a = w.exploration.active[.noah], a.interaction == def.id, def.seconds > 0 else { return nil }
+        if (def.hold || def.continues == true) && !a.holding { return nil }
+        return Int(max(0, min(1000, a.progress * 1000 / Int64(def.seconds))))
+    }
+
+    /// 焚き火(火床のある建造物)の足元カードの火の見込み。くべる行為(効果 hearth addFuel)の品で 1 本くべた後を出す。
+    /// くべる行為が無ければ、定義の燃料のうち ID が最初の品を使う。
+    func fireView(_ pl: Placement, _ w: WorldState) -> FireOutlookView? {
+        guard case .structure = pl.kind, let d = Hearths.def(pl, content), let s = Hearths.state(pl, content),
+              Hearths.isCompleteForOutlook(pl) else { return nil }
+        let n = Hearths.structuresInLight(pl.id, in: w, content: content)
+        let item: ItemID? = content.interactions.keys.sorted().compactMap { id -> ItemID? in
+            for e in content.interactions[id]?.effects ?? [] {
+                if case .hearth(_, .addFuel(let item, _)) = e { return item }
+            }
+            return nil
+        }.first ?? d.fuels.keys.sorted().first
+        let now = HearthRule.outlook(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n)
+        let after = item.map {
+            HearthRule.outlookAfterOneMore(s, d, item: $0, now: w.clock.now, clock: content.clock, structuresInLight: n)
+        } ?? now
+        return FireOutlookView(now: now, afterOneMore: after)
+    }
+
+    /// 日没の帯の火の見込み(薪の置き場の本数を入れた 4 段)。拠点の焚き火のうち ID が最初のもの。
+    func duskFireOutlook(_ w: WorldState) -> FireOutlook? {
+        guard w.clock.phase != .day else { return nil }
+        for id in Hearths.structureHearths(w, content) {
+            guard let pl = w.placements.items[id], Hearths.isCompleteForOutlook(pl), let d = Hearths.def(pl, content),
+                  let s = Hearths.state(pl, content) else { continue }
+            let n = Hearths.structuresInLight(id, in: w, content: content)
+            return HearthRule.outlookWithPile(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n)
+        }
+        return nil
     }
 
     // MARK: - 工程表

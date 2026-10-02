@@ -353,6 +353,11 @@ public struct InteractionDef: ContentDef, Equatable {
     public var bladeTier: Int?
     /// 木を伐る行為か(獣の縄張りの入力。RaidLureDef.territory)。持ち主: U21
     public var felling: Bool?
+    // 以下は PT-B1(続けて採る)。どちらも省略可能(無ければ今までどおり 1 単位で止まる)。
+    /// 押し続けている間、1 単位ができたら次の 1 単位を自動で始める行為か(採集向け。漁る・掘る・建てるには付けない)。
+    public var continues: Bool?
+    /// 次の場所を探す半径(マス。既定 3)。
+    public var continueRadius: Int?
 }
 
 /// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。

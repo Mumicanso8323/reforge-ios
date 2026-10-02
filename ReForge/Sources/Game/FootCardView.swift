@@ -20,7 +20,17 @@ struct FootCardView: View {
                             .foregroundStyle(InkColor.notice)
                             .lineLimit(1)
                             .accessibilityIdentifier("notice")
+                    } else if store.footCard?.nothingNearby == true {
+                        // 続けて採るのが止まった(PT-B1。固定の文言)
+                        Text("近くにもう無い")
+                            .foregroundStyle(InkColor.notice)
+                            .lineLimit(1)
+                            .accessibilityIdentifier("nothingNearby")
                     }
+                }
+                // 焚き火の火の見込み(PT-B1。焚き火のカードだけ)
+                if let fire = store.footCard?.fire {
+                    FireOutlookLine(fire: fire)
                 }
                 HStack(spacing: 8) {
                     ForEach(store.footCard?.actions ?? [], id: \.id) { a in

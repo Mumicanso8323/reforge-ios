@@ -102,6 +102,71 @@ public enum HearthRule {
     }
 }
 
+/// 火の見込み(PT-B1)。燃料の残りがいつ尽きるかを 4 段で言う(時間数は出さない)。
+public enum FireOutlook: String, Equatable, Sendable, CaseIterable {
+    /// 日没までに尽きる。
+    case untilEvening
+    /// 夜の前半に尽きる(夜の半分まで)。
+    case midnight
+    /// 夜の後半に尽きる(夜明けの前)。
+    case beforeDawn
+    /// 夜明けまでもつ。
+    case throughNight
+}
+
+extension HearthRule {
+    /// 今の燃え方(rate・burn と同じ式。夜作業の足しと番の薪の補充は見ない)で、燃料がいつ尽きるかの 4 段。
+    /// 境目は時計の定義から出す: 日没 = 昼の長さ、夜半 = 夜の半分、夜明け = 1 日の長さ(ゲーム時間は 1 日ごとに
+    /// 0 から数え直した時刻 now % 1 日)。消えている火は「今」の段になる。世界を変えない。
+    public static func outlook(_ state: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
+                               structuresInLight: Int) -> FireOutlook {
+        let dayLength = max(1, clock.dayGameSeconds + clock.nightGameSeconds)
+        let tod = ((now.seconds % dayLength) + dayLength) % dayLength
+        let end = Int64(tod) + survivalSeconds(state, def, structuresInLight: structuresInLight)
+        if end < clock.dayGameSeconds { return .untilEvening }
+        if end < clock.dayGameSeconds + clock.nightGameSeconds / 2 { return .midnight }
+        if end < dayLength { return .beforeDawn }
+        return .throughNight
+    }
+
+    /// 燃料が尽きるまでのゲーム秒(burn と同じ区切りで数える。番はいないものとする)。
+    static func survivalSeconds(_ s: HearthState, _ def: HearthDef, structuresInLight: Int) -> Int64 {
+        var o = s
+        var t: Int64 = 0
+        var guardN = 0
+        while o.lit, o.fuel > 0, guardN < 16 {
+            guardN += 1
+            let l = level(o, def)
+            let r = rate(o, def, structuresInLight: structuresInLight, nightWork: false)
+            let bound = l.rawValue >= 1 && def.thresholds.indices.contains(l.rawValue - 1)
+                ? def.thresholds[l.rawValue - 1] * 1000 : 0
+            let need = max(1, (o.fuel - bound + r - 1) / r)
+            t += Int64(need)
+            o.fuel -= need * r
+        }
+        return t
+    }
+
+    /// 1 本くべた後の見込み(add で燃料を 1 足した状態に同じ関数を当てる)。燃料にならない物なら今と同じ。
+    public static func outlookAfterOneMore(_ state: HearthState, _ def: HearthDef, item: ItemID, now: GameTime,
+                                           clock: ClockDef, structuresInLight: Int) -> FireOutlook {
+        let more = add(state, def, item: item, quantity: 1) ?? state
+        return outlook(more, def, now: now, clock: clock, structuresInLight: structuresInLight)
+    }
+
+    /// 薪の山に残る本数ぶんを燃料に足した見込み(日没の帯・夜の締め用)。山は番が燃料の減るたびに足すので、
+    /// 上限を考えずにそのまま足して数える。山が無ければ今と同じ。
+    public static func outlookWithPile(_ state: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
+                                       structuresInLight: Int) -> FireOutlook {
+        var o = state
+        if let item = def.pileItem, let v = fuelValue(item, def), o.pile > 0, o.lit || o.fuel > 0 {
+            o.fuel += v * o.pile
+            o.pile = 0
+        }
+        return outlook(o, def, now: now, clock: clock, structuresInLight: structuresInLight)
+    }
+}
+
 /// 置いた火床の問い合わせと操作(世界を読む)。灯り・範囲の効果・provides の「燃えている間だけ」(W-02b・W-02c)もここ。
 public enum Hearths {
     /// 置いた物の火床の定義(建造物・モジュール)。
@@ -117,6 +182,9 @@ public enum Hearths {
         guard let d = def(p, content) else { return nil }
         return (p.structure?.hearth ?? p.module?.hearth) ?? HearthRule.initial(d)
     }
+
+    /// 画面の見込み用: 建て終えて壊れていないか。
+    public static func isCompleteForOutlook(_ p: Placement) -> Bool { isComplete(p) }
 
     static func isComplete(_ p: Placement) -> Bool {
         if case .underConstruction = p.status { return false }

@@ -3,6 +3,7 @@ import RFKernel
 import RFMap
 import RFMatter
 import RFPerception
+import RFRules
 import RFWorld
 
 /// 画面に渡す 1 枚の絵の材料(C-engine-ui.md §4)。すべて値型・文字列は認識の層を通した後のもの。
@@ -103,6 +104,8 @@ public struct ClockView: Equatable, Sendable {
     public var held: Bool = false
     /// 日の残りを出すか(U20。時計を止めている間と、band.day の門が閉じている間は false)。
     public var showsDayLeft: Bool = true
+    /// 日没の帯に出す、焚き火の見込み(薪の置き場に残る本数ぶんを入れて 4 段。PT-B1)。日没・夜作業で、焚き火がある間だけ。
+    public var fireOutlook: FireOutlook?
 
     public init(day: Int, phase: DayPhase, dayRemainingPermille: Int, running: Bool) {
         self.day = day
@@ -545,12 +548,15 @@ public struct FootCard: Equatable, Sendable {
         /// 押し続ける行為(押している間 holding)。
         public var hold: Bool
         public var at: WorldPoint
+        /// いまの 1 単位の進み(0...1000)。押していないときは nil(PT-B3 のバーもこれを読む)。
+        public var progressPermille: Int?
 
-        public init(id: InteractionID, label: String, hold: Bool, at: WorldPoint) {
+        public init(id: InteractionID, label: String, hold: Bool, at: WorldPoint, progressPermille: Int? = nil) {
             self.id = id
             self.label = label
             self.hold = hold
             self.at = at
+            self.progressPermille = progressPermille
         }
 
         /// 始める(押し始め・タップ)。
@@ -566,6 +572,10 @@ public struct FootCard: Equatable, Sendable {
     public var actions: [Action]
     /// このマスの残骸から開ける資料(段階つきの資料など。行為の数には数えない。U18)。
     public var documents: [DocumentLink] = []
+    /// 焚き火の足元カードの、火の見込み(今と、1 本くべた後)。焚き火でなければ nil(PT-B1)。
+    public var fire: FireOutlookView?
+    /// 続けて採っていて「近くにもう無い」で止まった直後か(足元カードに固定の文言を出す。PT-B1)。
+    public var nothingNearby: Bool = false
 
     public struct DocumentLink: Equatable, Sendable {
         public var id: DocumentID
@@ -581,6 +591,17 @@ public struct FootCard: Equatable, Sendable {
         self.point = point
         self.title = title
         self.actions = actions
+    }
+}
+
+/// 焚き火の足元カードの、火の見込み 1 行(「今: 夜半 → 1 本くべると: 夜明けまでもつ」)。
+public struct FireOutlookView: Equatable, Sendable {
+    public var now: FireOutlook
+    public var afterOneMore: FireOutlook
+
+    public init(now: FireOutlook, afterOneMore: FireOutlook) {
+        self.now = now
+        self.afterOneMore = afterOneMore
     }
 }
 
