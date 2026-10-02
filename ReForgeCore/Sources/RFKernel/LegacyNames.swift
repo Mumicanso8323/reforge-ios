@@ -44,6 +44,8 @@ public enum LegacyNames {
     public static func translate(json data: Data) -> Data {
         guard mayContainLegacy(data) else { return data }
         guard let object = try? JSONSerialization.jsonObject(with: data) else { return data }
+        // 逃がしがあるだけで前の振り分けを通ったデータは、読んだ後に本当に古い名前があるかを見る(無ければ作り直さない)
+        guard containsLegacy(object) else { return data }
         guard let translated = translate(object), JSONSerialization.isValidJSONObject(translated) else { return data }
         return (try? JSONSerialization.data(withJSONObject: translated)) ?? data
     }
@@ -110,6 +112,19 @@ public enum LegacyNames {
             if isOriginal { fromOriginal.insert(e.key) }
         }
         return out
+    }
+
+    /// 読んだ JSON の中に、古い名前のキーか文字列があるか。
+    private static func containsLegacy(_ object: Any) -> Bool {
+        func isLegacy(_ string: String) -> Bool {
+            exact[string] != nil || prefixes.contains { string.hasPrefix($0.0) }
+        }
+        if let dictionary = object as? [String: Any] {
+            return dictionary.contains { isLegacy($0.key) || containsLegacy($0.value) }
+        }
+        if let array = object as? [Any] { return array.contains { containsLegacy($0) } }
+        if let string = object as? String { return isLegacy(string) }
+        return false
     }
 
     /// 古い名前の文字列(引用符つき、または接頭辞)がデータの中にあるか。
