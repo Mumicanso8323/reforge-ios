@@ -82,6 +82,7 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
   2. U14 は統合を待たずに、その単位の枝の上で新しい形のデータを作る(reforge-content には push しない)。
   3. 本体を main に入れ、main の CI が緑になってから、リーダーが新しいデータを reforge-content の main に push する(main の CI は push した時点の reforge-content の main を取り込むため)。
 - dev のリリースの固定 URL(`releases/download/dev/ReForge.ipa`。オーナーのショートカットが取る)を変えない。CI の release の名前・タグ(`dev`)・ファイル名(`ReForge.ipa`)を変える変更は、入れる前にリーダーに止める。
+- ストアの原稿は `store/metadata/<地域>/`・`store/iap/<品>/<地域>.json`。書くのはリーダー。物語の語を書かない。`tools/check-store-metadata.py` を通す(出す版は `--release`)。
 
 ## 5. 物語と工業の結合設計からの要求への対応
 | 要求 | 境界での対応 |
