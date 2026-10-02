@@ -71,9 +71,11 @@ jobs:
   # アプリ(ReForge/)は Linux でコンパイルされないので、本体の変更でアプリが壊れても core では気づけない。
   # iOS のジョブより先に静的に確かめる(数秒): switch の網羅と、型の名前の重なり(曖昧な型)。
   app-switches:
-    name: アプリの静的な確かめ(switch の網羅・型の名前)
+    name: アプリの静的な確かめ(switch の網羅・型の名前・物語の語)
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
     steps:
       - uses: actions/checkout@v5
       - name: switch の網羅
@@ -81,6 +83,19 @@ jobs:
       - name: 型の名前の重なり
         if: always()
         run: python3 tools/check-app-names.py
+      # 公開リポジトリに物語の語が入っていないこと(語は非公開の層の perception/forbidden.json)。
+      # 当たった語・文はログに出さず、ファイルと行だけを出す。fork の PR など鍵が無いときは飛ばす。
+      - name: 非公開のコンテンツを取り込む(物語の語の一覧のため)
+        if: always() && env.HAS_CONTENT_KEY == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: Mumicanso8323/reforge-content
+          ssh-key: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY }}
+          path: content/private
+          persist-credentials: false
+      - name: 物語の語が公開リポジトリに無いこと
+        if: always() && env.HAS_CONTENT_KEY == 'true'
+        run: python3 tools/check-public-spoilers.py
 
   ios:
     name: iOS (テスト + ipa)
@@ -165,6 +180,15 @@ jobs:
           lipo -info "$APP/ReForge"
           # 平文の非公開の層が ipa に入っていないこと。見張りの文字列(値はログに出さない)が平文で現れないこと
           test ! -e "$APP/content/private" || { echo "平文の非公開の層が ipa に入っている"; exit 1; }
+          # 非公開の絵(content/private/art)の中身そのものが ipa に入っていないこと(ハッシュで突き合わせる。名前は出さない)
+          if [ -d content/private/art ]; then
+            find content/private/art -type f -exec shasum -a 256 {} + | awk '{print $1}' | sort -u > private-art.sha
+            find Payload -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \) -exec shasum -a 256 {} + \
+              | awk '{print $1}' | sort -u > payload-art.sha
+            if [ -n "$(comm -12 private-art.sha payload-art.sha)" ]; then
+              echo "非公開の絵が ipa に平文で入っている"; exit 1
+            fi
+          fi
           if [ -f content/private/bundle.json ]; then
             canary=$(python3 -c 'import json; print(json.load(open("content/private/bundle.json"))["bundle"].get("canary") or "")')
             if [ -n "$canary" ] && grep -rqF -- "$canary" Payload; then

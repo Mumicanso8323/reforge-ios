@@ -160,6 +160,43 @@ final class ContentTests: XCTestCase {
         XCTAssertNotEqual(try ContentSeal.seal(files, key: key), sealed, "nonce は毎回変わる")
     }
 
+    /// 絵の封: art/ の png・jpg だけを ArtID(拡張子を除いた名前)で集め、同じ鍵で封じて開くと同じ中身。
+    /// 本文の封とは合図が違うので取り違えない。平文の層があればそれを、無ければ封を読む。
+    func testArtSealRoundTripAndBundledArt() throws {
+        let (root, priv) = try makeSealTestLayer()
+        let png = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A] + Array("zqartcanary".utf8))
+        let art = priv.appendingPathComponent("art")
+        try FileManager.default.createDirectory(at: art, withIntermediateDirectories: true)
+        try png.write(to: art.appendingPathComponent("portrait.k01.png"))
+        try Data([0xFF, 0xD8, 0xFF]).write(to: art.appendingPathComponent("beat.02.jpg"))
+        try Data("x".utf8).write(to: art.appendingPathComponent("notes.txt"))
+        let collected = try ArtSeal.collect(layer: priv)
+        XCTAssertEqual(collected.keys.map(\.rawValue).sorted(), ["beat.02", "portrait.k01"])
+        XCTAssertEqual(try ContentSeal.collect(layer: priv).keys.sorted(), ["bundle.json", "text/ja/a.json"],
+                       "絵は本文の封に入らない")
+
+        let key = ContentSeal.newKey()
+        let sealed = try ArtSeal.seal(collected, key: key)
+        XCTAssertEqual(sealed.prefix(4), Data("RFA1".utf8))
+        XCTAssertNil(sealed.range(of: Data("zqartcanary".utf8)), "絵の中身が平文で見えない")
+        XCTAssertEqual(try ArtSeal.open(sealed, key: key), collected)
+        XCTAssertThrowsError(try ArtSeal.open(sealed, key: ContentSeal.newKey()))
+        XCTAssertThrowsError(try ContentSeal.open(sealed, key: key), "本文の封としては開けない")
+        let textSealed = try ContentSeal.seal(try ContentSeal.collect(layer: priv), key: key)
+        XCTAssertThrowsError(try ArtSeal.open(textSealed, key: key), "絵の封としては開けない")
+
+        // アプリの束: 封だけがある → 開く。鍵が無い・封が無い → 空。平文の private があればそれを読む
+        let bundle = root.appendingPathComponent("bundle")
+        try FileManager.default.createDirectory(at: bundle, withIntermediateDirectories: true)
+        try sealed.write(to: bundle.appendingPathComponent(ArtSeal.fileName))
+        XCTAssertEqual(try ContentLoader.loadBundledArt(root: bundle, key: key), collected)
+        XCTAssertEqual(try ContentLoader.loadBundledArt(root: bundle), [:])
+        XCTAssertThrowsError(try ContentLoader.loadBundledArt(root: bundle, key: ContentSeal.newKey()))
+        try FileManager.default.createSymbolicLink(at: bundle.appendingPathComponent("private"), withDestinationURL: priv)
+        XCTAssertEqual(try ContentLoader.loadBundledArt(root: bundle), collected)
+        XCTAssertEqual(try ContentLoader.loadBundledArt(root: root), [:], "絵の無い束は空")
+    }
+
     /// 1 バイト変える・鍵違い・合図違い・短すぎるは、すべてエラー。
     func testSealRejectsTamperingAndWrongKey() throws {
         let (_, priv) = try makeSealTestLayer()

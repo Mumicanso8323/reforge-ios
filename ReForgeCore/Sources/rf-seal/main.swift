@@ -1,9 +1,12 @@
 import Foundation
 import RFContent
+import RFKernel
 
 // 非公開の層に封をして、アプリに埋める鍵の Swift ファイルを書く(E-content.md §4.5。CI の ios ジョブで使う)。
 //
-//   swift run --package-path ReForgeCore rf-seal <非公開の層> <出力の private.sealed> <出力の ContentKey.swift>
+//   swift run --package-path ReForgeCore rf-seal <非公開の層> <出力の private.sealed> <出力の ContentKey.swift> [<出力の art.sealed>]
+//
+// - 4 つ目を渡すと、非公開の層の art/ の絵に同じ鍵で封をする(絵が無ければ前の残りを消す)。
 //
 // - 鍵はこの実行ごとに新しく作る。鍵・本文・見張りの文字列は表示しない(公開の CI のログに出さない)。
 // - 非公開の層が無い(ディレクトリが無い・JSON が無い)ときは、鍵 nil の ContentKey.swift を書き、private.sealed は作らない
@@ -16,10 +19,13 @@ func fail(_ message: String) -> Never {
 }
 
 let args = CommandLine.arguments.dropFirst()
-guard args.count == 3 else { fail("使い方: rf-seal <非公開の層> <出力の private.sealed> <出力の ContentKey.swift>") }
+guard args.count == 3 || args.count == 4 else {
+    fail("使い方: rf-seal <非公開の層> <出力の private.sealed> <出力の ContentKey.swift> [<出力の art.sealed>]")
+}
 let layer = URL(fileURLWithPath: args[args.startIndex], isDirectory: true)
 let sealedOut = URL(fileURLWithPath: args[args.startIndex + 1])
 let keyOut = URL(fileURLWithPath: args[args.startIndex + 2])
+let artOut = args.count == 4 ? URL(fileURLWithPath: args[args.startIndex + 3]) : nil
 
 func write(_ data: Data, to url: URL) {
     do {
@@ -38,6 +44,7 @@ if FileManager.default.fileExists(atPath: layer.path, isDirectory: &isDir), isDi
 
 if files.isEmpty {
     try? FileManager.default.removeItem(at: sealedOut)
+    if let artOut { try? FileManager.default.removeItem(at: artOut) }
     write(Data(ContentSeal.keySource(nil).utf8), to: keyOut)
     print("rf-seal: 非公開の層なし。公開の層だけのビルド(鍵 nil)")
     exit(0)
@@ -67,3 +74,18 @@ if let b = files["bundle.json"],
 write(sealed, to: sealedOut)
 write(Data(ContentSeal.keySource(key).utf8), to: keyOut)
 print("rf-seal: \(files.count) ファイルに封をした(\(sealed.count) バイト)")
+
+if let artOut {
+    let art: [ArtID: Data]
+    do { art = try ArtSeal.collect(layer: layer) } catch { fail("非公開の絵を読めない") }
+    if art.isEmpty {
+        try? FileManager.default.removeItem(at: artOut)
+        print("rf-seal: 非公開の絵なし")
+    } else {
+        let sealedArt: Data
+        do { sealedArt = try ArtSeal.seal(art, key: key) } catch { fail("絵の封ができない") }
+        guard (try? ArtSeal.open(sealedArt, key: key)) == art else { fail("開き直した絵が一致しない") }
+        write(sealedArt, to: artOut)
+        print("rf-seal: 絵 \(art.count) 枚に封をした(\(sealedArt.count) バイト)")
+    }
+}
