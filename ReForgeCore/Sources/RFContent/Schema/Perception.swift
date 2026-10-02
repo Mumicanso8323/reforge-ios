@@ -77,16 +77,52 @@ public struct Variant: Codable, Equatable, Sendable {
     public var glyph: String?
     /// この見え方に切り替わったとき、画面で「書き換わった」と知らせるか。
     public var announce: Bool?
+    /// 品の名前の色の系統(品・物質の見え方のときだけ)。無ければ中立の色。
+    /// 色は真実の素材からではなく、この見え方から決める(色で真実がばれないように。docs/art/README.md §1.3)。
+    public var tint: ItemTint?
 
     public init(when: FactExpr, name: TextID? = nil, description: TextID? = nil, display: StatDisplay? = nil,
-                glyph: String? = nil, announce: Bool? = nil) {
+                glyph: String? = nil, announce: Bool? = nil, tint: ItemTint? = nil) {
         self.when = when
         self.name = name
         self.description = description
         self.display = display
         self.glyph = glyph
         self.announce = announce
+        self.tint = tint
     }
+}
+
+/// 品の名前の色の系統(認識の層の見え方に付ける)。名前は色相だけで、素材の正体を表す語を使わない。
+public struct ItemTint: Codable, Hashable, Sendable {
+    /// 色相の系統。
+    public enum Hue: String, Codable, Hashable, Sendable, CaseIterable {
+        /// 無彩色(知らない物・日常の物)。
+        case neutral
+        /// 暖色(灰〜金・銅)。
+        case warm
+        /// 緑〜黄。
+        case green
+        /// 青。
+        case blue
+        /// 紫。
+        case violet
+    }
+
+    public var hue: Hue
+    /// 鮮やかさの段(0 = くすむ … 5 = いちばん鮮やか)。原作の素材の希少度の 6 段に当たる。
+    public var vividness: Int
+    /// 宝石のきらめき(一瞬だけ白く光る)を付けるか。
+    public var sparkle: Bool?
+
+    public init(hue: Hue, vividness: Int, sparkle: Bool? = nil) {
+        self.hue = hue
+        self.vividness = max(0, min(5, vividness))
+        self.sparkle = sparkle
+    }
+
+    /// 見え方に色の系統が無いときの色(知らない物)。
+    public static let neutral = ItemTint(hue: .neutral, vividness: 0)
 }
 
 /// 数値の見せ方。
