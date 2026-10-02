@@ -61,8 +61,11 @@ public enum Josa {
                 return pair.0
             }
 
+            // 数字は韓国語の読み(영・일・이・삼・사・오・육・칠・팔・구)の最後の音で選ぶ。
+            // 1・7・8 は ㄹ で終わるので、으로/로 では 로。
             switch value {
-            case 48, 49, 51, 54, 55, 56: return pair.0
+            case 49, 55, 56: return pair.0 == "으로" && pair.1 == "로" ? pair.1 : pair.0
+            case 48, 51, 54: return pair.0
             case 50, 52, 53, 57: return pair.1
             default: break
             }

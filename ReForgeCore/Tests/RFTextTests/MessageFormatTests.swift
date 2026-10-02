@@ -34,6 +34,10 @@ final class MessageFormatTests: XCTestCase {
         XCTAssertEqual(Josa.pick(after: "돌", pair: ("이", "가")), "이")
         XCTAssertEqual(Josa.pick(after: "3", pair: ("이", "가")), "이")
         XCTAssertEqual(Josa.pick(after: "2", pair: ("이", "가")), "가")
+        XCTAssertEqual(Josa.pick(after: "1", pair: ("으로", "로")), "로", "일 は ㄹ で終わる")
+        XCTAssertEqual(Josa.pick(after: "8", pair: ("으로", "로")), "로", "팔 は ㄹ で終わる")
+        XCTAssertEqual(Josa.pick(after: "3", pair: ("으로", "로")), "으로")
+        XCTAssertEqual(Josa.pick(after: "1", pair: ("이", "가")), "이")
         XCTAssertEqual(Josa.pick(after: "A", pair: ("이", "가")), "이(가)")
         XCTAssertEqual(try MessageFormat.render("{actor, josa, 이/가}", args: ["actor": .string("책")], language: .ko), "책이")
     }

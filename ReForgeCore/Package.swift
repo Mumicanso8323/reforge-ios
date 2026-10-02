@@ -26,8 +26,8 @@ let systemDeps: [Target.Dependency] = ["RFKernel", "RFMap", "RFMatter", "RFWorld
 var targets: [Target] = [
     // L0
     .target(name: "RFKernel"),
-    .target(name: "RFText", dependencies: ["RFKernel"]),
     // L1(葉)
+    .target(name: "RFText", dependencies: ["RFKernel"]),
     .target(name: "RFMap", dependencies: ["RFKernel"], exclude: ["README.md"]),
     .target(name: "RFMatter", dependencies: ["RFKernel"], exclude: ["README.md"]),
     // L2
