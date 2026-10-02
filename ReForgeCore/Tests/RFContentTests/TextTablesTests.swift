@@ -81,11 +81,17 @@ final class TextTablesTests: XCTestCase {
         XCTAssertTrue(issues.contains { $0.level == .error && $0.rule == "perception.glyphText" })
     }
 
-    func testPublicJapaneseTextsPreservePreMoveCountAndContents() throws {
+    /// 公開の層の文言は text/<言語>/ にだけ置く(L-02 で移した。件数と指紋は移すときに確かめ済み 205 件 0xe86bc08f462bde8b。
+    /// 文言を足すたびに数が変わるので、ここでは置き場所の決まりだけを見る)。
+    func testPublicTextsLiveOnlyUnderTextDirectories() throws {
         let db = try TestContent.publicOnly()
-        XCTAssertEqual(db.texts.count, 205)
-        XCTAssertEqual(fingerprint(db.texts), 0xe86bc08f462bde8b)
+        XCTAssertGreaterThanOrEqual(db.texts.count, 205)
         XCTAssertEqual(ContentValidator.validate(db).filter { $0.level == .error }, [])
+        let root = TestContent.publicLayer
+        for rel in try ContentLoader.relativeJSONPaths(in: root) where !rel.hasPrefix("text/") {
+            let object = try JSONSerialization.jsonObject(with: Data(contentsOf: root.appendingPathComponent(rel)))
+            XCTAssertNil((object as? [String: Any])?["texts"], "\(rel) に texts がある(text/ja/ に置く)")
+        }
     }
 
     private func temporaryLayer() throws -> URL {
@@ -101,11 +107,4 @@ final class TextTablesTests: XCTestCase {
         try Data(json.utf8).write(to: url)
     }
 
-    private func fingerprint(_ texts: [TextID: String]) -> UInt64 {
-        texts.sorted(by: { $0.key < $1.key }).reduce(UInt64(1_469_598_103_934_665_603)) { hash, entry in
-            (entry.key.rawValue + "\0" + entry.value + "\0").utf8.reduce(hash) { value, byte in
-                (value ^ UInt64(byte)) &* 1_099_511_628_211
-            }
-        }
-    }
 }

@@ -16,8 +16,10 @@ struct GameScreen: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed || ArtProvider.shared.failed)
-            BattleBandView(store: store)
+            if store.prologue == nil {
+                StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed || ArtProvider.shared.failed)
+                BattleBandView(store: store)
+            }
             ZStack {
                 // 地図は他のタブの間も残す(視点を保つ。時計も止めない)
                 MapCanvasView(store: store)
@@ -29,12 +31,18 @@ struct GameScreen: View {
                 if store.runEnded {
                     GameOverView(app: app, store: store)
                 }
+                if let prologue = store.prologue {
+                    PrologueLayer(prologue: prologue, store: store)
+                        .transition(.opacity.animation(.easeOut(duration: 0.8)))
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            if tab == .map {
+            if tab == .map, store.prologue == nil {
                 FootCardView(store: store)
             }
-            TabBarView(tab: $tab, ui: store.ui)
+            if store.prologue == nil {
+                TabBarView(tab: $tab, ui: store.ui)
+            }
         }
         .padding(.vertical, AdLayout.contentGap)
         .background(InkColor.field)

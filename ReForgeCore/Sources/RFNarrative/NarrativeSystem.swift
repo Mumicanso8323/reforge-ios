@@ -182,6 +182,7 @@ public struct NarrativeSystem: SimSystem {
 
     func sceneTick(_ ctx: inout StepContext) {
         guard let s = ctx.world.narrative.scene else { return }
+        guard ctx.content.scenes[s.scene]?.style != .prologue else { return }
         let since = s.lineSince ?? ctx.world.clock.now
         if ctx.world.clock.now - since >= GameDuration(seconds: Self.sceneLineSeconds) { Self.advanceScene(&ctx) }
     }
@@ -189,14 +190,26 @@ public struct NarrativeSystem: SimSystem {
     /// 次の行へ(条件が成り立たない行は飛ばす)。最後の行の次で場面は終わる。
     static func advanceScene(_ ctx: inout StepContext) {
         guard var s = ctx.world.narrative.scene else { return }
-        let lines = ctx.content.scenes[s.scene]?.lines ?? []
+        guard let definition = ctx.content.scenes[s.scene] else {
+            ctx.world.narrative.scene = nil
+            ctx.changes.mark(.narrative)
+            return
+        }
+        let lines = definition.lines
         s.line += 1
         while s.line < lines.count, let c = lines[s.line].when,
               ConditionEvaluator.evaluatePure(c, world: ctx.world, content: ctx.content, trigger: s.origin) != true {
             s.line += 1
         }
         s.lineSince = ctx.world.clock.now
-        ctx.world.narrative.scene = s.line < lines.count ? s : nil
+        if s.line < lines.count {
+            ctx.world.narrative.scene = s
+        } else if let next = definition.then {
+            ctx.world.narrative.scene = nil
+            EffectApplier.apply([.startScene(scene: next)], &ctx, cause: s.origin)
+        } else {
+            ctx.world.narrative.scene = nil
+        }
         ctx.changes.mark(.narrative)
     }
 }
