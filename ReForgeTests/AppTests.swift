@@ -18,9 +18,9 @@ final class AppTests: XCTestCase {
     /// 公開の束だけで、保留中の最初の押し続ける行為を作る。地図を見る試験はこれを終えてから確かめる。
     private func heldStartContent() throws -> (content: ContentDB, world: WorldState) {
         var db = try content()
-        var world = GameBootstrap.newWorld(content: db, seed: 3)
-        let position = try XCTUnwrap(world.people[.noah]?.position)
-        let terrain = try XCTUnwrap(world.map[position.layer]?.terrain(at: position.point))
+        let probe = GameBootstrap.newWorld(content: db, seed: 3)
+        let position = try XCTUnwrap(probe.people[.noah]?.position)
+        let terrain = try XCTUnwrap(probe.map[position.layer]?.terrain(at: position.point))
         let tag = try XCTUnwrap(db.terrains[terrain]?.tags.first)
         db.interactions.removeAll()
         try ContentLoader.apply(json: Data(#"""
@@ -37,8 +37,10 @@ final class AppTests: XCTestCase {
         db.interactions[first.id] = first
         db.structures["structure.campfire"]?.hearth?.initialSeconds = 0
         db.structures["structure.campfire"]?.hearth?.igniteSeconds = 60
-        db.start.clock = StartClockDef(held: true, firstAct: first.id)
-        world.clock.held = true
+        // 始まりの時刻も試験の側で決める(非公開の層の始まりの時刻に引きずられて昼でなくなるのを避ける)
+        db.start.clock = StartClockDef(day: 0, hoursBeforeDusk: 4, held: true, firstAct: first.id)
+        let world = GameBootstrap.newWorld(content: db, seed: 3)
+        XCTAssertTrue(world.clock.held)
         return (db, world)
     }
 
@@ -115,6 +117,7 @@ final class AppTests: XCTestCase {
         let start = try heldStartContent()
         let store = GameStore(content: start.content, world: start.world, saves: tempSaves())
         await store.load()
+        try await readThroughPrologue(store)
         let action = try XCTUnwrap(store.darkStart?.action)
         store.act(action, pressing: true)
         for _ in 0..<100 where store.darkStart != nil {
