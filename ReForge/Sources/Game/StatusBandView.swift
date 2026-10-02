@@ -37,6 +37,15 @@ struct StatusBandView: View {
                 }
                 .fixedSize(horizontal: false, vertical: true)
             }
+            // 日没の帯の火の見込み(薪の置き場の本数を入れた 4 段。PT-B1)
+            if store.decision == nil, !store.clock.bandActions.isEmpty, let o = store.clock.fireOutlook {
+                HStack(spacing: 4) {
+                    Text("火:")
+                    FireOutlookLine.word(o)
+                }
+                .foregroundStyle(InkColor.textDim)
+                .accessibilityIdentifier("duskFireOutlook")
+            }
             if let d = store.decision {
                 HStack(spacing: 8) {
                     ForEach(Array(d.choices.enumerated()), id: \.offset) { _, c in

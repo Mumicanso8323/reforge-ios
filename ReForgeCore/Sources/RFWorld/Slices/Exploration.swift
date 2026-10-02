@@ -28,12 +28,17 @@ public struct ExplorationState: Codable, Equatable, Sendable {
     public var range: Int = 1
     /// 地図の光の点(id → 位置。効果 beacon が置く。U19)。古いセーブには無い(空で読む)。
     public var beacons: [String: WorldPoint] = [:]
+    /// 続けて採る(PT-B1)で、仲間が移った先の「配属の時の場所」(人 → 起点)。移った人がいる間だけ持つ。
+    /// nil(空)の間は保存に書かない(保存の形は変えない)。
+    public var continueHome: [PersonID: ContinueHome]?
+    /// 続けて採っていたノアが「近くにもう無い」で止まった印(次に行為を始めると消える)。nil は書かない。
+    public var continueStop: ContinueStop?
 
     public init() {}
 
     enum CodingKeys: String, CodingKey {
         case poi, interactionCounts, active, harvestedDay, exploredRegions, exploreFired, lastPositions, nearPOI
-        case farthest, range, beacons
+        case farthest, range, beacons, continueHome, continueStop
     }
 
     public init(from decoder: Decoder) throws {
@@ -49,6 +54,8 @@ public struct ExplorationState: Codable, Equatable, Sendable {
         farthest = try c.decode(Int.self, forKey: .farthest)
         range = try c.decode(Int.self, forKey: .range)
         beacons = try c.decodeIfPresent([String: WorldPoint].self, forKey: .beacons) ?? [:]
+        continueHome = try c.decodeIfPresent([PersonID: ContinueHome].self, forKey: .continueHome)
+        continueStop = try c.decodeIfPresent(ContinueStop.self, forKey: .continueStop)
     }
 
     /// 区画のビット列のキー(層 × 場。場の無い地形は "-")。
@@ -58,6 +65,28 @@ public struct ExplorationState: Codable, Equatable, Sendable {
     public static func countKey(_ interaction: InteractionID, poi: EntityID?, at p: WorldPoint) -> String {
         if let poi { return "\(interaction.rawValue)|poi:\(poi.raw)" }
         return "\(interaction.rawValue)|\(p.layer.rawValue)|\(p.point.x),\(p.point.y)"
+    }
+}
+
+/// 続けて採る仲間の起点(配属の時の場所)。cell は移った先(今の配属のマスと違えば古いので使わない)。
+public struct ContinueHome: Codable, Equatable, Sendable {
+    public var origin: WorldPoint
+    public var cell: WorldPoint
+
+    public init(origin: WorldPoint, cell: WorldPoint) {
+        self.origin = origin
+        self.cell = cell
+    }
+}
+
+/// 続けて採るのが「近くにもう無い」で止まった印。
+public struct ContinueStop: Codable, Equatable, Sendable {
+    public var interaction: InteractionID
+    public var at: WorldPoint
+
+    public init(interaction: InteractionID, at: WorldPoint) {
+        self.interaction = interaction
+        self.at = at
     }
 }
 

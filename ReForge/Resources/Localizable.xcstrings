@@ -81,6 +81,16 @@
         }
       }
     },
+    "→ 1 本くべると:": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "→ 1 本くべると:"
+          }
+        }
+      }
+    },
     "いまは購入できません(準備中)": {
       "localizations": {
         "ja": {
@@ -411,6 +421,16 @@
         }
       }
     },
+    "今:": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今:"
+          }
+        }
+      }
+    },
     "付けない": {
       "localizations": {
         "ja": {
@@ -611,6 +631,16 @@
         }
       }
     },
+    "夕方に消える": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夕方に消える"
+          }
+        }
+      }
+    },
     "夜": {
       "localizations": {
         "ja": {
@@ -627,6 +657,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "夜作業をする"
+          }
+        }
+      }
+    },
+    "夜半に消える": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夜半に消える"
+          }
+        }
+      }
+    },
+    "夜明けの前に消える": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夜明けの前に消える"
+          }
+        }
+      }
+    },
+    "夜明けまでもつ": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "夜明けまでもつ"
           }
         }
       }
@@ -1071,6 +1131,16 @@
         }
       }
     },
+    "火:": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "火:"
+          }
+        }
+      }
+    },
     "物語のデータを読めなかったので、試遊用のデータで動いています": {
       "localizations": {
         "ja": {
@@ -1437,6 +1507,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "距離を取る"
+          }
+        }
+      }
+    },
+    "近くにもう無い": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "近くにもう無い"
           }
         }
       }

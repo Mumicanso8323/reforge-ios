@@ -34,9 +34,10 @@ enum Interactions {
     static func command(_ id: InteractionID, at: WorldPoint, holding: Bool, actor: PersonID,
                         _ ctx: inout StepContext) -> CommandResult {
         guard let def = ctx.content.interactions[id] else { return .rejected(Rejection("reason.explore.unknown")) }
+        if def.continues == true, let r = continueSignal(def, at: at, holding: holding, actor: actor, &ctx) { return r }
         // 進行中の同じ行為への合図(押すのをやめた・取りやめ・押し直し)
         if let a = ctx.world.exploration.active[actor], a.interaction == id, a.at == at {
-            if def.hold {
+            if holds(def) {
                 ctx.world.exploration.active[actor]?.holding = holding
                 ctx.changes.mark(.people)
                 return .done
@@ -53,9 +54,44 @@ enum Interactions {
         }
     }
 
+    /// 押している間だけ進む行為か(押し続ける行為と、続けて採る行為)。
+    static func holds(_ def: InteractionDef) -> Bool { def.hold || def.continues == true }
+
+    /// 続けて採る行為への押す・離すの合図。進行中の行為の場所が押した場所と違っても(次のマスへ移っている)、
+    /// 同じ行為なら 1 つの流れとして扱う。扱ったら結果を返す。
+    private static func continueSignal(_ def: InteractionDef, at: WorldPoint, holding: Bool, actor: PersonID,
+                                       _ ctx: inout StepContext) -> CommandResult? {
+        guard let a = ctx.world.exploration.active[actor], a.interaction == def.id else {
+            // 進行中でない離した合図は、何もしない(離した後に別の場所で始め直さない)
+            return holding ? nil : .done
+        }
+        if holding {
+            // 離している間に作りかけの単位があり、まだ届くなら、押し直しは続きから(INV-B1-2)
+            guard a.at != at, !a.holding, a.progress > 0,
+                  let pos = ctx.world.people[actor]?.position,
+                  case .success(let t) = resolve(def, at: a.at, world: ctx.world, content: ctx.content),
+                  inReach(pos, t) else { return nil }
+            ctx.world.exploration.active[actor]?.holding = true
+            ctx.changes.mark(.people)
+            return .done
+        }
+        ctx.world.exploration.active[actor]?.holding = false
+        // 歩いている途中で離したら歩きを止める
+        if actor == .noah, ctx.world.people[actor]?.motion != nil, let pos = ctx.world.people[actor]?.position {
+            let near: Bool = {
+                guard case .success(let t) = resolve(def, at: a.at, world: ctx.world, content: ctx.content) else { return false }
+                return inReach(pos, t)
+            }()
+            if !near { ctx.queue(.crew(.stop)) }
+        }
+        ctx.changes.mark(.people)
+        return .done
+    }
+
     /// 行為を始める。夜作業ならその場で終え、かかった時間を返す。
+    /// requireReach を false にすると、手の届かない所でも始める(続けて採るで、歩いて次のマスへ移るとき)。
     static func start(_ def: InteractionDef, at: WorldPoint, holding: Bool, actor: PersonID,
-                      _ ctx: inout StepContext) -> Result<GameDuration?, Rejection> {
+                      requireReach: Bool = true, _ ctx: inout StepContext) -> Result<GameDuration?, Rejection> {
         let w = ctx.world
         guard let person = w.people[actor], person.presence.isMember, let pos = person.position else {
             return .failure(Rejection("reason.explore.no_actor"))
@@ -67,7 +103,7 @@ enum Interactions {
         case .failure(let r): return .failure(r)
         case .success(let t): target = t
         }
-        guard inReach(pos, target) else { return .failure(Rejection("reason.explore.too_far")) }
+        guard !requireReach || inReach(pos, target) else { return .failure(Rejection("reason.explore.too_far")) }
         if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: ctx.content) != true {
             return .failure(Rejection("reason.explore.not_yet"))
         }
@@ -88,6 +124,7 @@ enum Interactions {
         }
         // 前の行為は取りやめ(使った材料は戻す)
         if ctx.world.exploration.active[actor] != nil { cancel(actor, &ctx) }
+        if actor == .noah, ctx.world.exploration.continueStop != nil { ctx.world.exploration.continueStop = nil }
         let active = ActiveInteraction(interaction: def.id, at: at, poi: target.poi, part: part, holding: holding,
                                        spent: spent, startedAt: w.clock.now)
         if w.clock.phase == .nightWork || def.seconds <= 0 {
@@ -117,12 +154,18 @@ enum Interactions {
             guard let a = ctx.world.exploration.active[actor] else { continue }
             guard let def = ctx.content.interactions[a.interaction],
                   case .success(let target) = resolve(def, at: a.at, world: ctx.world, content: ctx.content),
-                  let p = ctx.world.people[actor], p.presence.isAlive, let pos = p.position, inReach(pos, target)
+                  let p = ctx.world.people[actor], p.presence.isAlive, let pos = p.position
             else {
                 cancel(actor, &ctx)
                 continue
             }
-            if def.hold && !a.holding { continue }
+            if !inReach(pos, target) {
+                // 続けて採るで次のマスへ歩いている間は、着くまで待つ
+                if def.continues == true, a.holding, p.motion != nil { continue }
+                cancel(actor, &ctx)
+                continue
+            }
+            if holds(def) && !a.holding { continue }
             if p.motion != nil { continue }
             if let need = def.requiredPeople, need > 1, helpers(target, world: ctx.world) < need { continue }
             // 人の速さ(仲間の採取はノアの 0.6 倍。W-04)
@@ -131,6 +174,7 @@ enum Interactions {
             if (ctx.world.exploration.active[actor]?.progress ?? 0) >= Int64(def.seconds) {
                 let done = ctx.world.exploration.active.removeValue(forKey: actor)!
                 complete(def, done, actor: actor, target: target, &ctx)
+                if def.continues == true, done.holding, actor == .noah { continueNoah(def, from: done, &ctx) }
             }
         }
     }
@@ -144,8 +188,57 @@ enum Interactions {
             let a = p.override?.assignment ?? p.assignment
             guard case .gather(let iid, let at) = a, let def = ctx.content.interactions[iid] else { continue }
             if let allowed, !allowed.contains(pid) { continue }   // 働ける人数の外(INV-O10)
-            _ = start(def, at: at, holding: true, actor: pid, &ctx)
+            if case .failure(let r) = start(def, at: at, holding: true, actor: pid, &ctx), def.continues == true,
+               r.reason == "reason.explore.exhausted" || r.reason == "reason.explore.cooldown" {
+                hopCompanion(pid, def, at: at, position: p.position, &ctx)
+            }
         }
+    }
+
+    // MARK: 続けて採る(PT-B1)
+
+    /// ノアの 1 単位ができた後。次の場所へ(同じマス・届く所・歩いて半径の中)。無ければ止まって印を残す。
+    static func continueNoah(_ def: InteractionDef, from done: ActiveInteraction, _ ctx: inout StepContext) {
+        guard let pos = ctx.world.people[.noah]?.position else { return }
+        guard let next = ContinueRules.next(interaction: def, from: pos, world: ctx.world, content: ctx.content,
+                                            current: done.at, standing: pos),
+              case .success = start(def, at: next, holding: true, actor: .noah, requireReach: false, &ctx)
+        else {
+            ctx.world.exploration.continueStop = ContinueStop(interaction: def.id, at: done.at)
+            ctx.changes.mark(.people)
+            return
+        }
+        if ctx.world.exploration.active[.noah] != nil, !reaches(.noah, next, def, ctx) {
+            ctx.queue(.crew(.walk(to: next)))
+        }
+    }
+
+    private static func reaches(_ actor: PersonID, _ at: WorldPoint, _ def: InteractionDef, _ ctx: StepContext) -> Bool {
+        guard let pos = ctx.world.people[actor]?.position,
+              case .success(let t) = resolve(def, at: at, world: ctx.world, content: ctx.content) else { return false }
+        return inReach(pos, t)
+    }
+
+    /// 仲間の配属のマスで採れなくなった。配属の時の場所から半径の中の次のマスへ配属を移す(同じ選び方)。
+    /// 半径の外へは出ない。無ければそのまま(配属のマスに居続ける)。
+    static func hopCompanion(_ pid: PersonID, _ def: InteractionDef, at: WorldPoint, position: WorldPoint?,
+                             _ ctx: inout StepContext) {
+        let origin: WorldPoint = {
+            if let h = ctx.world.exploration.continueHome?[pid], h.cell == at { return h.origin }
+            return at
+        }()
+        guard let next = ContinueRules.next(interaction: def, from: origin, world: ctx.world, content: ctx.content,
+                                            current: at, standing: position ?? origin), next != at else { return }
+        let new = Assignment.gather(interaction: def.id, at: next)
+        if ctx.world.people[pid]?.override?.assignment != nil {
+            ctx.world.people[pid]?.override?.assignment = new
+        } else {
+            ctx.world.people[pid]?.assignment = new
+        }
+        var homes = ctx.world.exploration.continueHome ?? [:]
+        homes[pid] = ContinueHome(origin: origin, cell: next)
+        ctx.world.exploration.continueHome = homes
+        ctx.changes.mark(.people)
     }
 
     // MARK: 終わる
