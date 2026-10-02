@@ -177,7 +177,8 @@ final class ScreenSnapshotTests: XCTestCase {
     }
 
     private func assertDarkStart(_ app: XCUIApplication, language: String) {
-        for id in ["map", "statusBand", "footCard", "tab-map", "tab-design", "tab-notes", "tab-base", "tab-crew"] {
+        // 暗い場面で押せる物は行為の 1 つだけ(DEC-F9。角の設定のボタンも隠れる)
+        for id in ["map", "statusBand", "footCard", "tab-map", "tab-design", "tab-notes", "tab-base", "tab-crew", "settingsButton"] {
             XCTAssertFalse(element(app, id).exists, "\(language)_darkStart: \(id) が出ている")
         }
         let action = element(app, "darkStartAct")
@@ -300,7 +301,8 @@ final class ScreenSnapshotTests: XCTestCase {
         }
 
         // 序は画面全体の場面。設定のボタンは窓ごと隠れている(PT-B6)ので、TEST-L16 の代わりに「無い」ことを見る(prologueFindings)
-        if screen == "prologue" { return (findings, ignoredZeroSize) }
+        // 暗い場面(PT-B8・DEC-F9)も、設定のボタンは窓ごと隠れている(assertDarkStart で「無い」ことを見る)
+        if screen == "prologue" || screen == "darkStart" { return (findings, ignoredZeroSize) }
 
         // 4. TEST-L16: 設定のボタン。1. ある 2. 押せる 3. 右上の 52x52pt(安全な領域の内側)にある 4. ほかの要素と重ならない。
         if settingsFrame == nil { add("settingsButton", "settings", "無い") }

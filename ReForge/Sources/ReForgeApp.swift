@@ -71,8 +71,9 @@ final class AppModel {
         game?.send(.narrative(.advanceScene))
     }
 
-    /// 右上の設定の角のボタンを出すか。序の間は出さない(窓ごと隠す。PT-B6)。
-    var cornerButtonVisible: Bool { activePrologue == nil }
+    /// 右上の設定の角のボタンを出すか。序の間と、最初の行為の前の暗い場面の間は出さない(窓ごと隠す。PT-B6・DEC-F9:
+    /// 「はじめから」から地図が出るまで、押せる物は暗い場面のボタン 1 つだけ)。
+    var cornerButtonVisible: Bool { activePrologue == nil && game?.darkStart == nil }
 
     init(saves: FileSaveStorage = FileSaveStorage(),
          storeService: any StoreService = UnavailableStoreService(),
