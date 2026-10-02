@@ -6,7 +6,13 @@ import ReForgeEngine
 struct GameScreen: View {
     @Bindable var app: AppModel
     let store: GameStore
+#if DEBUG
+    // 撮る起動(Debug/ScreenshotMode.swift)は、最初のタブと設定の札を外から決める
+    @State private var tab: GameTab = ScreenshotMode.firstTab
+    @State private var showScreenshotSettings = ScreenshotMode.opensSettings
+#else
     @State private var tab: GameTab = .map
+#endif
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,6 +38,11 @@ struct GameScreen: View {
         }
         .padding(.vertical, AdLayout.contentGap)
         .background(InkColor.field)
+#if DEBUG
+        .inkCard(isPresented: $showScreenshotSettings, title: Text("設定")) {
+            SettingsView(app: app, close: { showScreenshotSettings = false })
+        }
+#endif
         .task { await store.run() }
         .onChange(of: store.requestedTab) { _, t in
             // パネルからの切り替え(置くモードで地図へ。U18)
