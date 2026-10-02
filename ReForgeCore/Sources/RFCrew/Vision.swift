@@ -6,7 +6,7 @@ import RFWorld
 
 /// 視界と地図の既知(knowledge.mapKnown)。地図の上にいる一員は誰でも同じ規則で見る(ノアだけを特別にしない)。
 /// 半径は RFMap の VisionRule(昼 8・夜 −3・灯り +4・最小 2。原作 VisibilityLayer.cs:21-27)。
-/// 灯り: 灯りを出す建造物(StructureDef.provides["light"] = 半径)の範囲の中にいれば +4。
+/// 灯り: 灯りを出す建造物(火床なら段から読んだ半径、それ以外は provides["light"])の範囲の中にいれば +4。
 public enum Vision {
     static let rule = VisionRule.original
 
@@ -17,13 +17,8 @@ public enum Vision {
     }
 
     static func isLit(_ pos: WorldPoint, _ w: WorldState, _ content: ContentDB) -> Bool {
-        for id in w.placements.sortedIDs {
-            guard let p = w.placements.items[id], p.at.layer == pos.layer, case .structure(let k) = p.kind else { continue }
-            if case .underConstruction = p.status { continue }
-            guard let r = content.structures[k]?.provides["light"], r > 0 else { continue }
-            if VisionRule.inCircle(pos.point, center: p.at.point, radius: r) { return true }
-        }
-        return false
+        // 灯りの半径は火床の段から読む(燃えていなければ灯りは無い。W-02b)
+        Hearths.isLit(pos, in: w, content: content)
     }
 
     /// いま見えているマス(保存しない。画面の明暗と、敵が見えるかの判定に使う)。

@@ -272,8 +272,8 @@ enum Duties {
     static func nearestStructure(providing key: String, from pos: WorldPoint, _ w: WorldState, _ c: ContentDB) -> EntityID? {
         var best: (Int, EntityID)?
         for id in w.placements.sortedIDs {
-            guard let p = w.placements.items[id], p.at.layer == pos.layer, case .structure(let k) = p.kind,
-                  !isUnderConstruction(p), (c.structures[k]?.provides[key] ?? 0) > 0 else { continue }
+            guard let p = w.placements.items[id], p.at.layer == pos.layer, case .structure = p.kind,
+                  !isUnderConstruction(p), (Hearths.provides(p, c)[key] ?? 0) > 0 else { continue }
             let d = p.at.point.chebyshev(to: pos.point)
             if best == nil || d < best!.0 { best = (d, id) }
         }

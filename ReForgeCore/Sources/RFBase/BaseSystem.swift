@@ -35,11 +35,22 @@ public struct BaseSystem: SimSystem {
             return .done
         case .repair(let placement):
             return Construction.repair(placement, &ctx)
+        case .hearth(let placement, let op):
+            return HearthCommands.handle(placement, op, &ctx)
         }
     }
 
     public func step(_ ctx: inout StepContext) {
         Construction.advance(&ctx)
+        Hearths.advanceStructures(seconds: Int(SimStep.gameSeconds), &ctx)
+    }
+
+    public func react(to event: DomainEvent, _ ctx: inout StepContext) {
+        switch event {
+        case .phaseChanged(.dusk, _): Hearths.markDusk(&ctx)
+        case .dawn: Hearths.countDawn(&ctx)
+        default: break
+        }
     }
 }
 
@@ -48,8 +59,8 @@ public enum BaseRules {
     /// 建ち終えた建造物の provides[tag] の合計。
     public static func total(_ tag: String, _ w: WorldState, _ content: ContentDB) -> Int {
         w.placements.items.values.reduce(0) { acc, p in
-            guard case .structure(let k) = p.kind, p.status == .running else { return acc }
-            return acc + (content.structures[k]?.provides[tag] ?? 0)
+            guard case .structure = p.kind, p.status == .running else { return acc }
+            return acc + (Hearths.provides(p, content)[tag] ?? 0)
         }
     }
 

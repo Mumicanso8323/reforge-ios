@@ -279,6 +279,10 @@ public enum EffectApplier {
             ctx.queue(.exploration(.setBeacon(id: id, at: at, cause: cause)))
         case .clearBeacon(let id):
             ctx.queue(.exploration(.setBeacon(id: id, at: nil, cause: cause)))
+        case .hearth(let place, let op):
+            guard let at = resolve(place), let target = Hearths.nearest(to: at, in: w, content: ctx.content)
+            else { return missing(&ctx, e) }
+            Hearths.applyEffect(op, to: target, &ctx)
         }
     }
 
