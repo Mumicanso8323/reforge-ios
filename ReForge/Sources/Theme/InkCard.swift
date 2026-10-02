@@ -26,6 +26,7 @@ struct InkCardModifier<CardContent: View>: ViewModifier {
                                 title
                                     .font(InkFont.heading)
                                     .tracking(InkFont.headingTracking)
+                                    .inkFitCheck(id: "InkCard.title")
                                     .accessibilityAddTraits(.isHeader)
                                 Spacer()
                                 Button {

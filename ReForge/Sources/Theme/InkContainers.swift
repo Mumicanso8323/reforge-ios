@@ -15,6 +15,7 @@ struct InkPanel<Content: View>: View {
                         .font(InkFont.heading)
                         .tracking(InkFont.headingTracking)
                         .foregroundStyle(InkColor.text)
+                        .inkFitCheck(id: "InkPanel.title")
                         .accessibilityAddTraits(.isHeader)
                 }
                 content
@@ -70,11 +71,12 @@ struct InkRow: View {
                     .frame(width: 22)
             }
             VStack(alignment: .leading, spacing: 2) {
-                title.lineLimit(1)
+                title.inkFitCheck(id: "InkRow.title").lineLimit(1)
                 if let detail {
                     detail
                         .font(InkFont.small)
                         .foregroundStyle(InkColor.textDim)
+                        .inkFitCheck(id: "InkRow.detail")
                         .lineLimit(2)
                 }
             }
@@ -83,6 +85,7 @@ struct InkRow: View {
                 value
                     .foregroundStyle(InkColor.textDim)
                     .monospacedDigit()
+                    .inkFitCheck(id: "InkRow.value")
                     .lineLimit(1)
             }
         }
@@ -149,6 +152,7 @@ struct InkPlate<Content: View>: View {
                     title
                         .font(InkFont.heading)
                         .tracking(InkFont.headingTracking)
+                        .inkFitCheck(id: "InkPlate.title")
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.bottom, 4)
                         .accessibilityAddTraits(.isHeader)
