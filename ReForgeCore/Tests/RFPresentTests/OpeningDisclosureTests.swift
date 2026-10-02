@@ -2,8 +2,10 @@ import Foundation
 import RFContent
 import RFFailure
 import RFKernel
+import RFPerception
 import RFPresent
 import RFRules
+import RFSave
 import RFSim
 import RFTestSupport
 import RFTime
@@ -57,6 +59,23 @@ final class OpeningDisclosureTests: XCTestCase {
         let f = FrameBuilder(content: rig.content).build(w, revision: 0, previous: nil, report: nil)
         XCTAssertTrue(f.clock.held)
         XCTAssertFalse(f.clock.running)
+    }
+
+    /// v0.5 §2.8.3・TEST-O21 (3): 始まりの出来事は時計が止まっていても作った時点で起き、場面の送りでは保留が解けない。
+    func testStartEventsFireWhileHeldAndSceneAdvanceKeepsHold() throws {
+        var db = try openingContent()
+        let e: EventID = "event.test.chain"
+        try XCTSkipIf(db.events[e] == nil)
+        db.start.events = [e]
+        let rig = TestRig(content: db)
+        var w = rig.factory.newWorld(seed: 1)
+        XCTAssertNotNil(w.narrative.fired[e], "最初の Frame の前に起きている")
+        XCTAssertTrue(w.clock.held)
+        let t = w.clock.now
+        for _ in 0..<5 { _ = rig.simulation.apply(.narrative(.advanceScene), to: &w) }
+        XCTAssertTrue(w.clock.held, "送りの間は止まったまま")
+        XCTAssertEqual(w.clock.now, t)
+        XCTAssertFalse(Simulation.releasesHold(.narrative(.advanceScene)))
     }
 
     func testDefaultStartIsUnchanged() throws {
@@ -122,7 +141,8 @@ final class OpeningDisclosureTests: XCTestCase {
         var u = b.unlocks(w)
         XCTAssertFalse(u.isOpen(UIElements.tabNotes))
         XCTAssertFalse(u.isOpen(UIElements.tabCrew))
-        XCTAssertFalse(u.isOpen(UIElements.tabBase))
+        XCTAssertTrue(u.isOpen(UIElements.tabBase), "配下に latch の無い門だけなら(古い形)今どおり出す")
+        XCTAssertFalse(u.gated.contains(UIElements.tabBase))
         XCTAssertTrue(u.isOpen(UIElements.tabDesign), "配下に門が無ければ今どおり出す")
         XCTAssertTrue(u.gated.contains(UIElements.tabNotes))
         var ctx = StepContext(world: w, content: rig.content)
@@ -152,11 +172,10 @@ final class OpeningDisclosureTests: XCTestCase {
         let rig = TestRig(content: try openingContent())
         var w = rig.factory.newWorld(seed: 1)
         w.knowledge.disclosed = ["notes.trials": .knowledge, "crew.assign": .world, "base.lines": .world]
-        let enc = JSONEncoder()
-        enc.outputFormatting = [.sortedKeys]
-        let a = try enc.encode(w)
+        w.knowledge.heldItems = ["item.test.h.b", "item.test.h.a", "item.test.h.c"]
+        let a = try CanonicalJSON.encode(w)
         XCTAssertEqual(try JSONDecoder().decode(WorldState.self, from: a), w)
-        XCTAssertEqual(try enc.encode(try JSONDecoder().decode(WorldState.self, from: a)), a, "並びが固まる")
+        XCTAssertEqual(try CanonicalJSON.encode(try JSONDecoder().decode(WorldState.self, from: a)), a, "正準の JSON で並びが固まる")
         // 古い保存: held と disclosed のキーが無い
         var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: a) as? [String: Any])
         var clock = try XCTUnwrap(obj["clock"] as? [String: Any])
@@ -164,10 +183,12 @@ final class OpeningDisclosureTests: XCTestCase {
         obj["clock"] = clock
         var know = try XCTUnwrap(obj["knowledge"] as? [String: Any])
         know["disclosed"] = nil
+        know["heldItems"] = nil
         obj["knowledge"] = know
         let old = try JSONDecoder().decode(WorldState.self, from: try JSONSerialization.data(withJSONObject: obj))
         XCTAssertFalse(old.clock.held)
         XCTAssertEqual(old.knowledge.disclosed, [:])
+        XCTAssertEqual(old.knowledge.heldItems, [])
     }
 
     // MARK: - W-11 寝る見込み = 実際(TEST-O11 の土台)
@@ -186,5 +207,70 @@ final class OpeningDisclosureTests: XCTestCase {
             XCTAssertEqual(fc.world, actual, "seed \(seed)")
             XCTAssertEqual(fc.report.events, r.events)
         }
+    }
+
+    // MARK: - W-07 地図の題・新しく開いた要素・半分の気配
+
+    func testPlaceTitleChangesInTheSameFrameAsTheFact() throws {
+        var db = try openingContent()
+        let json = """
+        {
+          "texts": { "text.test.place.dark": "A", "text.test.place.fire": "B" },
+          "perception": [
+            { "subject": "place:base", "variants": [
+              { "when": "fact.test.k", "name": "text.test.place.fire" },
+              { "when": true, "name": "text.test.place.dark" } ] }
+          ]
+        }
+        """
+        try ContentLoader.apply(json: Data(json.utf8), to: &db)
+        let b = FrameBuilder(content: db)
+        var w = TestRig(content: db).factory.newWorld(seed: 1)
+        let f0 = b.build(w, revision: 0, previous: nil, report: nil)
+        XCTAssertEqual(f0.placeTitle, "A")
+        var ctx = StepContext(world: w, content: db)
+        ctx.learn("fact.test.k")
+        w = ctx.world
+        let f1 = b.build(w, revision: 1, previous: f0, report: nil)
+        XCTAssertEqual(f1.placeTitle, "B")
+        XCTAssertEqual(f1.newlyOpened, ["notes.trials", UIElements.tabNotes], "新しく開いた要素(導出のタブも)")
+        XCTAssertNil(FrameBuilder(content: base).build(w, revision: 0, previous: nil, report: nil).placeTitle,
+                     "表に無ければ題を出さない")
+    }
+
+    /// TEST-O20 (1): 材料を 1 つでも見ていない間は影にならず、全部見て半分持つと影になる。解放はしない。
+    func testHalfwayNeedsAllSeenAndHalfTheCost() throws {
+        let rig = TestRig(content: base)
+        let cost = [Ingredient(item: "item.test.h.a", quantity: 4), Ingredient(item: "item.test.h.b", quantity: 4)]
+        var w = rig.factory.newWorld(seed: 1)
+        var ctx = StepContext(world: w, content: rig.content)
+        ctx.addStock(.item("item.test.h.a"), 4, to: .base)
+        w = ctx.world
+        XCTAssertFalse(HintRule.halfway(cost: cost, world: w), "b をまだ見ていない")
+        ctx = StepContext(world: w, content: rig.content)
+        ctx.addStock(.item("item.test.h.b"), 1, to: .base)
+        _ = ctx.takeStock(1, from: .base) { $0.stuff == .item("item.test.h.b") }
+        w = ctx.world
+        XCTAssertTrue(HintRule.halfway(cost: cost, world: w), "全部見て、4/8 を持つ")
+        ctx = StepContext(world: w, content: rig.content)
+        _ = ctx.takeStock(1, from: .base) { $0.stuff == .item("item.test.h.a") }
+        XCTAssertFalse(HintRule.halfway(cost: cost, world: ctx.world), "3/8 は半分に届かない")
+        XCTAssertFalse(HintRule.halfway(cost: [], world: w))
+    }
+
+    func testShadowRowsOnlyForLockedKinds() throws {
+        let rig = TestRig(content: base)
+        guard let (k, def) = rig.content.structures.sorted(by: { $0.key < $1.key }).first(where: { !$0.value.cost.isEmpty })
+        else { throw XCTSkip("費用のある建造物が無い") }
+        var w = rig.factory.newWorld(seed: 1)
+        w.research.unlocked.structures.remove(k)
+        var ctx = StepContext(world: w, content: rig.content)
+        for ing in def.cost { if let i = ing.item { ctx.addStock(.item(i), ing.quantity, to: .base) } }
+        w = ctx.world
+        let b = FrameBuilder(content: rig.content)
+        let p = Perceiver(content: rig.content, world: w)
+        XCTAssertTrue(b.shadows(w, p).contains { $0.kind == .structure(k) })
+        w.research.unlocked.structures.insert(k)
+        XCTAssertFalse(b.shadows(w, p).contains { $0.kind == .structure(k) }, "解放済みは影にしない")
     }
 }

@@ -50,10 +50,11 @@ extension FrameBuilder {
                 u.open.insert(id)
             }
         }
-        // タブは導出(W-01): 自分の門が無く、配下に門のある要素があれば、配下のどれかが開いたときだけ開く
+        // タブは導出(W-01): 自分の門が無く、配下に latch 付きの門(新しい形のデータ)があれば、
+        // 配下のどれかが開いたときだけ開く。配下に latch の無い門しか無い古いデータでは今までどおり常に出る
         for (tab, under) in Self.tabChildren where content.uiGates[tab] == nil {
             let gatedChildren = u.gated.filter(under)
-            guard !gatedChildren.isEmpty else { continue }
+            guard gatedChildren.contains(where: { content.uiGates[$0]?.latch != nil }) else { continue }
             u.gated.insert(tab)
             if !gatedChildren.isDisjoint(with: u.open) { u.open.insert(tab) }
         }
