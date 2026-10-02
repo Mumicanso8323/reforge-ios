@@ -337,6 +337,8 @@ public struct InteractionDef: ContentDef, Equatable {
     public var cooldownDays: Int?
     /// 対象のそばに何人いないと進まないか(大きすぎる扉や設備。既定 1)。
     public var requiredPeople: Int?
+    /// 木を伐る行為か(獣の縄張りの入力。RaidLureDef.territory)。持ち主: U21
+    public var felling: Bool?
 }
 
 /// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。

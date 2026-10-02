@@ -257,7 +257,13 @@ public enum Hearths {
                 return
             }
             s = o
-        case .ignite:
+        case .ignite(let chance, let skill, let skillChance):
+            if var p = chance {
+                if let sk = skill, let sc = skillChance, let actor = ctx.cause.flatMap({ ctx.world.ledger.record($0)?.actor }),
+                   ctx.world.people[actor]?.skills.contains(sk) == true { p = sc }
+                let roll = ctx.random("hearth") { $0.int(below: 1000) }
+                guard roll < p else { return }
+            }
             s = HearthRule.kindle(s, d)
             guard s.fuel > 0 else { return }
             s.lit = true

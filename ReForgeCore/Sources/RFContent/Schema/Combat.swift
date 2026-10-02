@@ -135,22 +135,19 @@ public struct RaidDef: Codable, Equatable, Sendable {
 public struct RaidLureDef: Codable, Equatable, Sendable {
     /// 煙: 日没に燃えている火床 1 つあたり。
     public var smoke: Int?
-    /// 縄張り: その獣の巣から territoryRadius マス以内にある置いた物(伐採の跡地の作業場・音の出る装置)1 つあたり。
+    /// 縄張り: その日に、その獣の巣(見つけていなくても)から territoryRadius マス以内で木を伐った 1 回あたり。
+    /// 伐ったかは InteractionDef.felling の行為の出来事で、本体が数える(夜明けに 0)。
     public var territory: Int?
+    /// 既定 15。
     public var territoryRadius: Int?
     /// 闇: 日没に焚き火が 1 つも燃えていないとき。夜のうちに火が消えたときも、この重みでもう一度だけ寄るかを振る。
     public var dark: Int?
     /// しきい値(序盤の設計 v0.4: 合計 6 以上の夜に寄る)。あれば確率で振らず、重みの合計がこれ以上の夜に必ず寄る
     /// (perNight と factModifiers は使わない。requiresFact・untilFact は効く)。一晩に 1 回まで。
     public var threshold: Int?
-    /// 縄張りを、置いた物の数でなく、このカウンタ(その日に巣のそばで伐った回数)で数える。
-    /// 夜明けに RFCombat が 0 に戻す。「巣から 15 マス以内」は伐採の行為の条件(内容の側)で書く。
-    /// 書けない間は nil のままにし、巣のそばの置いた物の数で近似する。
-    public var fellingCounter: CounterID?
 
     public init(smoke: Int? = nil, territory: Int? = nil, territoryRadius: Int? = nil, dark: Int? = nil,
-                threshold: Int? = nil, fellingCounter: CounterID? = nil) {
-        self.fellingCounter = fellingCounter
+                threshold: Int? = nil) {
         self.threshold = threshold
         self.smoke = smoke
         self.territory = territory

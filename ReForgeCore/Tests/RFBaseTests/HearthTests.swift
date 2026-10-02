@@ -264,7 +264,7 @@ final class HearthTests: XCTestCase {
         rig.setFuel(id, hours: 0, lit: false)
         var ctx = StepContext(world: rig.world, content: rig.content)
         let here = PlaceSelector.point(at: WorldPoint(.surface, rig.center + GridPoint(1, 1)))
-        EffectApplier.apply([.hearth(at: here, op: .addFuel(item: "wood", quantity: 1)), .hearth(at: here, op: .ignite)],
+        EffectApplier.apply([.hearth(at: here, op: .addFuel(item: "wood", quantity: 1)), .hearth(at: here, op: .ignite())],
                             &ctx, cause: nil)
         XCTAssertTrue(ctx.warnings.isEmpty)
         rig.world = ctx.world
@@ -279,7 +279,7 @@ final class HearthTests: XCTestCase {
         let id = rig.campfire(rig.center)
         rig.setFuel(id, hours: 0, lit: false)
         var ctx = StepContext(world: rig.world, content: rig.content)
-        EffectApplier.apply([.hearth(at: .point(at: WorldPoint(.surface, rig.center)), op: .ignite)], &ctx, cause: nil)
+        EffectApplier.apply([.hearth(at: .point(at: WorldPoint(.surface, rig.center)), op: .ignite())], &ctx, cause: nil)
         rig.world = ctx.world
         XCTAssertEqual(rig.level(id), .flickering)
         XCTAssertEqual(Hearths.state(rig.world.placements.items[id]!, rig.content)!.fuel, 14_400_000)
@@ -353,5 +353,36 @@ final class HearthTests: XCTestCase {
         let withLight = Vision.visibleNow(rig.world, content: rig.content, layer: .surface).count
         rig.world.placements.items[id]?.status = .broken
         XCTAssertLessThan(Vision.visibleNow(rig.world, content: rig.content, layer: .surface).count, withLight)
+    }
+
+    /// 火起こしは成功率つき(決定的な乱数)。スキルがあれば率が上がる。失敗しても火は点かないだけ。
+    func testIgniteWithChance() throws {
+        var rig = try Rig()
+        let id = rig.campfire(rig.center)
+        func tries(_ chance: Int, skilled: Bool) -> Int {
+            var w = rig.world
+            if skilled { w.people[.noah]?.skills.insert("skill.test.fire") }
+            var lit = 0
+            for _ in 0..<200 {
+                var ctx = StepContext(world: w, content: rig.content)
+                var s = Hearths.state(ctx.world.placements.items[id]!, rig.content)!
+                s.fuel = 3_600_000
+                s.lit = false
+                Hearths.write(id, s, &ctx)
+                let cause = ctx.record(.chose, .none, actor: .noah)
+                EffectApplier.apply([.hearth(at: .point(at: WorldPoint(.surface, rig.center)),
+                                             op: .ignite(chancePermille: chance, skill: "skill.test.fire",
+                                                         skillChancePermille: 900))], &ctx, cause: cause)
+                if Hearths.state(ctx.world.placements.items[id]!, rig.content)!.lit { lit += 1 }
+                w = ctx.world
+            }
+            return lit
+        }
+        let plain = tries(500, skilled: false)
+        XCTAssertTrue((70...130).contains(plain), "5 割: \(plain)")
+        let skilled = tries(500, skilled: true)
+        XCTAssertGreaterThan(skilled, 160)
+        XCTAssertEqual(tries(500, skilled: false), plain, "同じ世界からなら同じ結果(決定的)")
+        XCTAssertEqual(tries(0, skilled: false), 0)
     }
 }
