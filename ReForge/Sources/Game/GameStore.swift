@@ -64,8 +64,11 @@ final class GameStore {
     /// 足元カードが注目しているマス(nil ならノアの足元)。
     private(set) var selected: GridPoint?
     private(set) var footCard: FootCard?
-    /// 遠い行為で、歩き終えたときに一度だけ送るもの。
-    private var approachingAction: FootCard.Action?
+    /// 足元カードのいまのページ(行為が 4 つ以上のとき。選びが変わると 0 に戻る)。
+    private(set) var footCardPage = 0
+    /// 操作棒を出してよいか・歩ける範囲(本体が Frame で渡す)。
+    private(set) var canSteer = false
+    private(set) var walkable: [WalkSpan] = []
     /// 操作棒が通れない場所に当たった合図。
     private(set) var lastSteerBlocked = false
     /// 長押しで調べたマス(ふきだし)。
@@ -191,6 +194,7 @@ final class GameStore {
 
     /// マスを選び、足元カードをその場所へ替える。選んだだけでは歩かない。
     func select(_ cell: GridPoint) {
+        if selected != cell { footCardPage = 0 }
         selected = cell
         inspection = nil
         if let kind = placing {
@@ -213,11 +217,18 @@ final class GameStore {
     }
 
     /// ノアの足元へ選びを戻す。
-    func clearSelection() { selected = nil; inspection = nil; Task { await refreshCard() } }
+    func clearSelection() { selected = nil; footCardPage = 0; inspection = nil; Task { await refreshCard() } }
 
     /// マスを長押し: 調べる(ふきだし)。
     func inspect(_ cell: GridPoint) {
         select(cell)
+    }
+
+    /// 足元カードの次のページへ(最後の次は最初に戻る)。
+    func nextFootCardPage() {
+        guard let card = footCard, card.pageCount > 1 else { return }
+        footCardPage = (card.page + 1) % card.pageCount
+        Task { await refreshCard() }
     }
 
     func dismissInspection() { inspection = nil }
@@ -254,11 +265,6 @@ final class GameStore {
 
     /// 足元カードの行為。押し続ける行為は押し始め(pressing = true)と離した時(false)の 2 回。
     func act(_ a: FootCard.Action, pressing: Bool) {
-        if footCard?.state == .far, pressing {
-            approachingAction = a
-            walkToSelection()
-            return
-        }
         if a.hold {
             send(pressing ? a.start : a.end)
         } else if pressing {
@@ -325,6 +331,8 @@ final class GameStore {
         if battles != f.battles { battles = f.battles }
         if defaultStance != f.defaultStance { defaultStance = f.defaultStance }
         if dayWrap != f.dayWrap { dayWrap = f.dayWrap }
+        if canSteer != f.canSteer { canSteer = f.canSteer }
+        if walkable != f.walkable { walkable = f.walkable }
         // その日が終わる(日没・夜明け)と再開の 1 行は消える
         if resumeBanner != nil, f.clock.phase != .day || f.clock.day != lastDay { resumeBanner = nil }
         lastDay = f.clock.day
@@ -337,10 +345,6 @@ final class GameStore {
             }
         }
         await refreshCard()
-        if let action = approachingAction, footCard?.state == .normal {
-            approachingAction = nil
-            act(action, pressing: true)
-        }
         // 序が終わったことは、地図の区画と足元カードを引き終えてから見せる(序の画面が消えた時に、地図と足元カードがそろっている)
         if prologue != f.prologue { prologue = f.prologue }
         if darkStart != f.darkStart { darkStart = f.darkStart }
@@ -363,7 +367,7 @@ final class GameStore {
             footCard = nil
             return
         }
-        let card = await host.footCard(at: t)
+        let card = await host.footCard(at: t, page: footCardPage)
         if card != footCard { footCard = card }
     }
 

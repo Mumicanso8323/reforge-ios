@@ -80,7 +80,7 @@ final class PrologueTests: XCTestCase {
         XCTAssertNil(frame(rig, world).prologue)
         XCTAssertTrue(world.clock.held)
         XCTAssertEqual(world.clock.now, start)
-        XCTAssertEqual(try XCTUnwrap(FrameBuilder(content: rig.content).footCard(world, at: world.map.spawn.point)).actions.count, 1)
+        XCTAssertEqual(try XCTUnwrap(FrameBuilder(content: rig.content).footCard(world, at: world.map.spawn.point)).actions.first?.id, "interaction.test.prologue")
         XCTAssertEqual(frame(rig, world).darkStart?.action.id, "interaction.test.prologue")
     }
 

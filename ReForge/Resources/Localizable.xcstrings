@@ -131,16 +131,6 @@
         }
       }
     },
-    "ここへ歩く": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ここへ歩く"
-          }
-        }
-      }
-    },
     "ここまで": {
       "localizations": {
         "ja": {

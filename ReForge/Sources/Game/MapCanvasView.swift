@@ -182,12 +182,12 @@ struct MapCanvasView: View {
             if MapTouchSettings.defaults.bool(forKey: MapTouchSettings.stickPlacementKey) {
                 HStack(spacing: 10) {
                     recenterButton
-                    StickControl(store: store, layout: layout)
+                    if store.canSteer { StickControl(store: store, layout: layout) }
                 }
             } else {
                 VStack(spacing: 10) {
                     recenterButton
-                    StickControl(store: store, layout: layout)
+                    if store.canSteer { StickControl(store: store, layout: layout) }
                 }
             }
         }

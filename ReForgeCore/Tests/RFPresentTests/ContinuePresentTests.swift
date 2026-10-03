@@ -34,7 +34,7 @@ final class ContinuePresentTests: XCTestCase {
         content.interactions["interaction.pick_sticks"]?.continues = true
         let b = FrameBuilder(content: content)
         var w = r.factory.newWorld(seed: 1)
-        let cell = w.map.spawn.point + GridPoint(2, 0)
+        let cell = w.map.spawn.point + GridPoint(1, 0)
         w.map[.surface]?.setTerrain("forest", at: cell)
         know(&w, [cell])
         let card = try XCTUnwrap(b.footCard(w, at: cell))
@@ -64,7 +64,7 @@ final class ContinuePresentTests: XCTestCase {
         let r = try rig()
         let b = FrameBuilder(content: r.content)
         var w = r.factory.newWorld(seed: 1)
-        let cell = w.map.spawn.point + GridPoint(2, 0)
+        let cell = w.map.spawn.point + GridPoint(1, 0)
         w.map[.surface]?.setTerrain("forest", at: cell)
         know(&w, [cell])
         let a = try XCTUnwrap(b.footCard(w, at: cell)?.actions.first { $0.id == "interaction.pick_sticks" })

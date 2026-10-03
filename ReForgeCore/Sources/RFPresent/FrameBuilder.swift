@@ -98,8 +98,19 @@ public struct FrameBuilder: Sendable {
             frame.dayWrap = nil
         } else {
             frame.darkStart = darkStart(w)
+            if frame.darkStart == nil { applySteering(&frame, w) }
         }
         return frame
+    }
+
+    /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではない)と、歩ける範囲を Frame に書く。
+    func applySteering(_ frame: inout Frame, _ w: WorldState) {
+        guard w.run.isActive, !w.clock.held, !w.clock.sleeping,
+              let noah = w.people[.noah], noah.presence.isAlive, let pos = noah.position, pos.layer == layer else { return }
+        if case .fighting(let battle) = noah.activity, w.combat.battles[battle] != nil { return }
+        frame.canSteer = true
+        frame.walkable = WalkRange.rowSpans(WalkRange.circles(w, content: content, layer: layer))
+            .map { WalkSpan(y: $0.y, minX: $0.minX, maxX: $0.maxX) }
     }
 
     /// 地図の題の主題(INV-O12)。
@@ -287,7 +298,7 @@ public struct FrameBuilder: Sendable {
 
     /// 足元カード: 注目しているマスの名前と、いまできる行為(1〜3 個)。
     /// 行為はコンテンツの InteractionDef(対象・昼夜・条件)から引く。距離・回数の上限は探索の担当が断る(理由は足元カードに 1 行)。
-    public func footCard(_ w: WorldState, at pt: GridPoint) -> FootCard? {
+    public func footCard(_ w: WorldState, at pt: GridPoint, page: Int = 0) -> FootCard? {
         if prologue(w, Perceiver(content: content, world: w)) != nil {
             return FootCard(point: pt, title: "", actions: [])
         }
@@ -306,7 +317,6 @@ public struct FrameBuilder: Sendable {
         let placed = w.placements.sortedIDs.compactMap { w.placements.items[$0] }.filter { pl in
             pl.at.layer == layer && (pl.at.point == pt || pl.footprint.contains { GridPoint(pl.at.point.x + $0.x, pl.at.point.y + $0.y) == pt })
         }
-        let tags = Set(content.terrains[terrain]?.tags ?? [])
         var title = p.name(Subject.terrain(terrain))
         if let d = deposit { title = p.name(PresentSubject.deposit(d.deposit)) }
         if let poi { title = p.name(Subject.poi(poi.poi.kind)) }
@@ -318,7 +328,73 @@ public struct FrameBuilder: Sendable {
         }
         let at = WorldPoint(layer, pt)
         let ui = unlocks(w)
-        let actions = content.interactions.keys.sorted().compactMap { id -> FootCard.Action? in
+        // 足元カードの行為は、手の届く所(ノアのマスと隣の 8 マス)のものだけ。歩かずにその場でできる物だけを出す(DEC-F2 v0.2)。
+        let noahPoint = w.people[.noah]?.position.flatMap { $0.layer == layer ? $0.point : nil }
+        let reachable = noahPoint.map { $0.chebyshev(to: pt) <= Reach.tiles } ?? false
+        var actions: [FootCard.Action] = []
+        if let noahPoint, reachable {
+            if pt == noahPoint {
+                var neighbours: [GridPoint] = []
+                for dy in -Reach.tiles...Reach.tiles {
+                    for dx in -Reach.tiles...Reach.tiles where dx != 0 || dy != 0 {
+                        let q = GridPoint(pt.x + dx, pt.y + dy)
+                        if proj.size.contains(q) { neighbours.append(q) }
+                    }
+                }
+                let own = tileActions(w, p, proj, ui: ui, at: pt)
+                let around = neighbours.flatMap { tileActions(w, p, proj, ui: ui, at: $0) }
+                    .sorted { ($0.id, $0.target.x, $0.target.y) < ($1.id, $1.target.x, $1.target.y) }
+                actions = own + around
+            } else {
+                actions = tileActions(w, p, proj, ui: ui, at: pt)
+            }
+        }
+        let pageCount = max(1, (actions.count + FootCard.maxActions - 1) / FootCard.maxActions)
+        let pageIndex = max(0, min(page, pageCount - 1))
+        let slice = Array(actions.dropFirst(pageIndex * FootCard.maxActions).prefix(FootCard.maxActions))
+        var card = FootCard(point: pt, title: title, actions: slice)
+        card.page = pageIndex
+        card.pageCount = pageCount
+        let busy = w.exploration.active.values.contains { $0.at == at } || placed.contains {
+            if case .underConstruction = $0.status { return true }
+            return false
+        }
+        if busy {
+            card.state = .busy
+            card.hint = p.text("ui.foot.hint.busy")
+        } else if !reachable {
+            // 遠いマス: ボタンは出さない(名前と理由の 1 行だけ。歩くのは操作棒)
+            card.state = .far
+            card.hint = p.text("ui.foot.hint.far")
+        } else if card.actions.isEmpty {
+            card.state = .empty
+            card.hint = p.text("ui.foot.hint.empty")
+        }
+        card.nothingNearby = w.exploration.continueStop != nil
+        card.fire = placed.lazy.compactMap { fireView($0, w) }.first
+        if let poi {
+            // 残骸から開く資料(段のある資料のうち、この種類の POI に付いていて、いま記録に載るもの)
+            card.documents = content.documents.keys.sorted().compactMap { id in
+                guard let d = content.documents[id], d.stages?.poiKind == poi.poi.kind,
+                      ConditionEvaluator.evaluatePure(d.when, world: w, content: content) == true else { return nil }
+                return FootCard.DocumentLink(id: id, title: p.text(d.title))
+            }
+        }
+        return card
+    }
+
+    /// 1 マスにあるいまできる行為(対象・昼夜・条件で絞る。ID の順)。届くかは呼ぶ側が決める。
+    func tileActions(_ w: WorldState, _ p: Perceiver, _ proj: MapProjector, ui: UIUnlocks, at pt: GridPoint) -> [FootCard.Action] {
+        guard let l = proj.layer, proj.size.contains(pt), let terrain = l.terrain(at: pt),
+              proj.isKnown(pt) || vision.areas(w, layer: layer).contains(where: { $0.contains(pt) }) else { return [] }
+        let poi = proj.poiAt[pt]
+        let deposit = proj.depositAt[pt]
+        let placed = w.placements.sortedIDs.compactMap { w.placements.items[$0] }.filter { pl in
+            pl.at.layer == layer && (pl.at.point == pt || pl.footprint.contains { GridPoint(pl.at.point.x + $0.x, pl.at.point.y + $0.y) == pt })
+        }
+        let tags = Set(content.terrains[terrain]?.tags ?? [])
+        let at = WorldPoint(layer, pt)
+        return content.interactions.keys.sorted().compactMap { id -> FootCard.Action? in
             guard let def = content.interactions[id] else { return nil }
             let applies: Bool = switch def.target {
             case .terrain(let tag): tags.contains(tag)
@@ -334,32 +410,6 @@ public struct FrameBuilder: Sendable {
                                    hold: def.hold || def.continues == true, at: at,
                                    progressPermille: progress(of: def, w))
         }
-        var card = FootCard(point: pt, title: title, actions: Array(actions.prefix(FootCard.maxActions)))
-        let busy = w.exploration.active.values.contains { $0.at == at } || placed.contains {
-            if case .underConstruction = $0.status { return true }
-            return false
-        }
-        if busy {
-            card.state = .busy
-            card.hint = p.text("ui.foot.hint.busy")
-        } else if card.actions.isEmpty {
-            card.state = .empty
-            card.hint = p.text("ui.foot.hint.empty")
-        } else if let noah = w.people[.noah]?.position, noah.layer != layer || noah.point.chebyshev(to: pt) > 1 {
-            card.state = .far
-            card.hint = p.text("ui.foot.hint.far")
-        }
-        card.nothingNearby = w.exploration.continueStop != nil
-        card.fire = placed.lazy.compactMap { fireView($0, w) }.first
-        if let poi {
-            // 残骸から開く資料(段のある資料のうち、この種類の POI に付いていて、いま記録に載るもの)
-            card.documents = content.documents.keys.sorted().compactMap { id in
-                guard let d = content.documents[id], d.stages?.poiKind == poi.poi.kind,
-                      ConditionEvaluator.evaluatePure(d.when, world: w, content: content) == true else { return nil }
-                return FootCard.DocumentLink(id: id, title: p.text(d.title))
-            }
-        }
-        return card
     }
 
     /// ノアのいまの 1 単位の進み(千分率)。この行為を押している間だけ。

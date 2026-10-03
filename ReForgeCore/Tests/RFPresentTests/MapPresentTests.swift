@@ -283,6 +283,7 @@ final class MapPresentTests: XCTestCase {
                                                   appearanceVariant: 0,
                                                   composition: [DepositComponent(.fe2o3, Purity(percent: 31))],
                                                   extractions: 7))
+        w.people[.noah]?.position = WorldPoint(.surface, GridPoint(vein.x - 1, vein.y))
         let card = try XCTUnwrap(b.footCard(w, at: vein))
         XCTAssertEqual(card.title, "試験の岩脈")
         XCTAssertEqual(card.actions.map(\.label), ["掘る", "拾う"], "昼だけ・条件の成り立たない行為は出さない")
@@ -297,6 +298,7 @@ final class MapPresentTests: XCTestCase {
         ctx.learn("fact.test.alpha")
         w = ctx.world
         w.clock.phase = .nightWork
+        w.people[.noah]?.position = WorldPoint(.surface, GridPoint(16, 17))
         let night = try XCTUnwrap(b.footCard(w, at: GridPoint(16, 17)))
         XCTAssertEqual(night.actions.map(\.id.rawValue),
                        ["interaction.test.present.gated", "interaction.test.present.night", "interaction.test.present.pick"])
@@ -317,7 +319,7 @@ final class MapPresentTests: XCTestCase {
         let distant = try XCTUnwrap(b.footCard(w, at: far))
         XCTAssertEqual(distant.state, .far)
         XCTAssertEqual(distant.hint, "遠い — 近づくとできる")
-        XCTAssertFalse(distant.actions.isEmpty)
+        XCTAssertTrue(distant.actions.isEmpty, "遠いマスにはボタンを出さない")
 
         let unseen = try XCTUnwrap(b.footCard(w, at: GridPoint(1, 1)))
         XCTAssertEqual(unseen.state, .unseen)
@@ -336,6 +338,58 @@ final class MapPresentTests: XCTestCase {
         let busy = try XCTUnwrap(b.footCard(w, at: start))
         XCTAssertEqual(busy.state, .busy)
         XCTAssertEqual(busy.hint, "作業が終わるのを待つ")
+    }
+
+    func testFootCardOnlyListsActionsWithinReachInFixedOrder() throws {
+        let b = FrameBuilder(content: try contentWithInteractions())
+        var w = world()
+        let start = w.map.spawn.point
+        w.people[.noah]?.position = WorldPoint(.surface, start)
+        var targets: [GridPoint] = []
+        var page = 0
+        var pageCount = 1
+        repeat {
+            let card = try XCTUnwrap(b.footCard(w, at: start, page: page))
+            pageCount = card.pageCount
+            XCTAssertEqual(card.page, page)
+            XCTAssertLessThanOrEqual(card.actions.count, FootCard.maxActions)
+            targets += card.actions.map(\.target)
+            page += 1
+        } while page < pageCount
+        XCTAssertEqual(targets.first, start, "ノアのマスが先")
+        XCTAssertTrue(targets.allSatisfy { $0.chebyshev(to: start) <= 1 }, "手の届く所だけ")
+        XCTAssertGreaterThan(pageCount, 1, "4 つ目からは次のページ")
+        let neighbours = Array(targets.dropFirst())
+        let sorted = neighbours.sorted { ($0.x, $0.y) < ($1.x, $1.y) }
+        XCTAssertEqual(neighbours, sorted, "同じ行為の中ではマスの座標の順")
+        for far in [GridPoint(start.x + 2, start.y), GridPoint(start.x, start.y - 5)] {
+            know(&w, [far])
+            let card = try XCTUnwrap(b.footCard(w, at: far))
+            XCTAssertTrue(card.actions.isEmpty)
+            XCTAssertEqual(card.state, .far)
+            XCTAssertNotNil(card.hint)
+        }
+    }
+
+    func testFrameCarriesWalkableRangeAndSteerGate() throws {
+        var w = world()
+        let noah = try XCTUnwrap(w.people[.noah]?.position?.point)
+        w.clock.held = false
+        let day = builder.build(w, revision: 1, previous: nil, report: nil)
+        XCTAssertTrue(day.canSteer)
+        let row = try XCTUnwrap(day.walkable.first { $0.y == noah.y })
+        XCTAssertEqual(row.minX, noah.x - 8)
+        XCTAssertEqual(row.maxX, noah.x + 8)
+        w.clock.sleeping = true
+        XCTAssertFalse(builder.build(w, revision: 2, previous: day, report: nil).canSteer, "眠っている間は出さない")
+        w.clock.sleeping = false
+        w.clock.held = true
+        XCTAssertFalse(builder.build(w, revision: 3, previous: day, report: nil).canSteer, "地図が灯る前は出さない")
+        w.clock.held = false
+        w.clock.phase = .nightWork
+        let night = builder.build(w, revision: 4, previous: day, report: nil)
+        XCTAssertTrue(night.canSteer, "夜は灯りの中を歩ける")
+        XCTAssertLessThan(night.walkable.map { $0.maxX - $0.minX }.max() ?? 0, 16, "夜は昼より狭い")
     }
 
     // MARK: - 上の帯

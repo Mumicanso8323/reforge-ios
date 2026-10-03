@@ -48,6 +48,9 @@ public struct CrewSystem: SimSystem {
         guard to.layer == pos.layer, let layer = ctx.world.map[to.layer], layer.size.contains(to.point) else {
             return .rejected(Rejection("reason.walk.unreachable"))
         }
+        guard WalkRange.contains(to.point, layer: to.layer, ctx.world, content: ctx.content) else {
+            return .rejected(Rejection("reason.crew.out_of_range"))
+        }
         ctx.world.people[.noah]?.steer = nil
         ctx.world.people[.noah]?.steerBlocked = nil
         var planner = PathPlanner(world: ctx.world, content: ctx.content, workspace: PathWorkspace())
@@ -240,8 +243,16 @@ public struct CrewSystem: SimSystem {
         let start = person.motion?.path.last ?? position.point
         let direct = start + direction.offset
         let known = planner.known(.noah, position.layer)
+        let world = ctx.world
+        let content = ctx.content
+        var outside = false
         func passable(_ point: GridPoint) -> Bool {
-            planner.passableBelief(point, position.layer, known: known)
+            guard planner.passableBelief(point, position.layer, known: known) else { return false }
+            guard WalkRange.contains(point, layer: position.layer, world, content: content) else {
+                outside = true
+                return false
+            }
+            return true
         }
         var next: GridPoint?
         if passable(direct) {
@@ -258,7 +269,7 @@ public struct CrewSystem: SimSystem {
             person.activity = .idle
             if person.steerBlocked != direction {
                 person.steerBlocked = direction
-                ctx.emit(.steerBlocked(direction: direction))
+                ctx.emit(.steerBlocked(direction: direction, reason: outside ? .edge : .terrain))
             }
             ctx.world.people[.noah] = person
             ctx.changes.mark(.people)

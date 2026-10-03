@@ -74,4 +74,25 @@ final class SteerTests: XCTestCase {
         _ = rig.simulation.apply(.crew(.walk(to: destination)), to: &world)
         XCTAssertNil(world.people[.noah]?.steer)
     }
+
+    func testWalkOutsideRangeIsRejected() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        let far = WorldPoint(.surface, point(world, 12, 0))
+        let report = rig.simulation.apply(.crew(.walk(to: far)), to: &world)
+        XCTAssertEqual(report.rejection?.reason, "reason.crew.out_of_range")
+        let near = WorldPoint(.surface, point(world, 3, 0))
+        XCTAssertNil(rig.simulation.apply(.crew(.walk(to: near)), to: &world).rejection)
+    }
+
+    func testNightRangeIsNarrowerThanDay() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        world.clock.phase = .nightWork
+        world.placements.items.removeAll()
+        let outside = WorldPoint(.surface, point(world, 7, 0))
+        XCTAssertEqual(rig.simulation.apply(.crew(.walk(to: outside)), to: &world).rejection?.reason, "reason.crew.out_of_range")
+        let inside = WorldPoint(.surface, point(world, 4, 0))
+        XCTAssertNil(rig.simulation.apply(.crew(.walk(to: inside)), to: &world).rejection)
+    }
 }

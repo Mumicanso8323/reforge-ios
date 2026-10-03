@@ -40,13 +40,15 @@ struct FootCardView: View {
                     FireOutlookLine(fire: fire)
                 }
                 HStack(spacing: 8) {
-                    if store.selected != nil {
-                        Button { store.walkToSelection() } label: { Text("ここへ歩く") }
-                            .buttonStyle(.ink(.primary, fill: false))
-                            .accessibilityIdentifier("walkToSelection")
-                    }
                     ForEach(store.footCard?.actions ?? [], id: \.id) { a in
                         ActionButton(action: a, store: store)
+                    }
+                    if let card = store.footCard, card.pageCount > 1 {
+                        Button { store.nextFootCardPage() } label: {
+                            Text(verbatim: "\(card.page + 1)/\(card.pageCount)  ▸").frame(minHeight: InkMetric.buttonHeight)
+                        }
+                        .buttonStyle(.ink(.quiet, fill: false))
+                        .accessibilityIdentifier("footCardNextPage")
                     }
                     // 残骸から開く資料(段階つきの資料など。U18)
                     ForEach(store.footCard?.documents ?? [], id: \.id) { d in

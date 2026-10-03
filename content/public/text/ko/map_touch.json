@@ -4,6 +4,7 @@
     "ui.foot.hint.empty": "지금 여기서 할 수 있는 일이 없습니다",
     "ui.foot.hint.unseen": "가까이 가면 볼 수 있습니다",
     "ui.foot.hint.far": "너무 멉니다 — 가까이 가면 할 수 있습니다",
-    "ui.foot.hint.busy": "작업이 끝날 때까지 기다리세요"
+    "ui.foot.hint.busy": "작업이 끝날 때까지 기다리세요",
+    "reason.crew.out_of_range": "여기서는 걸어서 닿지 않는다"
   }
 }

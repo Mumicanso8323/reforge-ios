@@ -6,6 +6,12 @@ import RFMatter
 /// - 文章は持たない。ID と来歴だけ。
 /// - record: この出来事に対応する来歴(あれば)。物語の効果はこれを inputs にして「何が引き金だったか」を残す。
 /// - hook: コンテンツの EventDef.trigger.on に書く名前("crafted" など)。case を足したら hook も足す。
+/// 操作棒が止められた理由。terrain は通れないマス、edge は歩ける範囲の縁。
+public enum SteerBlockReason: String, Codable, Equatable, Sendable {
+    case terrain
+    case edge
+}
+
 public enum DomainEvent: Codable, Equatable, Sendable {
     // 時間
     case phaseChanged(to: DayPhase, day: Int)
@@ -31,7 +37,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case arrived(person: PersonID, at: WorldPoint)
     case walked(person: PersonID, tiles: Int, staminaCost: Int)
     /// 操作棒の向きで、次のマスへ進めなかった。
-    case steerBlocked(direction: StickDirection)
+    case steerBlocked(direction: StickDirection, reason: SteerBlockReason)
     case entered(person: PersonID, poi: EntityID)
     case interacted(person: PersonID, interaction: InteractionID, at: WorldPoint, record: ProvenanceID)
     case itemGained(holder: HolderID, stuff: Stuff, quantity: Int, record: ProvenanceID?)

@@ -62,6 +62,10 @@ public struct Frame: Equatable, Sendable {
     public var defaultStance: BattleState.Stance = .keepDistance
     /// 夜の締めの 3 行(PT-B2)。日没(夜作業か寝るかを選ぶ帯が出ている間)だけ入る。
     public var dayWrap: DayWrapView?
+    /// ノアが自分で歩ける範囲(行ごとの横の範囲。視界の rowSpans と同じ形)。画面は縁を細い線で描く。
+    public var walkable: [WalkSpan] = []
+    /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではないとき)。画面は自分で判断しない。
+    public var canSteer: Bool = false
 
     public init(revision: Int, clock: ClockView, status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,
@@ -99,6 +103,19 @@ public struct PrologueView: Equatable, Sendable {
 }
 
 /// 最初の行為まで、地図を開かずに出す 1 つの操作。
+/// 歩ける範囲の 1 行(y 行の minX...maxX)。
+public struct WalkSpan: Equatable, Sendable {
+    public var y: Int
+    public var minX: Int
+    public var maxX: Int
+
+    public init(y: Int, minX: Int, maxX: Int) {
+        self.y = y
+        self.minX = minX
+        self.maxX = maxX
+    }
+}
+
 public struct DarkStartView: Equatable, Sendable {
     public var action: FootCard.Action
 
@@ -570,6 +587,8 @@ public struct FootCard: Equatable, Sendable {
         /// 押し続ける行為(押している間 holding)。
         public var hold: Bool
         public var at: WorldPoint
+        /// 行為の対象のマス(ノアのマスか、手の届く隣のマス)。
+        public var target: GridPoint
         /// いまの 1 単位の進み(0...1000)。押していないときは nil(PT-B3 のバーもこれを読む)。
         public var progressPermille: Int?
 
@@ -578,6 +597,7 @@ public struct FootCard: Equatable, Sendable {
             self.label = label
             self.hold = hold
             self.at = at
+            self.target = at.point
             self.progressPermille = progressPermille
         }
 
@@ -594,6 +614,9 @@ public struct FootCard: Equatable, Sendable {
     public var actions: [Action]
     /// 画面がそのまま見せる状態。画面側で距離や作業中を推測しない。
     public var state: FootCardState = .normal
+    /// いまのページ(0 から)と全ページ数。行為は 1 ページに最大 maxActions 個(4 つ目からは次のページ)。
+    public var page: Int = 0
+    public var pageCount: Int = 1
     /// 押せる物がない理由、または次にすることを示す短い一行。
     public var hint: String?
     /// このマスの残骸から開ける資料(段階つきの資料など。行為の数には数えない。U18)。
