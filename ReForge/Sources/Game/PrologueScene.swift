@@ -20,7 +20,7 @@ enum PrologueStyle: String, CaseIterable {
 /// exiting が true のときは、送りを受けず、終わりの移り(文字 0.6 秒で消え → 黒 0.3 秒 → 覆いが 0.8 秒で消える)を演じて
 /// onExitDone を呼ぶ。「動きを減らす」の入では 0.3 秒のフェードだけ。
 struct PrologueScene: View {
-    let kind: PrologueView.Kind = .prologue
+    var kind: PrologueView.Kind = .prologue
     let lines: [String]
     var speakers: [String?] = []
     var style: PrologueStyle = .current
