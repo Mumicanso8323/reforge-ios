@@ -8,6 +8,7 @@ struct GameScreen: View {
     let store: GameStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var mapVisible = false
+    @State private var mapBandHeight: CGFloat = 0
 #if DEBUG
     // 撮る起動(Debug/ScreenshotMode.swift)は、最初のタブを外から決める(設定は AppModel.settingsOpen)
     @State private var tab: GameTab = ScreenshotMode.firstTab
@@ -48,7 +49,7 @@ struct GameScreen: View {
             ZStack {
                 // 地図は他のタブの間も残す(視点を保つ。時計も止めない)
                 if app.activePrologue == nil {
-                    MapCanvasView(store: store)
+                    MapCanvasView(store: store, bandHeight: mapBandHeight)
                         .opacity(tab == .map ? 1 : 0)
                         .allowsHitTesting(tab == .map)
                         // 最初の行為(PT-B8)の後、地図がノアのまわりから灯る
@@ -77,6 +78,11 @@ struct GameScreen: View {
             .overlay(alignment: .bottom) {
                 if tab == .map, app.activePrologue == nil {
                     MapActionBand(store: store)
+                        .background {
+                            GeometryReader { geo in
+                                Color.clear.preference(key: MapBandHeightKey.self, value: geo.size.height)
+                            }
+                        }
                 }
             }
             if tab == .map, app.activePrologue == nil {
@@ -88,6 +94,7 @@ struct GameScreen: View {
         }
         // 設計かノートを開いている間は、開発の設定が入のとき時計を止める(PT-B2。切なら何も変わらない)
         .onChange(of: tab, initial: true) { _, t in store.benchOpen = (t == .design || t == .notes) }
+        .onPreferenceChange(MapBandHeightKey.self) { mapBandHeight = $0 }
     }
 }
 

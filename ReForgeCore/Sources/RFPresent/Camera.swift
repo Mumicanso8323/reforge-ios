@@ -35,12 +35,12 @@ public struct ScreenSize: Equatable, Sendable {
 
 /// 地図の視点(order.md §5.5 の操作)。画面側の状態で、本体の世界状態には入れない。
 ///
-/// - 拡大・縮小はピンチで 3 段にスナップ(既定は 24 / 32 / 44pt)。中間の倍率は使わない。
+/// - 拡大・縮小はピンチで 3 段にスナップ(既定は 44pt)。中間の倍率は使わない。
 /// - 1 本指のドラッグで見回すと追従が外れる(画面は右下に「◎」を出し、押すとノアに戻る)。
 /// - 追従している間は、補間したノアの位置を中心にする。
 public struct MapCamera: Equatable, Sendable {
     public static let cellSizes: [Double] = [24, 32, 44]
-    public static let defaultZoom = 1
+    public static let defaultZoom = 2
 
     public var zoom: Int
     /// 画面側が選ぶ三段の拡大率。世界や保存には入れない。

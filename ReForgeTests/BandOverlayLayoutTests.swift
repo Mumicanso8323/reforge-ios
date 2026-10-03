@@ -19,4 +19,11 @@ final class BandOverlayLayoutTests: XCTestCase {
         XCTAssertEqual(f.height, 100)
         XCTAssertEqual(BandOverlayLayout.bandFrame(container: container, band: 900).height, container.height)
     }
+
+    func testControlLiftMatchesTheBandAndNeverUsesMoreThanHalfTheMap() {
+        XCTAssertEqual(BandOverlayLayout.controlLift(band: 0), 0)
+        XCTAssertEqual(BandOverlayLayout.controlLift(band: 100), 100)
+        XCTAssertEqual(BandOverlayLayout.controlLift(band: 100, mapHeight: container.height), 100)
+        XCTAssertEqual(BandOverlayLayout.controlLift(band: 900, mapHeight: container.height), container.height / 2)
+    }
 }

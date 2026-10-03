@@ -181,7 +181,7 @@ public struct FrameBuilder: Sendable {
             if !member, !map.isVisible(pos.point) { return nil }
             let isNoah = id == .noah
             let next = ps.motion?.path.first ?? pos.point
-            return ActorSprite(id: id.rawValue, glyph: member ? TilePalette.noahGlyph : p.glyph(Subject.person(id)),
+            return ActorSprite(id: id.rawValue, glyph: isNoah ? TilePalette.noahGlyph : (member ? TilePalette.memberGlyph : p.glyph(Subject.person(id))),
                                from: pos.point, to: next, progress: ps.motion?.progress ?? 0, facing: ps.facing,
                                label: p.name(Subject.person(id)), isNoah: isNoah, isMember: member,
                                tint: isNoah ? TilePalette.noah : (member ? TilePalette.member : TilePalette.stranger))

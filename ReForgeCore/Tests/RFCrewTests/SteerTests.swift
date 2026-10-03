@@ -95,4 +95,30 @@ final class SteerTests: XCTestCase {
         let inside = WorldPoint(.surface, point(world, 4, 0))
         XCTAssertNil(rig.simulation.apply(.crew(.walk(to: inside)), to: &world).rejection)
     }
+
+    func testSteerStopsAtTheLightEdgeButUsesNightVisionWithoutALight() throws {
+        let rig = try TestRig.publicOnly()
+        var lit = rig.factory.newWorld(seed: 1)
+        let start = lit.people[.noah]!.position!.point
+        lit.clock.phase = .nightWork
+        let hearth = lit.newEntityID()
+        var placement = Placement(id: hearth, kind: .structure("structure.campfire"), at: WorldPoint(.surface, start),
+                                  facing: .north, origin: ProvenanceLedger.unknownOrigin, status: .running)
+        var runtime = StructureRuntime()
+        runtime.hearth = HearthState(fuel: 60_000, lit: true)
+        placement.structure = runtime
+        lit.placements.items[hearth] = placement
+        _ = command(rig, &lit, .east)
+        let litReport = rig.simulation.runSteps(12, &lit)
+        XCTAssertTrue(litReport.events.contains(.steerBlocked(direction: .east, reason: .edge)))
+        XCTAssertLessThanOrEqual(lit.people[.noah]!.position!.point.chebyshev(to: start), 4)
+
+        var dark = rig.factory.newWorld(seed: 1)
+        dark.clock.phase = .nightWork
+        dark.placements.items.removeAll()
+        _ = command(rig, &dark, .east)
+        _ = rig.simulation.runSteps(12, &dark)
+        XCTAssertLessThanOrEqual(dark.people[.noah]!.position!.point.chebyshev(to: start), 5)
+        XCTAssertGreaterThan(dark.people[.noah]!.position!.point.chebyshev(to: start), lit.people[.noah]!.position!.point.chebyshev(to: start))
+    }
 }

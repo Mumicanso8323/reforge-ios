@@ -4,19 +4,21 @@ import ReForgeEngine
 /// 主画面の地図(order.md §5.5)。
 ///
 /// | 操作 | 指 | 結果 |
-/// | 歩く | マスをタップ | 経路を点線で描き、すぐ歩き出す(確認なし)。歩いている間の別のタップで行き先が変わる |
+/// | 歩く | 同じマスを 2 度タップ | 1 度目は選び、2 度目で経路を点線で描いて歩き出す |
 /// | 見回す | 1 本指のドラッグ | 視点だけ動く。追従が外れ、右下に「◎」(押すとノアに戻る) |
-/// | 拡大・縮小 | ピンチ | 3 段にスナップ(1 マス 18 / 24 / 32pt)。中間の倍率は使わない |
+/// | 拡大・縮小 | ピンチ | 3 段にスナップ(既定は 1 マス 44pt)。中間の倍率は使わない |
 /// | 調べる | 長押し | ふきだしで名前・鉱脈の見た目・残り回数・ノアの手ざわり |
 ///
 /// タップ・長押し・ドラッグは 1 つの DragGesture(最小距離 0)で見分ける(長押しは押している間に 0.5 秒で出す)。
 struct MapCanvasView: View {
     let store: GameStore
+    let bandHeight: CGFloat
     @State private var camera = MapCamera()
     @State private var touch: Touch?
     @State private var pinchStartZoom: Int?
     @State private var longPressTask: Task<Void, Never>?
     @State private var terrainCache = MapTerrainCache()
+    @State private var walkEdgeCache = WalkEdgeCache()
     @State private var autoReturnTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -35,13 +37,14 @@ struct MapCanvasView: View {
             // 地形は Frame または視点が変わったときだけ、動く層だけは歩いている間に補間する。
             let camera = liveCamera()
             let terrain = currentScene(camera: camera, elapsed: 0)
+            let controlLift = BandOverlayLayout.controlLift(band: bandHeight, mapHeight: geo.size.height)
             ZStack {
                 Canvas(opaque: true, rendersAsynchronously: false) { ctx, size in
                     terrain.drawTerrain(&ctx, size: size, cache: terrainCache)
                 }
                 TimelineView(.animation(minimumInterval: nil,
                                         paused: !store.actors.contains(where: \.isMoving)
-                                            && (reduceMotion || !store.placements.contains(where: \.seenInDark))) { _ in
+                                            && (reduceMotion || !store.placements.contains(where: \.seenInDark)))) { _ in
                     let moving = currentScene(camera: camera, elapsed: elapsed)
                     Canvas(opaque: false, rendersAsynchronously: false) { ctx, size in
                         moving.drawMoving(&ctx, size: size)
@@ -51,8 +54,8 @@ struct MapCanvasView: View {
             .contentShape(Rectangle())
             .gesture(drag(view))
             .simultaneousGesture(pinch)
-            .overlay(alignment: layout.mapControlAlignment(.left)) { zoomControls }
-            .overlay(alignment: layout.mapControlAlignment()) { mapControls }
+            .overlay(alignment: layout.mapControlAlignment(.left)) { zoomControls.padding(.bottom, controlLift) }
+            .overlay(alignment: layout.mapControlAlignment()) { mapControls.padding(.bottom, controlLift) }
             .overlay(alignment: .top) { bubbles }
             .overlay(alignment: .bottom) { placingBar }
             .overlay(alignment: .bottom) { forgePanel }
@@ -90,7 +93,8 @@ struct MapCanvasView: View {
         MapScene(camera: camera, map: store.mapView, chunks: store.chunks, actors: store.actors,
                  placements: store.placements, route: store.route, night: store.clock.isNight, elapsed: elapsed,
                  reduceMotion: reduceMotion, terrains: store.content.terrains, preview: store.preview, battles: store.battles.map(\.at),
-                 beacons: store.mapView.beacons, selected: store.selected)
+                 beacons: store.mapView.beacons, selected: store.selected,
+                 walkEdges: walkEdgeCache.segments(for: store.walkable))
     }
 
     private var layout: HUDLayout { .portrait(hand: MapTouchSettings.hand()) }
@@ -129,10 +133,6 @@ struct MapCanvasView: View {
                 }
                 let cell = liveCamera().cell(at: ScreenPoint(x: Double(v.location.x), y: Double(v.location.y)), in: view)
                 store.logPlay(kind: "select", fields: ["x": "\(cell.x)", "y": "\(cell.y)", "zone": "middle"])
-                if cell == store.focus {
-                    store.clearSelection()
-                    return
-                }
                 if MapTouchSettings.defaults.bool(forKey: MapTouchSettings.tapWalkKey) {
                     store.select(cell)
                     store.walkToSelection()
@@ -173,7 +173,7 @@ struct MapCanvasView: View {
                 store.clearSelection()
             } label: {
                 VStack(spacing: 0) {
-                    Text(verbatim: "@")
+                    Text(verbatim: TilePalette.noahGlyph)
                         .font(.custom(FontBook.mapFont, fixedSize: 22))
                     Text("戻る").font(InkFont.caption)
                 }
@@ -219,12 +219,14 @@ struct MapCanvasView: View {
 
     private var zoomControls: some View {
         VStack(spacing: 6) {
-            Button { camera.setZoom(camera.zoom + 1); store.logPlay(kind: "zoom", fields: ["level": "\(camera.zoom)", "source": "button", "zone": "bottom"]) } label: { Text(verbatim: "+") }
-                .buttonStyle(.ink(.secondary, fill: false))
-                .disabled(camera.zoom >= MapTouchSettings.zoomPlan().levels.count - 1)
-            Button { camera.setZoom(camera.zoom - 1); store.logPlay(kind: "zoom", fields: ["level": "\(camera.zoom)", "source": "button", "zone": "bottom"]) } label: { Text(verbatim: "−") }
-                .buttonStyle(.ink(.secondary, fill: false))
-                .disabled(camera.zoom <= 0)
+            if camera.zoom < MapTouchSettings.zoomPlan().levels.count - 1 {
+                Button { camera.setZoom(camera.zoom + 1); store.logPlay(kind: "zoom", fields: ["level": "\(camera.zoom)", "source": "button", "zone": "bottom"]) } label: { Text(verbatim: "+") }
+                    .buttonStyle(.ink(.secondary, fill: false))
+            }
+            if camera.zoom > 0 {
+                Button { camera.setZoom(camera.zoom - 1); store.logPlay(kind: "zoom", fields: ["level": "\(camera.zoom)", "source": "button", "zone": "bottom"]) } label: { Text(verbatim: "−") }
+                    .buttonStyle(.ink(.secondary, fill: false))
+            }
         }
         .frame(width: 44)
         .padding(12)
@@ -271,10 +273,11 @@ struct MapCanvasView: View {
                     Text("置く場所をタップ").font(InkFont.small).foregroundStyle(InkColor.textDim)
                 }
                 Spacer(minLength: 4)
-                Button { store.confirmPlacing() } label: { Text("ここに建てる") }
-                    .buttonStyle(.ink(.primary, fill: false))
-                    .disabled(store.preview?.placeable != true)
-                    .accessibilityIdentifier("placeConfirm")
+                if store.preview?.placeable == true {
+                    Button { store.confirmPlacing() } label: { Text("ここに建てる") }
+                        .buttonStyle(.ink(.primary, fill: false))
+                        .accessibilityIdentifier("placeConfirm")
+                }
                 Button { store.cancelPlacing() } label: { Text("やめる") }
                     .buttonStyle(.ink(.quiet, fill: false))
             }
