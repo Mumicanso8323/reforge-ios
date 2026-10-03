@@ -207,6 +207,9 @@ final class ScreenSnapshotTests: XCTestCase {
         } else {
             XCTFail("\(language)_decisionBand: 帯のない地図の枠が測れていない")
         }
+        let stick = element(app, "stickControl")
+        XCTAssertTrue(stick.exists, "\(language)_decisionBand: 操作棒が出ない")
+        XCTAssertFalse(stick.frame.intersects(band.frame), "\(language)_decisionBand: 帯と操作棒が重なる")
     }
 
     private func assertDarkStart(_ app: XCUIApplication, language: String) {

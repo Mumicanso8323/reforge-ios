@@ -6,6 +6,76 @@ extension RGB {
     var color: Color { Color(red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255) }
 }
 
+/// 歩ける範囲の外周。マスごとの辺を連結して、内側の線を作らない。
+enum WalkEdge {
+    struct Segment: Equatable, Sendable {
+        var from: GridPoint
+        var to: GridPoint
+    }
+
+    static func segments(spans: [WalkSpan]) -> [Segment] {
+        var cells: Set<GridPoint> = []
+        for span in spans where span.minX <= span.maxX {
+            for x in span.minX...span.maxX { cells.insert(GridPoint(x, span.y)) }
+        }
+        guard !cells.isEmpty else { return [] }
+
+        var horizontal: [Int: [Int]] = [:]
+        var vertical: [Int: [Int]] = [:]
+        for cell in cells {
+            if !cells.contains(GridPoint(cell.x, cell.y - 1)) { horizontal[cell.y, default: []].append(cell.x) }
+            if !cells.contains(GridPoint(cell.x, cell.y + 1)) { horizontal[cell.y + 1, default: []].append(cell.x) }
+            if !cells.contains(GridPoint(cell.x - 1, cell.y)) { vertical[cell.x, default: []].append(cell.y) }
+            if !cells.contains(GridPoint(cell.x + 1, cell.y)) { vertical[cell.x + 1, default: []].append(cell.y) }
+        }
+
+        func runs(_ points: [Int]) -> [(Int, Int)] {
+            let sorted = points.sorted()
+            guard var first = sorted.first else { return [] }
+            var last = first
+            var output: [(Int, Int)] = []
+            for point in sorted.dropFirst() {
+                if point == last + 1 {
+                    last = point
+                } else {
+                    output.append((first, last))
+                    first = point
+                    last = point
+                }
+            }
+            output.append((first, last))
+            return output
+        }
+
+        var output: [Segment] = []
+        for y in horizontal.keys.sorted() {
+            for (first, last) in runs(horizontal[y] ?? []) {
+                output.append(Segment(from: GridPoint(first, y), to: GridPoint(last + 1, y)))
+            }
+        }
+        for x in vertical.keys.sorted() {
+            for (first, last) in runs(vertical[x] ?? []) {
+                output.append(Segment(from: GridPoint(x, first), to: GridPoint(x, last + 1)))
+            }
+        }
+        return output
+    }
+}
+
+/// 同じ範囲なら外周を作り直さない。MapScene は描画だけを受け持つ。
+@MainActor
+final class WalkEdgeCache {
+    private var previous: [WalkSpan] = []
+    private var cached: [WalkEdge.Segment] = []
+
+    func segments(for spans: [WalkSpan]) -> [WalkEdge.Segment] {
+        guard spans != previous else { return cached }
+        previous = spans
+        cached = WalkEdge.segments(spans: spans)
+        return cached
+    }
+}
+
 /// 置いた印の明るさ。暗がりの印は、視界の外でも夜の見える段でゆっくり明滅する。
 enum PlacementBrightness {
     static func value(seenInDark: Bool, visible: Bool, night: Bool, reduceMotion: Bool, elapsed: Double) -> Double {
@@ -130,6 +200,8 @@ struct MapScene {
     var beacons: [GridPoint] = []
     /// タップで選んだマス。経路とは別の角印で示す。
     var selected: GridPoint? = nil
+    /// 歩ける範囲の外周。MapCanvasView のキャッシュ済みの形を受け取る。
+    var walkEdges: [WalkEdge.Segment] = []
 
     private struct GlyphKey: Hashable { var glyph: String; var color: RGB }
 
@@ -173,6 +245,16 @@ struct MapScene {
         func cellRect(_ point: GridPoint) -> CGRect {
             let origin = camera.screenOrigin(of: point, in: view)
             return CGRect(x: origin.x, y: origin.y, width: cellSize, height: cellSize)
+        }
+        if !walkEdges.isEmpty {
+            var edgePath = Path()
+            for edge in walkEdges {
+                let from = camera.screenOrigin(of: edge.from, in: view)
+                let to = camera.screenOrigin(of: edge.to, in: view)
+                edgePath.move(to: CGPoint(x: from.x, y: from.y))
+                edgePath.addLine(to: CGPoint(x: to.x, y: to.y))
+            }
+            ctx.stroke(edgePath, with: .color(InkColor.accent.opacity(0.6)), lineWidth: 1.5)
         }
         let visible = camera.visibleCells(in: view)
         let x0 = max(0, visible.origin.x), x1 = min(map.size.width, visible.origin.x + visible.size.width)

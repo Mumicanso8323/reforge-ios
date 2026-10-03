@@ -52,7 +52,7 @@ struct InkSection<Content: View>: View {
 }
 
 /// 一覧の 1 行(高さ 44 以上・下に罫線)。左に記号 1 文字、名前、右に値。
-/// 使い方: `InkRow(glyph: "@", title: Text(verbatim: name), value: Text(verbatim: "3"))`
+/// 使い方: `InkRow(glyph: TilePalette.noahGlyph, title: Text(verbatim: name), value: Text(verbatim: "3"))`
 /// 押せる行は Button の label に入れる(`Button { … } label: { InkRow(…) }.buttonStyle(.inkRow)`)。
 struct InkRow: View {
     var glyph: String? = nil

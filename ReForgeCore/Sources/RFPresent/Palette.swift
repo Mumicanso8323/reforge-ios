@@ -49,6 +49,8 @@ public enum TilePalette {
     public static let noah = "noah"
     /// 人を表す地図の一字。向きは描画側の小さな三角で足す。
     public static let noahGlyph = "@"
+    /// ノア以外の一員を表す地図の一字。向きは描画側の小さな三角で足す。
+    public static let memberGlyph = "○"
     public static let member = "member"
     public static let stranger = "stranger"
     public static let enemy = "enemy"

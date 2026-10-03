@@ -226,6 +226,9 @@ final class MapPresentTests: XCTestCase {
         XCTAssertTrue(noah.isMoving)
         XCTAssertEqual(noah.facing, .east)
 
+        let member = try XCTUnwrap(f.actors.first { $0.isMember && !$0.isNoah })
+        XCTAssertEqual(member.glyph, TilePalette.memberGlyph)
+
         w.people[.noah]!.motion = nil
         let still = try XCTUnwrap(builder.build(w, revision: 2, previous: f, report: nil).actors.first { $0.isNoah })
         XCTAssertFalse(still.isMoving)

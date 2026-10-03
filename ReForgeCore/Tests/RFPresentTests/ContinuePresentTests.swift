@@ -44,6 +44,12 @@ final class ContinuePresentTests: XCTestCase {
         XCTAssertFalse(card.nothingNearby)
 
         let seconds = Int64(try XCTUnwrap(content.interactions["interaction.pick_sticks"]).seconds)
+        let started = ActiveInteraction(interaction: "interaction.pick_sticks", at: WorldPoint(.surface, cell), poi: nil,
+                                       part: nil, holding: true, spent: [], startedAt: w.clock.now)
+        w.exploration.active[.noah] = started
+        XCTAssertEqual(b.footCard(w, at: cell)?.actions.first { $0.id == "interaction.pick_sticks" }?.progressPermille, 0)
+        w.exploration.active[.noah] = nil
+
         var active = ActiveInteraction(interaction: "interaction.pick_sticks", at: WorldPoint(.surface, cell), poi: nil,
                                        part: nil, holding: true, spent: [], startedAt: w.clock.now)
         active.progress = 30

@@ -110,6 +110,13 @@ def main() -> int:
                                 f"モジュールの両方にある。モジュール名を付けて書く(例 SwiftUI.{name})")
                 break
 
+    # ノアの字は TilePalette.noahGlyph だけが持つ。アプリの画面で直接書くと、地図・仲間・操作部品で印が割れる。
+    for f in sorted((ROOT / "ReForge" / "Sources").rglob("*.swift")):
+        body = strip(f.read_text(encoding="utf-8"))
+        for m in re.finditer(r'"@"', body):
+            line = body.count("\n", 0, m.start()) + 1
+            problems.append(f"{f.relative_to(ROOT)}:{line}: ノアの字は TilePalette.noahGlyph を使う")
+
     for p in problems:
         print(p)
     if problems:

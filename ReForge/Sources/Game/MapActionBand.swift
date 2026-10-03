@@ -66,4 +66,23 @@ enum BandOverlayLayout {
         let h = min(max(band, 0), container.height)
         return CGRect(x: 0, y: container.height - h, width: container.width, height: h)
     }
+
+    /// 帯が出ている間だけ、地図の操作部品を帯の高さぶん上げる。
+    static func controlLift(band: CGFloat) -> CGFloat {
+        max(band, 0)
+    }
+
+    /// 地図の高さの半分より上へは持ち上げない。
+    static func controlLift(band: CGFloat, mapHeight: CGFloat) -> CGFloat {
+        min(controlLift(band: band), max(mapHeight, 0) / 2)
+    }
+}
+
+/// 地図に重なる帯の実測高さを親へ渡す。
+struct MapBandHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
 }

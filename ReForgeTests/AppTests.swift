@@ -200,6 +200,42 @@ final class AppTests: XCTestCase {
         XCTAssertTrue(store.clock.running)
     }
 
+    func testMapZoomPlansAndNewCameraStartAtFortyFourPoints() {
+        for plan in MapZoomPlan.allCases {
+            XCTAssertGreaterThanOrEqual(plan.levels[plan.defaultZoom], 44, "\(plan)")
+        }
+        XCTAssertGreaterThanOrEqual(MapCamera().cellSize, 44)
+    }
+
+    func testSelectingTwiceStartsWalkingWithoutSavingSelection() async throws {
+        let content = try content()
+        var world = GameBootstrap.newWorld(content: content, seed: 5)
+        world.clock.held = false
+        let start = try XCTUnwrap(world.people[.noah]?.position)
+        let target = start.point + GridPoint(1, 0)
+        world.map[start.layer]?.setTerrain("grass", at: target)
+        let store = GameStore(content: content, world: world, saves: tempSaves())
+        await store.load()
+
+        store.select(target)
+        XCTAssertEqual(store.selected, target)
+        XCTAssertTrue(store.route.isEmpty)
+        let afterFirstSelection = await store.host.world.people[.noah]?.position
+        XCTAssertEqual(afterFirstSelection, start)
+
+        store.select(target)
+        for _ in 0..<50 {
+            if await store.host.world.people[.noah]?.motion != nil { break }
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+        let motion = await store.host.world.people[.noah]?.motion
+        XCTAssertNotNil(motion)
+
+        let recreated = GameStore(content: content, world: world, saves: tempSaves())
+        await recreated.load()
+        XCTAssertNil(recreated.selected)
+    }
+
     /// 断られた操作は足元カードに 1 行(ダイアログは出さない)。
     func testRejectedCommandShowsNotice() async throws {
         let start = try heldStartContent()

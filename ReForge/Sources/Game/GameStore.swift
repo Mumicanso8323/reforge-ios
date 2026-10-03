@@ -224,6 +224,10 @@ final class GameStore {
 
     /// マスを選び、足元カードをその場所へ替える。選んだだけでは歩かない。
     func select(_ cell: GridPoint) {
+        if selected == cell, placing == nil {
+            walkToSelection()
+            return
+        }
         if selected != cell { footCardPage = 0 }
         selected = cell
         inspection = nil

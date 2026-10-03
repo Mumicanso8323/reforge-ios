@@ -7,7 +7,7 @@ enum MapZoomPlan: String, CaseIterable {
 
     var levels: [Double] {
         switch self {
-        case .a: [18, 24, 32]
+        case .a: [18, 24, 44]
         case .b: [24, 32, 44]
         case .c: [28, 36, 44]
         }
@@ -15,9 +15,7 @@ enum MapZoomPlan: String, CaseIterable {
 
     var defaultZoom: Int {
         switch self {
-        case .a: 1
-        case .b: 1
-        case .c: 1
+        case .a, .b, .c: 2
         }
     }
 }
