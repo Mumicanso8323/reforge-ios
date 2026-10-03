@@ -38,11 +38,51 @@ public struct OpeningRules: Codable, Equatable, Sendable {
     /// 自分たちの残骸(wreck.home)からこのチェビシェフ距離の内側に、焚き火台を置ける乾いた空きマスを 1 つ以上残す
     /// (最初の「火を起こす」の placeStructure は残骸のそばの 0〜3 マスを探す。U21 の StructureSites.spot)。nil なら 3。
     public var firstFireRadius: Int?
+    /// ノアの始まりのマスの隣 8 マスの森の下限(W-23。生成で足りなければ乾いた陸を森にする)。既定 1。
+    public var startReachForestMin: Int
+    /// 最初の火の置き場から半径 2(チェビシェフ)の森の下限(W-23)。既定 2。
+    public var firstLightForestMin: Int
+    /// 最初の夜の灯りの半径(火床の最大の段。夜明けに初めて見える置き場はこの外に置く。W-23 SL-16)。既定 5。
+    public var firstNightLightRadius: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case emberForestRadius, emberForestMin, forestRing, forestMin, clayBankSteps, outcropSteps, outcropForestEdge
+        case secondIronMin, secondIronMax, ironExtractionsMin, coalFromOutcropMin, coalFromOutcropMax
+        case nestFromOutcropMin, nestFromOutcropMax, firstFireRadius
+        case startReachForestMin, firstLightForestMin, firstNightLightRadius
+    }
+
+    /// 古い保存・古い設定は新しい欄を持たない。無ければ既定で読む。
+    public init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        emberForestRadius = try c.decode(Int.self, forKey: .emberForestRadius)
+        emberForestMin = try c.decode(Int.self, forKey: .emberForestMin)
+        forestRing = try c.decode(Int.self, forKey: .forestRing)
+        forestMin = try c.decode(Int.self, forKey: .forestMin)
+        clayBankSteps = try c.decode(Int.self, forKey: .clayBankSteps)
+        outcropSteps = try c.decode(Int.self, forKey: .outcropSteps)
+        outcropForestEdge = try c.decode(Int.self, forKey: .outcropForestEdge)
+        secondIronMin = try c.decode(Int.self, forKey: .secondIronMin)
+        secondIronMax = try c.decode(Int.self, forKey: .secondIronMax)
+        ironExtractionsMin = try c.decode(Int.self, forKey: .ironExtractionsMin)
+        coalFromOutcropMin = try c.decode(Int.self, forKey: .coalFromOutcropMin)
+        coalFromOutcropMax = try c.decode(Int.self, forKey: .coalFromOutcropMax)
+        nestFromOutcropMin = try c.decode(Int.self, forKey: .nestFromOutcropMin)
+        nestFromOutcropMax = try c.decode(Int.self, forKey: .nestFromOutcropMax)
+        firstFireRadius = try c.decodeIfPresent(Int.self, forKey: .firstFireRadius)
+        startReachForestMin = try c.decodeIfPresent(Int.self, forKey: .startReachForestMin) ?? 1
+        firstLightForestMin = try c.decodeIfPresent(Int.self, forKey: .firstLightForestMin) ?? 2
+        firstNightLightRadius = try c.decodeIfPresent(Int.self, forKey: .firstNightLightRadius) ?? 5
+    }
 
     public init(emberForestRadius: Int, emberForestMin: Int, forestRing: Int, forestMin: Int, clayBankSteps: Int,
                 outcropSteps: Int, outcropForestEdge: Int, secondIronMin: Int, secondIronMax: Int,
                 ironExtractionsMin: Int, coalFromOutcropMin: Int, coalFromOutcropMax: Int,
-                nestFromOutcropMin: Int, nestFromOutcropMax: Int) {
+                nestFromOutcropMin: Int, nestFromOutcropMax: Int,
+                startReachForestMin: Int = 1, firstLightForestMin: Int = 2, firstNightLightRadius: Int = 5) {
+        self.startReachForestMin = startReachForestMin
+        self.firstLightForestMin = firstLightForestMin
+        self.firstNightLightRadius = firstNightLightRadius
         self.emberForestRadius = emberForestRadius
         self.emberForestMin = emberForestMin
         self.forestRing = forestRing
@@ -290,6 +330,60 @@ public enum OpeningGuarantee {
 
         // 最初の火の置き場所: 残骸のそばに、乾いた平地か整地の空きマスを 1 つ以上(無ければ一番近い空きマスを整地にする)
         ensureFirstFireSite(&layer, radius: r.firstFireRadius ?? 3)
+    }
+
+    // MARK: 始まりの置き場と森の保証(W-23)
+
+    /// 夜明けの昼の視界の半径(視界の決まり VisionRule をそのまま呼ぶ。式を写さない)。
+    static func dawnDayRadius() -> Int { VisionRule.original.radius(isNight: false, hasTorch: false) }
+
+    /// 最初の火の置き場と、夜明けに初めて見える置き場を決め、足りない森を補って層に持たせる(乱数を使わない)。
+    /// 置き場はノアの始まりのマス(拠点の中心)から、StructureSites.spot と同じ順(距離 0 から、同じ距離なら y → x)で探す。
+    static func placeOpeningSites(_ layer: inout MapLayer, landmarks lm: Landmarks, rules r: OpeningRules) {
+        let start = lm.base.center
+        let radius = r.firstFireRadius ?? 3
+        func free(_ p: GridPoint) -> Bool {
+            layer.terrain.size.contains(p) && !layer.placements.isOccupied(p) && !layer.deposits.hasDeposit(at: p)
+        }
+        func dry(_ p: GridPoint) -> Bool { [Biome.plain, .cleared].contains(layer.terrain.biome(at: p)) }
+
+        let fire = ring(start, radius).first { dry($0) && free($0) } ?? firstFireSite(layer, radius: radius)
+        layer.firstFireSite = fire
+        guard let fire else { return }
+        let ember = Set(emberCells(lm.base))
+        let startRing = Set(start.neighbors8)
+
+        // 森の保証: 近い順、同じなら y → x。置き場・ノアのマス・残骸・置いた物は除く
+        func ensureForest(around c: GridPoint, radius rad: Int, min: Int, exclude: Set<GridPoint>) {
+            let cells = ring(c, rad)
+            var count = cells.filter { $0 != c && layer.terrain.biome(at: $0) == .forest }.count
+            guard count < min else { return }
+            let pool = cells.filter { p in
+                p != c && p != fire && p != start && !ember.contains(p) && !exclude.contains(p) && dry(p) && free(p)
+            }
+            for p in pool where count < min {
+                layer.terrain.set(p, .forest)
+                count += 1
+            }
+        }
+        ensureForest(around: start, radius: 1, min: r.startReachForestMin, exclude: [])
+        ensureForest(around: fire, radius: 2, min: r.firstLightForestMin, exclude: [])
+
+        // 夜明けに初めて見える置き場: 最初の夜の灯りの外・ノアの隣 8 マスの外・昼の視界の内側 1 マス以上
+        let day = dawnDayRadius()
+        let light = r.firstNightLightRadius
+        var outer = day - 1
+        while outer <= day {
+            var cands: [GridPoint] = []
+            for p in VisionRule.cells(center: fire, radius: outer, in: layer.terrain.size) {
+                guard !VisionRule.inCircle(p, center: fire, radius: light), !startRing.contains(p), p != start,
+                      !ember.contains(p), !lm.base.contains(p), dry(p), free(p) else { continue }
+                cands.append(p)
+            }
+            cands.sort { (-lm.base.center.distanceSquared(to: $0), $0.y, $0.x) < (-lm.base.center.distanceSquared(to: $1), $1.y, $1.x) }
+            if let p = cands.first { layer.dawnFindSite = p; return }
+            outer += 1   // 帯を 1 マス広げる(昼の視界の縁まで)
+        }
     }
 
     /// 残骸(wreck.home)のそばの、焚き火台を置けるマス(StructureSites.spot と同じ順: 距離 0 から、同じ距離なら y → x)。

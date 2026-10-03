@@ -192,8 +192,16 @@ public enum PlaceSelector: Codable, Hashable, Sendable {
     case point(at: WorldPoint)
     /// 置いた物(その種類のうち最も早く置いたもの)。範囲の効果の中心にすると、置いた物と一緒に動き・消える。
     case placement(module: ModuleKindID?, structure: StructureKindID?)
+    /// 生成の時に決めた始まりの置き場(層の firstFireSite / dawnFindSite)。無ければ拠点の中心を指す。
+    case openingSite(kind: OpeningSiteKind)
     /// 半径つき。
     indirect case near(place: PlaceSelector, radius: Int)
+}
+
+/// 始まりの置き場の種類(MapLayer の firstFireSite / dawnFindSite)。
+public enum OpeningSiteKind: String, Codable, Hashable, Sendable {
+    case firstFire
+    case dawnFind
 }
 
 /// 解禁の対象。

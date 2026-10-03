@@ -284,6 +284,12 @@ public enum Places {
         case .base:
             return w.base.area.map { WorldPoint(.surface, GridPoint($0.origin.x + $0.size.width / 2, $0.origin.y + $0.size.height / 2)) }
         case .point(let at): return at
+        case .openingSite(let kind):
+            let layer = w.map[.surface]
+            if let site = kind == .firstFire ? layer?.firstFireSite : layer?.dawnFindSite {
+                return WorldPoint(.surface, site)
+            }
+            return resolve(.base, world: w, trigger: trigger)   // 置き場が無い(古い保存): 今の探し方
         case .placement(let m, let s):
             return placement(m, s, in: w).flatMap { w.placements.items[$0]?.at }
         case .near(let inner, _): return resolve(inner, world: w, trigger: trigger)
