@@ -91,6 +91,7 @@ final class ScreenSnapshotTests: XCTestCase {
         prepare(app, screen: screen)
         if screen == "darkStart" { assertDarkStart(app, language: lang.code) }
         if screen == "darkMark" { assertDarkMark(app, language: lang.code) }
+        if screen == "foot" { assertHoldRing(app, language: lang.code) }
         Thread.sleep(forTimeInterval: 1.0)
         if screen == "map" { mapFrames[lang.code] = element(app, "map").frame }
         if screen == "decisionBand" { assertDecisionBand(app, language: lang.code) }  // 組み直しと文字の測りが落ち着くのを待つ(研究の巻き取りの成否は下のポーリングで決める)
@@ -210,6 +211,16 @@ final class ScreenSnapshotTests: XCTestCase {
         let stick = element(app, "stickControl")
         XCTAssertTrue(stick.exists, "\(language)_decisionBand: 操作棒が出ない")
         XCTAssertFalse(stick.frame.intersects(band.frame), "\(language)_decisionBand: 帯と操作棒が重なる")
+    }
+
+    /// A-04c 長押しの行為は輪(holdRing)で分かる(押すだけの行為の Button には輪の識別子が付かない)。
+    private func assertHoldRing(_ app: XCUIApplication, language: String) {
+        let card = element(app, "footCard")
+        let holds = card.descendants(matching: .any).matching(identifier: "holdRing").allElementsBoundByIndex
+        XCTAssertFalse(holds.isEmpty, "\(language)_foot: 長押しの行為(輪)が足元カードに無い")
+        for h in holds { XCTAssertGreaterThanOrEqual(h.frame.height, 44, "\(language)_foot: 長押しの行為が小さい") }
+        let plain = card.buttons.allElementsBoundByIndex.filter { $0.identifier != "holdRing" }
+        XCTAssertFalse(plain.isEmpty, "\(language)_foot: 押すだけの行為が足元カードに無い")
     }
 
     private func assertDarkStart(_ app: XCUIApplication, language: String) {

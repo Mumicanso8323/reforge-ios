@@ -72,8 +72,13 @@ struct ActionButton: View {
 
     var body: some View {
         if action.hold {
-            Text(verbatim: action.label)
-                .font(InkFont.body)
+            HStack(spacing: 8) {
+                HoldRing(permille: action.progressPermille, pressing: pressing)
+                Text(verbatim: action.label)
+                    .font(InkFont.body)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
                 .foregroundStyle(pressing ? InkColor.onAccent : InkColor.text)
                 .padding(.horizontal, 14)
                 .frame(minHeight: InkMetric.buttonHeight)
@@ -92,7 +97,11 @@ struct ActionButton: View {
                         pressing = false
                         store.act(action, pressing: false)
                     })
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(Text(verbatim: action.label))
+                .accessibilityValue(Text(verbatim: HoldRing.spokenValue(hold: true) ?? ""))
                 .accessibilityAddTraits(.isButton)
+                .accessibilityIdentifier("holdRing")
         } else {
             Button {
                 store.act(action, pressing: true)

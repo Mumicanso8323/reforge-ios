@@ -46,6 +46,9 @@ private struct DarkStartActionButton: View {
                 .overlay(RoundedRectangle(cornerRadius: InkMetric.corner)
                     .stroke(InkColor.accent.opacity(reduceMotion ? 1 : borderOpacity), lineWidth: InkMetric.rule))
                 .accessibilityElement(children: .combine)
+                .accessibilityLabel(Text(verbatim: action.label))
+                .accessibilityValue(Text(verbatim: HoldRing.spokenValue(hold: action.hold) ?? ""))
+                .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("darkStartAct")
             if let progress = action.progressPermille {
                 GeometryReader { geo in
@@ -70,9 +73,15 @@ private struct DarkStartActionButton: View {
 
     @ViewBuilder private var button: some View {
         if action.hold {
-            Text(verbatim: action.label)
-                .font(InkFont.body)
+            HStack(spacing: 8) {
+                HoldRing(permille: action.progressPermille, pressing: pressing)
+                Text(verbatim: action.label)
+                    .font(InkFont.body)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
                 .foregroundStyle(pressing ? InkColor.onAccent : InkColor.text)
+                .padding(.horizontal, 12)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .contentShape(Rectangle())
                 .onLongPressGesture(minimumDuration: 3600, maximumDistance: 40, perform: {}, onPressingChanged: { value in
