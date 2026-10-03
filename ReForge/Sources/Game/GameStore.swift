@@ -16,7 +16,11 @@ final class GameStore {
     let content: ContentDB
     let host: GameHost
     let saves: FileSaveStorage
-    private let log = Logger(subsystem: "com.yusukedoi.reforge", category: "game")
+    let saveWriter: any SaveWriting
+    let log = Logger(subsystem: "com.yusukedoi.reforge", category: "game")
+    @ObservationIgnored private let performanceNow: () -> ContinuousClock.Instant
+    @ObservationIgnored private let perfSink: any PerfSink
+    @ObservationIgnored private let perfSignpost = OSLog(subsystem: "reforge", category: "perf")
 
     private(set) var clock: ClockView
     private(set) var status: [StatusItem]
@@ -53,6 +57,8 @@ final class GameStore {
     private(set) var chunks: [Int: MapChunk] = [:]
     /// 最後に Frame を受け取った時刻(ProcessInfo.systemUptime)。補間の起点。
     private(set) var frameTime: TimeInterval = ProcessInfo.processInfo.systemUptime
+    /// 開発の設定に出す直近 20 件の遅い歩み。製品のビルドでは常に空。
+    private(set) var slowSteps: [SlowStep] = []
 
     /// 足元カードが注目しているマス(nil ならノアの足元)。
     private(set) var selected: GridPoint?
@@ -93,11 +99,16 @@ final class GameStore {
     @ObservationIgnored var benchOpen = false
 
     init(content: ContentDB, world: WorldState, saves: FileSaveStorage,
-         defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init) {
+         defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
+         performanceNow: @escaping () -> ContinuousClock.Instant = { ContinuousClock().now },
+         perfSink: any PerfSink = LoggerPerfSink(), saveWriter: (any SaveWriting)? = nil) {
         self.content = content
         self.saves = saves
+        self.saveWriter = saveWriter ?? SaveWriter(storage: saves)
         self.defaults = defaults
         self.now = now
+        self.performanceNow = performanceNow
+        self.perfSink = perfSink
         let host = GameBootstrap.host(content: content, world: world)
         self.host = host
         let f = FrameBuilder(content: content).build(world, revision: 0, previous: nil, report: nil)
@@ -157,7 +168,19 @@ final class GameStore {
 #endif
         // 保留の間(最初の行為の前)も呼ぶ。本体は、最初の行為を押していなければ何もしない(PT-B8)
         guard isActive, !isPaused, !benchHoldsClock, clock.running || clock.held else { return }
-        let (f, _) = await host.tick(realSeconds: dt)
+        let start = performanceNow()
+        os_signpost(.begin, log: perfSignpost, name: "clockStep")
+        let (f, report) = await host.tick(realSeconds: dt)
+        os_signpost(.end, log: perfSignpost, name: "clockStep")
+        let milliseconds = Self.milliseconds(from: start.duration(to: performanceNow()))
+        if milliseconds > 50 {
+            let rebuilt = f.revision != revision
+            perfSink.recordStep(milliseconds: milliseconds, steps: report.steps, rebuilt: rebuilt)
+#if DEBUG || REFORGE_DEV
+            slowSteps.append(SlowStep(milliseconds: milliseconds, steps: report.steps, rebuilt: rebuilt))
+            if slowSteps.count > 20 { slowSteps.removeFirst(slowSteps.count - 20) }
+#endif
+        }
         await refresh(f)
     }
 
@@ -228,10 +251,18 @@ final class GameStore {
     func send(_ command: Command) {
         noteOperation()
         Task {
+            let start = performanceNow()
             let (f, rejection) = await host.perform(command)
+            let milliseconds = Self.milliseconds(from: start.duration(to: performanceNow()))
+            if milliseconds > 100 { perfSink.recordApply(milliseconds: milliseconds) }
             show(notice: rejection)
             await refresh(f)
         }
+    }
+
+    private static func milliseconds(from duration: Duration) -> Int {
+        let parts = duration.components
+        return Int((Double(parts.seconds) * 1_000) + (Double(parts.attoseconds) / 1_000_000_000_000_000))
     }
 
     // MARK: - Frame の取り込み
@@ -306,13 +337,20 @@ final class GameStore {
 #if DEBUG
         if Self.freezeClock { return }  // 撮る起動は保存を書かない
 #endif
-        let world = await host.world
-        let env = SaveEnvelope(slot: .resume, world: world,
-                               content: content.layers.map { ContentStamp(layer: $0.id, version: $0.version) })
         do {
-            try saves.write(try SaveCodec.encode(env), slot: .resume)
+            let data = try await host.saveData(slot: .resume, stamps: contentStamps)
+            try await saveWriter.write(data, slot: .resume)
         } catch {
             log.error("save failed: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    var contentStamps: [ContentStamp] {
+        content.layers.map { ContentStamp(layer: $0.id, version: $0.version) }
+    }
+
+    var slowStepSummary: String? {
+        guard !slowSteps.isEmpty else { return nil }
+        return "\(slowSteps.count) 件・最長 \(slowSteps.map(\.milliseconds).max() ?? 0)ms"
     }
 }

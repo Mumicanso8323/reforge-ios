@@ -62,6 +62,9 @@ struct SettingsView: View {
 
                 if GameStore.devSettingsAvailable {
                     InkSection(title: Text("開発")) {
+                        if let summary = app.game?.slowStepSummary {
+                            InkRow(title: Text("重い歩み"), value: Text(verbatim: summary))
+                        }
                         Toggle(isOn: $devHoldClock) {
                             Text("設計とノートを開いている間、時計を止める")
                         }

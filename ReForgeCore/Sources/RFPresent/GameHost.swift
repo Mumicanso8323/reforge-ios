@@ -1,7 +1,9 @@
+import Foundation
 import RFContent
 import RFKernel
 import RFPerception
 import RFRules
+import RFSave
 import RFSim
 import RFWorld
 
@@ -49,6 +51,11 @@ public actor GameHost {
         }
         guard r.steps > 0 || !r.events.isEmpty else { return (frame, r) }
         return (rebuild(r), r)
+    }
+
+    /// 現在の世界を保存のバイト列にする。世界の値を画面側へ渡さず、actor の列で符号化する。
+    public func saveData(slot: SaveSlot, stamps: [ContentStamp]) throws -> Data {
+        try SaveCodec.encode(SaveEnvelope(slot: slot, world: world, content: stamps))
     }
 
     /// 保存から戻す・巻き戻すなどで世界を差し替える。

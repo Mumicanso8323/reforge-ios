@@ -37,6 +37,7 @@ final class AppModel {
     let saves: FileSaveStorage
     let storeService: any StoreService
     let adProvider: any AdProvider
+    let backgroundTasks: any BackgroundTaskManaging
     /// 広告除去の権利(正は StoreService。UserDefaults はキャッシュ)。
     private(set) var adsRemoved: Bool
     private(set) var game: GameStore?
@@ -77,6 +78,7 @@ final class AppModel {
     init(saves: FileSaveStorage = FileSaveStorage(),
          storeService: any StoreService = UnavailableStoreService(),
          adProvider: any AdProvider = NoopAdProvider(),
+         backgroundTasks: any BackgroundTaskManaging = ApplicationBackgroundTasks(),
          bundle: Bundle = .main) {
         FontBook.register(bundle: bundle)
         var content: ContentDB?
@@ -95,6 +97,7 @@ final class AppModel {
         self.saves = saves
         self.storeService = storeService
         self.adProvider = adProvider
+        self.backgroundTasks = backgroundTasks
         self.adsRemoved = UserDefaults.standard.bool(forKey: Self.adsRemovedKey)
         self.hasResume = (try? saves.read(slot: .resume)) != nil
     }
@@ -176,7 +179,16 @@ final class AppModel {
     /// 背面に回る・戻る。閉じている間は進まない(時計を止めて「つづきから」を書く)。
     func scenePhaseChanged(active: Bool) {
         game?.isActive = active
-        if !active, let g = game { Task { await g.saveResume() } }
+        if !active, let g = game { saveInBackground(g) }
+    }
+
+    /// 背面へ移るとき、保存が終わるまでの時間を OS に確保してもらう。
+    func saveInBackground(_ game: GameStore) {
+        let task = backgroundTasks.begin(name: "save") { }
+        Task {
+            await game.saveResume()
+            backgroundTasks.end(task)
+        }
     }
 
     func refreshEntitlements() async {

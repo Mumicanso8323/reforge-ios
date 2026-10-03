@@ -1,16 +1,103 @@
 import SwiftUI
+import UIKit
 import ReForgeEngine
 
 extension RGB {
     var color: Color { Color(red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255) }
 }
 
-/// 1 フレームぶんの地図の絵の材料(値だけ)。Canvas の描画はこれだけを見る。
-///
-/// 描き方(order.md §5.5): 黒地に色つきの文字。1 マス = 1 文字を固定の正方形の枠の中央に描く
-/// (文字の送り幅に依存しないので、全角・半角・曖昧幅の問題が起きない)。
-/// 霧: 未踏は黒・既知は暗い地形だけ・視界の中(MapView.vision の円)は明るく、物と生き物も。
-/// 速さ: 画面に映るマスだけを描き、同じ文字と色の組は 1 フレームに 1 回だけ文字を組む。
+private struct TerrainImageKey: Hashable {
+    var index: Int
+    var revision: Int
+    var cellSize: Int
+    var night: Bool
+    var vision: [VisionArea]
+}
+
+/// 見えている区画とその周囲だけを画像で持つ。`renderCount` は回帰試験用。
+@MainActor
+final class MapTerrainCache {
+    private var images: [TerrainImageKey: Image] = [:]
+    private(set) var renderCount: [Int: Int] = [:]
+
+    func image(for chunk: MapChunk, cellSize: Double, night: Bool, vision: [VisionArea], terrains: [TerrainID: TerrainDef]) -> Image? {
+        let key = TerrainImageKey(index: chunk.index, revision: chunk.revision, cellSize: Int(cellSize), night: night, vision: vision)
+        if let image = images[key] { return image }
+        let view = TerrainChunkImage(chunk: chunk, cellSize: cellSize, night: night, vision: vision, terrains: terrains)
+            .frame(width: Double(chunk.rect.size.width) * cellSize, height: Double(chunk.rect.size.height) * cellSize)
+        let renderer = ImageRenderer(content: view)
+        renderer.scale = UIScreen.main.scale
+        guard let rendered = renderer.uiImage else { return nil }
+        let image = Image(uiImage: rendered)
+        images[key] = image
+        renderCount[chunk.index, default: 0] += 1
+        return image
+    }
+
+    func discardOutside(_ indices: Set<Int>) {
+        images = images.filter { indices.contains($0.key.index) }
+    }
+}
+
+/// 1 区画の静かな絵。ここでだけ地形の文字を resolve し、同じ鍵なら再び組まない。
+private struct TerrainChunkImage: View {
+    let chunk: MapChunk
+    let cellSize: Double
+    let night: Bool
+    let vision: [VisionArea]
+    let terrains: [TerrainID: TerrainDef]
+
+    private struct GlyphKey: Hashable { var glyph: String; var color: RGB }
+
+    var body: some View {
+        Canvas(opaque: false, rendersAsynchronously: false) { ctx, _ in
+            let font = Font.custom(FontBook.mapFont, fixedSize: cellSize * 0.78)
+            var styles: [String: TileStyle] = [:]
+            var texts: [GlyphKey: GraphicsContext.ResolvedText] = [:]
+            func style(_ tint: String) -> TileStyle {
+                if let style = styles[tint] { return style }
+                let style = TilePalette.style(tint, terrains: terrains)
+                styles[tint] = style
+                return style
+            }
+            func text(_ glyph: String, _ color: RGB) -> GraphicsContext.ResolvedText {
+                let key = GlyphKey(glyph: glyph, color: color)
+                if let text = texts[key] { return text }
+                let text = ctx.resolve(Text(verbatim: glyph).font(font).foregroundColor(color.color))
+                texts[key] = text
+                return text
+            }
+            let lit = night ? TilePalette.nightVisible : 1.0
+            let hint = TilePalette.style(TilePalette.hint, terrains: terrains).foreground(at: GridPoint(0, 0))
+            for y in chunk.rect.origin.y..<(chunk.rect.origin.y + chunk.rect.size.height) {
+                for x in chunk.rect.origin.x..<(chunk.rect.origin.x + chunk.rect.size.width) {
+                    let point = GridPoint(x, y)
+                    guard let tile = chunk.tile(at: point) else { continue }
+                    let rect = CGRect(x: Double(x - chunk.rect.origin.x) * cellSize,
+                                      y: Double(y - chunk.rect.origin.y) * cellSize, width: cellSize, height: cellSize)
+                    var brightness = lit
+                    if tile.glow, tile.fog != .unknown {
+                        brightness = 1
+                    } else if !vision.contains(where: { $0.contains(point) }) {
+                        switch tile.fog {
+                        case .unknown, .visible: continue
+                        case .hint:
+                            if let shadow = tile.shadow { ctx.draw(text(shadow, hint), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center) }
+                            continue
+                        case .remembered: brightness = TilePalette.remembered
+                        }
+                    }
+                    let tileStyle = style(tile.tint)
+                    if let background = tileStyle.background { ctx.fill(Path(rect), with: .color(background.scaled(brightness).color)) }
+                    ctx.draw(text(tile.glyph, tileStyle.foreground(at: point).scaled(brightness)), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
+                }
+            }
+        }
+    }
+}
+
+/// 1 フレームぶんの地図の絵の材料。地形と動くものを別の Canvas で描く。
+@MainActor
 struct MapScene {
     var camera: MapCamera
     var map: MapView
@@ -19,145 +106,95 @@ struct MapScene {
     var placements: [PlacementSprite]
     var route: [GridPoint]
     var night: Bool
-    /// Frame を受け取ってからの秒(補間)。
     var elapsed: Double
     var terrains: [TerrainID: TerrainDef]
-    /// 置くモードの照準(U18)。
     var preview: PlacementPreview? = nil
-    /// 戦闘の場所(U18)。
     var battles: [GridPoint] = []
-    /// 地図の光の点(遠くの灯り。暗闇でも描く。U18・§10 HNT-08)。
     var beacons: [GridPoint] = []
 
-    private struct GlyphKey: Hashable {
-        var glyph: String
-        var color: RGB
-    }
+    private struct GlyphKey: Hashable { var glyph: String; var color: RGB }
 
-    func draw(_ ctx: inout GraphicsContext, size: CGSize) {
+    func drawTerrain(_ ctx: inout GraphicsContext, size: CGSize, cache: MapTerrainCache) {
         ctx.fill(Path(CGRect(origin: .zero, size: size)), with: .color(.black))
         let view = ScreenSize(width: Double(size.width), height: Double(size.height))
-        let cs = camera.cellSize
-        let font = Font.custom(FontBook.mapFont, fixedSize: cs * 0.78)
+        let visible = camera.visibleCells(in: view)
+        let padded = GridRect(origin: GridPoint(visible.origin.x - MapView.chunkSize, visible.origin.y - MapView.chunkSize),
+                              size: GridSize(width: visible.size.width + 2 * MapView.chunkSize, height: visible.size.height + 2 * MapView.chunkSize))
+        let retained = Set(map.chunks(overlapping: padded))
+        cache.discardOutside(retained)
+        for index in map.chunks(overlapping: visible) {
+            guard let chunk = chunks[index], let image = cache.image(for: chunk, cellSize: camera.cellSize, night: night,
+                                                                       vision: map.vision, terrains: terrains) else { continue }
+            let origin = camera.screenOrigin(of: chunk.rect.origin, in: view)
+            let rect = CGRect(x: origin.x, y: origin.y, width: Double(chunk.rect.size.width) * camera.cellSize,
+                              height: Double(chunk.rect.size.height) * camera.cellSize)
+            ctx.draw(image, in: rect)
+        }
+    }
+
+    func drawMoving(_ ctx: inout GraphicsContext, size: CGSize) {
+        let view = ScreenSize(width: Double(size.width), height: Double(size.height))
+        let cellSize = camera.cellSize
+        let font = Font.custom(FontBook.mapFont, fixedSize: cellSize * 0.78)
         var styles: [String: TileStyle] = [:]
         var texts: [GlyphKey: GraphicsContext.ResolvedText] = [:]
-
         func style(_ tint: String) -> TileStyle {
-            if let s = styles[tint] { return s }
-            let s = TilePalette.style(tint, terrains: terrains)
-            styles[tint] = s
-            return s
+            if let style = styles[tint] { return style }
+            let style = TilePalette.style(tint, terrains: terrains)
+            styles[tint] = style
+            return style
         }
         func text(_ glyph: String, _ color: RGB) -> GraphicsContext.ResolvedText {
             let key = GlyphKey(glyph: glyph, color: color)
-            if let t = texts[key] { return t }
-            let t = ctx.resolve(Text(verbatim: glyph).font(font).foregroundColor(color.color))
-            texts[key] = t
-            return t
+            if let text = texts[key] { return text }
+            let text = ctx.resolve(Text(verbatim: glyph).font(font).foregroundColor(color.color))
+            texts[key] = text
+            return text
         }
-        func cellRect(_ p: GridPoint) -> CGRect {
-            let o = camera.screenOrigin(of: p, in: view)
-            return CGRect(x: o.x, y: o.y, width: cs, height: cs)
+        func cellRect(_ point: GridPoint) -> CGRect {
+            let origin = camera.screenOrigin(of: point, in: view)
+            return CGRect(x: origin.x, y: origin.y, width: cellSize, height: cellSize)
         }
-
-        // 視界の円(行ごとの範囲)
-        var spans: [Int: [ClosedRange<Int>]] = [:]
-        for v in map.vision {
-            for s in v.rowSpans where s.maxX >= s.minX { spans[s.y, default: []].append(s.minX...s.maxX) }
-        }
-        func isVisible(_ p: GridPoint) -> Bool { spans[p.y]?.contains { $0.contains(p.x) } ?? false }
-
-        let r = camera.visibleCells(in: view)
-        let x0 = max(0, r.origin.x), x1 = min(map.size.width, r.origin.x + r.size.width)
-        let y0 = max(0, r.origin.y), y1 = min(map.size.height, r.origin.y + r.size.height)
+        let visible = camera.visibleCells(in: view)
+        let x0 = max(0, visible.origin.x), x1 = min(map.size.width, visible.origin.x + visible.size.width)
+        let y0 = max(0, visible.origin.y), y1 = min(map.size.height, visible.origin.y + visible.size.height)
+        func isVisible(_ point: GridPoint) -> Bool { map.vision.contains { $0.contains(point) } }
         let lit = night ? TilePalette.nightVisible : 1.0
-        let hint = TilePalette.style(TilePalette.hint, terrains: terrains).foreground(at: GridPoint(0, 0))
 
-        // 地形
-        if x0 < x1, y0 < y1 {
-            for y in y0..<y1 {
-                for x in x0..<x1 {
-                    let p = GridPoint(x, y)
-                    guard let ci = map.chunkIndex(of: p), let tile = chunks[ci]?.tile(at: p) else { continue }
-                    let visible = isVisible(p)
-                    let rect = cellRect(p)
-                    let center = CGPoint(x: rect.midX, y: rect.midY)
-                    var k = lit
-                    if tile.glow, tile.fog != .unknown {
-                        // 暗闇でも描く光る印(端末の光など。§10 HNT-01)。夜も暗くしない
-                        k = 1.0
-                    } else if !visible {
-                        switch tile.fog {
-                        case .unknown, .visible:
-                            continue
-                        case .hint:
-                            if let s = tile.shadow {
-                                let t = text(s, hint)
-                                ctx.draw(t, at: center, anchor: .center)
-                            }
-                            continue
-                        case .remembered:
-                            k = TilePalette.remembered
-                        }
-                    }
-                    let st = style(tile.tint)
-                    if let bg = st.background { ctx.fill(Path(rect), with: .color(bg.scaled(k).color)) }
-                    let t = text(tile.glyph, st.foreground(at: p).scaled(k))
-                    ctx.draw(t, at: center, anchor: .center)
-                }
-            }
-        }
-
-        // 歩く経路(点線)
         let routeColor = style(TilePalette.route).foreground(at: GridPoint(0, 0))
-        for p in route where p.x >= x0 && p.x < x1 && p.y >= y0 && p.y < y1 {
-            let rect = cellRect(p)
+        for point in route where point.x >= x0 && point.x < x1 && point.y >= y0 && point.y < y1 {
+            let rect = cellRect(point)
             ctx.fill(Path(rect), with: .color(.black))
-            let t = text("・", routeColor)
-            ctx.draw(t, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
+            ctx.draw(text("・", routeColor), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
         }
-
-        // 置いた物
-        for pl in placements {
-            let rect = cellRect(pl.at)
+        for placement in placements {
+            let rect = cellRect(placement.at)
             guard rect.maxX >= 0, rect.minX <= size.width, rect.maxY >= 0, rect.minY <= size.height else { continue }
-            let k = isVisible(pl.at) ? lit : TilePalette.remembered
-            let c = style(pl.running ? TilePalette.module : TilePalette.stopped).foreground(at: pl.at).scaled(k)
+            let brightness = isVisible(placement.at) ? lit : TilePalette.remembered
+            let color = style(placement.running ? TilePalette.module : TilePalette.stopped).foreground(at: placement.at).scaled(brightness)
             ctx.fill(Path(rect), with: .color(.black))
-            let t = text(pl.glyph, c)
-            ctx.draw(t, at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
+            ctx.draw(text(placement.glyph, color), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
         }
-
-        // 光の点(霧も夜も関係なく描く)
-        let beaconColor = RGB(240, 230, 170)
-        for b in beacons where b.x >= x0 && b.x < x1 && b.y >= y0 && b.y < y1 {
-            let rect = cellRect(b)
-            ctx.fill(Path(ellipseIn: rect.insetBy(dx: cs * 0.3, dy: cs * 0.3)), with: .color(beaconColor.color))
+        for beacon in beacons where beacon.x >= x0 && beacon.x < x1 && beacon.y >= y0 && beacon.y < y1 {
+            let rect = cellRect(beacon)
+            ctx.fill(Path(ellipseIn: rect.insetBy(dx: cellSize * 0.3, dy: cellSize * 0.3)), with: .color(RGB(240, 230, 170).color))
         }
-
-        // 戦闘の場所: 赤い枠(帯と同じ相手。止めない)
-        for b in battles {
-            let rect = cellRect(b).insetBy(dx: -cs * 0.5, dy: -cs * 0.5)
-            ctx.stroke(Path(rect), with: .color(InkColor.alert), lineWidth: 2)
+        for battle in battles {
+            ctx.stroke(Path(cellRect(battle).insetBy(dx: -cellSize * 0.5, dy: -cellSize * 0.5)), with: .color(InkColor.alert), lineWidth: 2)
         }
-
-        // 人(ノアを一番上に)。前のマスと次のマスの間を補間する。
-        for a in actors.sorted(by: { !$0.isNoah && $1.isNoah }) {
-            let pos = a.position(elapsed: elapsed)
-            let c = camera.screen(pos, in: view)
-            guard c.x > -cs, c.x < Double(size.width) + cs, c.y > -cs, c.y < Double(size.height) + cs else { continue }
-            let rect = CGRect(x: c.x - cs / 2, y: c.y - cs / 2, width: cs, height: cs)
+        for actor in actors.sorted(by: { !$0.isNoah && $1.isNoah }) {
+            let position = actor.position(elapsed: elapsed)
+            let center = camera.screen(position, in: view)
+            guard center.x > -cellSize, center.x < Double(size.width) + cellSize,
+                  center.y > -cellSize, center.y < Double(size.height) + cellSize else { continue }
+            let rect = CGRect(x: center.x - cellSize / 2, y: center.y - cellSize / 2, width: cellSize, height: cellSize)
             ctx.fill(Path(rect), with: .color(.black))
-            let color = style(a.tint).foreground(at: GridPoint(0, 0))
-            let t = text(a.glyph, color)
-            ctx.draw(t, at: CGPoint(x: c.x, y: c.y), anchor: .center)
+            ctx.draw(text(actor.glyph, style(actor.tint).foreground(at: GridPoint(0, 0))), at: CGPoint(x: center.x, y: center.y), anchor: .center)
         }
-
-        // 置くモードの照準: 置けるなら緑、置けないなら赤。占めるマスを塗り、外枠を引く
-        if let pv = preview {
-            let color = pv.placeable ? InkColor.good : InkColor.alert
-            for c in pv.cells {
-                let rect = cellRect(c)
+        if let preview {
+            let color = preview.placeable ? InkColor.good : InkColor.alert
+            for cell in preview.cells {
+                let rect = cellRect(cell)
                 ctx.fill(Path(rect), with: .color(color.opacity(0.28)))
                 ctx.stroke(Path(rect.insetBy(dx: 1, dy: 1)), with: .color(color), lineWidth: 2)
             }

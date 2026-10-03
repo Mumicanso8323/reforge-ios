@@ -11,6 +11,16 @@
         }
       }
     },
+    "%lld 件・最長 %lldms": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld 件・最長 %lldms"
+          }
+        }
+      }
+    },
     "%lld 日目": {
       "localizations": {
         "ja": {
@@ -1657,6 +1667,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "運搬"
+          }
+        }
+      }
+    },
+    "重い歩み": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "重い歩み"
           }
         }
       }

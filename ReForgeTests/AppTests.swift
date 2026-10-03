@@ -7,6 +7,23 @@ import ReForgeEngine
 /// 射影(区画・視界・視点・補間)のロジックは ReForgeCore の RFPresentTests が Linux で確かめる。
 @MainActor
 final class AppTests: XCTestCase {
+    private final class PerformanceClock {
+        private let origin = ContinuousClock().now
+        private var offsets: [Duration]
+
+        init(milliseconds: [Int]) { offsets = milliseconds.map(Duration.milliseconds) }
+
+        func now() -> ContinuousClock.Instant { origin.advanced(by: offsets.removeFirst()) }
+    }
+
+    @MainActor private final class BackgroundTasks: BackgroundTaskManaging {
+        private(set) var events: [String] = []
+        func begin(name: String, expirationHandler: @escaping () -> Void) -> UIBackgroundTaskIdentifier {
+            events.append("begin")
+            return UIBackgroundTaskIdentifier(rawValue: 1)
+        }
+        func end(_ identifier: UIBackgroundTaskIdentifier) { events.append("end") }
+    }
     private func tempSaves() -> FileSaveStorage {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
@@ -107,6 +124,55 @@ final class AppTests: XCTestCase {
         XCTAssertEqual(Set(try s.list()), [.resume, .dawn(day: 3), .manual(index: 1)])
         try s.deleteAll()
         XCTAssertEqual(try s.list(), [])
+    }
+
+    func testSaveWriterKeepsWriteOrder() async throws {
+        let saves = tempSaves()
+        let writer = SaveWriter(storage: saves)
+        try await writer.write(Data("one".utf8), slot: .resume)
+        try await writer.write(Data("two".utf8), slot: .resume)
+        try await writer.write(Data("three".utf8), slot: .resume)
+        XCTAssertEqual(try saves.read(slot: .resume), Data("three".utf8))
+    }
+
+    func testBackgroundSaveEndsAfterWriterCompletes() async throws {
+        let tasks = BackgroundTasks()
+        let app = AppModel(saves: tempSaves(), backgroundTasks: tasks)
+        let content = try XCTUnwrap(app.content)
+        let store = GameStore(content: content, world: GameBootstrap.newWorld(content: content, seed: 5), saves: tempSaves())
+        app.saveInBackground(store)
+        XCTAssertEqual(tasks.events, ["begin"])
+        for _ in 0..<50 where tasks.events.count < 2 { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertEqual(tasks.events, ["begin", "end"])
+    }
+
+    func testClockStepRecordsOnlySlowSteps() async throws {
+        let content = try content()
+        var world = GameBootstrap.newWorld(content: content, seed: 5)
+        world.clock.held = false
+        let slowClock = PerformanceClock(milliseconds: [0, 60])
+        let slow = GameStore(content: content, world: world, saves: tempSaves(), performanceNow: slowClock.now)
+        await slow.load()
+        await slow.clockStep(realSeconds: 0.25)
+        XCTAssertEqual(slow.slowSteps.count, 1)
+        XCTAssertEqual(slow.slowSteps.first?.milliseconds, 60)
+
+        let fastClock = PerformanceClock(milliseconds: [0, 40])
+        let fast = GameStore(content: content, world: world, saves: tempSaves(), performanceNow: fastClock.now)
+        await fast.load()
+        await fast.clockStep(realSeconds: 0.25)
+        XCTAssertTrue(fast.slowSteps.isEmpty)
+    }
+
+    func testTerrainCacheDoesNotRenderAnUnchangedChunkAgain() async throws {
+        let start = try heldStartContent()
+        let store = GameStore(content: start.content, world: start.world, saves: tempSaves())
+        await store.load()
+        let chunk = try XCTUnwrap(store.chunks.values.first)
+        let cache = MapTerrainCache()
+        _ = cache.image(for: chunk, cellSize: 24, night: store.clock.isNight, vision: store.mapView.vision, terrains: start.content.terrains)
+        _ = cache.image(for: chunk, cellSize: 24, night: store.clock.isNight, vision: store.mapView.vision, terrains: start.content.terrains)
+        XCTAssertEqual(cache.renderCount[chunk.index], 1)
     }
 
     func testNewGameLoadsMapChunksAndFootCard() async throws {
