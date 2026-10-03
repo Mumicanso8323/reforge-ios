@@ -312,6 +312,8 @@ public struct CrewMemberView: Equatable, Sendable {
     public var overridden: Bool
     /// 立ち絵(無ければ枠ごと出さない)。
     public var art: ArtID? = nil
+    /// この人に今頼める選択肢だけ(頼めない配属は出さない。DEC-F13)。止める・休むなど働きでない配属は常に出る。
+    public var choices: [AssignChoice] = []
 }
 
 /// 割り当ての選択肢 1 つ(どの一員にも同じ並びで出す)。
@@ -326,6 +328,7 @@ public struct AssignChoice: Equatable, Sendable {
 
 public struct CrewView: Equatable, Sendable {
     public var members: [CrewMemberView]
+    /// 全員分の選択肢(互換)。画面は人ごとの `CrewMemberView.choices` を使う。
     public var choices: [AssignChoice]
 }
 
@@ -338,6 +341,7 @@ extension FrameBuilder {
             return (content.structures[k]?.provides["research"] ?? 0) > 0
         })
         func pct(_ m: Milli) -> Int { Int(max(0, min(100_000, m.raw)) / 100) }
+        let allChoices = assignChoices(w, p, researchDesks)
         let members = w.people.members.compactMap { id -> CrewMemberView? in
             guard let ps = w.people[id] else { return nil }
             let a = w.people.effectiveAssignment(id) ?? .idle
@@ -351,9 +355,10 @@ extension FrameBuilder {
                                 .map { p.name(Subject.stat($0)) }),
                 relationRank: ps.relation.rank, relationPoints: ps.relation.points,
                 relationNext: RelationState.threshold(rank: ps.relation.rank), overridden: ps.override != nil,
-                art: p.art(Subject.person(id)))
+                art: p.art(Subject.person(id)),
+                choices: allChoices.filter { CrewWork.refusal($0.assignment, for: id, w, content) == nil })
         }
-        return CrewView(members: members, choices: assignChoices(w, p, researchDesks))
+        return CrewView(members: members, choices: allChoices)
     }
 
     func describe(_ a: Assignment, _ w: WorldState, _ p: Perceiver, _ desks: Set<EntityID>)
