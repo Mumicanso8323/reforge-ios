@@ -208,7 +208,7 @@ public struct FrameBuilder: Sendable {
         w.narrative.pending.first.map { d in
             DecisionView(id: d.id, blocking: d.blocking, choices: d.choices.map { c in
                 (c, content.events[d.event]?.choices?.first { $0.id == c }.map { p.text($0.label) } ?? p.text(Perceiver.unknownText))
-            })
+            }, prompt: content.events[d.event]?.prompt.map { p.text($0) })
         }
     }
 

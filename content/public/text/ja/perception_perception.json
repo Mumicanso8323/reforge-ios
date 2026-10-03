@@ -35,6 +35,7 @@
     "text.test.objective": "試験の目標",
     "text.test.cause": "試験の失敗",
     "text.test.row": "試験の行",
+    "text.test.prompt": "テスト用の文",
     "text.test.yes": "はい",
     "text.test.no": "いいえ",
     "text.test.line1": "試験の一言",

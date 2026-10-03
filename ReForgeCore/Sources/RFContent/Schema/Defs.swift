@@ -698,6 +698,8 @@ public struct EventDef: ContentDef, Equatable {
     public var scene: SceneID?
     /// 決断(選択肢)。あれば PendingDecision を出す。
     public var choices: [ChoiceDef]?
+    /// 決断の問いの文(選ぶ帯の上に 1 行)。`choices` がある出来事だけが使う。
+    public var prompt: TextID?
     /// 決めるまで時計を止めるか(既定 false)。
     public var blocking: Bool?
     /// 来歴に付ける印。

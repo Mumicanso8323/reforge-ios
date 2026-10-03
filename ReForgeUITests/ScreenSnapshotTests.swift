@@ -90,7 +90,9 @@ final class ScreenSnapshotTests: XCTestCase {
 
         prepare(app, screen: screen)
         if screen == "darkStart" { assertDarkStart(app, language: lang.code) }
-        Thread.sleep(forTimeInterval: 1.0)  // 組み直しと文字の測りが落ち着くのを待つ(研究の巻き取りの成否は下のポーリングで決める)
+        Thread.sleep(forTimeInterval: 1.0)
+        if screen == "map" { mapFrames[lang.code] = element(app, "map").frame }
+        if screen == "decisionBand" { assertDecisionBand(app, language: lang.code) }  // 組み直しと文字の測りが落ち着くのを待つ(研究の巻き取りの成否は下のポーリングで決める)
         let researchStatus = screen == "research" ? waitForResearchSection(app, language: lang.code, screen: screen) : nil
 
         let screenshot = XCUIScreen.main.screenshot()
@@ -173,6 +175,36 @@ final class ScreenSnapshotTests: XCTestCase {
             _ = element(app, "darkStartAct").waitForExistence(timeout: 30)
         default:
             XCTFail("知らない画面: \(screen)")
+        }
+    }
+
+    /// 帯のない写真(map)での地図の枠(言語ごと)。決断の帯の写真と同じでなければならない(帯は重ねる。A-02)。
+    private var mapFrames: [String: CGRect] = [:]
+
+    /// A-02 決断の帯: 問いの文が見える・選ぶボタンが画面の下 1/3 にある・地図の枠が帯のない写真と同じ。
+    private func assertDecisionBand(_ app: XCUIApplication, language: String) {
+        let prompt = element(app, "decisionPrompt")
+        XCTAssertTrue(prompt.exists, "\(language)_decisionBand: 問いの文が出ない")
+        let band = element(app, "decisionBand")
+        XCTAssertTrue(band.exists, "\(language)_decisionBand: 帯が出ない")
+        let window = app.windows.firstMatch.frame
+        let buttons = band.buttons.allElementsBoundByIndex
+        XCTAssertFalse(buttons.isEmpty, "\(language)_decisionBand: 選ぶボタンが無い")
+        for b in buttons {
+            XCTAssertGreaterThan(b.frame.midY, window.height * 2 / 3, "\(language)_decisionBand: 選ぶボタンが下 1/3 にない")
+            XCTAssertGreaterThanOrEqual(b.frame.height, 44, "\(language)_decisionBand: 選ぶボタンが小さい")
+        }
+        if prompt.exists, let first = buttons.first {
+            XCTAssertLessThanOrEqual(prompt.frame.maxY, first.frame.minY + 1, "\(language)_decisionBand: 問いの文がボタンの上にない")
+        }
+        let map = element(app, "map").frame
+        if let plain = mapFrames[language] {
+            XCTAssertEqual(map.minX, plain.minX, accuracy: 1, "\(language)_decisionBand: 地図の枠が動いた")
+            XCTAssertEqual(map.minY, plain.minY, accuracy: 1, "\(language)_decisionBand: 地図の枠が動いた")
+            XCTAssertEqual(map.width, plain.width, accuracy: 1, "\(language)_decisionBand: 地図の枠が動いた")
+            XCTAssertEqual(map.height, plain.height, accuracy: 1, "\(language)_decisionBand: 地図の枠が動いた")
+        } else {
+            XCTFail("\(language)_decisionBand: 帯のない地図の枠が測れていない")
         }
     }
 

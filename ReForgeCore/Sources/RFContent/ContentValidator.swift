@@ -34,6 +34,7 @@ public enum ContentValidator {
         // 出来事・始まり
         startMembersExist(db, &out)
         startClockWellFormed(db, &out)
+        eventPromptNeedsChoices(db, &out)
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)
         scenesWellFormed(db, &out)
@@ -153,6 +154,7 @@ public enum ContentValidator {
         }
         for (id, d) in db.documents { refs += [(d.title, "document \(id)"), (d.body, "document \(id)")] }
         for (id, e) in db.events {
+            if let p = e.prompt { refs.append((p, "event \(id)")) }
             for c in e.choices ?? [] {
                 refs.append((c.label, "event \(id)"))
                 refs += c.effects.compactMap { causeText($0) }.map { ($0, "event \(id)") }
@@ -359,6 +361,14 @@ public enum ContentValidator {
                 out.append(Issue(level: .warning, rule: "event.changes-world",
                                  message: "\(id) は世界の状態を変えない(場面だけ)"))
             }
+        }
+    }
+
+    /// 問いの文(prompt)は、選ぶ決断(choices)がある出来事だけが持つ。
+    static func eventPromptNeedsChoices(_ db: ContentDB, _ out: inout [Issue]) {
+        for (id, e) in db.events.sorted(by: { $0.key < $1.key }) where e.prompt != nil && (e.choices ?? []).isEmpty {
+            out.append(Issue(level: .error, rule: "event.prompt.no-choices",
+                             message: "\(id) は選ぶ決断が無いのに問いの文がある"))
         }
     }
 
