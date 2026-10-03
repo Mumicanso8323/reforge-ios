@@ -342,20 +342,42 @@ public enum OpeningGuarantee {
     static func placeOpeningSites(_ layer: inout MapLayer, landmarks lm: Landmarks, rules r: OpeningRules) {
         let start = lm.base.center
         let radius = r.firstFireRadius ?? 3
+        let day = dawnDayRadius()
+        let candidates = ring(start, radius).filter { p in
+            [Biome.plain, .cleared].contains(layer.terrain.biome(at: p)) && layer.terrain.size.contains(p)
+                && !layer.placements.isOccupied(p) && !layer.deposits.hasDeposit(at: p)
+        }
+        // W-28: 水(岸・浅瀬を含む)が昼の視界の円の中にある候補を先に選ぶ。
+        // 森の補いが道に森を置いて川岸・露頭の歩数の予算を壊す候補は飛ばす(置いた結果を写しで確かめる)。無ければ今までの選び方。
+        let ws = PathWorkspace()
+        for c in candidates where layer.terrain.size.contains(c) {
+            let seen = VisionRule.cells(center: c, radius: day, in: layer.terrain.size).contains { q in
+                VisionRule.inCircle(q, center: c, radius: day) && layer.terrain.biome(at: q)?.isWet == true
+            }
+            guard seen else { continue }
+            var trial = layer
+            applyOpeningSites(&trial, landmarks: lm, rules: r, fire: c)
+            if stepsWithinBudget(trial, landmarks: lm, rules: r, workspace: ws) { layer = trial; return }
+        }
+        applyOpeningSites(&layer, landmarks: lm, rules: r, fire: candidates.first ?? firstFireSite(layer, radius: radius))
+    }
+
+    /// 川岸(粘土)と露頭へ、決めた歩数以内で歩ける(OpeningGuarantee.verifyTerrain と同じ見方)。
+    static func stepsWithinBudget(_ layer: MapLayer, landmarks lm: Landmarks, rules r: OpeningRules, workspace ws: PathWorkspace) -> Bool {
+        func steps(_ p: GridPoint) -> Int {
+            Pathfinder.findPath(size: layer.terrain.size, from: lm.base.center, to: p, workspace: ws,
+                                biomeAt: { layer.terrain.biome(at: $0) })?.steps.count ?? .max
+        }
+        return steps(lm.clayBank) <= r.clayBankSteps && steps(lm.outcrop) <= r.outcropSteps
+    }
+
+    static func applyOpeningSites(_ layer: inout MapLayer, landmarks lm: Landmarks, rules r: OpeningRules, fire: GridPoint?) {
+        let start = lm.base.center
+        let day = dawnDayRadius()
         func free(_ p: GridPoint) -> Bool {
             layer.terrain.size.contains(p) && !layer.placements.isOccupied(p) && !layer.deposits.hasDeposit(at: p)
         }
         func dry(_ p: GridPoint) -> Bool { [Biome.plain, .cleared].contains(layer.terrain.biome(at: p)) }
-
-        // W-28: 水(岸・浅瀬を含む)が昼の視界の円の中にある候補を先に選ぶ。無ければ今までの選び方。
-        let day = dawnDayRadius()
-        func waterInSight(_ p: GridPoint) -> Bool {
-            VisionRule.cells(center: p, radius: day, in: layer.terrain.size).contains { q in
-                VisionRule.inCircle(q, center: p, radius: day) && layer.terrain.biome(at: q)?.isWet == true
-            }
-        }
-        let candidates = ring(start, radius).filter { dry($0) && free($0) }
-        let fire = candidates.first(where: waterInSight) ?? candidates.first ?? firstFireSite(layer, radius: radius)
         layer.firstFireSite = fire
         guard let fire else { return }
         let ember = Set(emberCells(lm.base))
