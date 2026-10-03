@@ -8,6 +8,11 @@ import ReForgeEngine
 @MainActor
 @Observable
 final class DebugPrologue {
+    private let kind: PrologueView.Kind
+
+    init(kind: PrologueView.Kind = .prologue) {
+        self.kind = kind
+    }
     private static func sample(verbatim text: String) -> String { text }
 
     static let scenes: [[String]] = [
@@ -29,7 +34,10 @@ final class DebugPrologue {
     /// いま見せる序(終わったら nil)。本体の PrologueView と同じ形。
     var view: PrologueView? {
         guard scene < Self.scenes.count else { return nil }
-        return PrologueView(lines: Array(Self.scenes[scene].prefix(line + 1)), waiting: true)
+        let sampleLines = Array(Self.scenes[scene].prefix(line + 1))
+        let lines = kind == .stage ? Array(repeating: "test line", count: sampleLines.count) : sampleLines
+        let speakers: [String?] = kind == .stage ? Array(repeating: Optional("test speaker"), count: lines.count) : []
+        return PrologueView(kind: kind, lines: lines, speakers: speakers, waiting: true)
     }
 
     /// 送り。場面の最後の行の後は次の場面の 1 行目へ。最後の場面の最後の行の後は終わる。

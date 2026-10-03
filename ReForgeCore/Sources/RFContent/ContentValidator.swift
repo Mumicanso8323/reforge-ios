@@ -159,6 +159,9 @@ public enum ContentValidator {
             }
             refs += e.effects.compactMap { causeText($0) }.map { ($0, "event \(id)") }
         }
+        for (id, scene) in db.scenes {
+            refs += (scene.onEnd ?? []).compactMap { causeText($0) }.map { ($0, "scene \(id)") }
+        }
         return refs
     }
 
@@ -286,7 +289,7 @@ public enum ContentValidator {
         }
     }
 
-    /// 事実の含意・始まりの事実・出来事で知る事実・条件で見る事実に定義がある。
+    /// 事実の含意・始まりの事実・出来事や場面で知る事実・条件で見る事実に定義がある。
     static func factsWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
         var refs: [(FactID, String)] = []
         for (id, f) in db.facts { refs += (f.implies ?? []).map { ($0, "fact \(id) の含意") } }
@@ -296,6 +299,14 @@ public enum ContentValidator {
             for c in e.choices ?? [] { effects += c.effects }
             for ef in effects { if case .learn(let f) = ef { refs.append((f, "event \(id)")) } }
             refs += knownFacts(e.trigger.when).map { ($0, "event \(id) の引き金") }
+        }
+        for (id, scene) in db.scenes {
+            for line in scene.lines {
+                refs += (line.learns ?? []).map { ($0, "scene \(id)") }
+            }
+            for effect in scene.onEnd ?? [] {
+                if case .learn(let fact) = effect { refs.append((fact, "scene \(id)")) }
+            }
         }
         for (f, origin) in refs.sorted(by: { ($0.0, $0.1) < ($1.0, $1.1) }) where db.facts[f] == nil {
             out.append(Issue(level: .error, rule: "fact.defined", message: "\(origin) の事実 \(f) が無い"))
@@ -425,6 +436,7 @@ public enum ContentValidator {
         }
         for (id, scene) in scenes.sorted(by: { $0.key < $1.key }) {
             if let next = scene.then, scene.style != .prologue { reportUnexpectedStart(next, "scene \(id)") }
+            sceneEffects(scene.onEnd ?? [], "scene \(id)")
         }
 
         let prohibited = #"[0-9０-９A-Za-zＡ-Ｚａ-ｚ]"#

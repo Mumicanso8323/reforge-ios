@@ -60,6 +60,14 @@ public struct Simulation: Sendable {
             report.rejection = Rejection("reason.scene.prologue")
             return report
         }
+        if let scene = world.narrative.scene,
+           content.scenes[scene.scene]?.style == .stage,
+           command != .narrative(.advanceScene),
+           !isFireFromEffect(command)
+        {
+            report.rejection = Rejection("reason.scene.reading")
+            return report
+        }
         if world.clock.held, !hasPrologueScene(world), content.start.clock?.firstAct != nil,
            !acceptsWhileFirstActHeld(command)
         {
@@ -108,6 +116,11 @@ public struct Simulation: Sendable {
         return content.scenes[scene.scene]?.style == .prologue
     }
 
+    private func hasStageScene(_ world: WorldState) -> Bool {
+        guard let scene = world.narrative.scene else { return false }
+        return content.scenes[scene.scene]?.style == .stage
+    }
+
     /// firstAct を持つ始まりは、暗い画面の行為と場面・効果の内部命令だけを受ける。
     private func acceptsWhileFirstActHeld(_ command: Command) -> Bool {
         switch command {
@@ -149,7 +162,7 @@ public struct Simulation: Sendable {
 
     public func advance(_ world: inout WorldState, realSeconds: Double) -> StepReport {
         guard world.run.isActive, world.clock.phase == .day, !world.clock.held, realSeconds > 0, realSeconds.isFinite,
-              !world.narrative.pending.contains(where: \.blocking)
+              !world.narrative.pending.contains(where: \.blocking), !hasStageScene(world)
         else { return StepReport() }
         let dt = min(realSeconds, Self.maxRealSecondsPerAdvance)
         let micros = Int64((dt * 1_000_000).rounded())
@@ -165,7 +178,7 @@ public struct Simulation: Sendable {
     public func advanceHeld(_ world: inout WorldState, realSeconds: Double, carry: inout Int64) -> StepReport {
         guard world.run.isActive, world.clock.held, let firstAct = content.start.clock?.firstAct,
               let active = world.exploration.active[.noah], active.interaction == firstAct, active.holding,
-              realSeconds > 0, realSeconds.isFinite
+              realSeconds > 0, realSeconds.isFinite, !hasStageScene(world)
         else { return StepReport() }
         let dt = min(realSeconds, Self.maxRealSecondsPerAdvance)
         let micros = Int64((dt * 1_000_000).rounded())
@@ -199,13 +212,14 @@ public struct Simulation: Sendable {
         guard n > 0 else { return report }
         var ctx = StepContext(world: world, content: content)
         for _ in 0..<n {
-            guard ctx.world.run.isActive else { break }
+            guard ctx.world.run.isActive, !hasStageScene(ctx.world) else { break }
             let phase = ctx.world.clock.phase
             for s in systems { s.step(&ctx) }
             settle(&ctx, &report)
             report.steps += 1
             if stopAtPhaseChange, ctx.world.clock.phase != phase { break }
             if ctx.world.narrative.pending.contains(where: \.blocking) { break }
+            if hasStageScene(ctx.world) { break }
         }
         world = ctx.world
         if Disclosure.record(&world, content) { report.changes.mark(.narrative) }

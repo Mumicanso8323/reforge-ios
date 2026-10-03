@@ -299,6 +299,9 @@ extension ContentValidator {
             checkCondition(en.when, "ending \(id)")
             checkEffects(en.effects, "ending \(id)")
         }
+        for (id, scene) in db.scenes.sorted(by: { $0.key < $1.key }) {
+            checkEffects(scene.onEnd, "scene \(id)")
+        }
         for (id, l) in db.lines.sorted(by: { $0.key < $1.key }) {
             checkCondition(l.when, "line \(id)")
             if db.people[l.speaker] == nil { missing("人", l.speaker.rawValue, "line \(id)") }

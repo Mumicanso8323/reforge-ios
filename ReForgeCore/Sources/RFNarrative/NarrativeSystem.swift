@@ -182,7 +182,9 @@ public struct NarrativeSystem: SimSystem {
 
     func sceneTick(_ ctx: inout StepContext) {
         guard let s = ctx.world.narrative.scene else { return }
-        guard ctx.content.scenes[s.scene]?.style != .prologue else { return }
+        guard ctx.content.scenes[s.scene]?.style != .prologue,
+              ctx.content.scenes[s.scene]?.style != .stage
+        else { return }
         let since = s.lineSince ?? ctx.world.clock.now
         if ctx.world.clock.now - since >= GameDuration(seconds: Self.sceneLineSeconds) { Self.advanceScene(&ctx) }
     }
@@ -204,11 +206,13 @@ public struct NarrativeSystem: SimSystem {
         s.lineSince = ctx.world.clock.now
         if s.line < lines.count {
             ctx.world.narrative.scene = s
-        } else if let next = definition.then {
-            ctx.world.narrative.scene = nil
-            EffectApplier.apply([.startScene(scene: next)], &ctx, cause: s.origin)
+            for fact in lines[s.line].learns ?? [] { ctx.learn(fact, via: s.origin) }
         } else {
             ctx.world.narrative.scene = nil
+            EffectApplier.apply(definition.onEnd ?? [], &ctx, cause: s.origin)
+            if let next = definition.then {
+                EffectApplier.apply([.startScene(scene: next)], &ctx, cause: s.origin)
+            }
         }
         ctx.changes.mark(.narrative)
     }

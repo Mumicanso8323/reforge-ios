@@ -132,11 +132,12 @@ public struct FrameBuilder: Sendable {
     func clockView(_ w: WorldState) -> ClockView {
         let dayLen = content.clock.dayGameSeconds
         let since = (w.clock.now - w.clock.dayStartedAt).seconds
+        let readingStage = w.narrative.scene.flatMap { content.scenes[$0.scene] }?.style == .stage
         var v = ClockView(
             day: w.clock.day, phase: w.clock.phase,
             dayRemainingPermille: w.clock.phase == .day && dayLen > 0 ? Int(max(0, (dayLen - since) * 1000 / dayLen)) : 0,
             running: w.run.isActive && w.clock.phase == .day && !w.clock.held
-                && !w.narrative.pending.contains(where: \.blocking))
+                && !w.narrative.pending.contains(where: \.blocking) && !readingStage)
         v.held = w.clock.held
         v.fireOutlook = duskFireOutlook(w)
         return v
@@ -202,13 +203,22 @@ public struct FrameBuilder: Sendable {
 
     func sceneLines(_ w: WorldState, _ p: Perceiver) -> [String] {
         guard let s = w.narrative.scene, let def = content.scenes[s.scene] else { return [] }
-        guard def.style != .prologue else { return [] }
+        guard def.style != .prologue, def.style != .stage else { return [] }
         return def.lines.prefix(s.line + 1).suffix(3).map { p.text($0.text) }
     }
 
     func prologue(_ w: WorldState, _ p: Perceiver) -> PrologueView? {
-        guard let s = w.narrative.scene, let def = content.scenes[s.scene], def.style == .prologue else { return nil }
-        return PrologueView(lines: def.lines.prefix(s.line + 1).map { p.text($0.text) }, waiting: true)
+        guard let s = w.narrative.scene, let def = content.scenes[s.scene] else { return nil }
+        let kind: PrologueView.Kind
+        switch def.style {
+        case .some(.prologue): kind = .prologue
+        case .some(.stage): kind = .stage
+        case .some(.bubble), .none: return nil
+        }
+        let lines = def.lines.prefix(s.line + 1)
+        return PrologueView(kind: kind, lines: lines.map { p.text($0.text) },
+                            speakers: lines.map { $0.speaker.map { p.name(content.people[$0]?.name ?? Subject.person($0)) } },
+                            waiting: true)
     }
 
     func darkStart(_ w: WorldState) -> DarkStartView? {

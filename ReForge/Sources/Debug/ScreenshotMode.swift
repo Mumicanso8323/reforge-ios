@@ -10,7 +10,7 @@ import ReForgeEngine
 /// 言語は `-AppleLanguages (xx)` と `-AppleLocale xx` で与える(InkFont.language の初期値が拾う)。
 enum ScreenshotScreen: String, CaseIterable {
     case map, foot, design, base, crew, research, gameOver, settings
-    case title, notes, decisionBand, bootFailure, prologue, darkStart
+    case title, notes, decisionBand, bootFailure, prologue, stage, darkStart
 
     /// 最初に選ぶタブ。研究は拠点のタブ(研究の節までの巻き取りはアプリの側。BaseTab の DEBUG)。
     var tab: GameTab {
@@ -28,6 +28,7 @@ enum ScreenshotScreen: String, CaseIterable {
         case .decisionBand: .map
         case .bootFailure: .map
         case .prologue: .map
+        case .stage: .map
         case .darkStart: .map
         }
     }
@@ -62,7 +63,7 @@ enum ScreenshotMode {
             return AppModel(saves: saves, bundle: Bundle(url: empty) ?? Bundle())
         case .title:
             return AppModel(saves: saves)
-        case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand, .prologue, .darkStart:
+        case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand, .prologue, .stage, .darkStart:
             let model = AppModel(saves: saves)
             model.startScreenshotGame(failed: screen == .gameOver, decision: screen == .decisionBand,
                                       darkStart: screen == .darkStart)
@@ -70,6 +71,7 @@ enum ScreenshotMode {
             if screen == .settings { model.settingsOpen = true }
             // 序は、見本の場面を画面全体で出した形(送りは UI テストのタップ)
             if screen == .prologue { model.debugPrologue = DebugPrologue() }
+            if screen == .stage { model.debugPrologue = DebugPrologue(kind: .stage) }
             return model
         }
     }

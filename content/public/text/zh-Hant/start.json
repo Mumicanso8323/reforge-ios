@@ -1,6 +1,7 @@
 {
   "language": "zh-Hant",
   "texts": {
-    "reason.start.first_act": "現在只能進行這個行動"
+    "reason.start.first_act": "現在只能進行這個行動",
+    "reason.scene.reading": "正在閱讀"
   }
 }
