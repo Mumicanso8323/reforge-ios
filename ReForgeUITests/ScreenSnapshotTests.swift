@@ -259,7 +259,8 @@ final class ScreenSnapshotTests: XCTestCase {
             .allElementsBoundByIndex
         for item in statusItems {
             XCTAssertFalse(item.label.isEmpty, "\(language)_\(screen): 見出しの無い状態の棒がある")
-            // 値の有無は本体のテスト(RFPresentTests)で確かめる(棒は 1 つの要素にまとまり、値の欄は空)
+            // 値は読み上げの値として明示している(StatusBandView)。本体の側は RFPresentTests の testStatusOmitsUnknownLabelsAndEmptyValues
+            XCTAssertFalse((item.value as? String ?? "").isEmpty, "\(language)_\(screen): 値の無い状態の棒がある")
         }
         let objective = element(app, "statusObjective")
         if objective.exists {

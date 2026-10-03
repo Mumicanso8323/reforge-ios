@@ -34,6 +34,7 @@ struct StatusBandView: View {
                             }
                             .accessibilityElement(children: .combine)
                             .accessibilityLabel(Text(verbatim: item.label))
+                            .accessibilityValue(Text(verbatim: item.value))
                             .accessibilityIdentifier("status-item-\(item.key)")
                         }
                     }
