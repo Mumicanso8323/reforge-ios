@@ -76,29 +76,34 @@ struct BaseTabView: View {
     private func build(_ v: BaseView) -> some View {
         InkSection(title: Text("建てる")) {
             ForEach(v.buildable, id: \.kind) { o in
-                Button {
-                    store.beginPlacing(o.kind)
-                } label: {
-                    InkRow(glyph: o.glyph, title: Text(verbatim: o.name),
-                           detail: Text(verbatim: o.cost.map { "\($0.name)×\($0.quantity)" }.joined(separator: " ")),
-                           value: o.affordable ? nil : Text("足りない"), selected: store.placing == o.kind)
+                switch BuildRowKind.of(o) {
+                case .button:
+                    Button {
+                        store.beginPlacing(o.kind)
+                    } label: {
+                        InkRow(glyph: o.glyph, title: Text(verbatim: o.name),
+                               detail: Text(verbatim: o.cost.map { "\($0.name)×\($0.quantity)" }.joined(separator: " ")),
+                               selected: store.placing == o.kind)
+                    }
+                    .buttonStyle(.inkRow)
+                    .accessibilityIdentifier("build-\(o.kind.rawValue)")
+                case .plain:
+                    InkRow(glyph: o.glyph, title: Text(verbatim: o.name), detail: missing(o))
+                        .foregroundStyle(InkColor.textDim)
+                        .accessibilityValue("足りない")
                 }
-                .buttonStyle(.inkRow)
-                .accessibilityIdentifier("build-\(o.kind.rawValue)")
             }
-            ForEach(v.shadows, id: \.name) { s in
-                // 半分の気配の影(押せない。解放の条件は書かない。W-07)
-                InkRow(glyph: "？", title: Text(verbatim: s.name), detail: Text("まだ作り方を知らない"),
-                       value: Text("\(s.have)/\(s.need)"))
-                    .foregroundStyle(InkColor.textDim)
-            }
-            if v.unknownStructures > 0 {
-                // 建てられない物の影(名前は出さない。§10 HNT-13)
-                InkRow(glyph: "？", title: Text(verbatim: "？"), value: Text("×\(v.unknownStructures)"))
+            let unknownCount = v.unknownStructures + v.shadows.count
+            if unknownCount > 0 {
+                InkRow(title: Text("まだ作り方を知らない物 \(unknownCount) 件"))
                     .foregroundStyle(InkColor.textDim)
                     .accessibilityIdentifier("buildUnknown")
             }
         }
+    }
+
+    private func missing(_ option: BaseView.BuildOption) -> Text {
+        Text(verbatim: option.missing.map { "あと \($0.name)×\($0.quantity)" }.joined(separator: " "))
     }
 
     private func lines(_ v: BaseView) -> some View {
@@ -186,7 +191,7 @@ struct ResearchSection: View {
             }
             if view.hiddenCount > 0 {
                 // 深さの気配: 名前は出さず、数だけ(§10 HNT-16)
-                InkRow(glyph: "？", title: Text("この先にまだ \(view.hiddenCount) 件"))
+                InkRow(title: Text("この先にまだ \(view.hiddenCount) 件"))
                     .foregroundStyle(InkColor.textDim)
                     .accessibilityIdentifier("researchHidden")
             }
@@ -200,5 +205,14 @@ struct ResearchSection: View {
         case .active: "◎"
         case .done: "●"
         }
+    }
+}
+
+enum BuildRowKind: Equatable {
+    case button
+    case plain
+
+    static func of(_ option: BaseView.BuildOption) -> Self {
+        option.affordable ? .button : .plain
     }
 }

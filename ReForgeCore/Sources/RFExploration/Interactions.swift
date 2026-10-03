@@ -29,11 +29,19 @@ public enum Interactions {
     /// 手の届く距離(マス。チェビシェフ)。
     static let reach = Reach.tiles
 
+    /// 研究・スキルで解禁される行為は、解禁されるまで使えない。
+    public static func isUnlocked(_ id: InteractionID, world: WorldState, gated: Set<UnlockTarget>) -> Bool {
+        !gated.contains(.interaction(id: id)) || world.research.unlocked.interactions.contains(id)
+    }
+
     // MARK: コマンド
 
     static func command(_ id: InteractionID, at: WorldPoint, holding: Bool, actor: PersonID,
                         _ ctx: inout StepContext) -> CommandResult {
         guard let def = ctx.content.interactions[id] else { return .rejected(Rejection("reason.explore.unknown")) }
+        guard isUnlocked(id, world: ctx.world, gated: ctx.content.gatedUnlocks) else {
+            return .rejected(Rejection("reason.explore.locked"))
+        }
         if def.continues == true, let r = continueSignal(def, at: at, holding: holding, actor: actor, &ctx) { return r }
         // 進行中の同じ行為への合図(押すのをやめた・取りやめ・押し直し)
         if let a = ctx.world.exploration.active[actor], a.interaction == id, a.at == at {
@@ -92,6 +100,9 @@ public enum Interactions {
     /// requireReach を false にすると、手の届かない所でも始める(続けて採るで、歩いて次のマスへ移るとき)。
     static func start(_ def: InteractionDef, at: WorldPoint, holding: Bool, actor: PersonID,
                       requireReach: Bool = true, _ ctx: inout StepContext) -> Result<GameDuration?, Rejection> {
+        guard isUnlocked(def.id, world: ctx.world, gated: ctx.content.gatedUnlocks) else {
+            return .failure(Rejection("reason.explore.locked"))
+        }
         let w = ctx.world
         guard let person = w.people[actor], person.presence.isMember, let pos = person.position else {
             return .failure(Rejection("reason.explore.no_actor"))

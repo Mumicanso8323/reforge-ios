@@ -27,6 +27,11 @@
           "structure": {
             "id": "structure.test.campfire"
           }
+        },
+        {
+          "interaction": {
+            "id": "interaction.scavenge"
+          }
         }
       ],
       "effects": [
@@ -107,6 +112,17 @@
         {
           "interaction": {
             "id": "interaction.test.decode"
+          }
+        }
+      ]
+    },
+    {
+      "id": "research.test.interaction_gate",
+      "points": 1,
+      "unlocks": [
+        {
+          "interaction": {
+            "id": "interaction.test.research_gate"
           }
         }
       ]

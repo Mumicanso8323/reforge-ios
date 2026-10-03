@@ -25,6 +25,23 @@ final class U18ScreenTests: XCTestCase {
         XCTAssertEqual(GameTab.visible(closed), [.map], "最初は地図だけ")
     }
 
+    func testLockedTabsAreNotIncludedInTheTabBarChoices() {
+        let locked = UIUnlocks(gated: [UIElements.tabBase, UIElements.tabCrew, UIElements.tabDesign, UIElements.tabNotes])
+        XCTAssertFalse(GameTab.visible(locked).contains(.base))
+        XCTAssertFalse(GameTab.visible(locked).contains(.crew))
+        XCTAssertFalse(GameTab.visible(locked).contains(.design))
+        XCTAssertFalse(GameTab.visible(locked).contains(.notes))
+    }
+
+    func testBuildRowKindOnlyMakesAffordableOptionsButtons() {
+        let affordable = BaseView.BuildOption(kind: "structure.test", name: "試験", glyph: "#", cost: [],
+                                               affordable: true, missing: [])
+        let unavailable = BaseView.BuildOption(kind: "structure.test", name: "試験", glyph: "#", cost: [],
+                                                affordable: false, missing: [(name: "材料", quantity: 2)])
+        XCTAssertEqual(BuildRowKind.of(affordable), .button)
+        XCTAssertEqual(BuildRowKind.of(unavailable), .plain)
+    }
+
     func testGaugeTextAndPercent() {
         XCTAssertEqual(GaugeText.render(StatGauge(fillPermille: 500, marks: [250, 900]), width: 4), "■┃□┃")
         XCTAssertEqual(PanelText.percent(40), "4%")

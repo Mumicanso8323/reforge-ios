@@ -1,4 +1,5 @@
 import RFContent
+import RFExploration
 import RFKernel
 import RFMap
 import RFMatter
@@ -156,14 +157,16 @@ public struct FrameBuilder: Sendable {
 
     func statusItems(_ w: WorldState, _ p: Perceiver) -> [StatusItem] {
         // 赤の判定は生存の担当が StatDef に足す(alertBelow など)。入ったらここで写す。
-        w.survival.stats.keys.sorted().compactMap { id in
-            p.stat(id, value: w.survival.stats[id] ?? .zero).map {
-                var item = StatusItem(key: id.rawValue, label: p.name(Subject.stat(id)), value: $0, alert: false)
-                if p.variant(Subject.stat(id))?.showMarks == true, let marks = content.stats[id]?.marks {
-                    item.gauge = StatGauge.make(value: (w.survival.stats[id] ?? .zero).raw, marks: marks)
-                }
-                return item
+        let unknown = p.text(Perceiver.unknownText)
+        return w.survival.stats.keys.sorted().compactMap { id -> StatusItem? in
+            guard let value = p.stat(id, value: w.survival.stats[id] ?? .zero), !value.isEmpty else { return nil }
+            let label = p.name(Subject.stat(id))
+            guard !label.isEmpty, label != unknown else { return nil }
+            var item = StatusItem(key: id.rawValue, label: label, value: value, alert: false)
+            if p.variant(Subject.stat(id))?.showMarks == true, let marks = content.stats[id]?.marks {
+                item.gauge = StatGauge.make(value: (w.survival.stats[id] ?? .zero).raw, marks: marks)
             }
+            return item
         }
     }
 
@@ -430,7 +433,8 @@ public struct FrameBuilder: Sendable {
             case .structure(let kind): placed.contains { $0.kind == .structure(kind) }
             case .module(let kind): placed.contains { $0.kind == .module(kind) }
             }
-            guard applies, ui.isOpen(.interaction(id)) else { return nil }
+            guard applies, ui.isOpen(.interaction(id)),
+                  Interactions.isUnlocked(id, world: w, gated: content.gatedUnlocks) else { return nil }
             if let phases = def.allowedPhases, !phases.contains(w.clock.phase) { return nil }
             if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) == false { return nil }
             return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)),

@@ -1,5 +1,6 @@
 import Foundation
 import RFContent
+import RFExploration
 import RFKernel
 import RFPresent
 import RFRules
@@ -91,6 +92,76 @@ final class PanelPresentTests: XCTestCase {
             XCTAssertEqual(opt.cost.count, rig.content.structures[k]?.cost.count)
         }
         XCTAssertTrue(b.base(world()).buildable.allSatisfy { world().research.unlocked.structures.contains($0.kind) })
+    }
+
+    func testBuildableReportsOnlyTheMaterialsStillMissing() throws {
+        let b = FrameBuilder(content: rig.content)
+        var w = world()
+        w.research.unlocked.structures = ["structure.test.shelter", "structure.storage"]
+        w.inventory.holders[.base] = [StockEntry(stuff: .item("wood"), quantity: 1)]
+
+        let options = b.base(w).buildable
+        let shelter = try XCTUnwrap(options.first { $0.kind == "structure.test.shelter" })
+        XCTAssertTrue(shelter.affordable)
+        XCTAssertTrue(shelter.missing.isEmpty)
+        let storage = try XCTUnwrap(options.first { $0.kind == "structure.storage" })
+        XCTAssertFalse(storage.affordable)
+        XCTAssertEqual(storage.missing.map(\.quantity), [5])
+        XCTAssertFalse(storage.missing[0].name.contains("item."))
+    }
+
+    func testGatedInteractionIsHiddenAndRejectedUntilUnlocked() throws {
+        let id: InteractionID = "interaction.test.research_gate"
+        let content = rig.content
+        var w = world()
+        let point = try XCTUnwrap(w.people[.noah]?.position)
+        let builder = FrameBuilder(content: content)
+
+        XCTAssertTrue(content.gatedUnlocks.contains(.interaction(id: id)))
+        XCTAssertFalse(content.gatedUnlocks.contains(.interaction(id: "interaction.scavenge")))
+        XCTAssertFalse(builder.footCard(w, at: point.point)?.actions.contains { $0.id == id } ?? true)
+        XCTAssertEqual(rig.simulation.apply(.exploration(.interact(interaction: id, at: point, holding: true)), to: &w)
+            .rejection?.reason, "reason.explore.locked")
+
+        w.people["person.test_a"]?.position = point
+        w.people["person.test_a"]?.assignment = .gather(interaction: id, at: point)
+        _ = rig.simulation.runSteps(1, &w)
+        XCTAssertNil(w.exploration.active["person.test_a"])
+
+        var ctx = StepContext(world: w, content: content)
+        EffectApplier.apply([.unlock(target: .interaction(id: id))], &ctx, cause: nil)
+        w = ctx.world
+        XCTAssertTrue(builder.footCard(w, at: point.point)?.actions.contains { $0.id == id } ?? false)
+        XCTAssertNil(rig.simulation.apply(.exploration(.interact(interaction: id, at: point, holding: true)), to: &w).rejection)
+        XCTAssertTrue(Interactions.isUnlocked("interaction.scavenge", world: w, gated: content.gatedUnlocks))
+        XCTAssertTrue(Interactions.isUnlocked("interaction.pick_sticks", world: w, gated: content.gatedUnlocks))
+    }
+
+    func testStatusOmitsUnknownLabelsAndEmptyValues() throws {
+        var content = rig.content
+        try ContentLoader.apply(json: Data("""
+        {
+          "stats": [
+            { "id": "stat.test.unknown_label", "initial": 500 },
+            { "id": "stat.test.empty_value", "initial": 500 }
+          ],
+          "perception": [
+            { "subject": "stat:stat.test.unknown_label", "variants": [
+              { "when": true, "name": "text.unknown", "display": { "bands": { "thresholds": [], "labels": ["text.stat.air.low"] } } }
+            ] },
+            { "subject": "stat:stat.test.empty_value", "variants": [
+              { "when": true, "name": "text.stat.air", "display": { "bands": { "thresholds": [], "labels": ["text.test.empty"] } } }
+            ] }
+          ],
+          "texts": { "text.test.empty": "" }
+        }
+        """.utf8), to: &content)
+        var w = world()
+        w.survival.stats["stat.test.unknown_label"] = Milli(raw: 500)
+        w.survival.stats["stat.test.empty_value"] = Milli(raw: 500)
+        let status = FrameBuilder(content: content).build(w, revision: 0, previous: nil, report: nil).status
+        XCTAssertFalse(status.contains { $0.key == "stat.test.unknown_label" })
+        XCTAssertFalse(status.contains { $0.key == "stat.test.empty_value" })
     }
 
     func testCrewShowsMembersAndAssignChoicesThatTheHostAccepts() async throws {
