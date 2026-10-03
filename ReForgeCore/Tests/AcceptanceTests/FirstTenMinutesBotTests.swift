@@ -26,6 +26,10 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var spent: Set<GridPoint> = []
         /// 行為ごとの最後の断り(診断)。見つからなかったときは「無い」。
         var rejects: [String: String] = [:]
+        /// 場面のほかの応え(INV-S3): 人の一言(line:)と、仲間が働きはじめた時の頭上の作業の字(work:)。
+        var answers: [(String, Double)] = []
+        /// 頼まれてまだ働きはじめていない仲間(頼みのあと最初の作業の字だけを応えに数える)。
+        var awaiting: Set<PersonID> = []
 
         init(content: ContentDB, seed: UInt64) {
             self.content = content
@@ -48,24 +52,54 @@ final class FirstTenMinutesBotTests: XCTestCase {
             }
         }
 
+        /// コマンドを送り、その中で言われた一言も記録する。
+        @discardableResult
+        mutating func send(_ c: Command) -> StepReport {
+            let r = sim.apply(c, to: &w)
+            record(r)
+            if case .crew(.assign(let p, _)) = c, p != .noah, r.rejection == nil { awaiting.insert(p) }
+            return r
+        }
+
+        mutating func record(_ r: StepReport) {
+            for e in r.events {
+                if case .lineSpoken(_, let line) = e { answers.append(("line:\(line.rawValue)", real)) }
+            }
+        }
+
+        /// 頼まれた仲間が働きはじめた(頭上に作業の字が出た)時を記録する。
+        mutating func noteWork() {
+            for id in awaiting.sorted(by: { $0.rawValue < $1.rawValue }) {
+                switch w.people[id]?.activity {
+                case .working, .interacting, .carrying:
+                    awaiting.remove(id)
+                    answers.append(("work:\(id.rawValue)", real))
+                default:
+                    break
+                }
+            }
+        }
+
         mutating func steps(_ n: Int) {
             for _ in 0..<n {
-                _ = sim.runSteps(1, &w)
+                let r = sim.runSteps(1, &w)
                 if w.clock.phase == .day { real += Self.realPerStep }
                 note()
+                record(r)
+                noteWork()
             }
         }
 
         /// 序を送り、暗い場面の行為を押し切る。
         mutating func lightFire() {
             var n = 0
-            while w.narrative.scene != nil && n < 30 { _ = sim.apply(.narrative(.advanceScene), to: &w); n += 1; real += 4 }
+            while w.narrative.scene != nil && n < 30 { _ = send(.narrative(.advanceScene)); n += 1; real += 4 }
             guard let act = fb.build(w, revision: 0, previous: nil, report: nil).darkStart?.action else { return }
-            _ = sim.apply(act.start, to: &w)
+            _ = send(act.start)
             var carry: Int64 = 0
             n = 0
-            while w.clock.held && n < 20000 { _ = sim.advanceHeld(&w, realSeconds: 0.1, carry: &carry); n += 1; real += 0.1 }
-            _ = sim.apply(act.end, to: &w)
+            while w.clock.held && n < 20000 { record(sim.advanceHeld(&w, realSeconds: 0.1, carry: &carry)); n += 1; real += 0.1 }
+            _ = send(act.end)
             note()
         }
 
@@ -93,11 +127,11 @@ final class FirstTenMinutesBotTests: XCTestCase {
             steps(Int(Double(d) / 4 / Self.realPerStep))
             w.people[.noah]?.position = a.at
             if content.interactions[id]?.cooldownDays != nil { spent.insert(a.at.point) }
-            let r = sim.apply(a.start, to: &w)
+            let r = send(a.start)
             guard r.rejection == nil else { rejects[id.rawValue] = r.rejection!.reason.rawValue; return false }
             var n = 0
             while w.exploration.active[.noah] != nil && n < 2000 { steps(1); n += 1 }
-            _ = sim.apply(a.end, to: &w)
+            _ = send(a.end)
             note()
             return true
         }
@@ -106,7 +140,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         mutating func readScenes() {
             var n = 0
             while let s = w.narrative.scene, content.scenes[s.scene]?.style.map({ "\($0)" }) == "stage", n < 20 {
-                _ = sim.apply(.narrative(.advanceScene), to: &w)
+                _ = send(.narrative(.advanceScene))
                 real += 3
                 n += 1
             }
@@ -127,7 +161,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         /// 本物の歩く命令で歩く(着くまで時間を進める)。
         mutating func walk(to g: GridPoint) {
             let to = WorldPoint(here.layer, g)
-            _ = sim.apply(.crew(.walk(to: to)), to: &w)
+            _ = send(.crew(.walk(to: to)))
             var m = 0
             while w.people[.noah]?.motion != nil && m < 2000 { steps(1); m += 1 }
         }
@@ -227,6 +261,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var diag: [String] = []
         var fireAtDawn = false
         var shelterScene: EventID?
+        var answers: [(String, Double)] = []
     }
 
     func run(seed: UInt64, content: ContentDB, picks: Picks, stack: Bool) -> Run {
@@ -278,15 +313,15 @@ final class FirstTenMinutesBotTests: XCTestCase {
         // 番(最後に加わった仲間)と夜作業
         if let fire = b.campfire(), let tender = b.members.last, tender != .noah {
             if stack, b.count(picks.fuel) > 0 {
-                let r = b.sim.apply(.base(.hearth(placement: fire, op: .stack(item: picks.fuel, count: b.count(picks.fuel)))), to: &b.w)
+                let r = b.send(.base(.hearth(placement: fire, op: .stack(item: picks.fuel, count: b.count(picks.fuel)))))
                 out.diag.append("積む: \(r.rejection?.reason.rawValue ?? "積んだ")")
             }
-            let r = b.sim.apply(.crew(.assign(person: tender, assignment: .tendHearth(placement: fire))), to: &b.w)
+            let r = b.send(.crew(.assign(person: tender, assignment: .tendHearth(placement: fire))))
             out.diag.append("火の番: \(r.rejection?.reason.rawValue ?? "受けた") 燃料 \(b.count(picks.fuel))")
         }
-        _ = b.sim.apply(.time(.startNightWork), to: &b.w)
+        _ = b.send(.time(.startNightWork))
         b.steps(4)
-        _ = b.sim.apply(.time(.sleep), to: &b.w)
+        _ = b.send(.time(.sleep))
         b.real += 30
         var n = 0
         while b.w.clock.phase != .day && n < 20000 {
@@ -301,10 +336,10 @@ final class FirstTenMinutesBotTests: XCTestCase {
         out.diag.append("夜明けの火 \(out.fireAtDawn) 燃料 \(b.count(picks.fuel))")
         // 頼み: 2 人目に燃料、3 人目に水
         if b.members.count >= 3, let g = Picks.gather(picks.fuel, content), let a = b.find(g.id, radius: 24) {
-            _ = b.sim.apply(.crew(.assign(person: b.members[1], assignment: .gather(interaction: a.id, at: a.at))), to: &b.w)
+            _ = b.send(.crew(.assign(person: b.members[1], assignment: .gather(interaction: a.id, at: a.at))))
         }
         if b.members.count >= 3, let a = b.find("interaction.draw_water", radius: 30) {
-            _ = b.sim.apply(.crew(.assign(person: b.members[2], assignment: .gather(interaction: a.id, at: a.at))), to: &b.w)
+            _ = b.send(.crew(.assign(person: b.members[2], assignment: .gather(interaction: a.id, at: a.at))))
         }
         b.steps(4)
         // シェルター: 材料を集めて、拠点の範囲の中で焚き火に近い順に置く
@@ -333,7 +368,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
             cells.sort { max(abs($0.x - fireAt.x), abs($0.y - fireAt.y)) < max(abs($1.x - fireAt.x), abs($1.y - fireAt.y)) }
             var lastReject = "-"
             for c in cells.dropFirst() where placed == nil {
-                let r = b.sim.apply(.base(.build(structure: kind, at: WorldPoint(.surface, c), facing: .south)), to: &b.w)
+                let r = b.send(.base(.build(structure: kind, at: WorldPoint(.surface, c), facing: .south)))
                 if let j = r.rejection {
                     lastReject = j.reason.rawValue
                     if lastReject == "reason.base.missing_cost" || lastReject.hasSuffix("locked") { break }
@@ -362,16 +397,16 @@ final class FirstTenMinutesBotTests: XCTestCase {
             }
             b.goHome()
             // 手が先(INV-O8): ノアが自分で建てはじめてから、仲間に頼む
-            _ = b.sim.apply(.crew(.assign(person: .noah, assignment: .build(placement: s))), to: &b.w)
+            _ = b.send(.crew(.assign(person: .noah, assignment: .build(placement: s))))
             b.steps(20)
             for p in b.members.dropFirst() {
-                _ = b.sim.apply(.crew(.assign(person: p, assignment: .build(placement: s))), to: &b.w)
+                _ = b.send(.crew(.assign(person: p, assignment: .build(placement: s))))
             }
             n = 0
             // 日が暮れたら寝て、次の日に続きを建てる
             while b.w.placements.items[s]?.status != .running && n < 12000 {
                 if b.w.clock.phase == .dusk || b.w.clock.phase == .nightWork, !b.w.clock.sleeping {
-                    _ = b.sim.apply(.time(.sleep), to: &b.w)
+                    _ = b.send(.time(.sleep))
                     b.real += 30
                 }
                 b.steps(1)
@@ -385,6 +420,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
             if !built { out.diag.append("建たない: \(String(describing: b.w.placements.items[s]!.status)) 火 \(fireLit())") }
         }
         out.log = b.log
+        out.answers = b.answers
         return out
     }
 
@@ -405,6 +441,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var longGaps: [String: [Int]] = [:]
         var gapStarts: [String: [Int]] = [:]
         var seedsOver = 0
+        var overList: [String] = []
         var worstAnswerGap = 0
         for seed in 0..<UInt64(seeds) {
             let r = run(seed: seed, content: content, picks: picks, stack: stack)
@@ -413,21 +450,29 @@ final class FirstTenMinutesBotTests: XCTestCase {
             if let id = r.shelterScene, let t = r.log.first(where: { $0.0 == id })?.1 { shelterAt.append(Int(t)) }
             let times = r.log.map(\.1).filter { $0 <= 600 }
             worstGap = max(worstGap, zip(times, times.dropFirst()).map { $1 - $0 }.max() ?? 0)
-            let answers = r.log.filter { $0.1 <= 600 && Self.hasScene($0.0, content) }
+            // 応え = 場面を始める出来事・人の一言・頼んだ後の最初の作業の字(game-designer の数え方。長押しの 1 行はボットが押さないので入らない)
+            let answers = (r.log.filter { Self.hasScene($0.0, content) }.map { ("scene:\($0.0.rawValue)", $0.1) } + r.answers)
+                .filter { $0.1 <= 600 }
+                .enumerated().sorted { ($0.element.1, $0.offset) < ($1.element.1, $1.offset) }.map(\.element)
             var over = false
+            var mine: [String] = []
             for (a, b) in zip(answers, answers.dropFirst()) {
                 let gap = Int(b.1 - a.1)
                 worstAnswerGap = max(worstAnswerGap, gap)
                 if gap > 90 {
-                    let key = "\(a.0.rawValue) → \(b.0.rawValue)"
+                    let key = "\(a.0) → \(b.0)"
                     longGaps[key, default: []].append(gap)
                     gapStarts[key, default: []].append(Int(a.1))
                     over = true
+                    mine.append("\(Int(a.1))→\(Int(b.1))s \(a.0) → \(b.0)")
                 }
             }
-            if over { seedsOver += 1 }
+            if over {
+                seedsOver += 1
+                overList.append("seed \(seed): " + mine.joined(separator: " / "))
+            }
             if seed == 0 {
-                print("[SL-40] seed 0 応え: " + answers.map { "\($0.0.rawValue)@\(Int($0.1))s" }.joined(separator: " "))
+                print("[SL-40] seed 0 応え: " + answers.map { "\($0.0)@\(Int($0.1))s" }.joined(separator: " "))
             }
             if seed < 2 || r.ok.values.contains(false) {
                 print("[SL-40] seed \(seed): " + r.log.map { "\($0.0.rawValue)@\(Int($0.1))s" }.joined(separator: " "))
@@ -445,6 +490,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
             let st = (gapStarts[k] ?? []).sorted()
             print("[INV-S3]   \(k): \(v.count) seed(間 中央 \(g[g.count / 2]) 秒・最長 \(g.last!) 秒。始まり 中央 \(st[st.count / 2]) 秒)")
         }
+        for line in overList { print("[INV-S3-seed] \(line)") }
         print("[SL-40] \(seeds) seed: 届かなかった段 \(failed.sorted { $0.key < $1.key })")
         XCTAssertEqual(failed, [:], "届かなかった段がある")
     }
