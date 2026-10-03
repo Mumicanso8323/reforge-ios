@@ -1,5 +1,6 @@
 import Foundation
 import RFKernel
+import RFPresent
 import RFRules
 import RFSave
 import RFSim
@@ -46,6 +47,15 @@ enum Fixture {
 }
 
 final class SaveTests: XCTestCase {
+    func testGameHostSaveDataMatchesSaveCodecBytes() async throws {
+        let rig = try TestRig.publicOnly()
+        let world = Fixture.world(rig)
+        let host = GameBootstrap.host(content: rig.content, world: world)
+        let expected = try SaveCodec.encode(SaveEnvelope(slot: .resume, world: world, content: Fixture.stamp))
+        let actual = try await host.saveData(slot: .resume, stamps: Fixture.stamp)
+        XCTAssertEqual(actual, expected)
+    }
+
     func testEnvelopeRoundTrip() throws {
         let rig = try TestRig.publicOnly()
         let e = SaveEnvelope(slot: .dawn(day: 1), world: Fixture.world(rig), content: Fixture.stamp)

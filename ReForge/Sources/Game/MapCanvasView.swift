@@ -16,6 +16,7 @@ struct MapCanvasView: View {
     @State private var touch: Touch?
     @State private var pinchStartZoom: Int?
     @State private var longPressTask: Task<Void, Never>?
+    @State private var terrainCache = MapTerrainCache()
 
     private struct Touch {
         var start: CGPoint
@@ -31,11 +32,18 @@ struct MapCanvasView: View {
     var body: some View {
         GeometryReader { geo in
             let view = ScreenSize(width: Double(geo.size.width), height: Double(geo.size.height))
-            // 動く物が無い間は毎フレーム描かない(Frame が来たときだけ描き直す)。
-            TimelineView(.animation(minimumInterval: nil, paused: !store.actors.contains(where: \.isMoving))) { _ in
-                let scene = currentScene()
+            // 地形は Frame または視点が変わったときだけ、動く層だけは歩いている間に補間する。
+            let camera = liveCamera()
+            let terrain = currentScene(camera: camera, elapsed: 0)
+            ZStack {
                 Canvas(opaque: true, rendersAsynchronously: false) { ctx, size in
-                    scene.draw(&ctx, size: size)
+                    terrain.drawTerrain(&ctx, size: size, cache: terrainCache)
+                }
+                TimelineView(.animation(minimumInterval: nil, paused: !store.actors.contains(where: \.isMoving))) { _ in
+                    let moving = currentScene(camera: camera, elapsed: elapsed)
+                    Canvas(opaque: false, rendersAsynchronously: false) { ctx, size in
+                        moving.drawMoving(&ctx, size: size)
+                    }
                 }
             }
             .contentShape(Rectangle())
@@ -70,8 +78,8 @@ struct MapCanvasView: View {
         return c
     }
 
-    private func currentScene() -> MapScene {
-        MapScene(camera: liveCamera(), map: store.mapView, chunks: store.chunks, actors: store.actors,
+    private func currentScene(camera: MapCamera, elapsed: Double) -> MapScene {
+        MapScene(camera: camera, map: store.mapView, chunks: store.chunks, actors: store.actors,
                  placements: store.placements, route: store.route, night: store.clock.isNight, elapsed: elapsed,
                  terrains: store.content.terrains, preview: store.preview, battles: store.battles.map(\.at),
                  beacons: store.mapView.beacons)

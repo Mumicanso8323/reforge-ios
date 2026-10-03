@@ -6,7 +6,7 @@ import ReForgeEngine
 extension GameStore {
     /// 保存の帳簿(規則は本体の SaveBook)。
     var book: SaveBook {
-        SaveBook(storage: saves, content: content.layers.map { ContentStamp(layer: $0.id, version: $0.version) })
+        SaveBook(storage: saves, content: contentStamps)
     }
 
     var recovery: Recovery {
@@ -16,8 +16,12 @@ extension GameStore {
 
     /// 夜明けの自動セーブ。
     func saveDawn() async {
-        let w = await host.world
-        try? book.autosaveDawn(w)
+        do {
+            let data = try await host.saveData(slot: .dawn(day: clock.day), stamps: contentStamps)
+            try await saveWriter.autosaveDawn(data)
+        } catch {
+            log.error("dawn save failed: \(String(describing: error), privacy: .public)")
+        }
     }
 
     /// 4 択(決まった順)。走行が終わっていなければ空。
@@ -48,8 +52,13 @@ extension GameStore {
 
     /// 手動セーブ(確認なしで上書き。枠は 3 つあるので戻せる)。
     func saveManual(_ index: Int) async {
-        let w = await host.world
-        try? book.saveManual(w, index: index)
+        guard (0..<SavePolicy.manualSlots).contains(index) else { return }
+        do {
+            let data = try await host.saveData(slot: .manual(index: index), stamps: contentStamps)
+            try await saveWriter.write(data, slot: .manual(index: index))
+        } catch {
+            log.error("manual save failed: \(String(describing: error), privacy: .public)")
+        }
     }
 
     /// セーブ地点からロードする(走行の途中でも)。読めない・終わった走行の保存なら何もしない。
@@ -57,8 +66,8 @@ extension GameStore {
     func load(_ slot: SaveSlot) async -> Bool {
         guard let e = try? book.load(slot), e.summary.active else { return false }
         try? book.adoptTimeline(e.world)
-        try? book.writeResume(e.world)
         await refresh(await host.replace(world: e.world))
+        await saveResume()
         return true
     }
 
