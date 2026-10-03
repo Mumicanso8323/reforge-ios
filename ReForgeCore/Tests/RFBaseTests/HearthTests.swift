@@ -294,14 +294,24 @@ final class HearthTests: XCTestCase {
         return (rig, id, HearthRule.pileMax(d, modifiers: Hearths.modifiers(id, in: rig.world, content: rig.content)))
     }
 
+    /// 山が空なら、番は蓄えから tenderBatch(3)個だけ運ぶ(山が上限まで取らない)。
     func testTenderFillsPileFromStock() throws {
-        var (rig, id, cap) = try tendedRig(stock: 10)
+        var (rig, id, _) = try tendedRig(stock: 10)
+        rig.setFuel(id, hours: 10)  // 山からくべない燃料(tendBelow より上)
         _ = rig.sim.runSteps(1, &rig.world)
-        let moved = min(cap, 10)
-        // 山からくべた分(最大 1 本)を除いて、移した数だけ蓄えが減る
-        XCTAssertEqual(baseCount(rig.world, "stick"), 10 - moved)
-        XCTAssertGreaterThanOrEqual(pile(rig, id), moved - 1)
-        XCTAssertLessThanOrEqual(pile(rig, id), cap)
+        XCTAssertEqual(pile(rig, id), HearthRule.tenderBatch)
+        XCTAssertEqual(baseCount(rig.world, "stick"), 10 - HearthRule.tenderBatch)
+    }
+
+    /// 山が 1 以上ある間は移さない。
+    func testTenderDoesNotMoveWhilePileHasWood() throws {
+        var (rig, id, _) = try tendedRig(stock: 10)
+        rig.setFuel(id, hours: 10)
+        XCTAssertNil(rig.sim.apply(.base(.hearth(placement: id, op: .stack(item: "stick", count: 1))), to: &rig.world).rejection)
+        let before = baseCount(rig.world, "stick")
+        _ = rig.sim.runSteps(3, &rig.world)
+        XCTAssertEqual(pile(rig, id), 1)
+        XCTAssertEqual(baseCount(rig.world, "stick"), before)
     }
 
     func testTenderKeepsFireThroughNightWhileStockLasts() throws {
@@ -310,6 +320,9 @@ final class HearthTests: XCTestCase {
         let steps = 18 * 3600 / 15
         _ = rig.sim.runSteps(steps, &rig.world)
         XCTAssertTrue(Hearths.state(rig.world.placements.items[id]!, rig.content)!.lit)
+        let used = 30 - baseCount(rig.world, "stick")
+        XCTAssertGreaterThan(used, 0)
+        XCTAssertEqual(used % HearthRule.tenderBatch, 0)  // 3 個ずつ減る
     }
 
     func testUntendedDoesNotFillPile() throws {
@@ -344,8 +357,8 @@ final class HearthTests: XCTestCase {
         let base = HearthRule.pileMax(d)
         let before = baseCount(rig.world, "stick")
         _ = rig.sim.runSteps(1, &rig.world)
-        XCTAssertEqual(before - baseCount(rig.world, "stick"), base + 4)
-        XCTAssertGreaterThanOrEqual(pile(rig, id), base + 3)
+        XCTAssertEqual(HearthRule.pileMax(d, modifiers: Hearths.modifiers(id, in: rig.world, content: rig.content)), base + 4)
+        XCTAssertEqual(before - baseCount(rig.world, "stick"), HearthRule.tenderBatch)  // 囲いがあっても 1 回は 3 個まで
     }
 
     func testFilledPileSurvivesSaveAndContinues() throws {

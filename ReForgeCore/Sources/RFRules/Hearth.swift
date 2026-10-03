@@ -24,6 +24,8 @@ public enum HearthRule {
     public static let defaultBankedPermille = 333
     public static let defaultBankedLight = 1
     public static let defaultPileMax = 12
+    /// 番が山の空いた時に蓄えから運ぶ数(ジャストインタイム。建てる材料の枝を山が先に取らないように少しずつ)。
+    public static let tenderBatch = 3
     public static let defaultTendBelowSeconds = 21_600
 
     /// 定義の初めの状態(建て終えたとき)。
@@ -403,16 +405,18 @@ public enum Hearths {
         }
     }
 
-    /// 番が居る火床の薪の山を、拠点の蓄えから上限まで満たす(W-26)。蓄えが少なければあるだけ移し、無ければ何もしない。
+    /// 番が居る火床の薪の山が空の時だけ、拠点の蓄えから tenderBatch 個(蓄え・上限までの余地が少なければそこまで)を移す(W-26)。
+    /// 山が 1 以上ある間は移さない。蓄えが無ければ何もしない。
     /// くべるのは今まで通り山から(burn)。見込み(outlookWithPile)は今の山のまま数える
     /// (蓄えは他の用途でも減るため、実際の歩みとの食い違いを避けて山の本数だけを見る)。
     static func fillPile(_ s: HearthState, _ d: HearthDef, modifiers: HearthModifiers, _ ctx: inout StepContext) -> HearthState {
         guard let item = d.pileItem else { return s }
+        guard s.pile == 0 else { return s }
         let room = HearthRule.pileMax(d, modifiers: modifiers) - s.pile
         guard room > 0 else { return s }
         let have = ctx.world.inventory.entries(.base).filter { $0.stuff == .item(item) && $0.unique == nil }
             .reduce(0) { $0 + $1.quantity }
-        let n = min(room, have)
+        let n = min(HearthRule.tenderBatch, room, have)
         guard n > 0,
               ctx.takeStock(n, from: .base, where: { $0.stuff == .item(item) && $0.unique == nil }) != nil else { return s }
         ctx.changes.mark(.inventory)
