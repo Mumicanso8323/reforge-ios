@@ -119,6 +119,9 @@ public enum EffectApplier {
             ctx.world.people[p]?.override = nil
             ctx.emit(.assigned(person: p, assignment: ps.assignment))
             ctx.changes.mark(.people)
+        case .selfBuild(let p, let structure, let near, let radius):
+            guard let at = resolve(near) else { return missing(&ctx, e) }
+            ctx.queue(.base(.selfBuild(person: p, structure: structure, near: at, radius: radius ?? 3, cause: cause)))
         case .say(let context, let speaker):
             Lines.say(context: context, speaker: speaker, &ctx, trigger: cause)
 

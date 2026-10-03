@@ -3,6 +3,17 @@ import RFKernel
 import RFMap
 import RFWorld
 
+/// 火床の灯りの中にある完成した建造物が足す値。世界を読むのは Hearths、燃え方を読むのは HearthRule に分ける。
+public struct HearthModifiers: Equatable, Sendable {
+    public var pileMaxAdd: Int
+    public var burnPermille: Int
+
+    public init(pileMaxAdd: Int = 0, burnPermille: Int = 1000) {
+        self.pileMaxAdd = pileMaxAdd
+        self.burnPermille = burnPermille
+    }
+}
+
 /// 火床の純粋な規則(序盤の設計 §3.2・W-02a)。焚き火(RFBase)と炉(RFProduction。U22)が同じ式を使う。持ち主: U21
 ///
 /// 燃料はゲーム秒 × 1000 の整数。1 ゲーム秒ごとに「その秒の始めの段」で決まる率だけ減る。だから、
@@ -37,14 +48,21 @@ public enum HearthRule {
     }
 
     /// 1 ゲーム秒あたりの減り(ゲーム秒 × 1000)。
-    public static func rate(_ s: HearthState, _ def: HearthDef, structuresInLight: Int, nightWork: Bool) -> Int {
+    public static func rate(_ s: HearthState, _ def: HearthDef, structuresInLight: Int, nightWork: Bool,
+                            modifiers: HearthModifiers = HearthModifiers()) -> Int {
         let l = level(s, def)
         guard l != .out else { return 0 }
         let base = def.burnPermille.indices.contains(l.rawValue) ? def.burnPermille[l.rawValue] : 1000
         var r = base * (1000 + (def.structurePermille ?? defaultStructurePermille) * max(0, structuresInLight)) / 1000
         if nightWork { r += def.nightWorkPermille ?? defaultNightWorkPermille }
         if s.banked { r = r * (def.bankedPermille ?? defaultBankedPermille) / 1000 }
+        r = r * max(0, modifiers.burnPermille) / 1000
         return max(1, r)
+    }
+
+    /// 薪の山の上限(定義の上限と、灯りの中の完成した補助建造物を合わせる)。
+    public static func pileMax(_ def: HearthDef, modifiers: HearthModifiers = HearthModifiers()) -> Int {
+        max(0, (def.pileMax ?? defaultPileMax) + modifiers.pileMaxAdd)
     }
 
     /// 燃料 1 個で足される時間(ゲーム秒 × 1000)。燃料にならない物は nil。
@@ -71,26 +89,35 @@ public enum HearthRule {
     /// seconds ゲーム秒だけ燃やす。tended なら、燃料が tendBelowSeconds 以下になるたびに薪の山から 1 つくべる。
     /// 燃料が尽きたら消える(埋めた印も外れる)。
     public static func burn(_ s: HearthState, _ def: HearthDef, seconds: Int, structuresInLight: Int,
-                            nightWork: Bool, tended: Bool) -> HearthState {
+                            nightWork: Bool, tended: Bool, modifiers: HearthModifiers = HearthModifiers()) -> HearthState {
+        simulate(s, def, seconds: seconds, structuresInLight: structuresInLight, nightWork: nightWork,
+                 tended: tended, modifiers: modifiers).state
+    }
+
+    /// burn と全ての見込みが共有する燃焼の一歩。seconds が nil なら燃え尽きるまで進める。
+    static func simulate(_ s: HearthState, _ def: HearthDef, seconds: Int?, structuresInLight: Int,
+                         nightWork: Bool, tended: Bool, modifiers: HearthModifiers) -> (state: HearthState, elapsed: Int64) {
         var o = s
-        var left = max(0, seconds)
+        var left = seconds.map { max(0, $0) }
+        var elapsed: Int64 = 0
         let tendAt = (def.tendBelowSeconds ?? defaultTendBelowSeconds) * 1000
         let pileValue = def.pileItem.flatMap { fuelValue($0, def) }
-        while left > 0, o.lit, o.fuel > 0 {
+        while (left ?? 1) > 0, o.lit, o.fuel > 0 {
             if tended, let pv = pileValue, o.pile > 0, o.fuel <= tendAt {
                 o.pile -= 1
                 o.fuel = min(def.capSeconds * 1000, o.fuel + pv)
                 continue
             }
             let l = level(o, def)
-            let r = rate(o, def, structuresInLight: structuresInLight, nightWork: nightWork)
+            let r = rate(o, def, structuresInLight: structuresInLight, nightWork: nightWork, modifiers: modifiers)
             var bound = l.rawValue >= 1 && def.thresholds.indices.contains(l.rawValue - 1)
                 ? def.thresholds[l.rawValue - 1] * 1000 : 0
             if tended, pileValue != nil, o.pile > 0, tendAt < o.fuel { bound = max(bound, tendAt) }
             let need = (o.fuel - bound + r - 1) / r
-            let k = max(1, min(need, left))
+            let k = max(1, min(need, left ?? need))
             o.fuel -= k * r
-            left -= k
+            if left != nil { left! -= k }
+            elapsed += Int64(k)
         }
         if o.fuel <= 0 {
             o.fuel = 0
@@ -98,7 +125,7 @@ public enum HearthRule {
             o.banked = false
             o.litSinceDusk = false
         }
-        return o
+        return (o, elapsed)
     }
 }
 
@@ -119,39 +146,23 @@ extension HearthRule {
     /// 境目は時計の定義から出す: 日没 = 昼の長さ、夜半 = 夜の半分、夜明け = 1 日の長さ(ゲーム時間は 1 日ごとに
     /// 0 から数え直した時刻 now % 1 日)。消えている火は「今」の段になる。世界を変えない。
     public static func outlook(_ state: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
-                               structuresInLight: Int) -> FireOutlook {
+                               structuresInLight: Int, modifiers: HearthModifiers = HearthModifiers()) -> FireOutlook {
         let dayLength = max(1, clock.dayGameSeconds + clock.nightGameSeconds)
         let tod = ((now.seconds % dayLength) + dayLength) % dayLength
-        let end = Int64(tod) + survivalSeconds(state, def, structuresInLight: structuresInLight)
+        let end = Int64(tod) + simulate(state, def, seconds: nil, structuresInLight: structuresInLight,
+                                         nightWork: false, tended: false, modifiers: modifiers).elapsed
         if end < clock.dayGameSeconds { return .untilEvening }
         if end < clock.dayGameSeconds + clock.nightGameSeconds / 2 { return .midnight }
         if end < dayLength { return .beforeDawn }
         return .throughNight
     }
 
-    /// 燃料が尽きるまでのゲーム秒(burn と同じ区切りで数える。番はいないものとする)。
-    static func survivalSeconds(_ s: HearthState, _ def: HearthDef, structuresInLight: Int) -> Int64 {
-        var o = s
-        var t: Int64 = 0
-        var guardN = 0
-        while o.lit, o.fuel > 0, guardN < 16 {
-            guardN += 1
-            let l = level(o, def)
-            let r = rate(o, def, structuresInLight: structuresInLight, nightWork: false)
-            let bound = l.rawValue >= 1 && def.thresholds.indices.contains(l.rawValue - 1)
-                ? def.thresholds[l.rawValue - 1] * 1000 : 0
-            let need = max(1, (o.fuel - bound + r - 1) / r)
-            t += Int64(need)
-            o.fuel -= need * r
-        }
-        return t
-    }
-
     /// 1 本くべた後の見込み(add で燃料を 1 足した状態に同じ関数を当てる)。燃料にならない物なら今と同じ。
     public static func outlookAfterOneMore(_ state: HearthState, _ def: HearthDef, item: ItemID, now: GameTime,
-                                           clock: ClockDef, structuresInLight: Int) -> FireOutlook {
+                                           clock: ClockDef, structuresInLight: Int,
+                                           modifiers: HearthModifiers = HearthModifiers()) -> FireOutlook {
         let more = add(state, def, item: item, quantity: 1) ?? state
-        return outlook(more, def, now: now, clock: clock, structuresInLight: structuresInLight)
+        return outlook(more, def, now: now, clock: clock, structuresInLight: structuresInLight, modifiers: modifiers)
     }
 
     /// 薪の山に残る本数ぶんを入れた見込み(日没の帯・夜の締め用)。実際の燃え方(burn)と同じく、
@@ -159,15 +170,16 @@ extension HearthRule {
     /// 番は燃料が tendBelowSeconds 以下になるたびに 1 本足し、上限(capSeconds)で切れるので、1 本の分は
     /// min(燃料の値, 上限 − 足す点) で数える。山が無ければ今と同じ。
     public static func outlookWithPile(_ state: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
-                                       structuresInLight: Int, tended: Bool) -> FireOutlook {
-        var o = state
-        if tended, let item = def.pileItem, let v = fuelValue(item, def), o.pile > 0, o.lit, o.fuel > 0 {
-            let tendAt = (def.tendBelowSeconds ?? defaultTendBelowSeconds) * 1000
-            let each = max(0, min(v, def.capSeconds * 1000 - min(tendAt, o.fuel)))
-            o.fuel += each * o.pile
-            o.pile = 0
-        }
-        return outlook(o, def, now: now, clock: clock, structuresInLight: structuresInLight)
+                                       structuresInLight: Int, tended: Bool,
+                                       modifiers: HearthModifiers = HearthModifiers()) -> FireOutlook {
+        let dayLength = max(1, clock.dayGameSeconds + clock.nightGameSeconds)
+        let tod = ((now.seconds % dayLength) + dayLength) % dayLength
+        let end = Int64(tod) + simulate(state, def, seconds: nil, structuresInLight: structuresInLight,
+                                         nightWork: false, tended: tended, modifiers: modifiers).elapsed
+        if end < clock.dayGameSeconds { return .untilEvening }
+        if end < clock.dayGameSeconds + clock.nightGameSeconds / 2 { return .midnight }
+        if end < dayLength { return .beforeDawn }
+        return .throughNight
     }
 }
 
@@ -246,13 +258,35 @@ public enum Hearths {
         }
     }
 
+    /// 火床の灯りの中にある完成した建造物の、薪の山と燃焼率への補正。
+    /// この 2 つの鍵を持つ物は、燃焼を増やす建造物数には数えない。
+    public static func modifiers(_ id: EntityID, in w: WorldState, content: ContentDB) -> HearthModifiers {
+        guard let p = w.placements.items[id] else { return HearthModifiers() }
+        let r = lightRadius(p, content)
+        guard r > 0 else { return HearthModifiers() }
+        var pileMaxAdd = 0
+        var burnPermille = 1000
+        for oid in w.placements.sortedIDs {
+            guard oid != id, let other = w.placements.items[oid], case .structure(let kind) = other.kind,
+                  isComplete(other), other.at.layer == p.at.layer,
+                  VisionRule.inCircle(other.at.point, center: p.at.point, radius: r),
+                  let provides = content.structures[kind]?.provides
+            else { continue }
+            pileMaxAdd += provides["hearth.pile"] ?? 0
+            if let rate = provides["hearth.burn_permille"] { burnPermille = burnPermille * rate / 1000 }
+        }
+        return HearthModifiers(pileMaxAdd: pileMaxAdd, burnPermille: burnPermille)
+    }
+
     /// 火の灯りの中にある、ほかの完成した建造物の数(燃える速さに掛かる)。
     public static func structuresInLight(_ id: EntityID, in w: WorldState, content: ContentDB) -> Int {
         guard let p = w.placements.items[id] else { return 0 }
         let r = lightRadius(p, content)
         guard r > 0 else { return 0 }
         return w.placements.sortedIDs.filter { oid in
-            guard oid != id, let o = w.placements.items[oid], case .structure = o.kind, isComplete(o),
+            guard oid != id, let o = w.placements.items[oid], case .structure(let kind) = o.kind, isComplete(o),
+                  content.structures[kind]?.provides["hearth.pile"] == nil,
+                  content.structures[kind]?.provides["hearth.burn_permille"] == nil,
                   o.at.layer == p.at.layer else { return false }
             return VisionRule.inCircle(o.at.point, center: p.at.point, radius: r)
         }.count
@@ -359,9 +393,10 @@ public enum Hearths {
                   let s = state(p, ctx.content) else { continue }
             if !s.lit, p.structure?.hearth != nil { continue }
             let n = structuresInLight(id, in: ctx.world, content: ctx.content)
+            let modifiers = modifiers(id, in: ctx.world, content: ctx.content)
             let nw = nightWork(id, in: ctx.world, content: ctx.content)
             let o = HearthRule.burn(s, d, seconds: seconds, structuresInLight: n, nightWork: nw,
-                                    tended: isTended(id, in: ctx.world))
+                                    tended: isTended(id, in: ctx.world), modifiers: modifiers)
             write(id, o, &ctx)
         }
     }

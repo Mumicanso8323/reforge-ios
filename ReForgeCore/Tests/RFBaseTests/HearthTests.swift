@@ -205,6 +205,42 @@ final class HearthTests: XCTestCase {
         XCTAssertLessThan(rb, ra)
     }
 
+    func testNearbyHearthSupportChangesPileRateAndOutlook() throws {
+        var rig = try Rig()
+        rig.content.structures["structure.storage"]?.provides["hearth.pile"] = 4
+        rig.content.structures["structure.storage"]?.provides["hearth.burn_permille"] = 900
+        rig.sim = Simulation(content: rig.content)
+        let fire = rig.campfire(rig.center)
+        let supportPoint = rig.center + GridPoint(1, 0)
+        XCTAssertNil(rig.sim.apply(.base(.build(structure: "structure.storage", at: WorldPoint(.surface, supportPoint), facing: .north)),
+                                   to: &rig.world).rejection)
+        let modifiers = Hearths.modifiers(fire, in: rig.world, content: rig.content)
+        XCTAssertEqual(modifiers, HearthModifiers(pileMaxAdd: 4, burnPermille: 900))
+        XCTAssertEqual(Hearths.structuresInLight(fire, in: rig.world, content: rig.content), 0)
+        XCTAssertNil(rig.sim.apply(.base(.hearth(placement: fire, op: .stack(item: "stick", count: 16))), to: &rig.world).rejection)
+        XCTAssertEqual(Hearths.state(rig.world.placements.items[fire]!, rig.content)?.pile, 16)
+
+        let state = HearthState(fuel: 14_400_000, lit: true, pile: 4)
+        let ordinary = HearthRule.burn(state, Self.def, seconds: 15, structuresInLight: 0, nightWork: false, tended: false)
+        let supported = HearthRule.burn(state, Self.def, seconds: 15, structuresInLight: 0, nightWork: false, tended: false,
+                                        modifiers: modifiers)
+        XCTAssertEqual(state.fuel - supported.fuel, (state.fuel - ordinary.fuel) * 9 / 10)
+
+        let now = GameTime(seconds: 40_000)
+        let untilDawn = Int(rig.content.clock.dayGameSeconds + rig.content.clock.nightGameSeconds - now.seconds)
+        let outlook = HearthRule.outlookWithPile(state, Self.def, now: now, clock: rig.content.clock, structuresInLight: 0,
+                                                 tended: true, modifiers: modifiers)
+        let burned = HearthRule.burn(state, Self.def, seconds: untilDawn, structuresInLight: 0, nightWork: false,
+                                     tended: true, modifiers: modifiers)
+        XCTAssertEqual(outlook == .throughNight, burned.lit)
+
+        let farPoint = WorldPoint(.surface, rig.center + GridPoint(8, 0))
+        if let support = rig.world.placements.items.values.first(where: { $0.id != fire && $0.at.point == supportPoint }) {
+            rig.world.placements.items[support.id]?.at = farPoint
+        }
+        XCTAssertEqual(Hearths.modifiers(fire, in: rig.world, content: rig.content).pileMaxAdd, 0)
+    }
+
     /// 番は配属(火床に付く)で決まり、薪の山からくべる。番がいなければ山があっても減らない。
     func testTenderUsesPile() throws {
         var rig = try Rig()

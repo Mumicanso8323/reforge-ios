@@ -120,6 +120,49 @@ final class BaseSystemTests: XCTestCase {
         XCTAssertEqual(rig.world.placements.items[id]?.status, .underConstruction(progress: 500))
     }
 
+    /// 効果からの建造もプレイヤーの建造と同じ入口を通り、本人の通常の配属になる。
+    func testSelfBuildPlacesAndAssignsMember() throws {
+        var rig = try Rig()
+        let site = WorldPoint(.surface, rig.center)
+        rig.put("person.test_a", rig.center + GridPoint(1, 0))
+        var ctx = StepContext(world: rig.world, content: rig.content)
+        EffectApplier.apply([.selfBuild(person: "person.test_a", structure: "structure.shelter", near: .point(at: site), radius: 1)],
+                            &ctx, cause: nil)
+        var report = StepReport()
+        rig.sim.settle(&ctx, &report)
+        rig.world = ctx.world
+
+        XCTAssertEqual(report.warnings, [])
+        let (id, placement) = try XCTUnwrap(rig.last)
+        XCTAssertEqual(placement.at, site)
+        XCTAssertEqual(placement.status, .underConstruction(progress: 0))
+        XCTAssertEqual(rig.world.people["person.test_a"]?.assignment, .build(placement: id))
+        XCTAssertEqual(rig.world.ledger.record(placement.origin)?.actor, "person.test_a")
+        XCTAssertGreaterThan(rig.stepsUntilBuilt(id), 0)
+        XCTAssertEqual(rig.world.placements.items[id]?.status, .running)
+    }
+
+    func testSelfBuildWithoutSiteOrMemberDoesNothing() throws {
+        var rig = try Rig()
+        let before = rig.world
+        var ctx = StepContext(world: rig.world, content: rig.content)
+        EffectApplier.apply([.selfBuild(person: "person.test_a", structure: "structure.shelter",
+                                        near: .point(at: WorldPoint(.underground(1), rig.center)), radius: 1)], &ctx, cause: nil)
+        var report = StepReport()
+        rig.sim.settle(&ctx, &report)
+        XCTAssertEqual(ctx.world.placements, before.placements)
+        XCTAssertTrue(report.warnings.contains { $0.contains("selfBuild") })
+
+        rig.world.people["person.test_a"]?.presence = .met(at: .zero)
+        ctx = StepContext(world: rig.world, content: rig.content)
+        EffectApplier.apply([.selfBuild(person: "person.test_a", structure: "structure.shelter",
+                                        near: .point(at: WorldPoint(.surface, rig.center)), radius: 1)], &ctx, cause: nil)
+        report = StepReport()
+        rig.sim.settle(&ctx, &report)
+        XCTAssertEqual(ctx.world.placements, rig.world.placements)
+        XCTAssertTrue(report.warnings.contains { $0.contains("selfBuild") })
+    }
+
     /// 置けない: 解禁していない / 拠点の外 / 重なる / 材料が足りない。断っても何も取らない。
     func testBuildRejections() throws {
         var rig = try Rig()

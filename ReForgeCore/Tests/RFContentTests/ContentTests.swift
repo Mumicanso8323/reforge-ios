@@ -354,4 +354,25 @@ final class ContentTests: XCTestCase {
         """#.utf8), to: &db)
         XCTAssertTrue(ContentValidator.validate(db).contains { $0.rule == "event.changes-world" })
     }
+
+    func testValidatorChecksNearPlacementAndSelfBuildReferences() throws {
+        var db = try TestContent.publicOnly()
+        try ContentLoader.apply(json: Data(#"""
+        {"events": [{
+          "id": "event.test.invalid_placement_refs",
+          "trigger": {"on": [], "when": {"nearPlacement": {
+            "place": {"base": {}}, "module": "module.missing", "structure": "structure.missing", "poi": "poi.missing", "radius": 1
+          }}},
+          "effects": [{"selfBuild": {
+            "person": "person.test_a", "structure": "structure.missing", "near": {"base": {}}, "radius": 0
+          }}]
+        }]}
+        """#.utf8), to: &db)
+        let issues = ContentValidator.validate(db)
+        XCTAssertTrue(issues.contains { $0.rule == "effect.self-build.radius" })
+        XCTAssertEqual(issues.filter { $0.rule == "narrative.ref" && $0.message.contains("module.missing") }.count, 1)
+        XCTAssertEqual(issues.filter { $0.rule == "narrative.ref" && $0.message.contains("structure.missing") }.count, 2)
+        XCTAssertEqual(issues.filter { $0.rule == "narrative.ref" && $0.message.contains("poi.missing") }.count, 1)
+        XCTAssertTrue(issues.contains { $0.rule == "condition.near-placement.kind" })
+    }
 }

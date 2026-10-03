@@ -23,6 +23,8 @@ public struct BaseSystem: SimSystem {
         switch c {
         case .build(let kind, let at, let facing):
             return Construction.build(kind, at: at, facing: facing, &ctx)
+        case .selfBuild(let person, let structure, let near, let radius, let cause):
+            return Construction.selfBuild(person: person, structure: structure, near: near, radius: radius, cause: cause, &ctx)
         case .demolish(let e):
             return Construction.demolish(e, &ctx)
         case .welcome(let person):
