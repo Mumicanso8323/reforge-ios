@@ -34,6 +34,8 @@ public enum Effect: Codable, Hashable, Sendable {
     /// 仲間の配属を上書きする(プレイヤーの配属に従わない)。toward があればその場所へ歩く。hours の後に戻る。
     case overrideAssignment(person: PersonID, toward: PlaceSelector?, hours: Int?)
     case clearOverride(person: PersonID)
+    /// 仲間が自分で、指定した場所の近くに建造物を置いて建て始める。radius の既定は 3。
+    case selfBuild(person: PersonID, structure: StructureKindID, near: PlaceSelector, radius: Int?)
     /// 仲間の一言(文脈に合う LineDef を条件と重みで選ぶ。speaker を指定しなければ誰でも)。
     case say(context: String, speaker: PersonID?)
     // 拠点の外の集団

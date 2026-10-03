@@ -1,5 +1,6 @@
 import RFContent
 import RFKernel
+import RFMap
 import RFMatter
 import RFRules
 import RFTestSupport
@@ -43,6 +44,50 @@ final class RulesTests: XCTestCase {
         XCTAssertEqual(ConditionEvaluator.evaluatePure(any, world: w, content: rig.content), true)
         w.placements.items[id]?.status = .running
         XCTAssertEqual(ConditionEvaluator.evaluatePure(done, world: w, content: rig.content), true)
+    }
+
+    func testNearPlacementUsesRadiusCompletionAndTriggerPlacement() throws {
+        let rig = try TestRig.publicOnly()
+        var ctx = StepContext(world: rig.factory.newWorld(seed: 1), content: rig.content)
+        let center = ctx.world.map.spawn
+        let id = ctx.world.newEntityID()
+        let record = ctx.record(.built, .structure("structure.storage", id), place: center)
+        ctx.world.placements.items[id] = Placement(id: id, kind: .structure("structure.storage"), at: center,
+                                                   facing: .north, origin: record, status: .running)
+        let edge = Condition.nearPlacement(place: .point(at: WorldPoint(.surface, center.point + GridPoint(2, 2))),
+                                           module: nil, structure: "structure.storage", radius: 2)
+        let outside = Condition.nearPlacement(place: .point(at: WorldPoint(.surface, center.point + GridPoint(3, 0))),
+                                              module: nil, structure: "structure.storage", radius: 2)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(edge, world: ctx.world, content: rig.content), true)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(outside, world: ctx.world, content: rig.content), false)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(.nearPlacement(place: .point(at: center), module: nil, structure: nil,
+                                                                       radius: 0),
+                                                  world: ctx.world, content: rig.content), true)
+
+        ctx.world.placements.items[id]?.status = .underConstruction(progress: 0)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(edge, world: ctx.world, content: rig.content), false)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(.nearPlacement(place: .placement(module: nil, structure: "structure.storage"),
+                                                                       module: nil, structure: "structure.storage", radius: 0,
+                                                                       includeUnfinished: true),
+                                                  world: ctx.world, content: rig.content, trigger: record), true)
+    }
+
+    func testNearPlacementUsesPOIFootprintAtRadiusEdge() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        let anchor = GridPoint(4, 4)
+        var layer = try XCTUnwrap(world.map[.surface])
+        XCTAssertTrue(layer.placements.place(MapPlacement(id: "poi.test.near", kind: .wreck, templateID: "poi.test.near",
+                                                           anchor: anchor, footprint: .rect(width: 2, height: 1),
+                                                           entity: EntityID(9_001))))
+        world.map[.surface] = layer
+
+        let edge = Condition.nearPlacement(place: .point(at: WorldPoint(.surface, anchor + GridPoint(3, 0))),
+                                           module: nil, structure: nil, poi: "poi.test.near", radius: 2)
+        let outside = Condition.nearPlacement(place: .point(at: WorldPoint(.surface, anchor + GridPoint(4, 0))),
+                                              module: nil, structure: nil, poi: "poi.test.near", radius: 2)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(edge, world: world, content: rig.content), true)
+        XCTAssertEqual(ConditionEvaluator.evaluatePure(outside, world: world, content: rig.content), false)
     }
 
     /// 条件・効果の JSON は Swift の列挙の既定の形で書ける。

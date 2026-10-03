@@ -445,15 +445,18 @@ public struct FrameBuilder: Sendable {
         guard case .structure = pl.kind, let d = Hearths.def(pl, content), let s = Hearths.state(pl, content),
               Hearths.isCompleteForOutlook(pl) else { return nil }
         let n = Hearths.structuresInLight(pl.id, in: w, content: content)
+        let modifiers = Hearths.modifiers(pl.id, in: w, content: content)
         let item: ItemID? = content.interactions.keys.sorted().compactMap { id -> ItemID? in
             for e in content.interactions[id]?.effects ?? [] {
                 if case .hearth(_, .addFuel(let item, _)) = e { return item }
             }
             return nil
         }.first ?? d.fuels.keys.sorted().first
-        let now = HearthRule.outlook(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n)
+        let now = HearthRule.outlook(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n,
+                                     modifiers: modifiers)
         let after = item.map {
-            HearthRule.outlookAfterOneMore(s, d, item: $0, now: w.clock.now, clock: content.clock, structuresInLight: n)
+            HearthRule.outlookAfterOneMore(s, d, item: $0, now: w.clock.now, clock: content.clock,
+                                            structuresInLight: n, modifiers: modifiers)
         } ?? now
         return FireOutlookView(now: now, afterOneMore: after)
     }
@@ -465,8 +468,9 @@ public struct FrameBuilder: Sendable {
             guard let pl = w.placements.items[id], Hearths.isCompleteForOutlook(pl), let d = Hearths.def(pl, content),
                   let s = Hearths.state(pl, content) else { continue }
             let n = Hearths.structuresInLight(id, in: w, content: content)
+            let modifiers = Hearths.modifiers(id, in: w, content: content)
             return HearthRule.outlookWithPile(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n,
-                                              tended: Hearths.isTended(id, in: w))
+                                              tended: Hearths.isTended(id, in: w), modifiers: modifiers)
         }
         return nil
     }

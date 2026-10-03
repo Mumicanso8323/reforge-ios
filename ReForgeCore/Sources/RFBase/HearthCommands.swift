@@ -27,7 +27,8 @@ enum HearthCommands {
             ctx.emit(.hearthStoked(placement: id))
         case .stack(let item, let count):
             guard let pile = d.pileItem, pile == item, count > 0 else { return .rejected(Rejection("reason.hearth.not_fuel")) }
-            let room = (d.pileMax ?? HearthRule.defaultPileMax) - s.pile
+            let modifiers = Hearths.modifiers(id, in: ctx.world, content: ctx.content)
+            let room = HearthRule.pileMax(d, modifiers: modifiers) - s.pile
             guard room > 0 else { return .rejected(Rejection("reason.hearth.pile_full")) }
             let n = min(room, count)
             guard take(item, n, &ctx) else { return .rejected(Rejection("reason.hearth.no_fuel")) }

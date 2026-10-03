@@ -68,6 +68,9 @@ public indirect enum Condition: Codable, Hashable, Sendable {
     /// 場所の近く(チェビシェフ距離 radius 以内)に、この印の地形がある。印 "water" は TerrainDef.isWater の地形にも当たる。
     /// 例: 冷やす段の試作は水辺に接していればできる(radius 1)。
     case nearTerrain(place: PlaceSelector, tag: String, radius: Int)
+    /// 場所の近く(チェビシェフ距離 radius 以内)に、指定した置いた物がある。既定は建て終わった物だけ。
+    case nearPlacement(place: PlaceSelector, module: ModuleKindID?, structure: StructureKindID?, poi: POIKindID? = nil, radius: Int,
+                       includeUnfinished: Bool? = nil)
     /// POI の種類を見つけている(atLeast 個以上。既定 1)。
     case discoveredPOI(kind: POIKindID, atLeast: Int? = nil)
     case objective(id: ObjectiveID, status: ObjectiveStatusName)
@@ -190,7 +193,8 @@ public enum PlaceSelector: Codable, Hashable, Sendable {
     case poiKind(kind: POIKindID)
     case base
     case point(at: WorldPoint)
-    /// 置いた物(その種類のうち最も早く置いたもの)。範囲の効果の中心にすると、置いた物と一緒に動き・消える。
+    /// 置いた物。引き金が同じ種類の置いた物ならそれを、そうでなければその種類のうち最も早く置いたものを指す。
+    /// 範囲の効果の中心にすると、置いた物と一緒に動き・消える。
     case placement(module: ModuleKindID?, structure: StructureKindID?)
     /// 半径つき。
     indirect case near(place: PlaceSelector, radius: Int)
@@ -265,6 +269,15 @@ extension ContentValidator {
             c.walk { x in
                 if case .inAura(_, let k) = x, db.auras[k] == nil { missing("範囲の効果", k.rawValue, origin) }
                 if case .sheet(let s, _) = x, db.sheets[s] == nil { missing("工程表", s.rawValue, origin) }
+                if case .nearPlacement(_, let m, let s, let p, _, _) = x {
+                    if let m, db.modules[m] == nil { missing("モジュール", m.rawValue, origin) }
+                    if let s, db.structures[s] == nil { missing("建造物", s.rawValue, origin) }
+                    if let p, db.pois[p] == nil { missing("POI", p.rawValue, origin) }
+                    if [m != nil, s != nil, p != nil].filter(\.self).count > 1 {
+                        out.append(Issue(level: .error, rule: "condition.near-placement.kind",
+                                         message: "\(origin) の nearPlacement は module・structure・poi の 1 つだけを指定する"))
+                    }
+                }
             }
         }
         func checkEffects(_ es: [Effect]?, _ origin: String) {
@@ -276,6 +289,12 @@ extension ContentValidator {
                 case .addAura(let k, _, _, _, _), .scaleAura(let k, _, _), .removeAura(let k):
                     if db.auras[k] == nil { missing("範囲の効果", k.rawValue, origin) }
                 case .objective(let o, _): if db.objectives[o] == nil { missing("目標", o.rawValue, origin) }
+                case .selfBuild(_, let s, _, let r):
+                    if db.structures[s] == nil { missing("建造物", s.rawValue, origin) }
+                    if let r, !(1...8).contains(r) {
+                        out.append(Issue(level: .error, rule: "effect.self-build.radius",
+                                         message: "\(origin) の selfBuild の radius は 1...8"))
+                    }
                 default: break
                 }
             }

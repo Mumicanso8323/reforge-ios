@@ -123,6 +123,27 @@ public enum ConditionEvaluator {
                 }
             }
             return false
+        case .nearPlacement(let place, let module, let structure, let poi, let radius, let unfinished):
+            guard let source = Places.tiles(place, world: w, trigger: trigger), let layer = source.first?.layer else { return false }
+            func isNear(_ at: WorldPoint, _ footprint: [GridPoint]) -> Bool {
+                guard at.layer == layer else { return false }
+                return footprint.contains { offset in
+                    let target = at.point + offset
+                    return source.contains { $0.point.chebyshev(to: target) <= radius }
+                }
+            }
+            let anyKind = module == nil && structure == nil && poi == nil
+            if w.placements.items.values.contains(where: { p in
+                guard isNear(p.at, p.footprint) else { return false }
+                if unfinished != true, case .underConstruction = p.status { return false }
+                switch p.kind {
+                case .module(let k): return module == k || anyKind
+                case .structure(let k): return structure == k || anyKind
+                }
+            }) { return true }
+            return w.map[layer]?.pois.values.contains { target in
+                (poi == target.kind || anyKind) && isNear(WorldPoint(layer, target.at), target.footprint)
+            } ?? false
         case .discoveredPOI(let kind, let atLeast):
             let n = w.map.layers.values.reduce(0) { acc, layer in
                 acc + layer.pois.filter { $0.value.kind == kind && w.knowledge.discovered.contains($0.key) }.count
@@ -285,14 +306,49 @@ public enum Places {
             return w.base.area.map { WorldPoint(.surface, GridPoint($0.origin.x + $0.size.width / 2, $0.origin.y + $0.size.height / 2)) }
         case .point(let at): return at
         case .placement(let m, let s):
-            return placement(m, s, in: w).flatMap { w.placements.items[$0]?.at }
+            return placement(m, s, in: w, trigger: trigger).flatMap { w.placements.items[$0]?.at }
         case .near(let inner, _): return resolve(inner, world: w, trigger: trigger)
         }
     }
 
+    /// 指した物が占めるマス。物でない場所は 1 マスとして扱う。
+    public static func tiles(_ p: PlaceSelector, world w: WorldState, trigger: ProvenanceID?) -> [WorldPoint]? {
+        func placementTiles(_ placement: Placement) -> [WorldPoint] {
+            placement.footprint.map { WorldPoint(placement.at.layer, placement.at.point + $0) }
+        }
+        switch p {
+        case .placement(let module, let structure):
+            return placement(module, structure, in: w, trigger: trigger).flatMap { w.placements.items[$0] }.map(placementTiles)
+        case .poiKind(let kind):
+            for (layer, map) in w.map.layers.sorted(by: { $0.key < $1.key }) {
+                if let (_, poi) = map.pois.sorted(by: { $0.key < $1.key }).first(where: { $0.value.kind == kind }) {
+                    return poi.footprint.map { WorldPoint(layer, poi.at + $0) }
+                }
+            }
+            return nil
+        case .trigger:
+            if let id = triggerPlacement(trigger, in: w), let placement = w.placements.items[id] {
+                return placementTiles(placement)
+            }
+            return resolve(p, world: w, trigger: trigger).map { [$0] }
+        case .near(let inner, _):
+            return tiles(inner, world: w, trigger: trigger)
+        default:
+            return resolve(p, world: w, trigger: trigger).map { [$0] }
+        }
+    }
+
     /// その種類の置いた物のうち最も早く置いたもの(両方 nil なら何でも)。
-    public static func placement(_ module: ModuleKindID?, _ structure: StructureKindID?, in w: WorldState) -> EntityID? {
-        w.placements.sortedIDs.first { id in
+    public static func placement(_ module: ModuleKindID?, _ structure: StructureKindID?, in w: WorldState,
+                                 trigger: ProvenanceID? = nil) -> EntityID? {
+        if let id = triggerPlacement(trigger, in: w), let p = w.placements.items[id] {
+            switch p.kind {
+            case .module(let k) where module == k || (module == nil && structure == nil): return id
+            case .structure(let k) where structure == k || (module == nil && structure == nil): return id
+            default: break
+            }
+        }
+        return w.placements.sortedIDs.first { id in
             switch w.placements.items[id]?.kind {
             case .module(let k)?: module == k || (module == nil && structure == nil)
             case .structure(let k)?: structure == k || (module == nil && structure == nil)

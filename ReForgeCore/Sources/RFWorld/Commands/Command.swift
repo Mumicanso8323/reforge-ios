@@ -128,6 +128,8 @@ public enum ExplorationCommand: Codable, Equatable, Sendable {
 
 public enum BaseCommand: Codable, Equatable, Sendable {
     case build(structure: StructureKindID, at: WorldPoint, facing: Direction)
+    /// 効果から: 仲間が、プレイヤーと同じ建造の規則で自分の建造を始める。
+    case selfBuild(person: PersonID, structure: StructureKindID, near: WorldPoint, radius: Int, cause: ProvenanceID?)
     case demolish(placement: EntityID)
     /// 会った生存者を拠点に迎える(拠点の蓄えの食料と、空いている寝床が要る。人数はシェルターの収容で決まる)。
     case welcome(person: PersonID)

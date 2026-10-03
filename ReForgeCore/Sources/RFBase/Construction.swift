@@ -15,7 +15,8 @@ enum Construction {
 
     // MARK: 置く
 
-    static func build(_ kind: StructureKindID, at: WorldPoint, facing: Direction, _ ctx: inout StepContext) -> CommandResult {
+    static func build(_ kind: StructureKindID, at: WorldPoint, facing: Direction, actor: PersonID = .noah,
+                      cause: ProvenanceID? = nil, _ ctx: inout StepContext) -> CommandResult {
         let w = ctx.world
         guard let def = ctx.content.structures[kind] else { return .rejected(Rejection("reason.base.unknown")) }
         guard w.research.unlocked.structures.contains(kind) else { return .rejected(Rejection("reason.base.locked")) }
@@ -39,7 +40,8 @@ enum Construction {
         let id = ctx.world.newEntityID()
         ctx.world.base.spent[id] = lots
         let inputs = Set(lots.flatMap { $0.origins.keys }).filter { $0 != ProvenanceLedger.unknownOrigin }.sorted()
-        let origin = ctx.record(.placed, .structure(kind, id), actor: .noah, place: at, inputs: inputs,
+        let origin = ctx.record(.placed, .structure(kind, id), actor: actor, place: at,
+                                inputs: (inputs + (cause.map { [$0] } ?? [])).sorted(),
                                 detail: ["facing": .string(facing.rawValue)])
         var p = Placement(id: id, kind: .structure(kind), at: at, facing: facing, footprint: footprint, origin: origin,
                           status: def.buildSeconds > 0 ? .underConstruction(progress: 0) : .running)
@@ -55,6 +57,45 @@ enum Construction {
 
     static func have(_ ing: Ingredient, _ w: WorldState) -> Int {
         w.inventory.entries(.base).filter { ing.matches($0) && $0.unique == nil }.reduce(0) { $0 + $1.quantity }
+    }
+
+    /// 効果から、仲間がプレイヤーと同じ建造の入口を通って自分の建造を始める。
+    static func selfBuild(person: PersonID, structure: StructureKindID, near: WorldPoint, radius: Int,
+                          cause: ProvenanceID?, _ ctx: inout StepContext) -> CommandResult {
+        let down = ctx.world.combat.battle(of: person)?.units.contains { $0.person == person && $0.state == .down } ?? false
+        guard let ps = ctx.world.people[person], ps.presence.isMember, ps.presence.isAlive, ps.position != nil, !down else {
+            ctx.warnings.append("selfBuild: 建てる仲間がいないか動けない")
+            return .done
+        }
+        let r = min(8, max(1, radius))
+        for distance in 0...r {
+            for dy in -distance...distance {
+                for dx in -distance...distance where max(abs(dx), abs(dy)) == distance {
+                    let at = WorldPoint(near.layer, GridPoint(near.point.x + dx, near.point.y + dy))
+                    let before = Set(ctx.world.placements.items.keys)
+                    let result = build(structure, at: at, facing: .north, actor: person, cause: cause, &ctx)
+                    if result == .done, let id = ctx.world.placements.sortedIDs.first(where: { !before.contains($0) }) {
+                        var builder = ps
+                        builder.assignment = .build(placement: id)
+                        builder.haulLeg = nil
+                        builder.workSpeed = nil
+                        builder.dwellUntil = nil
+                        switch builder.activity {
+                        case .working, .guarding, .interposing, .carrying: builder.activity = .idle
+                        default: break
+                        }
+                        ctx.world.people[person] = builder
+                        ctx.record(.assigned, .person(person), actor: person, place: builder.position,
+                                   detail: ["assignment": .string("build")])
+                        ctx.emit(.assigned(person: person, assignment: .build(placement: id)))
+                        ctx.changes.mark(.people)
+                        return .done
+                    }
+                }
+            }
+        }
+        ctx.warnings.append("selfBuild: 置ける場所が無い")
+        return .done
     }
 
     /// 置ける場所か(拠点の範囲・地形・重なり)。
@@ -150,7 +191,8 @@ enum Construction {
         guard var p = ctx.world.placements.items[id], case .structure(let kind) = p.kind else { return }
         p.status = .running
         ctx.world.placements.items[id] = p
-        let rec = ctx.record(.built, .structure(kind, id), place: p.at, inputs: [p.origin])
+        let actor = ctx.world.ledger.record(p.origin)?.actor
+        let rec = ctx.record(.built, .structure(kind, id), actor: actor, place: p.at, inputs: [p.origin])
         ctx.emit(.built(placement: id, record: rec))
         markCells(p, &ctx)
     }

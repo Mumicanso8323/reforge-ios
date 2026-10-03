@@ -139,6 +139,39 @@ final class EventMechanicsTests: XCTestCase {
         XCTAssertEqual(ctx.world.narrative.counters["counter.test.furnaces"], 2)
     }
 
+    /// 建った物を指す placement は、同じ種類の古い物ではなく、その hook を起こした物を中心にする。
+    func testBuiltHookUsesCurrentPlacement() throws {
+        let rig = try TestRig.publicOnly()
+        let event = try JSONDecoder().decode(EventDef.self, from: Data(#"""
+        {
+          "id": "event.test.current_placement",
+          "trigger": {
+            "on": ["built"],
+            "when": {
+              "nearPlacement": {
+                "place": { "placement": { "module": null, "structure": null } },
+                "module": "furnace", "structure": null, "radius": 1
+              }
+            }
+          },
+          "effects": [{ "counter": { "id": "counter.test.current_placement", "add": 1 } }]
+        }
+        """#.utf8))
+        var content = rig.content
+        content.events[event.id] = event
+        var ctx = StepContext(world: rig.factory.newWorld(seed: 1), content: content)
+        let center = spawn(ctx.world)
+        place(&ctx, module: "furnace", at: center)
+        _ = settle(rig, &ctx)
+        place(&ctx, structure: "structure.storage", at: WorldPoint(center.layer, center.point.moved(.east, by: 6)))
+        _ = settle(rig, &ctx)
+        XCTAssertNil(ctx.world.narrative.counters["counter.test.current_placement"])
+
+        place(&ctx, structure: "structure.shelter", at: WorldPoint(center.layer, center.point.moved(.east, by: 1)))
+        XCTAssertEqual(settle(rig, &ctx).warnings, [])
+        XCTAssertEqual(ctx.world.narrative.counters["counter.test.current_placement"], 1)
+    }
+
     /// 優先度: 同じ hook で成り立つ出来事は優先度の大きい順に起きる。
     func testPriorityOrder() throws {
         let rig = try TestRig.publicOnly()
@@ -310,6 +343,7 @@ final class EventMechanicsTests: XCTestCase {
             .injure(person: "person.test_a", amount: 5000),
             .overrideAssignment(person: "person.test_a", toward: .base, hours: 2),
             .clearOverride(person: "person.test_a"),
+            .selfBuild(person: "person.test_a", structure: "structure.shelter", near: .base, radius: nil),
             .say(context: "work", speaker: nil),
             .groupRelation(id: "group.test", add: -3),
             .groupFlag(id: "group.test", flag: "flag.test", on: true),
@@ -350,7 +384,7 @@ final class EventMechanicsTests: XCTestCase {
             XCTAssertTrue(changed != before || retagged || !ctx.followUps.isEmpty, "世界を変えない効果: \(e)")
             if let label = Mirror(reflecting: e).children.first?.label { covered.insert(label) }
         }
-        XCTAssertEqual(covered.count, 37, "Effect の case を setPart 以外全部ためす(case を足したらここにも足す)")
+        XCTAssertEqual(covered.count, 38, "Effect の case を setPart 以外全部ためす(case を足したらここにも足す)")
 
         // setPart は POI が要る。平らな地図には POI が無いので、対象が無いことが警告で見える(黙って捨てない)。
         // POI を置いた世界での確かめは、地図の担当の型(MapPlacement)が境界に入ってから足す。
