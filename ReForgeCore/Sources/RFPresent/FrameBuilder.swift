@@ -311,7 +311,7 @@ public struct FrameBuilder: Sendable {
         guard let l = proj.layer, proj.size.contains(pt) else { return nil }
         let seen = proj.isKnown(pt) || vision.areas(w, layer: layer).contains { $0.contains(pt) }
         guard seen else { return TileInspection(point: pt, title: p.text(Perceiver.unknownText), lines: []) }
-        var title = l.terrain(at: pt).map { p.name(Subject.terrain($0)) } ?? p.text(Perceiver.unknownText)
+        var title = l.terrain(at: pt).map { p.terrainName($0, spent: proj.isSpent(pt, terrain: $0)) } ?? p.text(Perceiver.unknownText)
         var lines: [TileInspection.Line] = []
         if let poi = proj.poiAt[pt] { title = p.name(Subject.poi(poi.poi.kind)) }
         if let d = proj.depositAt[pt] {
@@ -347,7 +347,7 @@ public struct FrameBuilder: Sendable {
         let placed = w.placements.sortedIDs.compactMap { w.placements.items[$0] }.filter { pl in
             pl.at.layer == layer && (pl.at.point == pt || pl.footprint.contains { GridPoint(pl.at.point.x + $0.x, pl.at.point.y + $0.y) == pt })
         }
-        var title = p.name(Subject.terrain(terrain))
+        var title = p.terrainName(terrain, spent: proj.isSpent(pt, terrain: terrain))
         if let d = deposit { title = p.name(PresentSubject.deposit(d.deposit)) }
         if let poi { title = p.name(Subject.poi(poi.poi.kind)) }
         if let pl = placed.first {

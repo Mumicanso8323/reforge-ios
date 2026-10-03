@@ -314,6 +314,11 @@ public enum Places {
         case .placement(let m, let s):
             return placement(m, s, in: w, trigger: trigger).flatMap { w.placements.items[$0]?.at }
         case .near(let inner, _): return resolve(inner, world: w, trigger: trigger)
+        case .offset(let inner, let dx, let dy):
+            guard let c = resolve(inner, world: w, trigger: trigger) else { return nil }
+            let moved = WorldPoint(c.layer, c.point + GridPoint(dx, dy))
+            guard let size = w.map[moved.layer]?.size, size.contains(moved.point) else { return nil }
+            return moved
         }
     }
 
