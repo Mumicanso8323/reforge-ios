@@ -39,7 +39,9 @@ struct MapCanvasView: View {
                 Canvas(opaque: true, rendersAsynchronously: false) { ctx, size in
                     terrain.drawTerrain(&ctx, size: size, cache: terrainCache)
                 }
-                TimelineView(.animation(minimumInterval: nil, paused: !store.actors.contains(where: \.isMoving))) { _ in
+                TimelineView(.animation(minimumInterval: nil,
+                                        paused: !store.actors.contains(where: \.isMoving)
+                                            && (reduceMotion || !store.placements.contains(where: \.seenInDark))) { _ in
                     let moving = currentScene(camera: camera, elapsed: elapsed)
                     Canvas(opaque: false, rendersAsynchronously: false) { ctx, size in
                         moving.drawMoving(&ctx, size: size)
@@ -87,7 +89,7 @@ struct MapCanvasView: View {
     private func currentScene(camera: MapCamera, elapsed: Double) -> MapScene {
         MapScene(camera: camera, map: store.mapView, chunks: store.chunks, actors: store.actors,
                  placements: store.placements, route: store.route, night: store.clock.isNight, elapsed: elapsed,
-                 terrains: store.content.terrains, preview: store.preview, battles: store.battles.map(\.at),
+                 reduceMotion: reduceMotion, terrains: store.content.terrains, preview: store.preview, battles: store.battles.map(\.at),
                  beacons: store.mapView.beacons, selected: store.selected)
     }
 

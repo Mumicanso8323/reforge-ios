@@ -304,6 +304,8 @@ public struct StructureDef: ContentDef, Equatable {
     public var hearth: HearthDef?
     /// provides と auras が効く火床の段の下限(nil は常に効く)。焚き火台は smoldering。持ち主: U21
     public var whenLit: HearthLevel?
+    /// 置いた物が、灯りの外・未踏のマスにあっても見える(見えるだけ。行為は別に定義した物だけ)。
+    public var seenInDark: Bool?
 }
 
 /// マス・POI・置いた物に対してできる行為(漁る・汲む・掘る・観測する…)。

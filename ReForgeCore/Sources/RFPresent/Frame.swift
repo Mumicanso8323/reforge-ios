@@ -361,9 +361,11 @@ public struct PlacementSprite: Equatable, Sendable {
     public var stoppedReason: String?
     /// 1 日あたりの入/出。
     public var throughput: String?
+    /// 灯りの外・未踏のマスでも見える印か。
+    public var seenInDark: Bool = false
 
     public init(id: EntityID, glyph: String, at: GridPoint, facing: Direction, running: Bool, stoppedReason: String?,
-                throughput: String?) {
+                throughput: String?, seenInDark: Bool = false) {
         self.id = id
         self.glyph = glyph
         self.at = at
@@ -371,6 +373,7 @@ public struct PlacementSprite: Equatable, Sendable {
         self.running = running
         self.stoppedReason = stoppedReason
         self.throughput = throughput
+        self.seenInDark = seenInDark
     }
 }
 
