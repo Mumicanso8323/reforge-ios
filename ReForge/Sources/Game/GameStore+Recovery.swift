@@ -17,7 +17,7 @@ extension GameStore {
     /// 夜明けの自動セーブ。
     func saveDawn() async {
         do {
-            let data = try await host.saveData(slot: .dawn(day: clock.day), stamps: contentStamps)
+            let data = try await host.dawnSaveData(stamps: contentStamps)
             try await saveWriter.autosaveDawn(data)
         } catch {
             log.error("dawn save failed: \(String(describing: error), privacy: .public)")

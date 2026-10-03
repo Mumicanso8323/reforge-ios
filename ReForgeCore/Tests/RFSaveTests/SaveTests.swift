@@ -56,6 +56,16 @@ final class SaveTests: XCTestCase {
         XCTAssertEqual(actual, expected)
     }
 
+    func testDawnSaveDataTakesTheDayFromTheHostWorld() async throws {
+        let rig = try TestRig.publicOnly()
+        var world = Fixture.world(rig)
+        world.clock.day = 7
+        let host = GameBootstrap.host(content: rig.content, world: world)
+        let data = try await host.dawnSaveData(stamps: Fixture.stamp)
+        XCTAssertEqual(try SaveCodec.decode(data).slot, .dawn(day: 7))
+        XCTAssertEqual(data, try SaveCodec.encode(SaveEnvelope(slot: .dawn(day: 7), world: world, content: Fixture.stamp)))
+    }
+
     func testEnvelopeRoundTrip() throws {
         let rig = try TestRig.publicOnly()
         let e = SaveEnvelope(slot: .dawn(day: 1), world: Fixture.world(rig), content: Fixture.stamp)

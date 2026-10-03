@@ -58,6 +58,11 @@ public actor GameHost {
         try SaveCodec.encode(SaveEnvelope(slot: slot, world: world, content: stamps))
     }
 
+    /// 夜明けの自動セーブのバイト列。枠の日付は、書く世界そのものの日から決める(画面の Frame の日は、日の変わり目で 1 歩遅れうる)。
+    public func dawnSaveData(stamps: [ContentStamp]) throws -> Data {
+        try saveData(slot: .dawn(day: world.clock.day), stamps: stamps)
+    }
+
     /// 保存から戻す・巻き戻すなどで世界を差し替える。
     public func replace(world w: WorldState) -> Frame {
         world = w
