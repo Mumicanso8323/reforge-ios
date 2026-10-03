@@ -66,6 +66,15 @@ public struct ExplorationState: Codable, Equatable, Sendable {
         if let poi { return "\(interaction.rawValue)|poi:\(poi.raw)" }
         return "\(interaction.rawValue)|\(p.layer.rawValue)|\(p.point.x),\(p.point.y)"
     }
+
+    /// countKey の逆(マスの鍵だけ。POI の鍵は nil)。行為の ID とマスを返す。
+    public static func point(fromKey key: String) -> (interaction: InteractionID, at: WorldPoint)? {
+        let parts = key.split(separator: "|", omittingEmptySubsequences: false)
+        guard parts.count == 3, !parts[1].hasPrefix("poi:") else { return nil }
+        let xy = parts[2].split(separator: ",")
+        guard xy.count == 2, let x = Int(xy[0]), let y = Int(xy[1]) else { return nil }
+        return (InteractionID(rawValue: String(parts[0])), WorldPoint(LayerID(rawValue: String(parts[1])), GridPoint(x, y)))
+    }
 }
 
 /// 続けて採る仲間の起点(配属の時の場所)。cell は移った先(今の配属のマスと違えば古いので使わない)。

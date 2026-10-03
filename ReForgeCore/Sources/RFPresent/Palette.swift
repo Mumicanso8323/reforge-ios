@@ -58,6 +58,10 @@ public enum TilePalette {
     public static let stopped = "stopped"
     public static let route = "route"
     public static func terrain(_ id: TerrainID) -> String { "terrain." + id.rawValue }
+    /// 採った後でまだ拾えないマス(クールダウン中)の字。地形の字と違う形にして、色だけの違いにしない。
+    public static let spentGlyph = "∴"
+    /// 使い切りの色の鍵の末尾(`terrain.<id>.spent`)。
+    public static let spentSuffix = ".spent"
     /// 鉱脈の色の鍵(鉱脈の種類 DepositCategory の名前)。
     public static func deposit(_ category: String) -> String { "deposit." + category }
 
@@ -99,6 +103,9 @@ public enum TilePalette {
             if ore.contains("copper") { return TileStyle(foreground: [oreCopper]) }
             if ore.contains("iron") { return TileStyle(foreground: [oreIron]) }
             return TileStyle(foreground: [oreOther])
+        }
+        if tint.hasPrefix("terrain."), tint.hasSuffix(spentSuffix) {
+            return TileStyle(foreground: ground.map { $0.scaled(0.6) })
         }
         if tint.hasPrefix("terrain.") {
             let raw = String(tint.dropFirst("terrain.".count))

@@ -330,7 +330,10 @@ public enum Interactions {
         }
         let key = ExplorationState.countKey(def.id, poi: target.poi, at: at)
         ctx.world.exploration.interactionCounts[key, default: 0] += 1
-        if (def.cooldownDays ?? 0) > 0 { ctx.world.exploration.harvestedDay[key] = ctx.world.clock.day }
+        if (def.cooldownDays ?? 0) > 0 {
+            ctx.world.exploration.harvestedDay[key] = ctx.world.clock.day
+            ctx.changes.markTile(at)
+        }
 
         // 手でやった(INV-O8。知識の側)
         if actor == .noah { CrewWork.noteHand(CrewWork.family(of: def), &ctx.world) }
@@ -405,10 +408,32 @@ public enum Interactions {
         if let limit = def.limit, w.exploration.interactionCounts[key, default: 0] >= limit {
             return Rejection("reason.explore.exhausted")
         }
-        if let cd = def.cooldownDays, cd > 0, let last = w.exploration.harvestedDay[key], w.clock.day - last < cd {
-            return Rejection("reason.explore.cooldown", detail: ["days": .int(Int64(cd - (w.clock.day - last)))])
+        if let left = cooldownLeft(def, key: key, world: w) {
+            return Rejection("reason.explore.cooldown", detail: ["days": .int(Int64(left))])
         }
         return nil
+    }
+
+    /// クールダウンの残り日数(明けている・クールダウンの無い行為は nil)。断りと地図の見た目はこの 1 か所の式を使う。
+    static func cooldownLeft(_ def: InteractionDef, key: String, world w: WorldState) -> Int? {
+        guard let cd = def.cooldownDays, cd > 0, let last = w.exploration.harvestedDay[key], w.clock.day - last < cd else { return nil }
+        return cd - (w.clock.day - last)
+    }
+
+    /// その行為が、そのマス(POI でない)で今クールダウン中か。
+    public static func isCoolingDown(_ def: InteractionDef, at: WorldPoint, world w: WorldState) -> Bool {
+        cooldownLeft(def, key: ExplorationState.countKey(def.id, poi: nil, at: at), world: w) != nil
+    }
+
+    /// 夜明けに、クールダウンが明けたマスの区画を描き直す印を付ける。
+    static func markCooldownEnded(_ ctx: inout StepContext) {
+        let day = ctx.world.clock.day
+        for (key, last) in ctx.world.exploration.harvestedDay {
+            guard let (id, at) = ExplorationState.point(fromKey: key),
+                  let cd = ctx.content.interactions[id]?.cooldownDays, cd > 0, day - last >= cd,
+                  day - last < cd + 1 else { continue }
+            ctx.changes.markTile(at)
+        }
     }
 
     static func choosePart(_ op: PartOp, at: WorldPoint, target: ResolvedTarget, world w: WorldState,

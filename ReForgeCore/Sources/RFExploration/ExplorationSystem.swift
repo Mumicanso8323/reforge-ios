@@ -48,4 +48,8 @@ public struct ExplorationSystem: SimSystem {
         Interactions.advance(&ctx)
         Wandering.track(&ctx)
     }
+
+    public func react(to event: DomainEvent, _ ctx: inout StepContext) {
+        if case .dawn = event { Interactions.markCooldownEnded(&ctx) }
+    }
 }
