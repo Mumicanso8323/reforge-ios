@@ -224,6 +224,8 @@ final class AppTests: XCTestCase {
     private func litWorld(_ content: ContentDB) -> WorldState {
         var world = GameBootstrap.newWorld(content: content, seed: 5)
         world.clock.held = false
+        // 新しい世界は序の場面から始まる(その間は地図も操作棒も出ない)。読み終えた後の世界にする
+        world.narrative.scene = nil
         let origin = world.map.spawn
         var ctx = StepContext(world: world, content: content)
         EffectApplier.apply([
