@@ -8,7 +8,9 @@ enum InkColor {
     /// 遊びの面の地(地図の下)。原作どおりの黒。
     static let field = Color.black
     /// 序の場面だけの地(PT-B6)。画面全体を覆う語りの地。黒(field)ともふつうの地(ground)とも違う、ごく暗い藍。
-    static let prologueGround = Color(red: 0.027, green: 0.031, blue: 0.047)
+    /// 起動の画面(Assets.xcassets の LaunchBackground)・題の画面・RootView の一番下も同じ色(白が出ない。A-01)。
+    static let prologueGround = Color(red: prologueGroundRGB.r, green: prologueGroundRGB.g, blue: prologueGroundRGB.b)
+    static let prologueGroundRGB: (r: Double, g: Double, b: Double) = (0.027, 0.031, 0.047)
     /// 画面の地(帯・札・パネルの外側)。
     static let ground = Color(red: 0.067, green: 0.075, blue: 0.098)
     /// パネルの地(一段持ち上がった面)。
@@ -20,7 +22,8 @@ enum InkColor {
 
     // 文字
     /// 本文(生成り)。
-    static let text = Color(red: 0.902, green: 0.875, blue: 0.816)
+    static let text = Color(red: textRGB.r, green: textRGB.g, blue: textRGB.b)
+    static let textRGB: (r: Double, g: Double, b: Double) = (0.902, 0.875, 0.816)
     /// 補助(ラベル・単位)。
     static let textDim = Color(red: 0.600, green: 0.592, blue: 0.565)
     /// 押せない・まだ無い。
@@ -54,5 +57,20 @@ extension Color {
     /// 本体の色(RFPresent.RGB)を SwiftUI の色にする。遊びの面の色はこれで通す。
     init(rgb: RGB) {
         self.init(red: Double(rgb.r) / 255, green: Double(rgb.g) / 255, blue: Double(rgb.b) / 255)
+    }
+}
+
+/// WCAG 2.x の相対輝度とコントラスト比(序の文と地の比を試験で確かめるため。A-01)。
+enum Contrast {
+    typealias RGBTriple = (r: Double, g: Double, b: Double)
+
+    static func luminance(_ c: RGBTriple) -> Double {
+        func lin(_ v: Double) -> Double { v <= 0.03928 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+        return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b)
+    }
+
+    static func ratio(_ a: RGBTriple, _ b: RGBTriple) -> Double {
+        let x = luminance(a), y = luminance(b)
+        return (max(x, y) + 0.05) / (min(x, y) + 0.05)
     }
 }

@@ -24,6 +24,7 @@ enum HearthCommands {
             guard take(item, 1, &ctx) else { return .rejected(Rejection("reason.hearth.no_fuel")) }
             s = HearthRule.add(s, d, item: item, quantity: 1) ?? s
             if s.lit { s.banked = false }
+            ctx.emit(.hearthStoked(placement: id))
         case .stack(let item, let count):
             guard let pile = d.pileItem, pile == item, count > 0 else { return .rejected(Rejection("reason.hearth.not_fuel")) }
             let room = (d.pileMax ?? HearthRule.defaultPileMax) - s.pile

@@ -72,6 +72,46 @@ final class AppModel {
         game?.send(.narrative(.advanceScene))
     }
 
+    /// 序を一度最後まで読んだ端末の印(保存には入れない。A-01)。
+    let prologueSeen: PrologueSeen
+    private var skippingPrologue = false
+
+    /// 「飛ばす」を出すか: 序の間で、一度読み終えた端末の 2 回目から(1 回目は出さない)。
+    var canSkipPrologue: Bool { activePrologue != nil && prologueSeen.isSet }
+
+    /// 序が終わった(最後まで読んだ)。見本の序(撮る起動)では印を立てない。
+    func prologueFinished() {
+#if DEBUG
+        if debugPrologue != nil { return }
+#endif
+        prologueSeen.mark()
+    }
+
+    /// 「飛ばす」: 序の残りの行を、本体の今の送り(.narrative(.advanceScene))で最後まで送る。序の効果・then は今のまま起きる。
+    func skipPrologue() {
+        guard canSkipPrologue, !skippingPrologue else { return }
+        skippingPrologue = true
+        let target = game
+        Task {
+            var rounds = 0
+            while activePrologue != nil, rounds < 300 {
+                rounds += 1
+#if DEBUG
+                if let sample = debugPrologue {
+                    sample.advance()
+                    continue
+                }
+#endif
+                guard let g = game, g === target else { break }
+                // 本体が行を出している途中で断られたら、少し待って送り直す
+                if await g.perform(.narrative(.advanceScene)) != nil {
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+            }
+            skippingPrologue = false
+        }
+    }
+
     /// 右上の設定の角のボタンを出すか。序の間と、最初の行為の前の暗い場面の間は出さない(窓ごと隠す。PT-B6・DEC-F9:
     /// 「はじめから」から地図が出るまで、押せる物は暗い場面のボタン 1 つだけ)。
     var cornerButtonVisible: Bool { activePrologue == nil && game?.darkStart == nil }
@@ -80,7 +120,8 @@ final class AppModel {
          storeService: any StoreService = UnavailableStoreService(),
          adProvider: any AdProvider = NoopAdProvider(),
          backgroundTasks: any BackgroundTaskManaging = ApplicationBackgroundTasks(),
-         bundle: Bundle = .main) {
+         bundle: Bundle = .main, defaults: UserDefaults = .standard) {
+        self.prologueSeen = PrologueSeen(defaults: defaults)
         FontBook.register(bundle: bundle)
         var content: ContentDB?
         var loadError: String?
@@ -225,6 +266,9 @@ struct RootView: View {
             if let prologue = app.activePrologue {
                 PrologueScene(lines: prologue.lines, advance: { app.advancePrologue() })
                     .ignoresSafeArea()
+                if app.canSkipPrologue {
+                    PrologueSkipButton(skip: { app.skipPrologue() })
+                }
             } else if let lines = dawnLines {
                 PrologueScene(lines: lines, exiting: true, onExitDone: { dawnLines = nil })
                     .ignoresSafeArea()
@@ -232,12 +276,13 @@ struct RootView: View {
         }
         .onChange(of: app.activePrologue) { old, new in
             if let old, new == nil, app.game != nil {
+                app.prologueFinished()
                 dawnLines = old.lines
             } else if new != nil {
                 dawnLines = nil
             }
         }
-        .background(Color.black)
+        .background(InkColor.prologueGround)
         .background(SettingsCornerInstaller(app: app, visible: app.cornerButtonVisible && dawnLines == nil))
         .task { await app.refreshEntitlements() }
         .onChange(of: scenePhase) { _, phase in

@@ -8,7 +8,7 @@ struct TitleView: View {
 
     var body: some View {
         ZStack {
-            InkColor.ground.ignoresSafeArea()
+            InkColor.prologueGround.ignoresSafeArea()
             if let art = UIImage(named: "title-art") {
                 // 絵は画面の幅と高さで切る(縦横比が画面と違うと、scaledToFill の絵が画面の外へはみ出すため)
                 Color.clear
@@ -17,7 +17,7 @@ struct TitleView: View {
                     .ignoresSafeArea()
                     .accessibilityHidden(true)
                 // 空が明るいので、題の文字が読めるように全体を一段沈める(平らな色で。グラデーションは使わない)
-                InkColor.ground.opacity(0.45).ignoresSafeArea()
+                InkColor.prologueGround.opacity(0.45).ignoresSafeArea()
             }
             VStack(spacing: 0) {
                 Spacer().frame(height: 72)

@@ -96,6 +96,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case placementRepaired(placement: EntityID, record: ProvenanceID)
     /// 火床の段が変わった(消えた・点いた・弱まった。U21)。
     case hearthLevelChanged(placement: EntityID, level: HearthLevel)
+    /// プレイヤーの操作で火床に燃料をくべた(手触りの振動の合図。A-01)。
+    case hearthStoked(placement: EntityID)
     /// 煙・縄張り・闇に引かれて、今夜その獣が寄ることになった(lure のしきい値を越えた。U21)。最初の脅威の引き金。
     case lured(enemy: EnemyKindID)
 
@@ -143,6 +145,7 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .nestDestroyed: "nest.destroyed"
         case .raided: "raided"
         case .hearthLevelChanged: "hearth"
+        case .hearthStoked: "hearth.stoked"
         case .lured: "lured"
         case .trapSprung: "trap.sprung"
         case .researchCompleted: "research.completed"

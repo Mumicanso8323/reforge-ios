@@ -1111,16 +1111,6 @@
         }
       }
     },
-    "最初から": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "最初から"
-          }
-        }
-      }
-    },
     "本人が断った": {
       "localizations": {
         "ja": {
@@ -1737,6 +1727,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "開発"
+          }
+        }
+      }
+    },
+    "飛ばす": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "飛ばす"
           }
         }
       }

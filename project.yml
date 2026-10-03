@@ -43,6 +43,8 @@ targets:
         # アプリのアイコン(オーナーが A2R_1 を本採用)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        # 起動の画面の地(InkColor.prologueGround と同じ色。白が 1 フレームも出ない。A-01)
+        INFOPLIST_KEY_UILaunchScreen_BackgroundColor: LaunchBackground
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO

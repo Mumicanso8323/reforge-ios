@@ -58,6 +58,13 @@ private struct DarkStartActionButton: View {
             }
         }
         .onAppear { pulse() }
+        // 押している間、進みに合わせて軽い振動を少しずつ強める(離したら止める)
+        .onChange(of: action.progressPermille) { _, new in
+            store.rampHaptic(permille: pressing ? new : nil)
+        }
+        .onChange(of: pressing) { _, now in
+            if !now { store.rampHaptic(permille: nil) }
+        }
         .onChange(of: reduceMotion) { _, _ in pulse() }
     }
 
