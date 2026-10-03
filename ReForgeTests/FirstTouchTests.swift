@@ -88,7 +88,7 @@ final class FirstTouchTests: XCTestCase {
         var judge = HapticJudge()
         let gain = DomainEvent.itemGained(holder: .base, stuff: .item("stick"), quantity: 1, record: record)
         XCTAssertTrue(judge.cues(for: [gain]).isEmpty, "行為の終わりでない物の入りでは鳴らない")
-        XCTAssertTrue(judge.cues(for: [.dawn(day: 2), .phaseChanged(to: .night, day: 1),
+        XCTAssertTrue(judge.cues(for: [.dawn(day: 2), .phaseChanged(to: .dusk, day: 1),
                                        .walked(person: .noah, tiles: 1, staminaCost: 1),
                                        .itemSpent(holder: .base, stuff: .item("stick"), quantity: 1)]).isEmpty)
         // 点いていた火が強まる・消えるでは鳴らない。消えた後に点き直したら鳴る
