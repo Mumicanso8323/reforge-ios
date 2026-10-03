@@ -40,6 +40,11 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var leaks: [String] = []
         /// 頼まれてまだ働きはじめていない仲間(頼みのあと最初の作業の字だけを応えに数える)。
         var awaiting: Set<PersonID> = []
+        var lineLevel: [String: Int] = [:]
+        /// 焚き火の段が変わった時刻と段
+        var levelLog: [(Double, Int)] = []
+        /// 戦いが始まった時刻・種類(raid・encounter など)
+        var battles: [(Double, String, EntityID)] = []
         /// 場面の行を聞き取る(応えの変化のテスト)。true の間、画面に出た場面の行を (場面, 行) で順に貯める
         var listen = false
         var heard: [(SceneID, String)] = []
@@ -101,7 +106,11 @@ final class FirstTenMinutesBotTests: XCTestCase {
 
         mutating func record(_ r: StepReport) {
             for e in r.events {
-                if case .lineSpoken(_, let line) = e { answers.append(("line:\(line.rawValue)", real)) }
+                if case .lineSpoken(_, let line) = e {
+                    answers.append(("line:\(line.rawValue)", real))
+                    // その一言の時の焚き火の段(INV-S3 の F: 火が燃えている時だけ「建てるぞ」)
+                    if lineLevel[line.rawValue] == nil { lineLevel[line.rawValue] = CrewWork.campfireLevel(w, content) }
+                }
             }
         }
 
@@ -188,6 +197,11 @@ final class FirstTenMinutesBotTests: XCTestCase {
             for _ in 0..<n {
                 let r = sim.runSteps(1, &w)
                 if w.clock.phase == .day { real += Self.realPerStep }
+                let lv = CrewWork.campfireLevel(w, content)
+                if lv != levelLog.last?.1 { levelLog.append((real, lv)) }
+                if let bt = w.combat.battles.values.first, battles.last?.2 != bt.id {
+                    battles.append((real, "\(bt.kind)".components(separatedBy: "(").first ?? "?", bt.id))
+                }
                 note()
                 record(r)
                 noteWork()
@@ -309,6 +323,9 @@ final class FirstTenMinutesBotTests: XCTestCase {
         /// 本物の歩く命令で歩く(着くまで時間を進める)。
         mutating func walk(to g: GridPoint) {
             let to = WorldPoint(here.layer, g)
+            // 戦いの最中は歩けない(reason.walk.in_battle)。終わるまで待ってから歩く(人も戦いが終わるのを待つ)
+            var k = 0
+            while !w.combat.battles.isEmpty && k < 3000 { steps(1); k += 1 }
             _ = send(.crew(.walk(to: to)))
             var m = 0
             while w.people[.noah]?.motion != nil && m < 2000 { steps(1); m += 1 }
@@ -323,7 +340,15 @@ final class FirstTenMinutesBotTests: XCTestCase {
             }
             guard let stand = ([target] + target.neighbors8).first(where: passable) else { return }
             let c = here.point
-            let near = stand + GridPoint(0, stand.y > c.y ? -3 : 3)
+            // 目的の 3 マス手前(ノアの側)。そこが通れなければ(水など)、目的から 3 マス以内の通れるマスで手前に近い所
+            var near = stand + GridPoint(0, stand.y > c.y ? -3 : 3)
+            if !passable(near) {
+                var cand: [GridPoint] = []
+                for dy in -3...3 { for dx in -3...3 { cand.append(stand + GridPoint(dx, dy)) } }
+                if let alt = cand.filter(passable).min(by: { ($0.chebyshev(to: near), $0.chebyshev(to: c)) < ($1.chebyshev(to: near), $1.chebyshev(to: c)) }) {
+                    near = alt
+                }
+            }
             if passable(near) {
                 let d = max(abs(near.x - c.x), abs(near.y - c.y))
                 steps(Int(Double(d) / 4 / Self.realPerStep))
@@ -607,6 +632,16 @@ final class FirstTenMinutesBotTests: XCTestCase {
                 if case .terrain(let tag)? = content.interactions["interaction.draw_water"]?.target { snap.discover(tag: tag) }
                 snap.act("interaction.draw_water", radius: 30)
                 snap.goHome()
+                // 働く枠が 0(火が弱い)なら、人と同じく先にくべる(頼めない配属は画面に出ない。W-29)
+                if (CrewWork.workable(snap.w, content) ?? 1) == 0 {
+                    for _ in 0..<4 where (CrewWork.workable(snap.w, content) ?? 1) == 0 {
+                        if snap.count(picks.fuel) == 0 { _ = snap.gather(picks.fuel) }
+                        snap.goHome()
+                        snap.act(picks.stoke)
+                        snap.steps(2)
+                    }
+                    print("[SL-21] seed \(seed): 頼む前にくべた(働く枠 \(CrewWork.workable(snap.w, content) ?? -1))")
+                }
                 var asks: [(String, Assignment)] = []
                 if let g = Picks.gather(picks.fuel, content) {
                     if let near = snap.find(g.id, radius: 8) { asks.append(("採る", .gather(interaction: near.id, at: near.at))) }
@@ -939,6 +974,12 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var material: (seconds: Double, stuck: Bool, toPile: Int)?
         /// シェルターの材料集めの間(実時間の目安の始まりと終わり)。INV-S3 の長い間を「材料集め」と「それ以外」に分ける
         var materialWindow: (Double, Double)?
+        /// 材料がそろった時の一言(行・その時の焚き火の段・その人が建てはじめるまでの秒)
+        var ready: (String, Int, Int?)?
+        /// 水の頼みの結果(通った・断りの理由)と、頼む前にくべた時の働く枠(前→後)
+        var waterAsk = "頼んでいない"
+        var battles: [(Double, String)] = []
+        var askStoke: (Int, Int)?
         var leaks: [String] = []
         /// SL-23〜27 の段と時刻(実時間の目安)
         var milestones: [(String, Double)] = []
@@ -1048,7 +1089,18 @@ final class FirstTenMinutesBotTests: XCTestCase {
             b.send(.crew(.assign(person: tender, assignment: .idle)))
         }
         if snapshots { out.snaps["SL-21"] = b }
-        // 頼み: 2 人目に燃料、3 人目に水
+        // 頼み: 2 人目に燃料、3 人目に水。働く枠は焚き火の段から(段 3 で 1・段 4 で 2)。2 つ頼むので、枠が 2 に
+        // 届かなければ人と同じく先にくべる(頼めない配属は画面に出ない。W-29)
+        if b.members.count >= 3, (CrewWork.workable(b.w, content) ?? 2) < 2 {
+            let before = CrewWork.workable(b.w, content) ?? -1
+            for _ in 0..<4 where (CrewWork.workable(b.w, content) ?? 2) < 2 {
+                if b.count(picks.fuel) == 0 { _ = gather(picks.fuel) }
+                b.goHome()
+                b.act(picks.stoke)
+                b.steps(2)
+            }
+            out.askStoke = (before, CrewWork.workable(b.w, content) ?? -1)
+        }
         if b.members.count >= 3, let g = Picks.gather(picks.fuel, content), let a = b.find(g.id, radius: 24) {
             _ = b.send(.crew(.assign(person: b.members[1], assignment: .gather(interaction: a.id, at: a.at))))
         }
@@ -1057,19 +1109,113 @@ final class FirstTenMinutesBotTests: XCTestCase {
             if b.find("interaction.draw_water", radius: 30) == nil,
                case .terrain(let tag)? = content.interactions["interaction.draw_water"]?.target {
                 b.discover(tag: tag)
+                // 水辺のすぐそば(1 マス)まで行かないと開かない。discover が手前で止まったら、ノアから歩いて行ける
+                // 水辺の隣のマス(通れて水でない)を幅優先で探して、そこへ歩く
+                if b.find("interaction.draw_water", radius: 30) == nil, let layer = b.w.map[b.here.layer] {
+                    func pass(_ q: GridPoint) -> Bool {
+                        guard layer.size.contains(q), let t = layer.terrain(at: q), let d = content.terrains[t] else { return false }
+                        return d.passable != false && d.isWater != true
+                    }
+                    func isTag(_ q: GridPoint) -> Bool {
+                        guard let t = layer.terrain(at: q) else { return false }
+                        return (content.terrains[t]?.tags ?? [t.rawValue]).contains(tag)
+                    }
+                    let start = b.here.point
+                    var seen: Set<GridPoint> = [start]
+                    var queue = [start]
+                    var stand: GridPoint?
+                    var i = 0
+                    while i < queue.count, stand == nil {
+                        let q = queue[i]
+                        i += 1
+                        if q.neighbors8.contains(where: isTag) { stand = q; break }
+                        for n in q.neighbors8 where !seen.contains(n) && n.chebyshev(to: start) <= 40 && pass(n) {
+                            seen.insert(n)
+                            queue.append(n)
+                        }
+                    }
+                    if let q = stand {
+                        var k = 0
+                        while !b.w.combat.battles.isEmpty && k < 3000 { b.steps(1); k += 1 }
+                        let r = b.send(.crew(.walk(to: WorldPoint(b.here.layer, q))))
+                        var m = 0
+                        while b.w.people[.noah]?.motion != nil && m < 2000 { b.steps(1); m += 1 }
+                        b.steps(2)
+                        let after = b.here.point
+                        let d = ([after] + after.neighbors8).contains(where: isTag) ? 1 : 9
+                        out.diag.append("水辺の隣へ歩く: 目的 \(q) 着いた \(after)(水辺 \(d == 1 ? "1 以内" : "2 以上"))・断り \(r.rejection?.reason.rawValue ?? "-")・開いた \(b.find("interaction.draw_water", radius: 3) != nil)"
+                            + "・戦い \(b.w.combat.battles.values.map { "\($0.kind) 手番 \($0.turn) 経過 \($0.elapsed) 人 \($0.participants.map(\.rawValue)) 敵 \($0.enemies.count)" })")
+                    }
+                }
             }
             // 手が先(INV-O8): ノアが 1 度汲んでから頼む
             if b.act("interaction.draw_water", radius: 8) { out.milestones.append(("SL-21 水を汲んだ", b.real)) }
             var probe = b
             probe.spent = []
+            // 汲みに歩く間に火が弱まって枠が 2 を割っていたら、戻ってもう一度くべる(頼めない配属は出ない)
+            if (CrewWork.workable(b.w, content) ?? 2) < 2 {
+                for _ in 0..<4 where (CrewWork.workable(b.w, content) ?? 2) < 2 {
+                    if b.count(picks.fuel) == 0 { _ = gather(picks.fuel) }
+                    b.goHome()
+                    b.act(picks.stoke)
+                    b.steps(2)
+                }
+            }
             if let a = probe.find("interaction.draw_water", radius: 30) {
                 let r = b.send(.crew(.assign(person: b.members[2], assignment: .gather(interaction: a.id, at: a.at))))
                 if let j = r.rejection {
                     let working = b.members.filter { m in CrewWork.isWork(b.w.people.effectiveAssignment(m) ?? .idle) }
                     out.diag.append("水を頼めない: \(j.reason.rawValue) \(j.detail)・働いている \(working.map(\.rawValue))")
-                } else { out.milestones.append(("SL-21 水を頼んだ", b.real)) }
+                    out.waterAsk = j.reason.rawValue
+                } else {
+                    out.milestones.append(("SL-21 水を頼んだ", b.real))
+                    out.waterAsk = "通った"
+                }
             } else {
-                out.diag.append("水を頼めない(行為が見つからない)")
+                let def = content.interactions["interaction.draw_water"]
+                let open = def?.when.map { ConditionEvaluator.evaluatePure($0, world: b.w, content: content) == true } ?? true
+                var dist: Int?
+                if case .terrain(let tag)? = def?.target, let layer = b.w.map[b.here.layer] {
+                    let c = b.here.point
+                    for dy in -30...30 { for dx in -30...30 {
+                        let q = GridPoint(c.x + dx, c.y + dy)
+                        if let t = layer.terrain(at: q), (content.terrains[t]?.tags ?? [t.rawValue]).contains(tag) { dist = min(dist ?? 99, max(abs(dx), abs(dy))) }
+                    } }
+                }
+                // 焚き火から歩いて、水辺の 1 マス以内に立てるマスがあるか(通れる・水でない地形だけを歩く。40 マスまで)
+                var reach = "-"
+                if case .terrain(let tag)? = def?.target, let layer = b.w.map[b.here.layer] {
+                    func pass(_ q: GridPoint) -> Bool {
+                        guard layer.size.contains(q), let t = layer.terrain(at: q), let d = content.terrains[t] else { return false }
+                        return d.passable != false && d.isWater != true
+                    }
+                    func isTag(_ q: GridPoint) -> Bool {
+                        guard let t = layer.terrain(at: q) else { return false }
+                        return (content.terrains[t]?.tags ?? [t.rawValue]).contains(tag)
+                    }
+                    let start = b.campfire().flatMap { b.w.placements.items[$0]?.at.point } ?? b.here.point
+                    var seen: Set<GridPoint> = [start]
+                    var queue = [start]
+                    var found: GridPoint?
+                    var tagSeen: [String: Int] = [:]
+                    while !queue.isEmpty, found == nil {
+                        let q = queue.removeFirst()
+                        if ([q] + q.neighbors8).contains(where: isTag) { found = q; break }
+                        for n in q.neighbors8 where !seen.contains(n) && n.chebyshev(to: start) <= 40 && pass(n) {
+                            seen.insert(n)
+                            queue.append(n)
+                        }
+                    }
+                    for dy in -4...4 { for dx in -4...4 {
+                        let q = b.here.point + GridPoint(dx, dy)
+                        if isTag(q), let t = layer.terrain(at: q) {
+                            tagSeen["\(t.rawValue)(通れる \(content.terrains[t]?.passable != false)・水 \(content.terrains[t]?.isWater == true))", default: 0] += 1
+                        }
+                    } }
+                    reach = (found.map { "焚き火から歩いて立てる(焚き火から \($0.chebyshev(to: start)))" } ?? "焚き火から歩いて立てない") + " 近くの水辺の地形 \(tagSeen)"
+                }
+                out.diag.append("水を頼めない(行為が見つからない。開いている \(open)・ノアから水辺 \(dist.map(String.init) ?? "30 超")・\(reach)・断り \(b.rejects["interaction.draw_water"] ?? "-"))")
+                out.waterAsk = "行為が見つからない"
             }
             b.goHome()
         }
@@ -1136,14 +1282,17 @@ final class FirstTenMinutesBotTests: XCTestCase {
                 b.goHome()
                 out.diag.append("建てる前に火が消えていた(残り火から \(b.act(e) ? "点けた" : "点けられない"))")
             }
-            // 火が落ちて働ける枠が 0 なら、先にくべる(頼んでも枠が無いと断られる。人も灰色の理由を見てくべる)
-            if (CrewWork.workable(b.w, content) ?? 1) == 0 {
-                out.diag.append("建てる時に働ける枠 0(先にくべる)")
-                for _ in 0..<3 {
+            // 火が盛ん(段 4・枠 2)でなければ、先にくべる(クロムの「火をもっと盛んにしてくれ」に応える。頼めない配属は出ない)
+            if CrewWork.campfireLevel(b.w, content) < 4 {
+                var k = 0
+                while CrewWork.campfireLevel(b.w, content) < 4 && k < 6 {
                     if b.count(picks.fuel) == 0 { _ = gather(picks.fuel, radius: 40) }
                     b.goHome()
                     b.act(picks.stoke)
+                    b.steps(2)
+                    k += 1
                 }
+                if CrewWork.campfireLevel(b.w, content) < 4 { out.diag.append("建てる前に段 4 にできない(段 \(CrewWork.campfireLevel(b.w, content)))") }
                 b.goHome()
             }
             _ = b.send(.crew(.assign(person: .noah, assignment: .build(placement: s))))
@@ -1290,7 +1439,13 @@ final class FirstTenMinutesBotTests: XCTestCase {
                 }
                 // 手で掘るは、岩場の新しい区域に入った時の探索の出来事で開く。開いていなければ、まだ入っていない岩場の区域を回る
                 if b.visitRegions(tag: "rock", until: { t in t.act(mineID, radius: 6) }) { mined += 1 }
-                if mined == 0 { out.diag.append("手で掘る: 岩場の区域を回っても開かない") }
+                if mined == 0 {
+                    let open = content.interactions[mineID]?.when.map { ConditionEvaluator.evaluatePure($0, world: b.w, content: content) == true } ?? true
+                    let deps = b.w.map[b.here.layer]?.deposits.all ?? []
+                    let o = b.w.map.landmarks?.outcrop
+                    let dO = o.flatMap { o in deps.filter { $0.remainingExtractions > 0 }.map { $0.position.chebyshev(to: o) }.min() }
+                    out.diag.append("手で掘る: 岩場の区域を回っても開かない(開いている \(open)・鉱脈 \(deps.count)・残りのある鉱脈の岩山からの最短 \(dO.map(String.init) ?? "-")・ノアから岩山 \(o.map { String(b.here.point.chebyshev(to: $0)) } ?? "-")・岩山の地形 \(o.flatMap { b.w.map[b.here.layer]?.terrain(at: $0)?.rawValue } ?? "-"))")
+                }
             }
             out.ok["手で掘った"] = mined > 0
             guard mined > 0 else { stop("SL-25 掘る(\(b.rejects[mineID.rawValue] ?? "-"))"); break iron }
@@ -1402,17 +1557,27 @@ final class FirstTenMinutesBotTests: XCTestCase {
         }
         out.log = b.log
         out.answers = b.answers
+        out.battles = b.battles.map { ($0.0, $0.1) }
         // INV-S3 の F: 材料がそろった時の一言(材料集めの終わりにいちばん近い 3 秒以内の人の一言。ID は内容から引かない)から、
         // その人が建てはじめる(作業の字)まで(20 秒以内)
         if let (_, m1) = out.materialWindow,
            let ready = b.answers.filter({ $0.0.hasPrefix("line:") && abs($0.1 - m1) <= 3 }).min(by: { abs($0.1 - m1) < abs($1.1 - m1) }),
            let who = content.lines[LineID(String(ready.0.dropFirst("line:".count)))]?.speaker {
             out.milestones.append(("SL-22 建てるぞ", ready.1))
-            if let w = b.answers.first(where: { $0.1 >= ready.1 && $0.0 == "work:\(who.rawValue)" }) {
-                out.milestones.append(("SL-22 建てはじめた", w.1))
-                if w.1 - ready.1 > 20 { out.diag.append("建てるぞから建てはじめるまで \(Int(w.1 - ready.1)) 秒") }
-            } else {
-                out.diag.append("建てるぞの後、\(who.rawValue) が建てはじめない")
+            let lineID = String(ready.0.dropFirst("line:".count))
+            let lv = b.lineLevel[lineID] ?? -1
+            let w = b.answers.first(where: { $0.1 >= ready.1 && $0.0 == "work:\(who.rawValue)" })
+            if let w { out.milestones.append(("SL-22 建てはじめた", w.1)) }
+            // 働く枠は段 3 で 1・段 4 で 2(crewWork.fireSlots)。「建てるぞ」は段 4 の時だけで、20 秒以内に建てはじめるはず。
+            // 段 3 以下の一言(火を盛んにしてくれ)なら、その後に段 4 へ上がった時から建てはじめるまでを測る(60 秒以内が目標)
+            var secs = w.map { Int($0.1 - ready.1) }
+            if lv < 4, let w, let up = b.levelLog.first(where: { $0.0 >= ready.1 && $0.1 >= 4 }), up.0 <= w.1 {
+                secs = Int(w.1 - up.0)
+            }
+            out.ready = (lineID, lv, secs)
+            let limit = lv >= 4 ? 20 : 60
+            if let secs, secs <= limit {} else {
+                out.diag.append("建てるぞ(段 \(lv))から\(lv >= 4 ? "" : "火を盛んにして")建てはじめるまで \(secs.map { "\($0) 秒" } ?? "建てない")")
             }
         }
         out.leaks = b.leaks
@@ -1453,6 +1618,12 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var stageTimes: [String: [Int]] = [:]
         var stopped: [String] = []
         var slowBuild: [String] = []
+        var readyLines: [String: [String: Int]] = [:]
+        var waterAsks: [String: Int] = [:]
+        var waterMiss: [String: [UInt64]] = [:]
+        var battleList: [String] = []
+        var askStokes: [String: Int] = [:]
+        var readySecs: [String: [Int]] = [:]
         var outOfWindow: [String] = []
         var materialSecs: [Int] = []
         var stuck: [UInt64] = []
@@ -1475,6 +1646,17 @@ final class FirstTenMinutesBotTests: XCTestCase {
             }
             if let at = r.stoppedAt { stopped.append("seed \(seed): \(at)") }
             for d in r.diag where d.hasPrefix("建てるぞ") { slowBuild.append("seed \(seed) \(d)") }
+            for (t, k) in r.battles where t <= 600 { battleList.append("seed \(seed) \(k)@\(Int(t))s") }
+            waterAsks[r.waterAsk, default: 0] += 1
+            if r.waterAsk != "通った" { waterMiss[r.waterAsk, default: []].append(seed) }
+            if let (x, y) = r.askStoke { askStokes["\(x)→\(y)", default: 0] += 1 }
+            if let (line, lv, secs) = r.ready {
+                let key = lv >= 4 ? "段 4(建てるぞ・20 秒以内)" : "段 \(lv)(火を盛んに・段 4 から 60 秒以内)"
+                readyLines[key, default: [:]][line, default: 0] += 1
+                if let secs { readySecs[key, default: []].append(secs) }
+            } else {
+                readyLines["一言なし", default: [:]]["-", default: 0] += 1
+            }
             if let m = r.material {
                 materialSecs.append(Int(m.seconds))
                 if m.stuck { stuck.append(seed) }
@@ -1555,7 +1737,17 @@ final class FirstTenMinutesBotTests: XCTestCase {
         print("[TEST-F9] 名乗りで名前が開く人 \(named.count)(\(named.map { "\($0.0.rawValue)←\($0.2.rawValue)" }.joined(separator: " ")))"
             + " / 監査した seed \(min(namesSeeds, seeds)) / 名乗る前に名前が出た \(leaks.count) 件")
         for l in leaks { print("[TEST-F9]   \(l)") }
-        print("[SL-40] 建てるぞから 20 秒を超えて建てはじめた・建てない \(slowBuild.count) seed: \(slowBuild.joined(separator: " / "))")
+        print("[SL-40-battle] 600 秒までの戦い \(battleList.count) 件: \(battleList.joined(separator: " / "))")
+        print("[SL-21-ask] \(seeds) seed: 水の頼み \(waterAsks.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))"
+              + " / 通らなかった seed \(waterMiss.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))"
+              + " / 頼む前にくべた(働く枠 前→後) \(askStokes.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))")
+        for (k, v) in readyLines.sorted(by: { $0.key < $1.key }) {
+            let g = (readySecs[k] ?? []).sorted()
+            let within = g.filter { $0 <= (k.hasPrefix("段 4") ? 20 : 60) }.count
+            print("[SL-22-ready] \(k): \(v.values.reduce(0, +)) seed 行 \(v.sorted { $0.key < $1.key }.map { "\($0.key)×\($0.value)" })"
+                  + (g.isEmpty ? "" : " / 建てはじめるまで 中央 \(g[g.count / 2]) 秒・最長 \(g.last!) 秒・目標以内 \(within)"))
+        }
+        print("[SL-40] 材料がそろった一言から目標を超えて建てはじめた・建てない \(slowBuild.count) seed: \(slowBuild.joined(separator: " / "))")
         print("[SL-40] \(seeds) seed: 届かなかった段 \(failed.sorted { $0.key < $1.key })")
         fflush(stdout)
         XCTAssertEqual(failed, [:], "届かなかった段がある")
