@@ -207,36 +207,69 @@ final class AppTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(MapCamera().cellSize, 44)
     }
 
+    /// 歩ける範囲の中で、ノアの隣の 1 マス(ノアのマスではない)。無ければ nil。
+    private func walkableNeighbour(_ store: GameStore, of start: GridPoint) -> GridPoint? {
+        let around = [GridPoint(1, 0), GridPoint(-1, 0), GridPoint(0, 1), GridPoint(0, -1)].map { start + $0 }
+        return around.first { c in store.walkable.contains { $0.y == c.y && $0.minX <= c.x && c.x <= $0.maxX } }
+    }
+
+    private func walkDiagnostic(_ store: GameStore, target: GridPoint?) async -> String {
+        let noah = await store.host.world.people[.noah]
+        return "target=\(String(describing: target)) noah=\(String(describing: noah?.position?.point)) motion=\(noah?.motion != nil) "
+            + "route=\(store.route.count) walkable=\(store.walkable.count) canSteer=\(store.canSteer) "
+            + "darkStart=\(store.darkStart != nil) notice=\(store.notice ?? "nil")"
+    }
+
     func testSelectingTwiceStartsWalkingWithoutSavingSelection() async throws {
         let content = try content()
         var world = GameBootstrap.newWorld(content: content, seed: 5)
         world.clock.held = false
         let start = try XCTUnwrap(world.people[.noah]?.position)
-        let target = start.point + GridPoint(1, 0)
-        world.map[start.layer]?.setTerrain("grass", at: target)
         let store = GameStore(content: content, world: world, saves: tempSaves())
         await store.load()
+        let before = await walkDiagnostic(store, target: nil)
+        let target = try XCTUnwrap(walkableNeighbour(store, of: start.point), before)
 
         store.select(target)
         XCTAssertEqual(store.selected, target)
         XCTAssertTrue(store.route.isEmpty)
-        XCTAssertNil(store.notice, "1 度目の選びでは歩く命令を送らない(送れば受け付けか断りの 1 行が出る)")
+        XCTAssertNil(store.notice, "1 度目の選びでは歩く命令を送らない")
         let afterFirstSelection = await store.host.world.people[.noah]?.position
         XCTAssertEqual(afterFirstSelection, start)
 
         store.select(target)
-        // 歩く命令が送られたか(経路・動き・着いた、または断りの 1 行のどれか。灯りの範囲の外なら断られる)
-        var started = false
+        // 歩いた(動き・経路・着いた)だけを合格にする。断りの 1 行は合格にしない
+        var walked = false
         for _ in 0..<100 {
             let noah = await store.host.world.people[.noah]
-            if noah?.motion != nil || noah?.position?.point == target || !store.route.isEmpty || store.notice != nil { started = true; break }
+            if noah?.motion != nil || noah?.position?.point == target || !store.route.isEmpty { walked = true; break }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        XCTAssertTrue(started, "同じマスの 2 度目の選びで歩き出す")
+        let diagnostic = await walkDiagnostic(store, target: target)
+        XCTAssertTrue(walked, "同じマスの 2 度目の選びで歩き出す: " + diagnostic)
 
         let recreated = GameStore(content: content, world: world, saves: tempSaves())
         await recreated.load()
         XCTAssertNil(recreated.selected)
+    }
+
+    /// 歩ける範囲の外を 2 度選んでも歩かず、断りの 1 行が出る(範囲の外のマスは行為も歩きも出さない)。
+    func testSelectingOutsideWalkableTwiceRefusesWithoutMoving() async throws {
+        let content = try content()
+        var world = GameBootstrap.newWorld(content: content, seed: 5)
+        world.clock.held = false
+        let start = try XCTUnwrap(world.people[.noah]?.position)
+        let store = GameStore(content: content, world: world, saves: tempSaves())
+        await store.load()
+        let far = start.point + GridPoint(40, 0)
+        store.select(far)
+        store.select(far)
+        for _ in 0..<100 where store.notice == nil { try await Task.sleep(nanoseconds: 20_000_000) }
+        let noah = await store.host.world.people[.noah]
+        let diagnostic = await walkDiagnostic(store, target: far)
+        XCTAssertNotNil(store.notice, diagnostic)
+        XCTAssertEqual(noah?.position, start)
+        XCTAssertNil(noah?.motion)
     }
 
     /// 断られた操作は足元カードに 1 行(ダイアログは出さない)。
