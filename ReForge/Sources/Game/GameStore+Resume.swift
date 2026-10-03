@@ -10,9 +10,9 @@ extension GameStore {
     /// 開発の設定「設計とノートを開いている間、時計を止める」(既定は切)。
     nonisolated static let devHoldClockKey = "devHoldClockOnBench"
 
-    /// 開発の設定を出せるビルドか(DEBUG と dev のビルド。製品のビルドは false)。
+    /// 開発の設定を出せるビルドか(DEBUG だけ。配る dev の ipa は Release の REFORGE_DEV なので false。A-01)。
     static var devSettingsAvailable: Bool {
-#if DEBUG || REFORGE_DEV
+#if DEBUG
         true
 #else
         false

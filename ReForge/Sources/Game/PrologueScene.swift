@@ -14,6 +14,41 @@ enum PrologueStyle: String, CaseIterable {
     }
 }
 
+/// 序を一度最後まで読んだ端末の印(UserDefaults。保存には入れない)。立っていれば 2 回目からの序に「飛ばす」が出る(A-01 §3)。
+struct PrologueSeen {
+    static let defaultsKey = "ReForgePrologueSeen"
+    let defaults: UserDefaults
+
+    init(defaults: UserDefaults = .standard) { self.defaults = defaults }
+
+    var isSet: Bool { defaults.bool(forKey: Self.defaultsKey) }
+    func mark() { defaults.set(true, forKey: Self.defaultsKey) }
+}
+
+/// 序の右上の「飛ばす」(2 回目から。44pt 以上)。押すと残りの行を本体の今の送りで最後まで送る。確かめのダイアログは出さない。
+/// 序の場面は 1 つのアクセシビリティ要素にまとめているので、ボタンは場面の外(RootView の ZStack)に重ねる。
+struct PrologueSkipButton: View {
+    var skip: () -> Void
+
+    var body: some View {
+        GeometryReader { geo in
+            Button(action: skip) {
+                Text("飛ばす")
+                    .font(InkFont.small)
+                    .foregroundStyle(InkColor.textDim)
+                    .padding(.horizontal, 14)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("prologueSkip")
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+            .padding(.top, geo.safeAreaInsets.top + 4)
+            .padding(.trailing, 12)
+        }
+    }
+}
+
 /// 序の間だけ、画面全体を覆う語りの場面(PT-B6)。地図・帯・タブ・角のボタンは、序の間は作らない。
 /// 場面の本文は呼び出す側から受け取る(本体の PrologueView.lines。公開の層の見本は Debug/PrologueSample.swift)。
 /// 送りはタップだけ(時間では送らない)。押せる範囲は全画面。確認のダイアログは出さない。

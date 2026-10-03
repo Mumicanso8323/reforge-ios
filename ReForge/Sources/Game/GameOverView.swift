@@ -2,7 +2,7 @@ import SwiftUI
 import ReForgeEngine
 
 /// ゲームオーバーの 4 択(同じ重さで並べる。推奨の順位を付けない。D-save.md §3)。
-/// 確認のダイアログは出さない。取り返しのつかない「最初から」だけ長押しで確定する。
+/// 確認のダイアログは出さない。取り返しのつかない「はじめから」だけ長押しで確定する。
 /// 選べないものは灰色にして理由を 1 行出す。巻き戻し・ロードの行き先が複数あれば、その下に並べる(既定は先頭)。
 struct GameOverView: View {
     @Bindable var app: AppModel
@@ -55,7 +55,7 @@ struct GameOverView: View {
     @ViewBuilder private func row(_ c: RecoveryChoice) -> some View {
         switch c.option {
         case .restart:
-            InkHoldButton(label: Text("最初から"), hint: Text("長押しで、いまの走行を捨てて始める")) {
+            InkHoldButton(label: Text("はじめから"), hint: Text("長押しで、いまの走行を捨てて始める")) {
                 run(.restart, nil)
             }
             .accessibilityIdentifier("recovery-restart")
@@ -82,7 +82,7 @@ struct RecoveryLabel: View {
 
     var body: some View {
         switch option {
-        case .restart: Text("最初から")
+        case .restart: Text("はじめから")
         case .rewindWithMemory: Text("記憶を持って巻き戻す")
         case .continueWithLoss: Text("失って続ける")
         case .loadSavePoint: Text("セーブ地点からロード")

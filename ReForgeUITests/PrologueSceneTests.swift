@@ -9,7 +9,8 @@ private let sampleLineCount = 6
 
 private func launchPrologue(style: String? = nil) -> XCUIApplication {
     let app = XCUIApplication()
-    var args = ["-ReForgeScreenshot", "prologue", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+    // 「飛ばす」は 2 回目から。印は消して(-ReForgePrologueSeen NO)、1 回目の形で開く
+    var args = ["-ReForgeScreenshot", "prologue", "-ReForgePrologueSeen", "NO", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
     if let style { args += ["-ReForgePrologueStyle", style] }
     app.launchArguments = args
     app.launch()
@@ -31,6 +32,8 @@ final class PrologueSceneTests: XCTestCase {
         defer { app.terminate() }
         let scene = app.descendants(matching: .any).matching(identifier: "prologueScene").firstMatch
         XCTAssertTrue(scene.waitForExistence(timeout: 60), "序の場面が出ない")
+
+        XCTAssertFalse(exists(app, "prologueSkip"), "1 回目の序に「飛ばす」がある")
 
         // 序の間: 地図・帯・足元・タブ・角のボタンが画面に無い
         for id in ["map", "statusBand", "footCard", "settingsButton"] {

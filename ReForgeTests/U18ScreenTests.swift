@@ -61,7 +61,7 @@ final class U18ScreenTests: XCTestCase {
         let loaded = await s.load(.manual(index: 0))
         XCTAssertTrue(loaded)
 
-        // 走行を終わらせ、「最初から」を確認なしで実行する
+        // 走行を終わらせ、「はじめから」を確認なしで実行する
         var w = await s.host.world
         w.run.outcome = .failed(cause: "text.unknown", record: nil)
         await s.refresh(await s.host.replace(world: w))
@@ -72,6 +72,6 @@ final class U18ScreenTests: XCTestCase {
         let problem = await s.recover(.restart)
         XCTAssertNil(problem)
         XCTAssertFalse(s.runEnded)
-        XCTAssertTrue(s.savePoints().contains { $0.slot == .manual(index: 0) }, "最初からでも手動セーブは残る")
+        XCTAssertTrue(s.savePoints().contains { $0.slot == .manual(index: 0) }, "はじめからでも手動セーブは残る")
     }
 }

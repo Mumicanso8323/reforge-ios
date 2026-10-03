@@ -112,11 +112,17 @@ final class GameStore {
     @ObservationIgnored let now: () -> Date
     /// 設計かノートを開いている間 true(GameScreen が書く)。開発の設定が入のときだけ時計を止める(PT-B2)。
     @ObservationIgnored var benchOpen = false
+    /// 振動の口と、出来事から合図を決める判定(A-01。保存には入れない)。
+    @ObservationIgnored let haptics: any HapticFiring
+    @ObservationIgnored private var hapticJudge = HapticJudge()
+    @ObservationIgnored private var hapticRamp = HapticRamp()
 
     init(content: ContentDB, world: WorldState, saves: FileSaveStorage,
          defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
          performanceNow: @escaping () -> ContinuousClock.Instant = { ContinuousClock().now },
-         perfSink: any PerfSink = LoggerPerfSink(), saveWriter: (any SaveWriting)? = nil) {
+         perfSink: any PerfSink = LoggerPerfSink(), saveWriter: (any SaveWriting)? = nil,
+         haptics: (any HapticFiring)? = nil) {
+        self.haptics = haptics ?? SystemHaptics()
         self.content = content
         self.saves = saves
         self.saveWriter = saveWriter ?? SaveWriter(storage: saves)
@@ -195,6 +201,7 @@ final class GameStore {
         os_signpost(.begin, log: perfSignpost, name: "clockStep")
         let (f, report) = await host.tick(realSeconds: dt)
         os_signpost(.end, log: perfSignpost, name: "clockStep")
+        fireHaptics(for: report.events)
         let milliseconds = Self.milliseconds(from: start.duration(to: performanceNow()))
         if milliseconds > 50 {
             let rebuilt = f.revision != revision
@@ -299,7 +306,7 @@ final class GameStore {
     @discardableResult
     func perform(_ command: Command) async -> String? {
         noteOperation()
-        let (f, rejection) = await host.perform(command)
+        let (f, rejection) = await perform(throughHost: command)
         show(notice: rejection)
         await refresh(f)
         return rejection
@@ -309,16 +316,9 @@ final class GameStore {
         noteOperation()
         Task {
             let start = performanceNow()
-            let (f, report) = await host.send(command)
+            let (f, rejection) = await perform(throughHost: command)
             let milliseconds = Self.milliseconds(from: start.duration(to: performanceNow()))
             if milliseconds > 100 { perfSink.recordApply(milliseconds: milliseconds) }
-            let rejection: String?
-            if let r = report.rejection {
-                rejection = await host.describe(r)
-            } else {
-                rejection = nil
-            }
-            consume(report)
             show(notice: rejection)
             await refresh(f)
         }
@@ -333,6 +333,28 @@ final class GameStore {
     func logPlay(kind: String, fields: [String: String]) {
         playLog?.append(PlayLogEvent(t: Date(), kind: kind, day: clock.day,
                                      minute: Int(clock.dayRemainingPermille), fields: fields))
+    }
+
+    /// host.perform と同じ(Frame と断った理由)。出来事も見て、振動を鳴らす。
+    private func perform(throughHost command: Command) async -> (frame: Frame, rejection: String?) {
+        let (f, report) = await host.send(command)
+        consume(report)
+        fireHaptics(for: report.events)
+        let rejection: String?
+        if let r = report.rejection { rejection = await host.describe(r) } else { rejection = nil }
+        return (f, rejection)
+    }
+
+    /// 本体の出来事から振動の合図を決めて鳴らす(画面の推測では鳴らさない)。
+    func fireHaptics(for events: [DomainEvent]) {
+        guard !events.isEmpty else { return }
+        for cue in hapticJudge.cues(for: events) { haptics.fire(cue) }
+    }
+
+    /// 暗い場面の長押しの進み(押している間だけ値。離したら nil)。進みに合わせて 0.25 秒おきに軽い振動を強める。
+    func rampHaptic(permille: Int?) {
+        let t = ProcessInfo.processInfo.systemUptime
+        if let intensity = hapticRamp.intensity(permille: permille, at: t) { haptics.ramp(intensity: intensity) }
     }
 
     private static func milliseconds(from duration: Duration) -> Int {

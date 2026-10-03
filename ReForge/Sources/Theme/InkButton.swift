@@ -66,7 +66,7 @@ extension ButtonStyle where Self == InkButtonStyle {
 
 /// 確かめのダイアログの代わり(オーナーの決め: 確認のダイアログは出さない)。
 /// 押し続けると左から錆の帯が満ち、満ちきったときだけ action が走る。途中で離すと戻る。
-/// 取り返しのつかない行為(記録を消す・最初から)にだけ使う。説明は hint に 1 行で書く。
+/// 取り返しのつかない行為(記録を消す・はじめから)にだけ使う。説明は hint に 1 行で書く。
 /// 使い方: `InkHoldButton(label: Text("記録を消す"), hint: Text("長押しで消す")) { app.deleteSave() }`
 struct InkHoldButton: View {
     let label: Text

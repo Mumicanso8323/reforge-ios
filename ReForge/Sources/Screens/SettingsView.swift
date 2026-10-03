@@ -8,7 +8,8 @@ struct SettingsView: View {
     var close: () -> Void
     @State private var showRemoveAds = false
     @State private var restoreMessage: LocalizedStringKey?
-    /// 開発の設定(DEBUG と dev のビルドだけ。PT で決まるまで製品には出さない)。保存には入れない。
+#if DEBUG
+    /// 開発の設定(DEBUG のビルドだけ。配る dev の ipa は Release なので出ない。保存には入れない)。
     @AppStorage(GameStore.devHoldClockKey) private var devHoldClock = false
     @AppStorage(PrologueStyle.defaultsKey) private var prologueStyle = PrologueStyle.a.rawValue
     @AppStorage(MapTouchSettings.handKey) private var mapTouchHand = HUDLayout.Hand.right.rawValue
@@ -18,6 +19,7 @@ struct SettingsView: View {
     @AppStorage(MapTouchSettings.stickPlacementKey) private var mapTouchStickPlacement = false
     @AppStorage(MapTouchSettings.zoomPlanKey) private var mapTouchZoomPlan = MapZoomPlan.b.rawValue
     @AppStorage(MapTouchSettings.autoReturnKey) private var mapTouchAutoReturn = true
+#endif
 
     private var version: String {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -57,16 +59,7 @@ struct SettingsView: View {
                     }
                 }
 
-                InkSection(title: Text("記録")) {
-                    InkHoldButton(label: Text("記録を消す"),
-                                  hint: Text("長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。")) {
-                        app.deleteSave()
-                        close()
-                    }
-                    .padding(.top, 10)
-                    .accessibilityIdentifier("deleteSaveButton")
-                }
-
+#if DEBUG
                 if GameStore.devSettingsAvailable {
                     InkSection(title: Text("開発")) {
                         if let summary = app.game?.slowStepSummary {
@@ -112,10 +105,23 @@ struct SettingsView: View {
                     }
                 }
 
+#endif
+
                 InkSection(title: Text("このアプリについて")) {
                     InkRow(title: Text("バージョン"), value: Text(verbatim: version))
                     InkRow(title: Text("ライセンス"), value: Text("すべての権利を留保"))
                     InkRow(title: Text("フォント"), detail: Text("BIZ UDGothic(SIL Open Font License 1.1)"))
+                }
+
+                // 一番下(押し方は今のまま。確かめのダイアログは足さない)
+                InkSection(title: Text("記録")) {
+                    InkHoldButton(label: Text("記録を消す"),
+                                  hint: Text("長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。")) {
+                        app.deleteSave()
+                        close()
+                    }
+                    .padding(.top, 10)
+                    .accessibilityIdentifier("deleteSaveButton")
                 }
             }
         }

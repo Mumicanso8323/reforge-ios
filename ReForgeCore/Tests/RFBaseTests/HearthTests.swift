@@ -174,7 +174,9 @@ final class HearthTests: XCTestCase {
         XCTAssertEqual(BaseRules.total("watch", rig.world, rig.content), 0)
 
         // くべても点かない。点け直しには火種が要る
-        XCTAssertNil(rig.sim.apply(.base(.hearth(placement: id, op: .stoke(item: "stick"))), to: &rig.world).rejection)
+        let stoked = rig.sim.apply(.base(.hearth(placement: id, op: .stoke(item: "stick"))), to: &rig.world)
+        XCTAssertNil(stoked.rejection)
+        XCTAssertTrue(stoked.events.contains(.hearthStoked(placement: id)), "くべた出来事が出る(振動の合図)")
         XCTAssertEqual(rig.level(id), .out)
         XCTAssertEqual(rig.sim.apply(.base(.hearth(placement: id, op: .ignite(from: nil))), to: &rig.world).rejection?.reason,
                        "reason.hearth.no_flame")
