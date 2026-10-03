@@ -136,6 +136,16 @@ final class HearthTests: XCTestCase {
             return world.placements.items.sorted { $0.key < $1.key }.last!.key
         }
 
+        func baseCountForTest(_ item: ItemID) -> Int {
+            world.inventory.entries(.base).filter { $0.stuff == .item(item) && $0.unique == nil }.reduce(0) { $0 + $1.quantity }
+        }
+
+        mutating func take(_ item: ItemID, _ n: Int) {
+            var ctx = StepContext(world: world, content: content)
+            _ = ctx.takeStock(n, from: .base, where: { $0.stuff == .item(item) && $0.unique == nil })
+            world = ctx.world
+        }
+
         func level(_ id: EntityID) -> HearthLevel { Hearths.level(of: world.placements.items[id]!, content) ?? .out }
 
         /// 燃料を直に置く(試験の準備)。
@@ -252,11 +262,102 @@ final class HearthTests: XCTestCase {
         rig.setFuel(id, hours: 5)
         _ = rig.sim.runSteps(10, &rig.world)
         XCTAssertEqual(Hearths.state(rig.world.placements.items[id]!, rig.content)!.pile, 5)
+        // 蓄えの燃料は番が山へ移す(W-26)ので、山からくべる数だけを見るため蓄えを空にする
+        rig.take("stick", rig.baseCountForTest("stick"))
         rig.world.people["person.test_a"]?.assignment = .operate(placement: id)
         let at = WorldPoint(.surface, rig.center + GridPoint(1, 0))
         rig.world.people["person.test_a"]?.position = at
         _ = rig.sim.runSteps(1, &rig.world)
         XCTAssertEqual(Hearths.state(rig.world.placements.items[id]!, rig.content)!.pile, 4)
+    }
+
+    // MARK: W-26 番が蓄えから山を満たす
+
+    private func baseCount(_ w: WorldState, _ item: ItemID) -> Int {
+        w.inventory.entries(.base).filter { $0.stuff == .item(item) && $0.unique == nil }.reduce(0) { $0 + $1.quantity }
+    }
+
+    private func pile(_ rig: Rig, _ id: EntityID) -> Int {
+        Hearths.state(rig.world.placements.items[id]!, rig.content)!.pile
+    }
+
+    private func tendedRig(stock: Int) throws -> (Rig, EntityID, Int) {
+        var rig = try Rig()
+        let id = rig.campfire(rig.center)
+        let have = rig.baseCountForTest("stick")
+        if stock < have { rig.take("stick", have - stock) } else if stock > have { rig.give("stick", stock - have) }
+        rig.setFuel(id, hours: 5)
+        rig.world.people["person.test_a"]?.assignment = .operate(placement: id)
+        let near = WorldPoint(.surface, rig.center + GridPoint(1, 0))
+        rig.world.people["person.test_a"]?.position = near
+        let d = Hearths.def(rig.world.placements.items[id]!, rig.content)!
+        return (rig, id, HearthRule.pileMax(d, modifiers: Hearths.modifiers(id, in: rig.world, content: rig.content)))
+    }
+
+    func testTenderFillsPileFromStock() throws {
+        var (rig, id, cap) = try tendedRig(stock: 10)
+        _ = rig.sim.runSteps(1, &rig.world)
+        let moved = min(cap, 10)
+        // 山からくべた分(最大 1 本)を除いて、移した数だけ蓄えが減る
+        XCTAssertEqual(baseCount(rig.world, "stick"), 10 - moved)
+        XCTAssertGreaterThanOrEqual(pile(rig, id), moved - 1)
+        XCTAssertLessThanOrEqual(pile(rig, id), cap)
+    }
+
+    func testTenderKeepsFireThroughNightWhileStockLasts() throws {
+        var (rig, id, _) = try tendedRig(stock: 30)
+        rig.setFuel(id, hours: 1)
+        let steps = 18 * 3600 / 15
+        _ = rig.sim.runSteps(steps, &rig.world)
+        XCTAssertTrue(Hearths.state(rig.world.placements.items[id]!, rig.content)!.lit)
+    }
+
+    func testUntendedDoesNotFillPile() throws {
+        var (rig, id, _) = try tendedRig(stock: 10)
+        rig.world.people["person.test_a"]?.assignment = .idle
+        _ = rig.sim.runSteps(5, &rig.world)
+        XCTAssertEqual(pile(rig, id), 0)
+        XCTAssertEqual(baseCount(rig.world, "stick"), 10)
+    }
+
+    func testEmptyStockLeavesPileAlone() throws {
+        var (rig, id, _) = try tendedRig(stock: 0)
+        let r = rig.sim.runSteps(3, &rig.world)
+        XCTAssertEqual(pile(rig, id), 0)
+        XCTAssertEqual(baseCount(rig.world, "stick"), 0)
+        _ = r
+    }
+
+    func testEnclosureRaisesPileCapAndTransfer() throws {
+        var rig = try Rig()
+        rig.content.structures["structure.storage"]?.provides["hearth.pile"] = 4
+        rig.sim = Simulation(content: rig.content)
+        let id = rig.campfire(rig.center)
+        XCTAssertNil(rig.sim.apply(.base(.build(structure: "structure.storage", at: WorldPoint(.surface, rig.center + GridPoint(1, 0)), facing: .north)),
+                                   to: &rig.world).rejection)
+        rig.setFuel(id, hours: 5)
+        rig.give("stick", 40)
+        rig.world.people["person.test_a"]?.assignment = .operate(placement: id)
+        let near = WorldPoint(.surface, rig.center + GridPoint(2, 0))
+        rig.world.people["person.test_a"]?.position = near
+        let d = Hearths.def(rig.world.placements.items[id]!, rig.content)!
+        let base = HearthRule.pileMax(d)
+        let before = baseCount(rig.world, "stick")
+        _ = rig.sim.runSteps(1, &rig.world)
+        XCTAssertEqual(before - baseCount(rig.world, "stick"), base + 4)
+        XCTAssertGreaterThanOrEqual(pile(rig, id), base + 3)
+    }
+
+    func testFilledPileSurvivesSaveAndContinues() throws {
+        var (rig, id, _) = try tendedRig(stock: 10)
+        _ = rig.sim.runSteps(1, &rig.world)
+        var other = rig
+        other.world = try JSONDecoder().decode(WorldState.self, from: JSONEncoder().encode(rig.world))
+        XCTAssertEqual(other.world, rig.world)
+        _ = rig.sim.runSteps(5, &rig.world)
+        _ = other.sim.runSteps(5, &other.world)
+        XCTAssertEqual(other.world, rig.world)
+        XCTAssertEqual(pile(other, id), pile(rig, id))
     }
 
     /// 火が夜明けまで消えなかった夜を数える(埋み火の夜も数える)。消えた夜は数えない。

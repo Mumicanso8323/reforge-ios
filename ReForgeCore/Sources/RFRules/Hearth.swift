@@ -390,15 +390,35 @@ public enum Hearths {
     public static func advanceStructures(seconds: Int, _ ctx: inout StepContext) {
         for id in structureHearths(ctx.world, ctx.content) {
             guard let p = ctx.world.placements.items[id], isComplete(p), let d = def(p, ctx.content),
-                  let s = state(p, ctx.content) else { continue }
+                  var s = state(p, ctx.content) else { continue }
             if !s.lit, p.structure?.hearth != nil { continue }
             let n = structuresInLight(id, in: ctx.world, content: ctx.content)
             let modifiers = modifiers(id, in: ctx.world, content: ctx.content)
             let nw = nightWork(id, in: ctx.world, content: ctx.content)
+            let tended = isTended(id, in: ctx.world)
+            if tended { s = fillPile(s, d, modifiers: modifiers, &ctx) }
             let o = HearthRule.burn(s, d, seconds: seconds, structuresInLight: n, nightWork: nw,
-                                    tended: isTended(id, in: ctx.world), modifiers: modifiers)
+                                    tended: tended, modifiers: modifiers)
             write(id, o, &ctx)
         }
+    }
+
+    /// 番が居る火床の薪の山を、拠点の蓄えから上限まで満たす(W-26)。蓄えが少なければあるだけ移し、無ければ何もしない。
+    /// くべるのは今まで通り山から(burn)。見込み(outlookWithPile)は今の山のまま数える
+    /// (蓄えは他の用途でも減るため、実際の歩みとの食い違いを避けて山の本数だけを見る)。
+    static func fillPile(_ s: HearthState, _ d: HearthDef, modifiers: HearthModifiers, _ ctx: inout StepContext) -> HearthState {
+        guard let item = d.pileItem else { return s }
+        let room = HearthRule.pileMax(d, modifiers: modifiers) - s.pile
+        guard room > 0 else { return s }
+        let have = ctx.world.inventory.entries(.base).filter { $0.stuff == .item(item) && $0.unique == nil }
+            .reduce(0) { $0 + $1.quantity }
+        let n = min(room, have)
+        guard n > 0,
+              ctx.takeStock(n, from: .base, where: { $0.stuff == .item(item) && $0.unique == nil }) != nil else { return s }
+        ctx.changes.mark(.inventory)
+        var t = s
+        t.pile += n
+        return t
     }
 
     /// 日没: いま点いている火床に「日没から消えていない」の印を付ける。
