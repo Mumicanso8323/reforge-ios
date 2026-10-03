@@ -145,6 +145,17 @@ final class OpeningDisclosureTests: XCTestCase {
         XCTAssertGreaterThan(w.clock.now, t, "動き出した後は昼が進む")
     }
 
+    /// 撮る起動(ScreenshotMode の darkStart)と同じ形: 公開の層のそのままの内容・seed 1・時計を止めた世界で、暗い場面が出る。
+    func testPublicLayerHeldWorldShowsDarkStart() throws {
+        var w = GameBootstrap.newWorld(content: base, seed: 1)
+        w.clock.held = true
+        let builder = FrameBuilder(content: base)
+        let f = builder.build(w, revision: 0, previous: nil, report: nil)
+        let noah = try XCTUnwrap(w.people[.noah]?.position)
+        let card = builder.footCard(w, at: noah.point)
+        XCTAssertNotNil(f.darkStart, "暗い場面が出る(足元の行為: \(card?.actions.map(\.id.rawValue) ?? []))")
+    }
+
     func testDarkStartClearsOnlyAfterTheFirstActionLightsAFire() throws {
         let rig = TestRig(content: try openingContent())
         var w = rig.factory.newWorld(seed: 1)

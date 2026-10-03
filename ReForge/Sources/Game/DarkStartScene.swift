@@ -24,6 +24,8 @@ struct DarkStartScene: View {
                 }
         }
         .ignoresSafeArea()
+        // 入れ物の識別子は、中の行為のボタン(darkStartAct)の識別子を上書きしないよう、入れ物を 1 つの要素にしてから付ける
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("darkStartScene")
     }
 }
@@ -43,6 +45,7 @@ private struct DarkStartActionButton: View {
                     .fill(pressing ? InkColor.accent : InkColor.panel))
                 .overlay(RoundedRectangle(cornerRadius: InkMetric.corner)
                     .stroke(InkColor.accent.opacity(reduceMotion ? 1 : borderOpacity), lineWidth: InkMetric.rule))
+                .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("darkStartAct")
             if let progress = action.progressPermille {
                 GeometryReader { geo in
