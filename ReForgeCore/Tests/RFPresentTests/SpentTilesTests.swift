@@ -166,6 +166,34 @@ final class SpentTilesTests: XCTestCase {
         XCTAssertNotEqual(builder.tile(w, at: other).glyph, TilePalette.spentGlyph)
     }
 
+    // A-06: 使い切りのマスの呼び名
+    func testSpentTileNamesFollowTheSpentVariant() throws {
+        var (w, cell, other) = forestWorld()
+        let plain = builder.footCard(w, at: cell)?.title
+        XCTAssertEqual(plain, "森")
+        pickAt(&w, cell)
+        let spentTitle = try XCTUnwrap(builder.footCard(w, at: cell)?.title)
+        XCTAssertNotEqual(spentTitle, plain)
+        XCTAssertEqual(builder.inspect(w, at: cell)?.title, spentTitle)
+        XCTAssertEqual(builder.footCard(w, at: other)?.title, plain, "元のマスは元の名前")
+        XCTAssertEqual(builder.inspect(w, at: other)?.title, plain)
+        let harvested = try XCTUnwrap(w.exploration.harvestedDay.values.first)
+        while w.clock.day - harvested < 5 { _ = advanceOneDay(&w) }
+        XCTAssertEqual(builder.footCard(w, at: cell)?.title, plain, "明けたら元に戻る")
+        XCTAssertEqual(builder.inspect(w, at: cell)?.title, plain)
+    }
+
+    func testNoSpentVariantKeepsTheName() throws {
+        var content = rig.content
+        content.perception[Subject.terrain(TerrainID(rawValue: "forest.spent"))] = nil
+        let b = FrameBuilder(content: content)
+        var (w, cell, _) = forestWorld()
+        pickAt(&w, cell)
+        XCTAssertEqual(b.footCard(w, at: cell)?.title, "森")
+        XCTAssertEqual(b.inspect(w, at: cell)?.title, "森")
+        XCTAssertEqual(b.tile(w, at: cell).glyph, TilePalette.spentGlyph, "見た目の字は名前と別")
+    }
+
     // 鍵の往復
     func testPointFromKeyInvertsCountKey() {
         let at = WorldPoint(.surface, GridPoint(7, -3))

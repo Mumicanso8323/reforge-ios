@@ -81,6 +81,15 @@
       ]
     },
     {
+      "subject": "terrain:forest.spent",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.terrain.forest.spent"
+        }
+      ]
+    },
+    {
       "subject": "terrain:ruins",
       "variants": [
         {

@@ -200,6 +200,8 @@ public enum PlaceSelector: Codable, Hashable, Sendable {
     case openingSite(kind: OpeningSiteKind)
     /// 半径つき。
     indirect case near(place: PlaceSelector, radius: Int)
+    /// 指した点から (dx, dy) ずらした点(「焚き火から東へ 6 マス」)。地図の外になるなら指す場所なし。
+    indirect case offset(place: PlaceSelector, dx: Int, dy: Int)
 }
 
 /// 始まりの置き場の種類(MapLayer の firstFireSite / dawnFindSite)。

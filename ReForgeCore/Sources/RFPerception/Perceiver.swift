@@ -48,6 +48,15 @@ public struct Perceiver: Sendable {
         audited(rawName(s), origin: s.rawValue)
     }
 
+    /// 地形の呼び名の 1 か所。使い切り(採った後でまだ拾えない)のマスは `terrain:<id>.spent` の見え方があればそれ、無ければ元の地形の名前。
+    public func terrainName(_ id: TerrainID, spent: Bool) -> String {
+        if spent {
+            let s = Subject.terrain(TerrainID(rawValue: id.rawValue + ".spent"))
+            if variant(s) != nil { return name(s) }
+        }
+        return name(Subject.terrain(id))
+    }
+
     public func description(_ s: SubjectID) -> String? {
         variant(s)?.description.map { audited(rawText($0), origin: s.rawValue) }
     }
