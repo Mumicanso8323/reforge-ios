@@ -200,7 +200,13 @@ public struct FrameBuilder: Sendable {
     func sceneLines(_ w: WorldState, _ p: Perceiver) -> [String] {
         guard let s = w.narrative.scene, let def = content.scenes[s.scene] else { return [] }
         guard def.style != .prologue else { return [] }
-        return def.lines.prefix(s.line + 1).suffix(3).map { p.text($0.text) }
+        // 条件が成り立たずに飛ばした行(同じ枠の言い換えなど)は出さない。今の行はいつも出す
+        let shown = def.lines.prefix(s.line + 1).enumerated().filter { i, line in
+            i == s.line || line.when.map {
+                ConditionEvaluator.evaluatePure($0, world: w, content: content, trigger: s.origin) == true
+            } ?? true
+        }
+        return shown.suffix(3).map { p.text($0.element.text) }
     }
 
     func prologue(_ w: WorldState, _ p: Perceiver) -> PrologueView? {
