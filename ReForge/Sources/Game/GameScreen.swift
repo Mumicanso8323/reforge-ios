@@ -44,7 +44,9 @@ struct GameScreen: View {
         VStack(spacing: 0) {
             if app.activePrologue == nil {
                 StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed || ArtProvider.shared.failed)
+                    .accessibilitySortPriority(4)
                 BattleBandView(store: store)
+                    .accessibilitySortPriority(4)
             }
             ZStack {
                 // 地図は他のタブの間も残す(視点を保つ。時計も止めない)
@@ -85,11 +87,15 @@ struct GameScreen: View {
                         }
                 }
             }
+            // 読む順は上から下: 上の帯 → 地図(操作棒・帯) → 足元カード → タブの棒(A-04c)
+            .accessibilitySortPriority(3)
             if tab == .map, app.activePrologue == nil {
                 FootCardView(store: store)
+                    .accessibilitySortPriority(2)
             }
             if app.activePrologue == nil {
                 TabBarView(tab: $tab, ui: store.ui)
+                    .accessibilitySortPriority(1)
             }
         }
         // 設計かノートを開いている間は、開発の設定が入のとき時計を止める(PT-B2。切なら何も変わらない)

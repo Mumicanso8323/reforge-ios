@@ -1811,6 +1811,16 @@
         }
       }
     },
+    "長押し": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "長押し"
+          }
+        }
+      }
+    },
     "長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。": {
       "localizations": {
         "ja": {
