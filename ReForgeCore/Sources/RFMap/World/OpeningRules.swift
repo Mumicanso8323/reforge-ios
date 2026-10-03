@@ -347,7 +347,15 @@ public enum OpeningGuarantee {
         }
         func dry(_ p: GridPoint) -> Bool { [Biome.plain, .cleared].contains(layer.terrain.biome(at: p)) }
 
-        let fire = ring(start, radius).first { dry($0) && free($0) } ?? firstFireSite(layer, radius: radius)
+        // W-28: 水(岸・浅瀬を含む)が昼の視界の円の中にある候補を先に選ぶ。無ければ今までの選び方。
+        let day = dawnDayRadius()
+        func waterInSight(_ p: GridPoint) -> Bool {
+            VisionRule.cells(center: p, radius: day, in: layer.terrain.size).contains { q in
+                VisionRule.inCircle(q, center: p, radius: day) && layer.terrain.biome(at: q)?.isWet == true
+            }
+        }
+        let candidates = ring(start, radius).filter { dry($0) && free($0) }
+        let fire = candidates.first(where: waterInSight) ?? candidates.first ?? firstFireSite(layer, radius: radius)
         layer.firstFireSite = fire
         guard let fire else { return }
         let ember = Set(emberCells(lm.base))
@@ -370,7 +378,6 @@ public enum OpeningGuarantee {
         ensureForest(around: fire, radius: 2, min: r.firstLightForestMin, exclude: [])
 
         // 夜明けに初めて見える置き場: 最初の夜の灯りの外・ノアの隣 8 マスの外・昼の視界の内側 1 マス以上
-        let day = dawnDayRadius()
         let light = r.firstNightLightRadius
         var outer = day - 1
         while outer <= day {

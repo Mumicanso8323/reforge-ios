@@ -44,6 +44,22 @@ final class OpeningSiteTests: XCTestCase {
         }
     }
 
+    /// W-28: 最初の火から昼の視界の円の中に水(岸・浅瀬を含む)がある。無かった seed は一覧を出す。
+    func testWaterInDaySightOfFirstFire() throws {
+        let day = VisionRule.original.radius(isNight: false, hasTorch: false)
+        var without: [UInt64] = []
+        for seed in UInt64(0)..<UInt64(Self.seeds) {
+            let m = try WorldMap.generate(seed: seed)
+            let layer = m.surface
+            let fire = try XCTUnwrap(layer.firstFireSite, "seed \(seed)")
+            let seen = VisionRule.cells(center: fire, radius: day, in: layer.terrain.size).contains {
+                VisionRule.inCircle($0, center: fire, radius: day) && layer.terrain.biome(at: $0)?.isWet == true
+            }
+            if !seen { without.append(seed) }
+        }
+        print("W28 水が視界に入らなかった seed: \(without.count) 件 \(without)")
+    }
+
     func testSitesAreDeterministic() throws {
         for seed in [UInt64(3), 77, 999] {
             let a = try WorldMap.generate(seed: seed).surface, b = try WorldMap.generate(seed: seed).surface
