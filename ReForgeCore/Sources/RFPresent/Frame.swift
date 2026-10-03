@@ -91,12 +91,22 @@ public struct Frame: Equatable, Sendable {
 }
 
 public struct PrologueView: Equatable, Sendable {
+    public enum Kind: Equatable, Sendable {
+        case prologue
+        case stage
+    }
+
+    public var kind: Kind
     public var lines: [String]
+    /// lines と同じ添字の話し手。nil の行には名前を出さない。
+    public var speakers: [String?]
     public var waiting: Bool
     public var art: ArtID?
 
-    public init(lines: [String], waiting: Bool, art: ArtID? = nil) {
+    public init(kind: Kind = .prologue, lines: [String], speakers: [String?] = [], waiting: Bool, art: ArtID? = nil) {
+        self.kind = kind
         self.lines = lines
+        self.speakers = speakers
         self.waiting = waiting
         self.art = art
     }

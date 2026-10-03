@@ -716,6 +716,7 @@ public struct ChoiceDef: Codable, Equatable, Sendable {
 public enum SceneStyle: String, Codable, Sendable {
     case bubble
     case prologue
+    case stage
 }
 
 /// 場面: 定型文の並び。地図の上に 3 行まで。長い本文は資料(SheetDef / ノート)に置く。
@@ -724,12 +725,16 @@ public struct SceneDef: ContentDef, Equatable {
         public var speaker: PersonID?
         public var text: TextID
         public var when: Condition?
+        /// この行が表示された時に知る事実。場面の進み方は保存せず、既存の知識として保存する。
+        public var learns: [FactID]?
     }
 
     public var id: SceneID
     public var lines: [Line]
     /// nil は従来どおり地図上のふきだし。
     public var style: SceneStyle?
+    /// 最後の行の次に、次の場面より先に適用する効果。
+    public var onEnd: [Effect]?
     /// 最後の行の次に続けて始める場面。
     public var then: SceneID?
 }

@@ -19,7 +19,7 @@ final class ScreenSnapshotTests: XCTestCase {
     /// 序(prologue)は、公開の層の中立の見本(Debug/PrologueSample.swift)を画面全体の場面で撮る(PT-B6)。
     /// 暗い場面(darkStart)は、最初の行為の前の画面(PT-B8)。
     private static let screens = ["map", "foot", "design", "base", "crew", "research", "gameOver", "settings",
-                                  "title", "notes", "decisionBand", "bootFailure", "prologue", "darkStart"]
+                                  "title", "notes", "decisionBand", "bootFailure", "prologue", "stage", "darkStart"]
     /// 序の地の色(InkColor.prologueGround #07080C)と、端の色の許す差(0...255 の各チャンネル)。
     private static let prologueGround: (r: Int, g: Int, b: Int) = (7, 8, 12)
     private static let prologueTolerance = 6
@@ -101,8 +101,8 @@ final class ScreenSnapshotTests: XCTestCase {
 
         let inspected = inspect(app, lang: lang.code, screen: screen)
         var findings = inspected.findings
-        if screen == "prologue" {
-            findings += prologueFindings(app, lang: lang.code, screenshot: screenshot)
+        if screen == "prologue" || screen == "stage" {
+            findings += prologueFindings(app, lang: lang.code, screen: screen, screenshot: screenshot)
         }
         // 設定を開いた状態(settings)では、同じ所のボタンで閉じられる(TEST-L16)
         if screen == "settings" {
@@ -167,7 +167,7 @@ final class ScreenSnapshotTests: XCTestCase {
             _ = element(app, "statusBand").waitForExistence(timeout: 30)
         case "bootFailure":
             _ = element(app, "contentError").waitForExistence(timeout: 30)
-        case "prologue":
+        case "prologue", "stage":
             _ = element(app, "prologueScene").waitForExistence(timeout: 30)
         case "darkStart":
             _ = element(app, "darkStartAct").waitForExistence(timeout: 30)
@@ -302,7 +302,7 @@ final class ScreenSnapshotTests: XCTestCase {
 
         // 序は画面全体の場面。設定のボタンは窓ごと隠れている(PT-B6)ので、TEST-L16 の代わりに「無い」ことを見る(prologueFindings)
         // 暗い場面(PT-B8・DEC-F9)も、設定のボタンは窓ごと隠れている(assertDarkStart で「無い」ことを見る)
-        if screen == "prologue" || screen == "darkStart" { return (findings, ignoredZeroSize) }
+        if screen == "prologue" || screen == "stage" || screen == "darkStart" { return (findings, ignoredZeroSize) }
 
         // 4. TEST-L16: 設定のボタン。1. ある 2. 押せる 3. 右上の 52x52pt(安全な領域の内側)にある 4. ほかの要素と重ならない。
         if settingsFrame == nil { add("settingsButton", "settings", "無い") }
@@ -330,10 +330,10 @@ final class ScreenSnapshotTests: XCTestCase {
     // MARK: - 序(PT-B6)
 
     /// 序の写真の検査: 序の間は、地図・帯・タブ・角のボタンの識別子が画面に無い。端(安全域の外を含む)が序の地の色で覆われている。
-    private func prologueFindings(_ app: XCUIApplication, lang: String, screenshot: XCUIScreenshot) -> [Finding] {
+    private func prologueFindings(_ app: XCUIApplication, lang: String, screen: String, screenshot: XCUIScreenshot) -> [Finding] {
         var out: [Finding] = []
         func add(_ id: String, _ detail: String) {
-            out.append(Finding(language: lang, screen: "prologue", id: id, kind: "prologue", detail: detail))
+            out.append(Finding(language: lang, screen: screen, id: id, kind: screen, detail: detail))
         }
         for id in ["settingsButton", "statusBand", "footCard", "map"] where element(app, id).exists {
             add(id, "序の間に画面にある")

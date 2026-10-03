@@ -44,6 +44,7 @@
     "reason.narrative.no_decision": "もう決まっている",
     "reason.narrative.bad_choice": "それは選べない",
     "reason.scene.prologue": "いまは文を読んでいる",
+    "reason.scene.reading": "いまは読んでいる",
     "reason.start.first_act": "いまは、これしかできない",
     "reason.run.not_active": "もう終わっている",
     "reason.command.unhandled": "いまはできない",

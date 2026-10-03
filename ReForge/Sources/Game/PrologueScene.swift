@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ReForgeEngine
 
 /// 序の見せ方の 3 案(PT-B6 §2)。既定は A。切り替えは UserDefaults の `ReForgePrologueStyle`(a / b / c。
 /// 起動引数 `-ReForgePrologueStyle b` でも入る)。語りの文・行の数・順番は変えない。見せ方だけが違う。
@@ -19,7 +20,9 @@ enum PrologueStyle: String, CaseIterable {
 /// exiting が true のときは、送りを受けず、終わりの移り(文字 0.6 秒で消え → 黒 0.3 秒 → 覆いが 0.8 秒で消える)を演じて
 /// onExitDone を呼ぶ。「動きを減らす」の入では 0.3 秒のフェードだけ。
 struct PrologueScene: View {
+    let kind: PrologueView.Kind = .prologue
     let lines: [String]
+    var speakers: [String?] = []
     var style: PrologueStyle = .current
     var exiting = false
     var advance: () -> Void = {}
@@ -82,7 +85,15 @@ struct PrologueScene: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: lineGap) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
-                        lineView(index: index, line: line)
+                        VStack(alignment: .leading, spacing: 3) {
+                            if speakers.indices.contains(index), let speaker = speakers[index] {
+                                Text(verbatim: speaker)
+                                    .font(InkFont.small)
+                                    .foregroundStyle(InkColor.textDim)
+                                    .accessibilityIdentifier("stage-speaker-\(index)")
+                            }
+                            lineView(index: index, line: line)
+                        }
                     }
                     Text(verbatim: "▼")
                         .font(InkFont.font(14, relativeTo: .caption))
@@ -225,6 +236,19 @@ struct PrologueScene: View {
         typed = lines.last?.count ?? 0
         let reduce = reduceMotion
         job = Task { @MainActor in
+            switch kind {
+            case .stage:
+                if reduce {
+                    sceneOpacity = 0
+                } else {
+                    withAnimation(.easeOut(duration: 0.3)) { sceneOpacity = 0 }
+                    try? await Task.sleep(for: .milliseconds(300))
+                }
+                if !Task.isCancelled { onExitDone() }
+                return
+            case .prologue:
+                break
+            }
             if reduce {
                 withAnimation(.easeInOut(duration: 0.3)) { sceneOpacity = 0 }
                 try? await Task.sleep(for: .milliseconds(300))

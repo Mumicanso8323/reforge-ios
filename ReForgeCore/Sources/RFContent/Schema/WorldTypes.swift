@@ -53,5 +53,6 @@ extension ContentValidator {
         }
         for (id, o) in db.objectives.sorted(by: { $0.key < $1.key }) { checkEffects(o.effects, "objective \(id)") }
         for (id, en) in db.endings.sorted(by: { $0.key < $1.key }) { checkEffects(en.effects, "ending \(id)") }
+        for (id, scene) in db.scenes.sorted(by: { $0.key < $1.key }) { checkEffects(scene.onEnd, "scene \(id)") }
     }
 }

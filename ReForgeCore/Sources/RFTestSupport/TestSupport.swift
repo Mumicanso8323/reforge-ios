@@ -27,6 +27,22 @@ public enum TestContent {
     }
 }
 
+/// Frame が画面へ渡す文字列を、名前の監査用に再帰して集める。
+public enum FrameText {
+    public static func allStrings(_ frame: Frame) -> [String] {
+        var strings: [String] = []
+        func collect(_ value: Any) {
+            if let string = value as? String {
+                strings.append(string)
+                return
+            }
+            for child in Mirror(reflecting: value).children { collect(child.value) }
+        }
+        collect(frame)
+        return strings
+    }
+}
+
 /// 試験用の平らな地図(地図の担当の生成ができるまでの代わり。以後もシステムの単体テストで使う)。
 public struct FlatMapGenerator: MapGenerating {
     public let terrain: TerrainID

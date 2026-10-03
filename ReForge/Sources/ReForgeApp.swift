@@ -56,7 +56,7 @@ final class AppModel {
     var debugPrologue: DebugPrologue?
 #endif
 
-    /// いま画面を覆っている序(無ければ nil)。本体の序、撮る起動なら見本の序。
+    /// いま画面を覆っている全画面の場面(無ければ nil)。本体の序・場面、撮る起動なら見本。
     var activePrologue: PrologueView? {
 #if DEBUG
         if let debugPrologue { return debugPrologue.view }
@@ -64,7 +64,7 @@ final class AppModel {
         return game?.prologue
     }
 
-    /// 序の送り(タップだけ。時間では送らない)。
+    /// 全画面の場面を送る(タップだけ。時間では送らない)。
     func advancePrologue() {
 #if DEBUG
         if let debugPrologue { debugPrologue.advance(); return }
@@ -72,7 +72,7 @@ final class AppModel {
         game?.send(.narrative(.advanceScene))
     }
 
-    /// 右上の設定の角のボタンを出すか。序の間と、最初の行為の前の暗い場面の間は出さない(窓ごと隠す。PT-B6・DEC-F9:
+    /// 右上の設定の角のボタンを出すか。全画面の場面と、最初の行為の前の暗い場面の間は出さない(窓ごと隠す。PT-B6・DEC-F9:
     /// 「はじめから」から地図が出るまで、押せる物は暗い場面のボタン 1 つだけ)。
     var cornerButtonVisible: Bool { activePrologue == nil && game?.darkStart == nil }
 
@@ -215,30 +215,32 @@ final class AppModel {
 struct RootView: View {
     @Bindable var app: AppModel
     @Environment(\.scenePhase) private var scenePhase
-    /// 序が終わった直後の移り(文字が消え・黒の間・地図が灯る)を演じている間の、最後の行。nil なら移りは無い。
-    @State private var dawnLines: [String]?
+    /// 全画面の場面が終わった直後の移りを演じている間の、最後の表示。nil なら移りは無い。
+    @State private var exitingScene: PrologueView?
 
     var body: some View {
         ZStack {
             mainContent
-            // 序は画面全体の場面。安全域の外まで覆い、地図・帯・タブ・角のボタンは序の間は作らない(PT-B6)
+            // 全画面の場面は安全域の外まで覆い、地図・帯・タブ・角のボタンは作らない。
             if let prologue = app.activePrologue {
-                PrologueScene(lines: prologue.lines, advance: { app.advancePrologue() })
+                PrologueScene(kind: prologue.kind, lines: prologue.lines, speakers: prologue.speakers,
+                              advance: { app.advancePrologue() })
                     .ignoresSafeArea()
-            } else if let lines = dawnLines {
-                PrologueScene(lines: lines, exiting: true, onExitDone: { dawnLines = nil })
+            } else if let scene = exitingScene {
+                PrologueScene(kind: scene.kind, lines: scene.lines, speakers: scene.speakers,
+                              exiting: true, onExitDone: { exitingScene = nil })
                     .ignoresSafeArea()
             }
         }
         .onChange(of: app.activePrologue) { old, new in
             if let old, new == nil, app.game != nil {
-                dawnLines = old.lines
+                exitingScene = old
             } else if new != nil {
-                dawnLines = nil
+                exitingScene = nil
             }
         }
         .background(Color.black)
-        .background(SettingsCornerInstaller(app: app, visible: app.cornerButtonVisible && dawnLines == nil))
+        .background(SettingsCornerInstaller(app: app, visible: app.cornerButtonVisible && exitingScene == nil))
         .task { await app.refreshEntitlements() }
         .onChange(of: scenePhase) { _, phase in
             app.scenePhaseChanged(active: phase == .active)

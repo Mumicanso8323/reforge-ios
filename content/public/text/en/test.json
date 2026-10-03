@@ -4,6 +4,7 @@
     "text.journal.built": "{actor} built {subject}",
     "text.item.wood": "wood",
     "text.unknown": "?",
-    "reason.start.first_act": "Only this action is available now"
+    "reason.start.first_act": "Only this action is available now",
+    "reason.scene.reading": "Reading is in progress"
   }
 }
