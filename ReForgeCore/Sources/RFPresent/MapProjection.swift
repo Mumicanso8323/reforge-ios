@@ -1,4 +1,5 @@
 import RFContent
+import RFExploration
 import RFKernel
 import RFMap
 import RFPerception
@@ -33,6 +34,9 @@ struct MapProjector {
     let depositAt: [GridPoint: (id: DepositID, deposit: Deposit)]
     /// 地形 → 文字(認識の層を毎マス引かないように先に引く)。
     let terrainGlyphs: [Biome: String]
+    /// クールダウンのある地形の行為(使い切りの見た目の判定に使う。ID 順)。
+    let cooldownTerrain: [(def: InteractionDef, tag: String)]
+    let world: WorldState
 
     init(world w: WorldState, content: ContentDB, perceiver: Perceiver, layer layerID: LayerID) {
         self.layerID = layerID
@@ -62,6 +66,21 @@ struct MapProjector {
             tg[b] = perceiver.variant(Subject.terrain(t))?.glyph ?? content.glyphs[Subject.terrain(t)] ?? "？"
         }
         self.terrainGlyphs = tg
+        self.world = w
+        self.cooldownTerrain = content.interactions.values.sorted { $0.id < $1.id }.compactMap { d in
+            if case .terrain(let tag) = d.target, (d.cooldownDays ?? 0) > 0 { return (d, tag) }
+            return nil
+        }
+    }
+
+    /// そのマス(地形)が、採った後でまだ拾えない(クールダウン中)か。
+    func isSpent(_ p: GridPoint, terrain t: TerrainID) -> Bool {
+        guard !cooldownTerrain.isEmpty else { return false }
+        let tags = content.terrains[t]?.tags ?? [t.rawValue]
+        for (d, tag) in cooldownTerrain where tags.contains(tag) || t.rawValue == tag {
+            if Interactions.isCoolingDown(d, at: WorldPoint(layerID, p), world: world) { return true }
+        }
+        return false
     }
 
     var size: GridSize { layer?.size ?? GridSize(width: 0, height: 0) }
@@ -96,6 +115,10 @@ struct MapProjector {
         } else {
             glyph = TilePalette.pickGlyph(l.biome(at: p).flatMap { terrainGlyphs[$0] } ?? "？", at: p)
             tint = l.terrain(at: p).map(TilePalette.terrain) ?? TilePalette.void
+            if let t = l.terrain(at: p), isSpent(p, terrain: t) {
+                glyph = TilePalette.spentGlyph
+                tint += TilePalette.spentSuffix
+            }
         }
         var shadow: String?
         if fog == .hint, let poi = poiAt[p] {
@@ -135,6 +158,7 @@ struct MapProjector {
                     h.combine(isHint(p))
                 }
                 if let d = depositAt[p] { h.combine(d.id); h.combine(d.deposit.remainingExtractions > 0) }
+                if poiAt[p] == nil, let t = l.terrain(at: p) { h.combine(isSpent(p, terrain: t)) }
             }
         }
         return h.finalize()

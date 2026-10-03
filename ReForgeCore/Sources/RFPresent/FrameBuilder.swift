@@ -437,6 +437,8 @@ public struct FrameBuilder: Sendable {
                   Interactions.isUnlocked(id, world: w, gated: content.gatedUnlocks) else { return nil }
             if let phases = def.allowedPhases, !phases.contains(w.clock.phase) { return nil }
             if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) == false { return nil }
+            // クールダウン中のマスは押しても断られるので、ボタンを出さない(地図の使い切りの見た目と同じ判定)
+            if case .terrain = def.target, Interactions.isCoolingDown(def, at: at, world: w) { return nil }
             return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)),
                                    hold: def.hold || def.continues == true, at: at,
                                    progressPermille: progress(of: def, w))
