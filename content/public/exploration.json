@@ -80,7 +80,9 @@
       "yields": [ { "item": "water", "min": 1, "max": 1 } ] },
     { "id": "interaction.pick_sticks", "target": { "terrain": { "tag": "forest" } }, "seconds": 45, "hold": false,
       "cooldownDays": 5, "yields": [ { "item": "stick", "min": 1, "max": 2 } ] },
-    { "id": "interaction.mine_by_hand", "target": { "deposit": {} }, "seconds": 90, "hold": true, "yields": [] }
+    { "id": "interaction.mine_by_hand", "target": { "deposit": {} }, "seconds": 90, "hold": true, "yields": [] },
+    { "id": "interaction.test.research_gate", "target": { "terrain": { "tag": "ground" } }, "seconds": 30,
+      "hold": false, "yields": [] }
   ],
   "auras": [
     { "id": "aura.test.campfire", "modifiers": [ { "repelEnemies": {} } ], "radius": 4 }

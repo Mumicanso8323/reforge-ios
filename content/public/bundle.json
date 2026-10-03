@@ -11,7 +11,7 @@
       { "item": "test_ore", "min": 2, "max": 2 }
     ],
     "facts": [],
-    "unlocks": [ { "module": { "id": "furnace" } } ],
+    "unlocks": [ { "module": { "id": "furnace" } }, { "interaction": { "id": "interaction.scavenge" } } ],
     "objectives": ["objective.test.first"]
   },
   "rewind": { "memorableTags": ["tag.test.memorable"], "dejaVuMemory": "memory.test.deja_vu" }

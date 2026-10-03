@@ -87,6 +87,7 @@ public enum ContentLoader {
                 try apply(json: data, to: &db, name: name, seen: &seen)
             }
         }
+        db.refreshGatedUnlocks()
         return db
     }
 
@@ -125,6 +126,7 @@ public enum ContentLoader {
     public static func apply(json data: Data, to db: inout ContentDB, name: String = "<memory>") throws {
         var seen = LayerKeys()
         try apply(json: data, to: &db, name: name, seen: &seen)
+        db.refreshGatedUnlocks()
     }
 
     static func apply(json data: Data, to db: inout ContentDB, name: String, seen: inout LayerKeys) throws {

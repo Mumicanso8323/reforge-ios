@@ -164,6 +164,15 @@
       ]
     },
     {
+      "subject": "research:research.test.interaction_gate",
+      "variants": [
+        {
+          "when": true,
+          "name": "text.unit.research.research.test.interaction_gate"
+        }
+      ]
+    },
+    {
       "subject": "research:research.test.parts",
       "variants": [
         {

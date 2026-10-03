@@ -50,7 +50,7 @@ var targets: [Target] = [
     // 設計画面の見込み・図鑑(RFInvention の Sheets・Codex)を画面向けに写すので RFInvention も直接引く(L6 → L4。向きは下向き)
     .target(name: "RFPresent", dependencies: [
         "RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent", "RFRules", "RFPerception", "RFSave", "RFFailure",
-        "RFSim", "RFInvention",
+        "RFSim", "RFInvention", "RFExploration",
     ]),
     // 傘
     .target(name: "ReForgeEngine", dependencies: [

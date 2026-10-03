@@ -164,8 +164,26 @@ public struct BaseView: Equatable, Sendable {
         public var name: String
         public var glyph: String
         public var cost: [StockLine]
-        /// いまの蓄えで足りるか(足りなくても選べる。置くときに本体が断る)。
+        /// いまの蓄えで足りるか。
         public var affordable: Bool
+        /// 足りない材料(認識の層を通した名前と、なお必要な数)。
+        public var missing: [(name: String, quantity: Int)]
+
+        public init(kind: StructureKindID, name: String, glyph: String, cost: [StockLine], affordable: Bool,
+                    missing: [(name: String, quantity: Int)]) {
+            self.kind = kind
+            self.name = name
+            self.glyph = glyph
+            self.cost = cost
+            self.affordable = affordable
+            self.missing = missing
+        }
+
+        public static func == (lhs: BaseView.BuildOption, rhs: BaseView.BuildOption) -> Bool {
+            lhs.kind == rhs.kind && lhs.name == rhs.name && lhs.glyph == rhs.glyph && lhs.cost == rhs.cost
+                && lhs.affordable == rhs.affordable
+                && lhs.missing.elementsEqual(rhs.missing, by: { $0.name == $1.name && $0.quantity == $1.quantity })
+        }
     }
 
     public struct Line: Equatable, Sendable {
@@ -216,9 +234,13 @@ extension FrameBuilder {
         let buildable = w.research.unlocked.structures.sorted().compactMap { k -> BaseView.BuildOption? in
             guard let d = content.structures[k] else { return nil }
             let cost = d.cost.map { BaseView.StockLine(name: ingredientName($0, p), quantity: $0.quantity) }
-            let ok = d.cost.allSatisfy { ConditionEvaluator.evaluatePure(.has(what: $0), world: w, content: content) == true }
+            let missing = d.cost.compactMap { ingredient -> (name: String, quantity: Int)? in
+                let needed = max(0, ingredient.quantity - ConditionEvaluator.stockCount(ingredient, w))
+                guard needed > 0 else { return nil }
+                return (ingredientName(ingredient, p), needed)
+            }
             return BaseView.BuildOption(kind: k, name: p.name(Subject.structure(k)), glyph: p.glyph(Subject.structure(k)),
-                                        cost: cost, affordable: ok)
+                                        cost: cost, affordable: missing.isEmpty, missing: missing)
         }
         let lines = w.logistics.sortedRouteIDs.compactMap { id -> BaseView.Line? in
             guard let r = w.logistics.routes[id] else { return nil }

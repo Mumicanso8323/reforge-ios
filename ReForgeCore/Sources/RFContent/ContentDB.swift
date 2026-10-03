@@ -58,6 +58,10 @@ public struct ContentDB: Equatable, Sendable {
     public var endings: [EndingID: EndingDef] = [:]
     public var findings: [FindingID: FindingDef] = [:]
 
+    /// 研究・スキルで解禁される物のうち、始まりからは使えない物。
+    /// 読み込みが終わったときに一度だけ作る。行為の可否を調べる側は全研究をなめない。
+    public private(set) var gatedUnlocks: Set<UnlockTarget> = []
+
     // 探索と拠点(持ち主: U8。RFContent/Schema/Exploration.swift)
     /// 探索の場(地形・POI → 出来事の表)。
     public var fields: [FieldID: FieldDef] = [:]
@@ -98,6 +102,18 @@ public struct ContentDB: Equatable, Sendable {
     public var latinAllowed: [String] = []
 
     public init() {}
+
+    /// 読み込み完了時、または試験で定義を差し替えた後に解禁の要る物を固定する。
+    public mutating func refreshGatedUnlocks() {
+        var gated = Set<UnlockTarget>()
+        for research in research.values {
+            gated.formUnion(research.unlocks)
+            for node in research.nodes ?? [] { gated.formUnion(node.unlocks ?? []) }
+        }
+        for skill in skills.values { gated.formUnion(skill.unlocks ?? []) }
+        gated.subtract(start.unlocks)
+        gatedUnlocks = gated
+    }
 }
 
 extension PersonID {

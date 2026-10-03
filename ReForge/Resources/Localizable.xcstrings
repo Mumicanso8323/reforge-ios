@@ -121,6 +121,16 @@
         }
       }
     },
+    "あと %lld×%lld": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "あと %lld×%lld"
+          }
+        }
+      }
+    },
     "いまは購入できません(準備中)": {
       "localizations": {
         "ja": {
@@ -261,12 +271,12 @@
         }
       }
     },
-    "まだ作り方を知らない": {
+    "まだ作り方を知らない物 %lld 件": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "まだ作り方を知らない"
+            "value": "まだ作り方を知らない物 %lld 件"
           }
         }
       }

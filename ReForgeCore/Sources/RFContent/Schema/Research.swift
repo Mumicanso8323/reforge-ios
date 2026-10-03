@@ -118,16 +118,4 @@ extension ContentDB {
         workModifiers(person: person, skills: skills).contains { $0 == .perceives(sense: sense) }
     }
 
-    /// 研究・スキルで解禁される物(始まりの解禁を除く)。ここに入る物は、解禁されるまで使えない、という読み方ができる
-    /// (モジュールは始まりの解禁で使えるものを決めているので、建造物・手作業・行為の担当が同じ読み方をするときに使う)。
-    public var gatedUnlocks: Set<UnlockTarget> {
-        var s = Set<UnlockTarget>()
-        for r in research.values {
-            s.formUnion(r.unlocks)
-            for n in r.nodes ?? [] { s.formUnion(n.unlocks ?? []) }
-        }
-        for k in skills.values { s.formUnion(k.unlocks ?? []) }
-        s.subtract(start.unlocks)
-        return s
-    }
 }

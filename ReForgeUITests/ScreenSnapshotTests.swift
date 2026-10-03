@@ -91,6 +91,8 @@ final class ScreenSnapshotTests: XCTestCase {
         prepare(app, screen: screen)
         if screen == "darkStart" { assertDarkStart(app, language: lang.code) }
         if screen == "darkMark" { assertDarkMark(app, language: lang.code) }
+        if screen == "base" { assertBaseHasNoQuestionRows(app, language: lang.code) }
+        assertStatusBandText(app, language: lang.code, screen: screen)
         Thread.sleep(forTimeInterval: 1.0)
         if screen == "map" { mapFrames[lang.code] = element(app, "map").frame }
         if screen == "decisionBand" { assertDecisionBand(app, language: lang.code) }  // 組み直しと文字の測りが落ち着くのを待つ(研究の巻き取りの成否は下のポーリングで決める)
@@ -229,6 +231,27 @@ final class ScreenSnapshotTests: XCTestCase {
         let sample = element(app, "darkMarkSample")
         XCTAssertTrue(sample.exists, "\(language)_darkMark: 見本の印が無い")
         XCTAssertEqual(sample.value as? String, "1", "\(language)_darkMark: 見本の印が Frame に無い")
+    }
+
+    /// 建てる・研究の未解禁件数は、個別の「？」行にせず 1 行にまとめる。
+    private func assertBaseHasNoQuestionRows(_ app: XCUIApplication, language: String) {
+        let questionRows = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "？"))
+        XCTAssertEqual(questionRows.count, 0, "\(language)_base: 「？」の行が残っている")
+    }
+
+    /// 状態の棒には見出しと値がそろう物だけを出し、目標は省略しない。
+    private func assertStatusBandText(_ app: XCUIApplication, language: String, screen: String) {
+        let statusItems = app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier BEGINSWITH 'status-item-'"))
+            .allElementsBoundByIndex
+        for item in statusItems {
+            XCTAssertFalse(item.label.isEmpty, "\(language)_\(screen): 見出しの無い状態の棒がある")
+            XCTAssertFalse((item.value as? String ?? "").isEmpty, "\(language)_\(screen): 値の無い状態の棒がある")
+        }
+        let objective = element(app, "statusObjective")
+        if objective.exists {
+            XCTAssertFalse(objective.label.contains("…"), "\(language)_\(screen): 目標が省略されている")
+        }
     }
 
     /// 研究の最初の行が上半分に来るまで待つ。写真はこの判定の後に撮る。

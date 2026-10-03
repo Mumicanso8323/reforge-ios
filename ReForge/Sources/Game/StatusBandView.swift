@@ -20,7 +20,7 @@ struct StatusBandView: View {
                 Spacer(minLength: 4)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
-                        ForEach(store.status, id: \.key) { item in
+                        ForEach(store.status.filter { !$0.label.isEmpty && !$0.value.isEmpty }, id: \.key) { item in
                             HStack(spacing: 3) {
                                 Text(verbatim: item.label).foregroundStyle(InkColor.textDim)
                                 Text(verbatim: item.value)
@@ -32,6 +32,9 @@ struct StatusBandView: View {
                                         .accessibilityIdentifier("gauge-\(item.key)")
                                 }
                             }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel(Text(verbatim: item.label))
+                            .accessibilityIdentifier("status-item-\(item.key)")
                         }
                     }
                 }
@@ -59,8 +62,9 @@ struct StatusBandView: View {
             if let o = store.objective {
                 HStack(spacing: 6) {
                     Text("目標").foregroundStyle(InkColor.textDim)
-                    Text(verbatim: o).lineLimit(1)
+                    Text(verbatim: o)
                 }
+                .accessibilityIdentifier("statusObjective")
             }
         }
         .font(InkFont.small)
