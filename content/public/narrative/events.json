@@ -16,6 +16,7 @@
     },
     {
       "id": "event.test.decision",
+      "prompt": "text.test.prompt",
       "trigger": { "on": ["fact"], "when": { "known": { "expr": "fact.test.gamma" } } },
       "effects": [ { "counter": { "id": "counter.test.asked", "add": 1 } } ],
       "choices": [

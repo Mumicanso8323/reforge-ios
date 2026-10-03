@@ -378,9 +378,11 @@ public struct DecisionView: Equatable, Sendable {
     public var id: EntityID
     public var blocking: Bool
     public var choices: [(id: ChoiceID, label: String)]
+    /// 問いの文(無い決断は nil)。
+    public var prompt: String?
 
     public static func == (a: Self, b: Self) -> Bool {
-        a.id == b.id && a.blocking == b.blocking && a.choices.map(\.id) == b.choices.map(\.id)
+        a.id == b.id && a.blocking == b.blocking && a.prompt == b.prompt && a.choices.map(\.id) == b.choices.map(\.id)
             && a.choices.map(\.label) == b.choices.map(\.label)
     }
 }

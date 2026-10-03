@@ -355,6 +355,22 @@ final class ContentTests: XCTestCase {
         XCTAssertTrue(ContentValidator.validate(db).contains { $0.rule == "event.changes-world" })
     }
 
+    /// 問いの文は文の表に要る。選ぶ決断の無い出来事に問いの文があるとエラー。
+    func testEventPromptRules() throws {
+        var db = try TestContent.publicOnly()
+        db.events["event.test.decision"]?.prompt = "text.test.prompt.missing"
+        XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.message.contains("text.test.prompt.missing") })
+        db.texts["text.test.prompt.missing"] = "テスト用の文"
+        XCTAssertFalse(ContentValidator.validate(db).contains { $0.level == .error && $0.message.contains("text.test.prompt.missing") })
+        XCTAssertFalse(ContentValidator.validate(db).contains { $0.rule == "event.prompt.no-choices" })
+
+        var bare = ContentDB()
+        try ContentLoader.apply(json: Data(#"""
+        {"events": [{"id": "e", "prompt": "t", "trigger": {"when": {"always": {}}}, "effects": [{"counter": {"id": "c", "add": 1}}]}]}
+        """#.utf8), to: &bare)
+        XCTAssertTrue(ContentValidator.validate(bare).contains { $0.level == .error && $0.rule == "event.prompt.no-choices" })
+    }
+
     func testValidatorChecksNearPlacementAndSelfBuildReferences() throws {
         var db = try TestContent.publicOnly()
         try ContentLoader.apply(json: Data(#"""

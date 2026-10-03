@@ -1,7 +1,7 @@
 import SwiftUI
 import ReForgeEngine
 
-/// 親指の届く、足元カードの直前に置く時間と選びの帯。
+/// 親指の届く、地図の下端に重ねて置く時間と選びの帯(GameScreen の overlay。地図の枠は動かさない)。
 struct MapActionBand: View {
     let store: GameStore
 
@@ -9,13 +9,26 @@ struct MapActionBand: View {
         if let pending = store.decisionUndo {
             UndoBand(label: pending.label, seconds: pending.seconds, undo: store.undoDecision)
         } else if let decision = store.decision {
-            HStack(spacing: 8) {
-                ForEach(Array(decision.choices.enumerated()), id: \.offset) { _, choice in
-                    Button { store.decide(choice.id) } label: { Text(verbatim: choice.label).frame(maxWidth: .infinity) }
-                        .buttonStyle(.ink(.secondary))
+            VStack(spacing: 8) {
+                if let prompt = decision.prompt {
+                    Text(verbatim: prompt)
+                        .font(InkFont.body)
+                        .foregroundStyle(InkColor.text)
+                        .lineSpacing(InkFont.bodyLineSpacing / 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("decisionPrompt")
+                }
+                HStack(spacing: 8) {
+                    ForEach(Array(decision.choices.enumerated()), id: \.offset) { _, choice in
+                        Button { store.decide(choice.id) } label: { Text(verbatim: choice.label).frame(maxWidth: .infinity) }
+                            .buttonStyle(.ink(.secondary))
+                            .frame(minHeight: InkMetric.buttonHeight)
+                    }
                 }
             }
             .padding(8)
+            .accessibilityElement(children: .contain)
             .background(InkColor.panel.opacity(0.96))
             .accessibilityIdentifier("decisionBand")
         } else if !store.clock.bandActions.isEmpty {
@@ -38,5 +51,19 @@ struct MapActionBand: View {
         case .startNightWork: Text("夜作業をする")
         case .sleep: Text("寝る")
         }
+    }
+}
+
+/// 帯を地図の下端に重ねる置き方の計算(純粋な関数。重ねるので、地図の枠は帯の高さによらない)。
+enum BandOverlayLayout {
+    /// 地図の領域(container)の中での地図の枠。帯が出ても出なくても(band が何でも)container 全体のまま。
+    static func mapFrame(container: CGSize, band: CGFloat) -> CGRect {
+        CGRect(origin: .zero, size: container)
+    }
+
+    /// 帯の枠。地図の領域の下端に、帯の高さ(領域の高さまで)で重なる。
+    static func bandFrame(container: CGSize, band: CGFloat) -> CGRect {
+        let h = min(max(band, 0), container.height)
+        return CGRect(x: 0, y: container.height - h, width: container.width, height: h)
     }
 }

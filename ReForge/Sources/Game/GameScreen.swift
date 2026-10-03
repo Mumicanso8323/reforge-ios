@@ -73,8 +73,13 @@ struct GameScreen: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // 決断の帯・夜の帯・取り消しの帯は地図の下端に重ねる(出入りしても地図の枠は動かない。BandOverlayLayout)
+            .overlay(alignment: .bottom) {
+                if tab == .map, app.activePrologue == nil {
+                    MapActionBand(store: store)
+                }
+            }
             if tab == .map, app.activePrologue == nil {
-                MapActionBand(store: store)
                 FootCardView(store: store)
             }
             if app.activePrologue == nil {
