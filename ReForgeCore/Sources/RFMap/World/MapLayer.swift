@@ -42,6 +42,10 @@ public struct MapLayer: Codable, Equatable, Sendable {
     public var visibility: VisibilityLayer
     /// 層をまたぐ接続(ID 順)。
     public private(set) var connections: [LayerConnection]
+    /// 最初の火の置き場(生成の時に決める。古い保存は nil)。
+    public internal(set) var firstFireSite: GridPoint?
+    /// 夜明けに初めて見える物の置き場(生成の時に決める。古い保存は nil)。
+    public internal(set) var dawnFindSite: GridPoint?
 
     public init(id: MapLayerID, terrain: TerrainGrid) {
         self.id = id

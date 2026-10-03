@@ -35,7 +35,7 @@ final class MapGenerationTests: XCTestCase {
     }
 
     /// 地形と目印の固定の指紋。三角関数を使わない生成なので、端末・版が変わっても同じ値になる。
-    /// 生成の手順を意図して変えたときだけ、ここの値を更新する。
+    /// 生成の手順を意図して変えたときだけ、ここの値を更新する(W-23 で始まりの森の保証を足したので更新)。
     func testGoldenFingerprint() throws {
         func fingerprint(_ m: WorldMap) -> UInt64 {
             var h = FNV1a()
@@ -50,9 +50,9 @@ final class MapGenerationTests: XCTestCase {
             return h.value
         }
         let golden: [UInt64: UInt64] = [
-            7: 0xf547_9d2d_24db_29e1,
-            42: 0x3e88_7f2a_3fcf_305a,
-            2026: 0x65ab_68af_c526_ac16,
+            7: 0x85fa_3d59_2ebe_80e1,
+            42: 0x3680_d2e2_bd46_595a,
+            2026: 0x8990_c2f2_9182_1216,
         ]
         for (seed, want) in golden.sorted(by: { $0.key < $1.key }) {
             let got = fingerprint(try WorldMap.generate(seed: seed))
@@ -160,8 +160,12 @@ final class MapGenerationTests: XCTestCase {
             let base = m.lm.base
             XCTAssertEqual(base.width, 11)
             XCTAssertEqual(base.height, 7)
-            XCTAssertEqual(counts[.cleared], 77, "seed \(seed)")
-            XCTAssertTrue(base.cells.allSatisfy { m.biome(at: $0) == .cleared })
+            // 整地 77 マス。始まりの森の保証(W-23)が整地の端を森にすることがあるので、その分だけ減る
+            let o = m.config.opening!
+            let planted = base.cells.filter { m.biome(at: $0) == .forest }.count
+            XCTAssertLessThanOrEqual(planted, o.startReachForestMin + o.firstLightForestMin, "seed \(seed)")
+            XCTAssertEqual(counts[.cleared], 77 - planted, "seed \(seed)")
+            XCTAssertTrue(base.cells.allSatisfy { [Biome.cleared, .forest].contains(m.biome(at: $0)) })
             XCTAssertEqual(m.baseArea, GridRect(origin: base.minCorner, size: GridSize(width: 11, height: 7)))
             XCTAssertEqual(m.spawn, WorldPoint(.surface, base.center))
         }
