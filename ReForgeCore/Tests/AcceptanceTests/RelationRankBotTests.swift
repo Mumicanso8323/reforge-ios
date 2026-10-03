@@ -8,12 +8,36 @@ import XCTest
 /// - 関係の数え方だけを見るので、失敗の規則は外し、毎朝体の値を満たす(飢えで走行が止まらないように)。
 /// - 公開の層には関係ランクの手がかりが無いので、非公開の層があるときだけ回す。
 final class RelationRankBotTests: XCTestCase {
+    /// 序を読み終え、暗い場面の行為(最初の行為)を済ませる。時計の保留が最初の行為でだけ解ける内容(PT-B8 の firstAct)でも、
+    /// ボットが日を進められるように。保留の無い内容では何もしない。
+    private func startFirstAct(_ sim: Simulation, _ content: ContentDB, _ world: inout WorldState) {
+        var n = 0
+        while world.clock.held && world.narrative.scene != nil && n < 30 {
+            _ = sim.apply(.narrative(.advanceScene), to: &world)
+            n += 1
+        }
+        guard world.clock.held,
+              let act = FrameBuilder(content: content).build(world, revision: 0, previous: nil, report: nil).darkStart?.action
+        else { return }
+        _ = sim.apply(act.start, to: &world)
+        // 保留の間、最初の行為は押している実時間でだけ進む(画面のタイマーの代わり)
+        var carry: Int64 = 0
+        n = 0
+        while world.clock.held && n < 20000 {
+            _ = sim.advanceHeld(&world, realSeconds: 1.0 / 10, carry: &carry)
+            n += 1
+        }
+        _ = sim.apply(act.end, to: &world)
+        XCTAssertFalse(world.clock.held, "最初の行為で時計の保留が解けない")
+    }
+
     /// 毎晩話して、相手がランク `rank` に届いた夜(届かなければ nil)。
     private func nightsToRank(content base: ContentDB, person: PersonID, rank: Int, maxNights: Int) -> Int? {
         var content = base
         content.failureRules = [:]
         let sim = Simulation(content: content)
         var world = WorldFactory(content: content, mapGenerator: RFMapGenerator()).newWorld(seed: 3)
+        startFirstAct(sim, content, &world)
         for night in 1...maxNights {
             var n = 0
             while world.clock.phase == .day && n < 20000 {
