@@ -165,8 +165,12 @@ final class AppModel {
     /// 撮る起動(Debug/ScreenshotMode.swift): 保存を読まず・書かない、固定の種の新しい世界を開く。
     /// failed なら走行が終わった形(ゲームオーバーの 4 択)にする。
     /// decision なら、公開の層の試験用の決断を 1 つ出した形にする(決断の帯)。
-    func startScreenshotGame(failed: Bool, decision: Bool, darkStart: Bool = false) {
-        guard let content else { return }
+    func startScreenshotGame(failed: Bool, decision: Bool, darkStart: Bool = false, darkMark: Bool = false) {
+        guard var content else { return }
+        if darkMark, var mark = content.structures["structure.fence"] {
+            mark.seenInDark = true
+            content.structures[mark.id] = mark
+        }
         var world = GameBootstrap.newWorld(content: content, seed: 1)
         if failed { world.run.outcome = .failed(cause: "text.screenshot.cause", record: nil) }
         if decision {
@@ -175,6 +179,19 @@ final class AppModel {
                                                        since: world.clock.now, origin: nil)]
         }
         if darkStart { world.clock.held = true }
+        if darkMark {
+            world.clock.phase = .nightWork
+            let origin = world.map.spawn
+            let markPoint = GridPoint(origin.point.x + 7, origin.point.y + 7)
+            world.map[origin.layer]?.setTerrain("grass", at: markPoint)
+            var ctx = StepContext(world: world, content: content)
+            EffectApplier.apply([
+                .placeStructure(structure: "structure.campfire", at: .point(at: origin), built: true),
+                .hearth(at: .point(at: origin), op: .ignite()),
+                .placeStructure(structure: "structure.fence", at: .point(at: WorldPoint(origin.layer, markPoint)), built: true),
+            ], &ctx, cause: nil)
+            world = ctx.world
+        }
         game = GameStore(content: content, world: world, saves: saves)
         game?.isPaused = settingsOpen
     }

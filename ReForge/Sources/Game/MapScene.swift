@@ -6,6 +6,22 @@ extension RGB {
     var color: Color { Color(red: Double(r) / 255, green: Double(g) / 255, blue: Double(b) / 255) }
 }
 
+/// 置いた印の明るさ。暗がりの印は、視界の外でも夜の見える段でゆっくり明滅する。
+enum PlacementBrightness {
+    static func value(seenInDark: Bool, visible: Bool, night: Bool, reduceMotion: Bool, elapsed: Double) -> Double {
+        let base: Double
+        if visible {
+            base = night ? TilePalette.nightVisible : 1
+        } else if seenInDark {
+            base = TilePalette.nightVisible
+        } else {
+            base = TilePalette.remembered
+        }
+        guard seenInDark, !reduceMotion else { return base }
+        return base * (1 + 0.15 * sin(elapsed * 2 * .pi / 3))
+    }
+}
+
 private struct TerrainImageKey: Hashable {
     var index: Int
     var revision: Int
@@ -107,6 +123,7 @@ struct MapScene {
     var route: [GridPoint]
     var night: Bool
     var elapsed: Double
+    var reduceMotion: Bool = false
     var terrains: [TerrainID: TerrainDef]
     var preview: PlacementPreview? = nil
     var battles: [GridPoint] = []
@@ -161,8 +178,6 @@ struct MapScene {
         let x0 = max(0, visible.origin.x), x1 = min(map.size.width, visible.origin.x + visible.size.width)
         let y0 = max(0, visible.origin.y), y1 = min(map.size.height, visible.origin.y + visible.size.height)
         func isVisible(_ point: GridPoint) -> Bool { map.vision.contains { $0.contains(point) } }
-        let lit = night ? TilePalette.nightVisible : 1.0
-
         let routeColor = style(TilePalette.route).foreground(at: GridPoint(0, 0))
         for point in route where point.x >= x0 && point.x < x1 && point.y >= y0 && point.y < y1 {
             let rect = cellRect(point)
@@ -186,7 +201,8 @@ struct MapScene {
         for placement in placements {
             let rect = cellRect(placement.at)
             guard rect.maxX >= 0, rect.minX <= size.width, rect.maxY >= 0, rect.minY <= size.height else { continue }
-            let brightness = isVisible(placement.at) ? lit : TilePalette.remembered
+            let brightness = PlacementBrightness.value(seenInDark: placement.seenInDark, visible: isVisible(placement.at),
+                                                        night: night, reduceMotion: reduceMotion, elapsed: elapsed)
             let color = style(placement.running ? TilePalette.module : TilePalette.stopped).foreground(at: placement.at).scaled(brightness)
             ctx.fill(Path(rect), with: .color(.black))
             ctx.draw(text(placement.glyph, color), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)

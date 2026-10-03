@@ -15,6 +15,15 @@ final class ContentTests: XCTestCase {
         XCTAssertEqual(errors, [], "\(errors)")
     }
 
+    /// 省略した暗がりの印は、古い内容と同じく見えない扱いで読む。
+    func testStructureWithoutDarkMarkFlagKeepsCompatibility() throws {
+        let def = try JSONDecoder().decode(StructureDef.self, from: Data(#"""
+        {"id":"structure.test.compat","cost":[],"buildSeconds":1,"provides":{}}
+        """#.utf8))
+        XCTAssertNil(def.seenInDark)
+        XCTAssertNil(try TestContent.publicOnly().structures["structure.shelter"]?.seenInDark)
+    }
+
     func testPreMigrationContentNamesLoadAsCurrentContent() throws {
         let current = Data(#"""
         {"sheets":[{"id":"sheet.test.compat","title":"misc:test","rows":[],"when":{"always":{}},

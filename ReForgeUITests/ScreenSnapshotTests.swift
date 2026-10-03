@@ -1,6 +1,6 @@
 import XCTest
 
-/// 画面の写真(docs/briefs/screen-snapshots.md)。言語 5 × 画面 14 = 70 枚を、1 枚ごとにアプリを起動し直して撮る。
+/// 画面の写真(docs/briefs/screen-snapshots.md)。言語 5 × 画面 16 = 80 枚を、1 枚ごとにアプリを起動し直して撮る。
 /// アプリの側は `-ReForgeScreenshot <画面>` で、公開の層の束・固定の種の新しい世界・解放は全部開く・時計は止める(DEBUG のみ)。
 /// 撮るだけでは止めず、次の検査に当たれば失敗にする(PNG は失敗しても残す)。
 ///  1. 画面の外に出る(横。下に伸びるスクロールの中身は縦に出て当然なので、縦は見ない)
@@ -19,7 +19,7 @@ final class ScreenSnapshotTests: XCTestCase {
     /// 序(prologue)は、公開の層の中立の見本(Debug/PrologueSample.swift)を画面全体の場面で撮る(PT-B6)。
     /// 暗い場面(darkStart)は、最初の行為の前の画面(PT-B8)。
     private static let screens = ["map", "foot", "design", "base", "crew", "research", "gameOver", "settings",
-                                  "title", "notes", "decisionBand", "bootFailure", "prologue", "stage", "darkStart"]
+                                  "title", "notes", "decisionBand", "bootFailure", "prologue", "stage", "darkStart", "darkMark"]
     /// 序の地の色(InkColor.prologueGround #07080C)と、端の色の許す差(0...255 の各チャンネル)。
     private static let prologueGround: (r: Int, g: Int, b: Int) = (7, 8, 12)
     private static let prologueTolerance = 6
@@ -90,6 +90,7 @@ final class ScreenSnapshotTests: XCTestCase {
 
         prepare(app, screen: screen)
         if screen == "darkStart" { assertDarkStart(app, language: lang.code) }
+        if screen == "darkMark" { assertDarkMark(app, language: lang.code) }
         Thread.sleep(forTimeInterval: 1.0)
         if screen == "map" { mapFrames[lang.code] = element(app, "map").frame }
         if screen == "decisionBand" { assertDecisionBand(app, language: lang.code) }  // 組み直しと文字の測りが落ち着くのを待つ(研究の巻き取りの成否は下のポーリングで決める)
@@ -151,7 +152,7 @@ final class ScreenSnapshotTests: XCTestCase {
     /// アプリが開いた画面が出そろうのを待つ。研究の節への巻き取りはアプリの側(BaseTab の DEBUG。S-02)。
     private func prepare(_ app: XCUIApplication, screen: String) {
         switch screen {
-        case "map", "foot":
+        case "map", "foot", "darkMark":
             _ = element(app, "footCard").waitForExistence(timeout: 30)
         case "design", "base", "crew":
             _ = element(app, "InkPanel.title").waitForExistence(timeout: 30)
@@ -218,6 +219,13 @@ final class ScreenSnapshotTests: XCTestCase {
         let window = app.windows.firstMatch.frame
         XCTAssertGreaterThanOrEqual(action.frame.height, 44, "\(language)_darkStart: 行為が小さい")
         XCTAssertGreaterThanOrEqual(action.frame.midY, window.midY, "\(language)_darkStart: 行為が下半分にない")
+    }
+
+    /// 暗がりの印の見本は、夜の地図に置かれた印を Frame から渡して撮る。
+    private func assertDarkMark(_ app: XCUIApplication, language: String) {
+        let sample = element(app, "darkMarkSample")
+        XCTAssertTrue(sample.exists, "\(language)_darkMark: 見本の印が無い")
+        XCTAssertEqual(sample.value as? String, "1", "\(language)_darkMark: 見本の印が Frame に無い")
     }
 
     /// 研究の最初の行が上半分に来るまで待つ。写真はこの判定の後に撮る。

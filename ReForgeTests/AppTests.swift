@@ -114,6 +114,18 @@ final class AppTests: XCTestCase {
         XCTAssertNotNil(UIFont(name: FontBook.mapFont, size: 14), "BIZ UDGothic が使える")
     }
 
+    func testDarkMarkBrightnessStaysVisibleOutsideVisionAndRespectsReduceMotion() {
+        let outside = PlacementBrightness.value(seenInDark: true, visible: false, night: true,
+                                                 reduceMotion: true, elapsed: 1.5)
+        XCTAssertEqual(outside, TilePalette.nightVisible)
+        let still = PlacementBrightness.value(seenInDark: true, visible: true, night: true,
+                                              reduceMotion: true, elapsed: 0.75)
+        XCTAssertEqual(still, TilePalette.nightVisible)
+        let dim = PlacementBrightness.value(seenInDark: true, visible: false, night: true,
+                                            reduceMotion: false, elapsed: 0.75)
+        XCTAssertEqual(dim, TilePalette.nightVisible * 1.15, accuracy: 0.000_001)
+    }
+
     func testSaveStorageRoundTripAndList() throws {
         let s = tempSaves()
         XCTAssertNil(try s.read(slot: .resume))

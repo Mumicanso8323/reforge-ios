@@ -188,11 +188,17 @@ public struct FrameBuilder: Sendable {
         }
     }
 
-    /// 置いた物は、既知か視界の中のマスにあるものだけ。
+    /// 置いた物は、既知か視界の中のマスにあるものだけ。暗がりの印だけは未踏でも見える。
     func placements(_ w: WorldState, _ p: Perceiver, proj: MapProjector, map: MapView) -> [PlacementSprite] {
         w.placements.sortedIDs.compactMap { id in
-            guard let pl = w.placements.items[id], pl.at.layer == layer,
-                  proj.isKnown(pl.at.point) || map.isVisible(pl.at.point) else { return nil }
+            guard let pl = w.placements.items[id], pl.at.layer == layer else { return nil }
+            let seenInDark: Bool = if case .structure(let kind) = pl.kind {
+                content.structures[kind]?.seenInDark ?? false
+            } else {
+                false
+            }
+            guard proj.isKnown(pl.at.point) || map.isVisible(pl.at.point) || seenInDark,
+                  !(seenInDark && pl.destroyedBy != nil) else { return nil }
             let s: SubjectID = switch pl.kind {
             case .module(let k): Subject.module(k)
             case .structure(let k): Subject.structure(k)
@@ -200,7 +206,8 @@ public struct FrameBuilder: Sendable {
             var reason: String?
             if case .stopped(let r) = pl.status { reason = p.text(r) }
             return PlacementSprite(id: id, glyph: p.glyph(s), at: pl.at.point, facing: pl.facing,
-                                   running: pl.status == .running, stoppedReason: reason, throughput: nil)
+                                   running: pl.status == .running, stoppedReason: reason, throughput: nil,
+                                   seenInDark: seenInDark)
         }
     }
 

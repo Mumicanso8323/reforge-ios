@@ -126,6 +126,81 @@ final class MapPresentTests: XCTestCase {
         XCTAssertEqual(f2.actors.first { $0.id == "person.test_c" }?.tint, TilePalette.stranger)
     }
 
+    // MARK: - 暗がりの印
+
+    private func darkMarkContent() throws -> ContentDB {
+        var content = rig.content
+        try ContentLoader.apply(json: Data(#"""
+        {"structures":[
+          {"id":"structure.test.dark_mark","cost":[],"buildSeconds":1,"provides":{},"requiresBaseArea":false,"seenInDark":true},
+          {"id":"structure.test.ordinary_mark","cost":[],"buildSeconds":1,"provides":{},"requiresBaseArea":false}
+        ]}
+        """#.utf8), to: &content)
+        return content
+    }
+
+    private func passableUnseenPoint(_ w: WorldState, excluding: Set<GridPoint> = []) throws -> GridPoint {
+        let layer = try XCTUnwrap(w.map[.surface])
+        let areas = builder.vision.areas(w, layer: .surface)
+        return try XCTUnwrap((0..<layer.size.height).flatMap { y in
+            (0..<layer.size.width).map { GridPoint($0, y) }
+        }.first { point in
+            !excluding.contains(point)
+                && layer.terrain(at: point).flatMap { rig.content.terrains[$0] }?.passable == true
+                && !(w.knowledge.mapKnown[.surface]?[point] ?? false)
+                && !areas.contains { $0.contains(point) }
+        })
+    }
+
+    /// 効果で置いた暗がりの印だけは、未踏・視界外でも Frame に残る。壊した後は印だけ消え、保存後も置いた状態は保つ。
+    func testDarkMarkIsVisibleOutsideVisionThenDisappearsWhenDestroyed() throws {
+        let content = try darkMarkContent()
+        let localBuilder = FrameBuilder(content: content)
+        let w = world()
+        let darkPoint = try passableUnseenPoint(w)
+        let ordinaryPoint = try passableUnseenPoint(w, excluding: [darkPoint])
+        var ctx = StepContext(world: w, content: content)
+        EffectApplier.apply([.placeStructure(structure: "structure.test.dark_mark", at: .point(at: WorldPoint(.surface, darkPoint)), built: true)],
+                            &ctx, cause: nil)
+        EffectApplier.apply([.placeStructure(structure: "structure.test.ordinary_mark", at: .point(at: WorldPoint(.surface, ordinaryPoint)), built: true)],
+                            &ctx, cause: nil)
+        XCTAssertTrue(ctx.warnings.isEmpty, "\(ctx.warnings)")
+        let placed = ctx.world
+        let frame = localBuilder.build(placed, revision: 1, previous: nil, report: nil)
+        let dark = try XCTUnwrap(frame.placements.first { $0.at == darkPoint })
+        XCTAssertTrue(dark.seenInDark)
+        XCTAssertFalse(frame.placements.contains { $0.at == ordinaryPoint })
+
+        let restored = try JSONDecoder().decode(WorldState.self, from: JSONEncoder().encode(placed))
+        XCTAssertTrue(localBuilder.build(restored, revision: 2, previous: frame, report: nil).placements.contains { $0.at == darkPoint },
+                      "保存して読み戻しても置いた印が見える")
+
+        EffectApplier.apply([.destroyPlacements(near: .point(at: WorldPoint(.surface, darkPoint)), radius: 0,
+                                                  structure: "structure.test.dark_mark")], &ctx, cause: nil)
+        var report = StepReport()
+        Simulation(content: content).settle(&ctx, &report)
+        XCTAssertFalse(localBuilder.build(ctx.world, revision: 3, previous: frame, report: report).placements.contains { $0.at == darkPoint },
+                       "壊した次のフレームから印は出ない")
+    }
+
+    /// 暗がりの印を足元カードに出しても、定義していない行為のボタンは足さない。
+    func testDarkMarkFootCardAddsNoAction() throws {
+        var content = try darkMarkContent()
+        content.interactions.removeAll()
+        let localBuilder = FrameBuilder(content: content)
+        var w = world()
+        let noah = try XCTUnwrap(w.people[.noah]?.position)
+        let point = GridPoint(noah.point.x + 1, noah.point.y)
+        var known = w.knowledge.mapKnown[.surface] ?? GridBitset(size: w.map[.surface]!.size)
+        known[point] = true
+        w.knowledge.mapKnown[.surface] = known
+        var ctx = StepContext(world: w, content: content)
+        EffectApplier.apply([.placeStructure(structure: "structure.test.dark_mark", at: .point(at: WorldPoint(.surface, point)), built: true)],
+                            &ctx, cause: nil)
+        let card = try XCTUnwrap(localBuilder.footCard(ctx.world, at: point))
+        XCTAssertTrue(card.actions.isEmpty)
+    }
+
     // MARK: - 主人公・経路・補間
 
     func testNoahGlyphRouteAndInterpolation() throws {
