@@ -215,7 +215,17 @@ public struct FrameBuilder: Sendable {
     func sceneLines(_ w: WorldState, _ p: Perceiver) -> [String] {
         guard let s = w.narrative.scene, let def = content.scenes[s.scene] else { return [] }
         guard def.style != .prologue, def.style != .stage else { return [] }
-        return def.lines.prefix(s.line + 1).suffix(3).map { p.text($0.text) }
+        return shownLines(def, s, w).suffix(3).map { p.text($0.text) }
+    }
+
+    /// 今の行までの行のうち、条件(Line.when)が成り立たずに飛ばした行(同じ枠の言い換えなど)を除いた物。
+    /// 今の行はいつも入れる。ふきだしも全画面の場面も、この物だけを見せる。
+    func shownLines(_ def: SceneDef, _ s: SceneProgress, _ w: WorldState) -> [SceneDef.Line] {
+        def.lines.prefix(s.line + 1).enumerated().filter { i, line in
+            i == s.line || line.when.map {
+                ConditionEvaluator.evaluatePure($0, world: w, content: content, trigger: s.origin) == true
+            } ?? true
+        }.map(\.element)
     }
 
     func prologue(_ w: WorldState, _ p: Perceiver) -> PrologueView? {
@@ -226,7 +236,7 @@ public struct FrameBuilder: Sendable {
         case .some(.stage): kind = .stage
         case .some(.bubble), .none: return nil
         }
-        let lines = def.lines.prefix(s.line + 1)
+        let lines = shownLines(def, s, w)
         return PrologueView(kind: kind, lines: lines.map { p.text($0.text) },
                             speakers: lines.map { $0.speaker.map { p.name(content.people[$0]?.name ?? Subject.person($0)) } },
                             waiting: true)
