@@ -224,12 +224,14 @@ final class AppTests: XCTestCase {
         XCTAssertEqual(afterFirstSelection, start)
 
         store.select(target)
-        for _ in 0..<50 {
-            if await store.host.world.people[.noah]?.motion != nil { break }
+        // 歩き出したか(経路・動き・着いた、のどれか)。1 マスなので、歩き終えていてもよい
+        var started = false
+        for _ in 0..<100 {
+            let noah = await store.host.world.people[.noah]
+            if noah?.motion != nil || noah?.position?.point == target || !store.route.isEmpty { started = true; break }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
-        let motion = await store.host.world.people[.noah]?.motion
-        XCTAssertNotNil(motion)
+        XCTAssertTrue(started, "同じマスの 2 度目の選びで歩き出す")
 
         let recreated = GameStore(content: content, world: world, saves: tempSaves())
         await recreated.load()
