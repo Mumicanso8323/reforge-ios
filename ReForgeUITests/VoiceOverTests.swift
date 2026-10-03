@@ -41,8 +41,8 @@ final class VoiceOverTests: XCTestCase {
         // 足元カードの行為(押すだけは Button、長押しは holdRing)。名前のある行為が 1 つ以上ある
         let card = element(app, "footCard")
         let actions = card.buttons.allElementsBoundByIndex + card.descendants(matching: .any).matching(identifier: "holdRing").allElementsBoundByIndex
-        // この写真の世界に行為が並ぶとは限らない。並ぶ時は、名前のある行為がある
-        if !actions.isEmpty { XCTAssertTrue(actions.contains { !$0.label.isEmpty }, "足元カードの行為に名前が無い") }
+        XCTAssertFalse(actions.isEmpty, "足元カードに行為が無い")
+        XCTAssertTrue(actions.contains { !$0.label.isEmpty }, "足元カードの行為に名前が無い")
 
         let status = element(app, "statusBand").frame
         let map = element(app, "map").frame

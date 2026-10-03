@@ -67,7 +67,8 @@ enum ScreenshotMode {
         case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand, .prologue, .stage, .darkStart, .darkMark:
             let model = AppModel(saves: saves)
             model.startScreenshotGame(failed: screen == .gameOver, decision: screen == .decisionBand,
-                                      darkStart: screen == .darkStart, darkMark: screen == .darkMark)
+                                      darkStart: screen == .darkStart, darkMark: screen == .darkMark,
+                                      foot: screen == .foot)
             // 設定は、角のボタンで開いた形で撮る(札は RootView。L-10a)
             if screen == .settings { model.settingsOpen = true }
             // 序は、見本の場面を画面全体で出した形(送りは UI テストのタップ)

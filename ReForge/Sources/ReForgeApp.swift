@@ -165,7 +165,8 @@ final class AppModel {
     /// 撮る起動(Debug/ScreenshotMode.swift): 保存を読まず・書かない、固定の種の新しい世界を開く。
     /// failed なら走行が終わった形(ゲームオーバーの 4 択)にする。
     /// decision なら、公開の層の試験用の決断を 1 つ出した形にする(決断の帯)。
-    func startScreenshotGame(failed: Bool, decision: Bool, darkStart: Bool = false, darkMark: Bool = false) {
+    func startScreenshotGame(failed: Bool, decision: Bool, darkStart: Bool = false, darkMark: Bool = false,
+                             foot: Bool = false) {
         guard var content else { return }
         if darkMark, var mark = content.structures["structure.fence"] {
             mark.seenInDark = true
@@ -191,6 +192,16 @@ final class AppModel {
                 .placeStructure(structure: "structure.fence", at: .point(at: WorldPoint(origin.layer, markPoint)), built: true),
             ], &ctx, cause: nil)
             world = ctx.world
+        }
+        if foot {
+            // 足元カードの写真: ノアの隣に、押すだけの行為(森で枝を拾う)と長押しの行為(鉱脈を手で掘る)が並ぶ形にする
+            let origin = world.map.spawn
+            let forest = GridPoint(origin.point.x + 1, origin.point.y)
+            let vein = GridPoint(origin.point.x, origin.point.y - 1)
+            world.map[origin.layer]?.setTerrain("forest", at: forest)
+            var rng = SeededRandom(state: 1)
+            world.map[origin.layer]?.deposits.add(
+                DepositGenerator.make(id: DepositID("deposit.screenshot"), at: vein, category: .coal, rng: &rng))
         }
         game = GameStore(content: content, world: world, saves: saves)
         game?.isPaused = settingsOpen
