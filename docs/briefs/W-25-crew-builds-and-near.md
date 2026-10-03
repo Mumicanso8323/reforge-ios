@@ -11,7 +11,7 @@
 - 確かめ(`ContentValidator`): `structure` が存在する・`radius` は 1〜8。
 
 ## 2. 条件 `nearPlacement`
-- `Condition` に `case nearPlacement(place: PlaceSelector, module: ModuleKindID?, structure: StructureKindID?, radius: Int, includeUnfinished: Bool? = nil)` を足す。
+- `Condition` に `case nearPlacement(place: PlaceSelector, module: ModuleKindID?, structure: StructureKindID?, poi: POIKindID? = nil, radius: Int, includeUnfinished: Bool? = nil)` を足す。`poi` を置くと、その種類の POI(残骸の中の部品を含む POI 全体)までを測る。距離は、`place` の指す物の占めるマスと、相手の占めるマスの間のチェビシェフ距離の最小(1 マスの物は今の点の距離と同じ)。`module`・`structure`・`poi` は高々 1 つ。
 - 意味: `place` の指すマスから半径 `radius`(チェビシェフ・同じ層)の中に、その種類の置いた物が 1 つ以上ある(`module`・`structure` の両方 nil は「何でも」。未完成は既定で数えない)。「5 以上離れている」は `not(nearPlacement(radius: 4))` で書く。
 - 出来事の `trigger`(建った時の hook)の中で `place: .placement(...)` が、**いま建った物**を指せるかを確かめる。指せないなら、`PlaceSelector` に `case trigger`(出来事を起こした物のマス)が今あるのでそれを使う(無ければ足す)。
 - 水の近さは今の `nearTerrain(place:tag:radius:)` で足りる。
