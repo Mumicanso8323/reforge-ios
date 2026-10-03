@@ -165,6 +165,68 @@ final class CrewWorkTests: XCTestCase {
         XCTAssertEqual(after - before, SimStep.gameSeconds * 600 / 1000)
     }
 
+    static let c: PersonID = "person.test_c"
+
+    /// 枠 2・3 人(a・b・c)の組。盛んな火 1 つで枠は 2。
+    func rig3() throws -> ExploreRig {
+        var r = try rig()
+        r.world.people.persons[Self.c]?.presence = .member(since: .zero)
+        r.put(Self.c, r.noahPos.point + GridPoint(0, 4))
+        fire(&r, at: r.noahPos.point + GridPoint(-4, 0), seconds: 40_000)
+        XCTAssertEqual(CrewWork.workable(r.world, r.content), 2)
+        return r
+    }
+
+    func spontaneous(_ r: inout ExploreRig, _ p: PersonID) {
+        let g = Assignment.guardArea(center: r.noahPos, radius: 1)
+        r.world.people.persons[p]?.override = AssignmentOverride(assignment: g, aura: nil, until: nil,
+                                                                 origin: ProvenanceLedger.unknownOrigin)
+    }
+
+    /// W-27 1: 枠が頼み 1 + 自発 1 で埋まっていても、ノアの頼みは受かり、自発の人は休む。
+    func testAskDisplacesSpontaneous() throws {
+        var r = try rig3()
+        let g = Assignment.guardArea(center: r.noahPos, radius: 2)
+        XCTAssertNil(assign(&r, Self.a, g))
+        spontaneous(&r, Self.c)
+        XCTAssertEqual(CrewWork.working(r.world, r.content), [Self.a, Self.c])
+        XCTAssertNil(CrewWork.refusal(g, for: Self.b, r.world, r.content))
+        XCTAssertNil(assign(&r, Self.b, g))
+        XCTAssertEqual(CrewWork.working(r.world, r.content), [Self.a, Self.b])
+    }
+
+    /// W-27 2: ノアの頼みが 2 つで枠が埋まれば、3 人目は今までどおり断る。
+    func testAskedStillRefusedWhenFull() throws {
+        var r = try rig3()
+        let g = Assignment.guardArea(center: r.noahPos, radius: 2)
+        XCTAssertNil(assign(&r, Self.a, g))
+        XCTAssertNil(assign(&r, Self.b, g))
+        XCTAssertEqual(assign(&r, Self.c, g)?.reason, "reason.assign.no_slot")
+    }
+
+    /// W-27 3: 自発同士は押しのけない(頼んだ順で先着 2 人)。
+    func testSpontaneousDoNotDisplaceEachOther() throws {
+        var r = try rig3()
+        spontaneous(&r, Self.a)
+        spontaneous(&r, Self.b)
+        spontaneous(&r, Self.c)
+        XCTAssertEqual(CrewWork.working(r.world, r.content), [Self.a, Self.b])
+    }
+
+    /// W-27 4: 押しのけられた人の override は残り、頼みが減ればまた働く。
+    func testDisplacedOverrideSurvivesAndResumes() throws {
+        var r = try rig3()
+        let g = Assignment.guardArea(center: r.noahPos, radius: 2)
+        spontaneous(&r, Self.c)
+        XCTAssertNil(assign(&r, Self.a, g))
+        XCTAssertNil(assign(&r, Self.b, g))
+        XCTAssertEqual(CrewWork.working(r.world, r.content), [Self.a, Self.b])
+        XCTAssertNotNil(r.world.people[Self.c]?.override)
+        XCTAssertNil(assign(&r, Self.b, .rest))
+        XCTAssertEqual(CrewWork.working(r.world, r.content), [Self.a, Self.c])
+        XCTAssertNotNil(r.world.people[Self.c]?.override)
+    }
+
     /// crewWork の無いコンテンツは今どおり(縛らない・速さを掛けない)。
     func testNoRulesNoLimits() throws {
         var r = try ExploreRig()
