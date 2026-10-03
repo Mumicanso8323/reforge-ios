@@ -30,7 +30,7 @@ struct CrewTabView: View {
                             }
                             BodyGauges(vitals: m.body)
                             if store.ui.isOpen(UIElements.crewAssign) {
-                                AssignChips(member: m, choices: crew.choices, store: store)
+                                AssignChips(member: m, choices: m.choices, store: store)
                             }
                         }
                     }

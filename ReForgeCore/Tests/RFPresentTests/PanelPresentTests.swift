@@ -182,6 +182,73 @@ final class PanelPresentTests: XCTestCase {
         XCTAssertEqual(after.members.first?.assignment, .rest)
     }
 
+    // MARK: 頼めない配属は出さない(DEC-F13)
+
+    static let ca: PersonID = "person.test_crew_a"
+    static let cb: PersonID = "person.test_crew_b"
+
+    /// 枠 1・仲間 2 人(a・b)の世界。手が先は求めない。
+    func slotWorld() -> (ContentDB, WorldState) {
+        var c = rig.content
+        c.crewWork = CrewWorkDef(requireHandFirst: false, fireSlots: [1, 1, 1, 1, 1])
+        var w = world()
+        for id in [Self.ca, Self.cb] { w.people[id] = PersonState(id: id, presence: .member(since: .zero)) }
+        return (c, w)
+    }
+
+    func workKinds(_ m: CrewMemberView) -> [AssignChoice] { m.choices.filter { CrewWork.isWork($0.assignment) } }
+
+    func member(_ v: CrewView, _ id: PersonID) throws -> CrewMemberView {
+        try XCTUnwrap(v.members.first { $0.id == id })
+    }
+
+    func testFullSlotsHideWorkChoicesButKeepStop() throws {
+        var (c, w) = slotWorld()
+        let g = try XCTUnwrap(FrameBuilder(content: c).crew(w).choices.first { $0.kind == .guardArea })
+        w.people[Self.ca]?.assignment = g.assignment
+        let v = FrameBuilder(content: c).crew(w)
+        let b = try member(v, Self.cb)
+        XCTAssertEqual(workKinds(b).count, 0, "枠が満杯なら働く配属は出ない")
+        XCTAssertTrue(b.choices.contains { $0.kind == .idle })
+        XCTAssertTrue(b.choices.contains { $0.kind == .rest })
+        let a = try member(v, Self.ca)
+        XCTAssertFalse(workKinds(a).isEmpty, "働いている本人には、自分の分の選択肢が残る")
+        XCTAssertTrue(a.choices.contains { $0.kind == .idle }, "止めるは出る")
+        XCTAssertFalse(v.choices.isEmpty, "互換の全体の一覧は残る")
+        // (b) 止めると戻る
+        w.people[Self.ca]?.assignment = .idle
+        XCTAssertFalse(workKinds(try member(FrameBuilder(content: c).crew(w), Self.cb)).isEmpty)
+    }
+
+    func testSpontaneousWorkDoesNotHideChoices() throws {
+        var (c, w) = slotWorld()
+        let g = try XCTUnwrap(FrameBuilder(content: c).crew(w).choices.first { $0.kind == .guardArea })
+        w.people[Self.ca]?.override = AssignmentOverride(assignment: g.assignment, aura: nil, until: nil,
+                                                         origin: ProvenanceLedger.unknownOrigin)
+        XCTAssertFalse(workKinds(try member(FrameBuilder(content: c).crew(w), Self.cb)).isEmpty)
+    }
+
+    func testEveryShownChoiceIsAcceptedByTheRules() throws {
+        var (c, w) = slotWorld()
+        let g = try XCTUnwrap(FrameBuilder(content: c).crew(w).choices.first { $0.kind == .guardArea })
+        for fill in [false, true] {
+            w.people[Self.ca]?.assignment = fill ? g.assignment : .idle
+            let v = FrameBuilder(content: c).crew(w)
+            for m in v.members {
+                for ch in m.choices {
+                    XCTAssertNil(CrewWork.refusal(ch.assignment, for: m.id, w, c), "\(m.id) \(ch.kind)")
+                }
+            }
+        }
+    }
+
+    func testWithoutCrewWorkEverythingIsShown() throws {
+        var (c, w) = slotWorld()
+        c.crewWork = nil
+        let v = FrameBuilder(content: c).crew(w)
+        for m in v.members { XCTAssertEqual(m.choices, v.choices) }
+    }
+
     func testPlacementPreviewShowsWhetherTheSiteIsFree() throws {
         let b = FrameBuilder(content: rig.content)
         let w = world()
