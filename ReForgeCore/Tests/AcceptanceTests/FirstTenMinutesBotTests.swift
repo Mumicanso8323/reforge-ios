@@ -125,7 +125,12 @@ final class FirstTenMinutesBotTests: XCTestCase {
             if case .terrain(let tag) = g.target {
                 discover(tag: tag, radius: max(48, radius * 2), avoid: spent)
                 if act(g.id, radius: 12) { return true }
-                let open = g.when.map { ConditionEvaluator.evaluatePure($0, world: w, content: content) == true } ?? true
+                var open = g.when.map { ConditionEvaluator.evaluatePure($0, world: w, content: content) == true } ?? true
+                if !open {
+                    // 探索の出来事で開く行為(岩場・川の新しい区域に入った時)。まだ入っていない区域を回る
+                    if visitRegions(tag: tag, until: { b in b.act(g.id, radius: 6) }) { return true }
+                    open = g.when.map { ConditionEvaluator.evaluatePure($0, world: w, content: content) == true } ?? true
+                }
                 let layer = w.map[here.layer]
                 var d: Int?
                 for dy in -12...12 {
@@ -137,6 +142,28 @@ final class FirstTenMinutesBotTests: XCTestCase {
                     }
                 }
                 gatherMiss["\(g.id.rawValue)"] = "開いている \(open)・ノアから\(tag)まで \(d.map(String.init) ?? "12 超")"
+            }
+            return false
+        }
+
+        /// その札の地形がある 8×8 の区域を、近い順に 10 まで回る(探索の出来事は新しい区域に入った時に起きる)。
+        /// done が true を返したら止める。
+        mutating func visitRegions(tag: String, until done: (inout Bot) -> Bool) -> Bool {
+            guard let layer = w.map[here.layer] else { return false }
+            let c0 = here.point
+            var cand: [GridPoint] = []
+            for dy in -40...40 {
+                for dx in -40...40 {
+                    let q = GridPoint(c0.x + dx, c0.y + dy)
+                    if let t = layer.terrain(at: q), (content.terrains[t]?.tags ?? [t.rawValue]).contains(tag) { cand.append(q) }
+                }
+            }
+            cand.sort { $0.chebyshev(to: c0) < $1.chebyshev(to: c0) }
+            var tried: Set<GridPoint> = []
+            for q in cand where !tried.contains(GridPoint(q.x / 8, q.y / 8)) && tried.count < 10 {
+                tried.insert(GridPoint(q.x / 8, q.y / 8))
+                approach(q)
+                if done(&self) { return true }
             }
             return false
         }
@@ -573,7 +600,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
 
             // SL-21: 同じ人への頼みで一言が 2 通り以上(何を・どこで を変える)。頼みの種類ごとの数も出す
             if var snap = r.snaps["SL-21"] {
-                // 手が先(INV-O8): 水はノアが 1 度汲んでから頼める
+                // 水を汲む行為はノアが水辺まで歩くと開き、手が先(INV-O8)なのでノアが 1 度汲んでから頼める
+                if case .terrain(let tag)? = content.interactions["interaction.draw_water"]?.target { snap.discover(tag: tag) }
                 snap.act("interaction.draw_water", radius: 30)
                 snap.goHome()
                 var asks: [(String, Assignment)] = []
@@ -615,7 +643,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
                     let all = replies.values.reduce(into: Set<String>()) { $0.formUnion($1) }
                     let per = replies.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value.count)" }.joined(separator: "・")
                     let single = replies.filter { $0.value.count < 2 }.keys.sorted()
-                    print("[SL-21] seed \(seed) \(p.rawValue): 返事 \(all.count) 通り(\(per))・1 通りだけの頼み \(single)・断り \(refused.sorted())")
+                    print("[SL-21] seed \(seed) \(p.rawValue): 返事 \(all.count) 通り(\(per))・1 通りだけの頼み \(single)・断り \(refused.sorted())・頼んだ種類 \(asks.map(\.0))・水の行為 \(probe.rejects["interaction.draw_water"] ?? "-")")
                     if all.count < 2 { problems.append("SL-21 seed \(seed) \(p.rawValue): 返事が 2 通りにならない(\(per))") }
                 }
             }
@@ -704,6 +732,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
                 var facts: [Bool: Set<FactID>] = [:]
                 var lit: [Bool: Bool] = [:]
                 var maps: [Bool: [Int]] = [:]
+                var dark: [Bool: Int] = [:]
                 for tend in [true, false] {
                     var b = snap
                     if tend, let fire = b.campfire(), let tender = b.members.last, tender != .noah {
@@ -721,11 +750,24 @@ final class FirstTenMinutesBotTests: XCTestCase {
                     facts[tend] = Set(b.w.knowledge.facts.keys)
                     lit[tend] = b.campfire().flatMap { b.w.placements.items[$0] }.flatMap { Hearths.state($0, content) }?.lit ?? false
                     maps[tend] = b.fb.build(b.w, revision: 0, previous: nil, report: nil).map.chunkSignatures
+                    // 灯りの外でも見える置いた物(足跡など)が、昼の地図に出ている数
+                    let frame = b.fb.build(b.w, revision: 0, previous: nil, report: nil)
+                    dark[tend] = frame.placements.filter { sp in
+                        guard case .structure(let k)? = b.w.placements.items[sp.id]?.kind else { return false }
+                        return content.structures[k]?.seenInDark == true
+                    }.count
                 }
                 let onlyUntended = (facts[false] ?? []).subtracting(facts[true] ?? [])
                 print("[SL-18] seed \(seed): 夜明けの火 番あり \(lit[true] ?? false) / 番なし \(lit[false] ?? false)"
-                      + "・番なしの夜だけ知った事実 \(onlyUntended.count)・地図のチャンクの署名が違う \(maps[true] != maps[false])")
-                if onlyUntended.isEmpty { problems.append("SL-18 seed \(seed): 番を頼まない夜だけの夜明けの印(事実)が無い") }
+                      + "・番なしの夜だけ知った事実 \(onlyUntended.count)・地図のチャンクの署名が違う \(maps[true] != maps[false])"
+                      + "・夜明けの地図の足跡の印 番あり \(dark[true] ?? 0) / 番なし \(dark[false] ?? 0)")
+                if content.structures.values.contains(where: { $0.seenInDark == true }) {
+                    if (dark[false] ?? 0) <= (dark[true] ?? 0) {
+                        problems.append("SL-18 seed \(seed): 番を頼まない夜の明け方の地図に、足跡の印が増えていない")
+                    }
+                } else if onlyUntended.isEmpty {
+                    problems.append("SL-18 seed \(seed): 番を頼まない夜だけの夜明けの印(事実)が無い")
+                }
             }
         }
         for p in problems { print("[VARY] \(p)") }
@@ -909,6 +951,20 @@ final class FirstTenMinutesBotTests: XCTestCase {
         }
         _ = b.send(.time(.startNightWork))
         b.steps(4)
+        b.readScenes()
+        // 夜の目(灯りの外でも見える置いた物)は、灯り(視界)の外に置かれているか(SL-18)
+        do {
+            let f = b.fb.build(b.w, revision: 0, previous: nil, report: nil)
+            let dark = f.placements.filter { sp in
+                guard case .structure(let k)? = b.w.placements.items[sp.id]?.kind else { return false }
+                return content.structures[k]?.seenInDark == true
+            }
+            if !dark.isEmpty {
+                let inside = dark.filter { sp in f.map.vision.contains { $0.contains(sp.at) } }
+                out.ok["夜の目が灯りの外"] = inside.isEmpty
+                if !inside.isEmpty { out.diag.append("夜の目が灯りの中: \(inside.map(\.at))") }
+            }
+        }
         _ = b.send(.time(.sleep))
         b.real += 30
         var n = 0
@@ -945,8 +1001,23 @@ final class FirstTenMinutesBotTests: XCTestCase {
         if b.members.count >= 3, let g = Picks.gather(picks.fuel, content), let a = b.find(g.id, radius: 24) {
             _ = b.send(.crew(.assign(person: b.members[1], assignment: .gather(interaction: a.id, at: a.at))))
         }
-        if b.members.count >= 3, let a = b.find("interaction.draw_water", radius: 30) {
-            _ = b.send(.crew(.assign(person: b.members[2], assignment: .gather(interaction: a.id, at: a.at))))
+        if b.members.count >= 3 {
+            // 水を汲む行為は、ノアが水辺のそばまで歩くと開く(まだなら水辺まで歩いてから頼む)
+            if b.find("interaction.draw_water", radius: 30) == nil,
+               case .terrain(let tag)? = content.interactions["interaction.draw_water"]?.target {
+                b.discover(tag: tag)
+            }
+            // 手が先(INV-O8): ノアが 1 度汲んでから頼む
+            b.act("interaction.draw_water", radius: 8)
+            var probe = b
+            probe.spent = []
+            if let a = probe.find("interaction.draw_water", radius: 30) {
+                let r = b.send(.crew(.assign(person: b.members[2], assignment: .gather(interaction: a.id, at: a.at))))
+                if let j = r.rejection { out.diag.append("水を頼めない: \(j.reason.rawValue)") }
+            } else {
+                out.diag.append("水を頼めない(行為が見つからない)")
+            }
+            b.goHome()
         }
         b.steps(4)
         // シェルター: 材料を集めて、拠点の範囲の中で焚き火に近い順に置く
@@ -1127,28 +1198,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
                     continue
                 }
                 // 手で掘るは、岩場の新しい区域に入った時の探索の出来事で開く。開いていなければ、まだ入っていない岩場の区域を回る
-                var tried: Set<GridPoint> = []
-                let rockTag = "rock"
-                if let layer = b.w.map[b.here.layer] {
-                    let c0 = b.here.point
-                    var cand: [GridPoint] = []
-                    for dy in -40...40 {
-                        for dx in -40...40 {
-                            let q = GridPoint(c0.x + dx, c0.y + dy)
-                            if let t = layer.terrain(at: q), (content.terrains[t]?.tags ?? [t.rawValue]).contains(rockTag) { cand.append(q) }
-                        }
-                    }
-                    cand.sort { $0.chebyshev(to: c0) < $1.chebyshev(to: c0) }
-                    for q in cand where !tried.contains(GridPoint(q.x / 8, q.y / 8)) && tried.count < 10 {
-                        tried.insert(GridPoint(q.x / 8, q.y / 8))
-                        b.approach(q)
-                        if b.act(mineID, radius: 6) {
-                            mined += 1
-                            break
-                        }
-                    }
-                }
-                if mined == 0 { out.diag.append("手で掘る: 岩場の区域を \(tried.count) 回っても開かない") }
+                if b.visitRegions(tag: "rock", until: { t in t.act(mineID, radius: 6) }) { mined += 1 }
+                if mined == 0 { out.diag.append("手で掘る: 岩場の区域を回っても開かない") }
             }
             out.ok["手で掘った"] = mined > 0
             guard mined > 0 else { stop("SL-25 掘る(\(b.rejects[mineID.rawValue] ?? "-"))"); break iron }
