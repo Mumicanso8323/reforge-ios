@@ -102,7 +102,7 @@ public actor GameHost {
     }
 
     /// 足元カード。
-    public func footCard(at p: GridPoint) -> FootCard? { builder.footCard(world, at: p) }
+    public func footCard(at p: GridPoint, page: Int = 0) -> FootCard? { builder.footCard(world, at: p, page: page) }
 
     /// 工程表。
     public func sheet(_ s: ProcessSheet.Source) -> ProcessSheet? { builder.sheet(s, in: world) }

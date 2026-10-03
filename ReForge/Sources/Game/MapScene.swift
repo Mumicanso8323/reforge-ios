@@ -111,6 +111,8 @@ struct MapScene {
     var preview: PlacementPreview? = nil
     var battles: [GridPoint] = []
     var beacons: [GridPoint] = []
+    /// タップで選んだマス。経路とは別の角印で示す。
+    var selected: GridPoint? = nil
 
     private struct GlyphKey: Hashable { var glyph: String; var color: RGB }
 
@@ -167,6 +169,20 @@ struct MapScene {
             ctx.fill(Path(rect), with: .color(.black))
             ctx.draw(text("・", routeColor), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
         }
+        if let selected, selected.x >= x0 && selected.x < x1 && selected.y >= y0 && selected.y < y1 {
+            let rect = cellRect(selected).insetBy(dx: 2, dy: 2)
+            let color = InkColor.accent
+            let corner: CGFloat = min(7, cellSize * 0.28)
+            var path = Path()
+            path.move(to: CGPoint(x: rect.minX + corner, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY))
+            path.addLine(to: CGPoint(x: rect.minX, y: rect.minY + corner))
+            path.move(to: CGPoint(x: rect.maxX - corner, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY - corner))
+            ctx.stroke(path, with: .color(color), lineWidth: 2)
+        }
+
         for placement in placements {
             let rect = cellRect(placement.at)
             guard rect.maxX >= 0, rect.minX <= size.width, rect.maxY >= 0, rect.minY <= size.height else { continue }
@@ -189,7 +205,27 @@ struct MapScene {
                   center.y > -cellSize, center.y < Double(size.height) + cellSize else { continue }
             let rect = CGRect(x: center.x - cellSize / 2, y: center.y - cellSize / 2, width: cellSize, height: cellSize)
             ctx.fill(Path(rect), with: .color(.black))
-            ctx.draw(text(actor.glyph, style(actor.tint).foreground(at: GridPoint(0, 0))), at: CGPoint(x: center.x, y: center.y), anchor: .center)
+            let actorColor = style(actor.tint).foreground(at: GridPoint(0, 0))
+            ctx.draw(text(actor.glyph, actorColor), at: CGPoint(x: center.x, y: center.y), anchor: .center)
+            if actor.isMember {
+                let c = center
+                let cs = cellSize
+                let triangle = Path { p in
+                    let s = cs * 0.12
+                    switch actor.facing {
+                    case .north:
+                        p.move(to: CGPoint(x: c.x, y: c.y - cs * 0.34)); p.addLine(to: CGPoint(x: c.x - s, y: c.y - cs * 0.16)); p.addLine(to: CGPoint(x: c.x + s, y: c.y - cs * 0.16))
+                    case .south:
+                        p.move(to: CGPoint(x: c.x, y: c.y + cs * 0.34)); p.addLine(to: CGPoint(x: c.x - s, y: c.y + cs * 0.16)); p.addLine(to: CGPoint(x: c.x + s, y: c.y + cs * 0.16))
+                    case .east:
+                        p.move(to: CGPoint(x: c.x + cs * 0.34, y: c.y)); p.addLine(to: CGPoint(x: c.x + cs * 0.16, y: c.y - s)); p.addLine(to: CGPoint(x: c.x + cs * 0.16, y: c.y + s))
+                    case .west:
+                        p.move(to: CGPoint(x: c.x - cs * 0.34, y: c.y)); p.addLine(to: CGPoint(x: c.x - cs * 0.16, y: c.y - s)); p.addLine(to: CGPoint(x: c.x - cs * 0.16, y: c.y + s))
+                    }
+                    p.closeSubpath()
+                }
+                ctx.fill(triangle, with: .color(actorColor.color))
+            }
         }
         if let preview {
             let color = preview.placeable ? InkColor.good : InkColor.alert

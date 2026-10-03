@@ -152,6 +152,15 @@ final class SaveTests: XCTestCase {
         }
     }
 
+    /// 操作棒を使っていない世界は、既存の保存の形を増やさない。
+    func testNilSteerIsNotWritten() throws {
+        let rig = try TestRig.publicOnly()
+        let envelope = SaveEnvelope(slot: .resume, world: Fixture.world(rig), content: Fixture.stamp)
+        let text = try XCTUnwrap(String(data: SaveCodec.encode(envelope), encoding: .utf8))
+        XCTAssertFalse(text.contains("\"steer\""))
+        XCTAssertFalse(text.contains("\"steerBlocked\""))
+    }
+
     /// 古い版は移行を 1 つずつ通して読む。移行が無ければ読まない(壊れた状態で始めない)。
     func testMigrationChain() throws {
         let rig = try TestRig.publicOnly()

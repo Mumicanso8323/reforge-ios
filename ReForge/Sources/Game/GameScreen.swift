@@ -74,6 +74,7 @@ struct GameScreen: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             if tab == .map, app.activePrologue == nil {
+                MapActionBand(store: store)
                 FootCardView(store: store)
             }
             if app.activePrologue == nil {

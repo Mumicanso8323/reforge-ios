@@ -17,17 +17,17 @@ struct MapCanvasView: View {
     @State private var pinchStartZoom: Int?
     @State private var longPressTask: Task<Void, Never>?
     @State private var terrainCache = MapTerrainCache()
+    @State private var autoReturnTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private struct Touch {
         var start: CGPoint
         var last: CGPoint
         var panned = false
-        var longPressed = false
         var pinching = false
     }
 
     static let panThreshold: CGFloat = 10
-    static let longPressNanoseconds: UInt64 = 500_000_000
 
     var body: some View {
         GeometryReader { geo in
@@ -49,7 +49,8 @@ struct MapCanvasView: View {
             .contentShape(Rectangle())
             .gesture(drag(view))
             .simultaneousGesture(pinch)
-            .overlay(alignment: .bottomTrailing) { recenterButton }
+            .overlay(alignment: layout.mapControlAlignment(.left)) { zoomControls }
+            .overlay(alignment: layout.mapControlAlignment()) { mapControls }
             .overlay(alignment: .top) { bubbles }
             .overlay(alignment: .bottom) { placingBar }
             .overlay(alignment: .bottom) { forgePanel }
@@ -58,6 +59,11 @@ struct MapCanvasView: View {
         }
         .background(Color.black)
         .clipped()
+        .onAppear {
+            let plan = MapTouchSettings.zoomPlan()
+            camera = MapCamera(center: camera.center, zoom: plan.defaultZoom, following: camera.following,
+                               zoomLevels: plan.levels)
+        }
     }
 
     // MARK: - 絵
@@ -82,8 +88,10 @@ struct MapCanvasView: View {
         MapScene(camera: camera, map: store.mapView, chunks: store.chunks, actors: store.actors,
                  placements: store.placements, route: store.route, night: store.clock.isNight, elapsed: elapsed,
                  terrains: store.content.terrains, preview: store.preview, battles: store.battles.map(\.at),
-                 beacons: store.mapView.beacons)
+                 beacons: store.mapView.beacons, selected: store.selected)
     }
+
+    private var layout: HUDLayout { .portrait(hand: MapTouchSettings.hand()) }
 
     // MARK: - 指
 
@@ -92,16 +100,15 @@ struct MapCanvasView: View {
             .onChanged { v in
                 if touch == nil {
                     touch = Touch(start: v.startLocation, last: v.startLocation)
-                    scheduleLongPress(at: v.startLocation, view: view)
                 }
-                guard var t = touch, !t.pinching, !t.longPressed else { return }
+                guard var t = touch, !t.pinching else { return }
                 let moved = hypot(v.location.x - t.start.x, v.location.y - t.start.y)
                 if !t.panned, moved > Self.panThreshold {
                     t.panned = true
-                    longPressTask?.cancel()
                     // 追従を外す: いま見えている中心から見回しを始める
                     camera.center = liveCamera().center
                     camera.following = false
+                    autoReturnTask?.cancel()
                 }
                 if t.panned {
                     camera.pan(byScreen: Double(v.location.x - t.last.x), Double(v.location.y - t.last.y),
@@ -111,22 +118,26 @@ struct MapCanvasView: View {
                 touch = t
             }
             .onEnded { v in
-                longPressTask?.cancel()
                 defer { touch = nil }
-                guard let t = touch, !t.panned, !t.longPressed, !t.pinching else { return }
-                store.walk(to: liveCamera().cell(at: ScreenPoint(x: Double(v.location.x), y: Double(v.location.y)), in: view))
+                guard let t = touch, !t.pinching else { return }
+                if t.panned {
+                    store.logPlay(kind: "pan", fields: ["zone": "middle"])
+                    scheduleAutoReturn()
+                    return
+                }
+                let cell = liveCamera().cell(at: ScreenPoint(x: Double(v.location.x), y: Double(v.location.y)), in: view)
+                store.logPlay(kind: "select", fields: ["x": "\(cell.x)", "y": "\(cell.y)", "zone": "middle"])
+                if cell == store.focus {
+                    store.clearSelection()
+                    return
+                }
+                if MapTouchSettings.defaults.bool(forKey: MapTouchSettings.tapWalkKey) {
+                    store.select(cell)
+                    store.walkToSelection()
+                } else {
+                    store.select(cell)
+                }
             }
-    }
-
-    private func scheduleLongPress(at p: CGPoint, view: ScreenSize) {
-        longPressTask?.cancel()
-        longPressTask = Task { @MainActor in
-            try? await Task.sleep(nanoseconds: Self.longPressNanoseconds)
-            guard !Task.isCancelled, var t = touch, !t.panned, !t.pinching else { return }
-            t.longPressed = true
-            touch = t
-            store.inspect(liveCamera().cell(at: ScreenPoint(x: Double(p.x), y: Double(p.y)), in: view))
-        }
     }
 
     private var pinch: some Gesture {
@@ -134,16 +145,21 @@ struct MapCanvasView: View {
             .onChanged { v in
                 if pinchStartZoom == nil {
                     pinchStartZoom = camera.zoom
-                    longPressTask?.cancel()
                 }
                 if var t = touch {
                     t.pinching = true
                     touch = t
                 }
-                let z = MapCamera.snappedZoom(from: pinchStartZoom ?? camera.zoom, pinchScale: Double(v.magnification))
+                let z = MapCamera.snappedZoom(from: pinchStartZoom ?? camera.zoom, pinchScale: Double(v.magnification),
+                                               levels: MapTouchSettings.zoomPlan().levels)
                 if z != camera.zoom { camera.setZoom(z) }
             }
-            .onEnded { _ in pinchStartZoom = nil }
+            .onEnded { _ in
+                if let before = pinchStartZoom, before != camera.zoom {
+                    store.logPlay(kind: "zoom", fields: ["level": "\(camera.zoom)", "source": "pinch", "zone": "middle"])
+                }
+                pinchStartZoom = nil
+            }
     }
 
     // MARK: - 重ねるもの
@@ -152,18 +168,64 @@ struct MapCanvasView: View {
         if !camera.following {
             Button {
                 if let n = noahPosition { camera.recenter(on: n) } else { camera.following = true }
+                store.clearSelection()
             } label: {
-                Text(verbatim: "◎")
-                    .font(.custom(FontBook.mapFont, fixedSize: 28))
-                    .foregroundStyle(Color(red: 1, green: 1, blue: 0.4))
-                    .frame(width: 48, height: 48)
-                    .background(Circle().fill(Color.black.opacity(0.75)))
-                    .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
+                VStack(spacing: 0) {
+                    Text(verbatim: "@")
+                        .font(.custom(FontBook.mapFont, fixedSize: 22))
+                    Text("戻る").font(InkFont.caption)
+                }
+                .foregroundStyle(Color(red: 1, green: 1, blue: 0.4))
+                .frame(width: 48, height: 48)
+                .background(Circle().fill(Color.black.opacity(0.75)))
+                .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
             }
             .padding(12)
             .accessibilityLabel(Text("ノアに戻る"))
             .accessibilityIdentifier("recenterButton")
         }
+    }
+
+    private var mapControls: some View {
+        Group {
+            if MapTouchSettings.defaults.bool(forKey: MapTouchSettings.stickPlacementKey) {
+                HStack(spacing: 10) {
+                    recenterButton
+                    if store.canSteer { StickControl(store: store, layout: layout) }
+                }
+            } else {
+                VStack(spacing: 10) {
+                    recenterButton
+                    if store.canSteer { StickControl(store: store, layout: layout) }
+                }
+            }
+        }
+        .padding(layout.stickInset)
+    }
+
+    private func scheduleAutoReturn() {
+        guard (MapTouchSettings.defaults.object(forKey: MapTouchSettings.autoReturnKey) as? Bool) ?? true else { return }
+        autoReturnTask?.cancel()
+        autoReturnTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 8_000_000_000)
+            guard !Task.isCancelled, !camera.following, let position = noahPosition else { return }
+            withAnimation(.easeOut(duration: reduceMotion ? 0 : 0.4)) {
+                camera.recenter(on: position)
+            }
+        }
+    }
+
+    private var zoomControls: some View {
+        VStack(spacing: 6) {
+            Button { camera.setZoom(camera.zoom + 1); store.logPlay(kind: "zoom", fields: ["level": "\(camera.zoom)", "source": "button", "zone": "bottom"]) } label: { Text(verbatim: "+") }
+                .buttonStyle(.ink(.secondary, fill: false))
+                .disabled(camera.zoom >= MapTouchSettings.zoomPlan().levels.count - 1)
+            Button { camera.setZoom(camera.zoom - 1); store.logPlay(kind: "zoom", fields: ["level": "\(camera.zoom)", "source": "button", "zone": "bottom"]) } label: { Text(verbatim: "−") }
+                .buttonStyle(.ink(.secondary, fill: false))
+                .disabled(camera.zoom <= 0)
+        }
+        .frame(width: 44)
+        .padding(12)
     }
 
     /// 残骸のパネル(段階つきの資料など)。読める行と ■ の行、読める割合。閉じるまで地図は動いたまま。

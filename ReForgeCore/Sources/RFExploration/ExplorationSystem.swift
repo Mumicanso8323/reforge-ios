@@ -17,6 +17,10 @@ public struct ExplorationSystem: SimSystem {
         guard case .exploration(let c) = command else { return .notMine }
         switch c {
         case .interact(let id, let at, let holding, let person):
+            if person == nil || person == .noah {
+                ctx.world.people[.noah]?.steer = nil
+                ctx.world.people[.noah]?.steerBlocked = nil
+            }
             return Interactions.command(id, at: at, holding: holding, actor: person ?? .noah, &ctx)
         case .revealMap(let around, let radius, let cause):
             return MapEffects.reveal(around: around, radius: radius, cause: cause, &ctx)

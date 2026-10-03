@@ -98,6 +98,10 @@ public struct PersonState: Codable, Equatable, Sendable {
     public var facing: Direction = .south
     /// 歩いている途中(経路と、次のマスへの進み具合 0...1000)。
     public var motion: Motion?
+    /// 操作棒で続けて進む向き。nil のときは保存にも出ない。
+    public var steer: StickDirection?
+    /// 同じ向きで通れない場所に続けて触れたとき、通知を一度だけにする印。
+    public var steerBlocked: StickDirection?
     /// プレイヤーが決めた役割(運搬・モジュールに付く…)。
     public var assignment: Assignment = .idle
     /// 出来事・範囲の効果がプレイヤーの配属を上書きしているとき(その間 assignment は守られない)。

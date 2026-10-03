@@ -27,7 +27,7 @@ struct ResolvedTarget: Equatable {
 /// - 有限の部品: PartOp(取り外し・解体・作り直し・修理の段階)。状態は exploration.poi[POI].parts に来歴つきで残る。
 public enum Interactions {
     /// 手の届く距離(マス。チェビシェフ)。
-    static let reach = 1
+    static let reach = Reach.tiles
 
     // MARK: コマンド
 

@@ -1,0 +1,10 @@
+{
+  "language": "zh-Hans",
+  "texts": {
+    "ui.foot.hint.empty": "现在这里没有可做的事",
+    "ui.foot.hint.unseen": "靠近后就能看见",
+    "ui.foot.hint.far": "太远了——靠近后可以操作",
+    "ui.foot.hint.busy": "请等待工作完成",
+    "reason.crew.out_of_range": "从这里走不到那里"
+  }
+}

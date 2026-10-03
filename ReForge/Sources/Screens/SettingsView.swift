@@ -11,6 +11,13 @@ struct SettingsView: View {
     /// 開発の設定(DEBUG と dev のビルドだけ。PT で決まるまで製品には出さない)。保存には入れない。
     @AppStorage(GameStore.devHoldClockKey) private var devHoldClock = false
     @AppStorage(PrologueStyle.defaultsKey) private var prologueStyle = PrologueStyle.a.rawValue
+    @AppStorage(MapTouchSettings.handKey) private var mapTouchHand = HUDLayout.Hand.right.rawValue
+    @AppStorage(MapTouchSettings.directionsKey) private var mapTouchDirections = 8
+    @AppStorage(MapTouchSettings.neutralKey) private var mapTouchNeutral = 14
+    @AppStorage(MapTouchSettings.tapWalkKey) private var mapTouchTapWalk = false
+    @AppStorage(MapTouchSettings.stickPlacementKey) private var mapTouchStickPlacement = false
+    @AppStorage(MapTouchSettings.zoomPlanKey) private var mapTouchZoomPlan = MapZoomPlan.b.rawValue
+    @AppStorage(MapTouchSettings.autoReturnKey) private var mapTouchAutoReturn = true
 
     private var version: String {
         let v = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
@@ -81,6 +88,27 @@ struct SettingsView: View {
                         .pickerStyle(.segmented)
                         .accessibilityIdentifier("devPrologueStylePicker")
                         .padding(.top, 10)
+                        Picker("操作棒の利き手", selection: $mapTouchHand) {
+                            Text("右").tag(HUDLayout.Hand.right.rawValue)
+                            Text("左").tag(HUDLayout.Hand.left.rawValue)
+                        }
+                        Picker("向きの数", selection: $mapTouchDirections) {
+                            Text("8").tag(8)
+                            Text("4").tag(4)
+                        }
+                        Picker("中立の幅", selection: $mapTouchNeutral) {
+                            Text("10pt").tag(10)
+                            Text("14pt").tag(14)
+                            Text("20pt").tag(20)
+                        }
+                        Toggle("地図のタップですぐ歩く", isOn: $mapTouchTapWalk)
+                        Toggle("操作棒をカードの横に置く", isOn: $mapTouchStickPlacement)
+                        Picker("拡大の段", selection: $mapTouchZoomPlan) {
+                            Text("A").tag(MapZoomPlan.a.rawValue)
+                            Text("B").tag(MapZoomPlan.b.rawValue)
+                            Text("C").tag(MapZoomPlan.c.rawValue)
+                        }
+                        Toggle("見回しを自動で戻す", isOn: $mapTouchAutoReturn)
                     }
                 }
 

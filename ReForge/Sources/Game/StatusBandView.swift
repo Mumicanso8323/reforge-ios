@@ -37,7 +37,7 @@ struct StatusBandView: View {
                 }
                 .fixedSize(horizontal: false, vertical: true)
             }
-            // 日没の帯の火の見込み(薪の置き場の本数を入れた 4 段。PT-B1)
+            // 日没の火の見込みは見るだけの帯に残す。
             if store.decision == nil, !store.clock.bandActions.isEmpty, let o = store.clock.fireOutlook {
                 HStack(spacing: 4) {
                     Text("火:")
@@ -45,35 +45,6 @@ struct StatusBandView: View {
                 }
                 .foregroundStyle(InkColor.textDim)
                 .accessibilityIdentifier("duskFireOutlook")
-            }
-            if let d = store.decision {
-                HStack(spacing: 8) {
-                    ForEach(Array(d.choices.enumerated()), id: \.offset) { _, c in
-                        Button {
-                            store.decide(c.id)
-                        } label: {
-                            Text(verbatim: c.label).frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.ink(.secondary))
-                    }
-                }
-            } else if !store.clock.bandActions.isEmpty {
-                // 夜の締めの 3 行(日没の間だけ。2 つのボタンの上)
-                if let wrap = store.dayWrap, !wrap.isEmpty {
-                    DayWrapLinesView(wrap: wrap)
-                }
-                HStack(spacing: 8) {
-                    ForEach(store.clock.bandActions, id: \.self) { a in
-                        Button {
-                            store.choose(a)
-                        } label: {
-                            label(a).frame(maxWidth: .infinity)
-                        }
-                        // 寝るが主(錆)、夜作業は並びの選択肢
-                        .buttonStyle(.ink(a == .sleep ? .primary : .secondary))
-                        .accessibilityIdentifier(a == .sleep ? "sleepButton" : "nightWorkButton")
-                    }
-                }
             }
             if let r = store.resumeBanner {
                 ResumeBannerView(line: r)
@@ -122,10 +93,4 @@ struct StatusBandView: View {
         }
     }
 
-    @ViewBuilder private func label(_ a: BandAction) -> some View {
-        switch a {
-        case .startNightWork: Text("夜作業をする")
-        case .sleep: Text("寝る")
-        }
-    }
 }

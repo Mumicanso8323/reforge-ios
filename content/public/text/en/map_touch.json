@@ -1,0 +1,10 @@
+{
+  "language": "en",
+  "texts": {
+    "ui.foot.hint.empty": "Nothing can be done here now",
+    "ui.foot.hint.unseen": "Move closer to see it",
+    "ui.foot.hint.far": "Too far — move closer to act",
+    "ui.foot.hint.busy": "Wait for the work to finish",
+    "reason.crew.out_of_range": "Too far to walk there from here"
+  }
+}

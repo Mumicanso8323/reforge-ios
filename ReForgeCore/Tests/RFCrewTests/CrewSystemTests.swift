@@ -60,21 +60,21 @@ final class CrewSystemTests: XCTestCase {
 
     // MARK: - 歩く(1 秒 4 マス・経路どおり・行き先の変更)
 
-    /// 1 実秒 4 マス(原作 MapScreen.cs:71)。昼の実時間で 3 秒 = 12 マス。刻みによらない。
+    /// 1 実秒 4 マス(原作 MapScreen.cs:71)。歩ける範囲(半径 8)の内で 1.5 秒 = 6 マス。刻みによらない。
     func testWalksFourTilesPerRealSecond() throws {
         let rig = try TestRig.publicOnly()
         XCTAssertEqual(CrewRules.progressPerStep(rig.content.clock), 375, "既定の時計で 1 ステップ 0.375 マス")
         for dt in [1.0 / 60, 0.37, 1.0] {
             var w = world(rig)
             let start = spawn(w)
-            XCTAssertNil(apply(rig, &w, .walk(to: at(w, 14, 0))).rejection)
+            XCTAssertNil(apply(rig, &w, .walk(to: at(w, 8, 0))).rejection)
             var t = 0.0
-            while t < 3.0 - 1e-9 {
-                let d = min(dt, 3.0 - t)
+            while t < 1.5 - 1e-9 {
+                let d = min(dt, 1.5 - t)
                 _ = rig.simulation.advance(&w, realSeconds: d)
                 t += d
             }
-            XCTAssertEqual(w.people[.noah]!.position!.point.x - start.point.x, 12, "刻み \(dt) 秒")
+            XCTAssertEqual(w.people[.noah]!.position!.point.x - start.point.x, 6, "刻み \(dt) 秒")
         }
     }
 
@@ -154,22 +154,20 @@ final class CrewSystemTests: XCTestCase {
                        "reason.walk.unreachable")
     }
 
-    /// 霧の先も楽観的な経路で歩き、霧が晴れて水が見えたら引き直す(水には入らない)。
-    func testFogOptimisticRouteIsReplannedWhenRevealed() throws {
+    /// 歩ける範囲(視界の半径)の外へは歩けない。範囲の中の水の壁は、切れ目を通って回り込む(水には入らない)。
+    func testWalkIsBoundedByRangeAndRoutesAroundWater() throws {
         let rig = try TestRig.publicOnly()
         var w = world(rig)
         let s = spawn(w).point
-        // 視界(8)の外に横長の水の壁。切れ目は左端
-        water(&w, (-12...13).map { GridPoint(s.x + $0, s.y - 11) })
+        water(&w, (-12...13).map { GridPoint(s.x + $0, s.y - 5) })
         _ = rig.simulation.runSteps(1, &w)
-        XCTAssertFalse(w.knowledge.mapKnown[.surface]![GridPoint(s.x, s.y - 11)], "壁はまだ霧の中")
-        let goal = WorldPoint(.surface, GridPoint(s.x, s.y - 14))
+        let beyond = WorldPoint(.surface, GridPoint(s.x, s.y - 14))
+        XCTAssertEqual(apply(rig, &w, .walk(to: beyond)).rejection?.reason, "reason.crew.out_of_range")
+        let goal = WorldPoint(.surface, GridPoint(s.x, s.y - 7))
         XCTAssertNil(apply(rig, &w, .walk(to: goal)).rejection)
-        XCTAssertEqual(w.people[.noah]!.motion!.throughFog, true)
-        XCTAssertTrue(w.people[.noah]!.motion!.path.contains(GridPoint(s.x, s.y - 11)), "知らないので真っすぐ")
         var visited: [GridPoint] = []
         walkUntilStopped(rig, &w, limit: 2000) { visited.append($0.people[.noah]!.position!.point) }
-        XCTAssertEqual(w.people[.noah]!.position, goal)
+        XCTAssertEqual(w.people[.noah]!.position!.point.chebyshev(to: goal.point), 0)
         XCTAssertFalse(visited.contains { w.map[.surface]!.terrain(at: $0) == "water" }, "見えた水には入らない")
     }
 
@@ -411,11 +409,11 @@ final class CrewSystemTests: XCTestCase {
                 XCTAssertNotNil(w.people[.noah]!.override)
             }
             let start = spawn(w).point
-            XCTAssertNil(apply(rig, &w, .walk(to: at(w, 9, 0))).rejection, "名指しされてもタップで歩ける")
+            XCTAssertNil(apply(rig, &w, .walk(to: at(w, 8, 0))).rejection, "名指しされてもタップで歩ける")
             _ = rig.simulation.runSteps(24, &w)
             return w.people[.noah]!.position!.point.x - start.x
         }
-        XCTAssertEqual(tilesWalked(drawn: false), 9)
+        XCTAssertEqual(tilesWalked(drawn: false), 8)
         let heavy = tilesWalked(drawn: true)
         XCTAssertGreaterThan(heavy, 0, "止めない")
         XCTAssertLessThan(heavy, 4, "重い足取り")
