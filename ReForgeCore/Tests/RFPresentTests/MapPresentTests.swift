@@ -470,6 +470,22 @@ final class MapPresentTests: XCTestCase {
         XCTAssertLessThan(night.walkable.map { $0.maxX - $0.minX }.max() ?? 0, 16, "夜は昼より狭い")
     }
 
+    /// 灯りが 1 つも無い夜(火が消えた夜も同じ)でも、ノアは動けなくならない(歩ける範囲はノアの夜の視界。操作棒も出る)。
+    func testNightWithoutLightKeepsNoahWalkable() throws {
+        var w = world()
+        let noah = try XCTUnwrap(w.people[.noah]?.position)
+        w.clock.held = false
+        w.clock.phase = .nightWork
+        XCTAssertTrue(w.placements.sortedIDs.isEmpty, "灯りになる置いた物が無い")
+        let frame = builder.build(w, revision: 1, previous: nil, report: nil)
+        XCTAssertTrue(frame.canSteer, "灯りが無くても操作棒は出る")
+        for d in [GridPoint(1, 0), GridPoint(-1, 0), GridPoint(0, 1), GridPoint(0, -1)] {
+            let c = GridPoint(noah.point.x + d.x, noah.point.y + d.y)
+            XCTAssertTrue(frame.walkable.contains { $0.y == c.y && $0.minX <= c.x && c.x <= $0.maxX }, "ノアの隣 \(c) は歩ける範囲に入る")
+        }
+        XCTAssertGreaterThan(frame.walkable.count, 1, "歩ける範囲はノアのマス 1 つではない")
+    }
+
     // MARK: - 上の帯
 
     func testBandShowsObjectiveAndTimeChoicesWithoutSheets() {
