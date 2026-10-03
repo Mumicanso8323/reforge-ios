@@ -220,10 +220,22 @@ final class AppTests: XCTestCase {
             + "darkStart=\(store.darkStart != nil) notice=\(store.notice ?? "nil")"
     }
 
-    func testSelectingTwiceStartsWalkingWithoutSavingSelection() async throws {
-        let content = try content()
+    /// 焚き火を置いて点けた世界(火が点くまでは歩ける範囲が空なので、歩く確かめはこの世界で行う)。
+    private func litWorld(_ content: ContentDB) -> WorldState {
         var world = GameBootstrap.newWorld(content: content, seed: 5)
         world.clock.held = false
+        let origin = world.map.spawn
+        var ctx = StepContext(world: world, content: content)
+        EffectApplier.apply([
+            .placeStructure(structure: "structure.campfire", at: .point(at: origin), built: true),
+            .hearth(at: .point(at: origin), op: .ignite()),
+        ], &ctx, cause: nil)
+        return ctx.world
+    }
+
+    func testSelectingTwiceStartsWalkingWithoutSavingSelection() async throws {
+        let content = try content()
+        let world = litWorld(content)
         let start = try XCTUnwrap(world.people[.noah]?.position)
         let store = GameStore(content: content, world: world, saves: tempSaves())
         await store.load()
@@ -256,8 +268,7 @@ final class AppTests: XCTestCase {
     /// 歩ける範囲の外を 2 度選んでも歩かず、断りの 1 行が出る(範囲の外のマスは行為も歩きも出さない)。
     func testSelectingOutsideWalkableTwiceRefusesWithoutMoving() async throws {
         let content = try content()
-        var world = GameBootstrap.newWorld(content: content, seed: 5)
-        world.clock.held = false
+        let world = litWorld(content)
         let start = try XCTUnwrap(world.people[.noah]?.position)
         let store = GameStore(content: content, world: world, saves: tempSaves())
         await store.load()
