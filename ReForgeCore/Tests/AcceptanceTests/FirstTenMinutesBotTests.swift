@@ -401,6 +401,11 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var fireAtDawn = 0
         var shelterAt: [Int] = []
         var worstGap = 0.0
+        // INV-S3: 応え(場面を始める出来事)と応えの間。600 秒までの間のうち 90 秒を超えるものを、前後の出来事の組で数える
+        var longGaps: [String: [Int]] = [:]
+        var gapStarts: [String: [Int]] = [:]
+        var seedsOver = 0
+        var worstAnswerGap = 0
         for seed in 0..<UInt64(seeds) {
             let r = run(seed: seed, content: content, picks: picks, stack: stack)
             for (k, v) in r.ok where !v { failed[k, default: 0] += 1 }
@@ -408,6 +413,22 @@ final class FirstTenMinutesBotTests: XCTestCase {
             if let id = r.shelterScene, let t = r.log.first(where: { $0.0 == id })?.1 { shelterAt.append(Int(t)) }
             let times = r.log.map(\.1).filter { $0 <= 600 }
             worstGap = max(worstGap, zip(times, times.dropFirst()).map { $1 - $0 }.max() ?? 0)
+            let answers = r.log.filter { $0.1 <= 600 && Self.hasScene($0.0, content) }
+            var over = false
+            for (a, b) in zip(answers, answers.dropFirst()) {
+                let gap = Int(b.1 - a.1)
+                worstAnswerGap = max(worstAnswerGap, gap)
+                if gap > 90 {
+                    let key = "\(a.0.rawValue) → \(b.0.rawValue)"
+                    longGaps[key, default: []].append(gap)
+                    gapStarts[key, default: []].append(Int(a.1))
+                    over = true
+                }
+            }
+            if over { seedsOver += 1 }
+            if seed == 0 {
+                print("[SL-40] seed 0 応え: " + answers.map { "\($0.0.rawValue)@\(Int($0.1))s" }.joined(separator: " "))
+            }
             if seed < 2 || r.ok.values.contains(false) {
                 print("[SL-40] seed \(seed): " + r.log.map { "\($0.0.rawValue)@\(Int($0.1))s" }.joined(separator: " "))
                 print("[SL-40] seed \(seed) 段: \(r.ok.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" })")
@@ -418,6 +439,12 @@ final class FirstTenMinutesBotTests: XCTestCase {
         let med = shelterAt.isEmpty ? -1 : shelterAt[shelterAt.count / 2]
         print("[SL-40] \(seeds) seed(山へ積む \(stack)): 夜明けに火が残った \(fireAtDawn) / 建った後の場面 \(shelterAt.count) 走"
             + "(中央 \(med) 秒・最長 \(shelterAt.last ?? -1) 秒)/ 出来事の間のいちばん長い所 \(Int(worstGap)) 秒(600 秒まで)")
+        print("[INV-S3] \(seeds) seed: 応えの間が 90 秒を超えた seed \(seedsOver) / いちばん長い間 \(worstAnswerGap) 秒")
+        for (k, v) in longGaps.sorted(by: { $0.value.count > $1.value.count }).prefix(12) {
+            let g = v.sorted()
+            let st = (gapStarts[k] ?? []).sorted()
+            print("[INV-S3]   \(k): \(v.count) seed(間 中央 \(g[g.count / 2]) 秒・最長 \(g.last!) 秒。始まり 中央 \(st[st.count / 2]) 秒)")
+        }
         print("[SL-40] \(seeds) seed: 届かなかった段 \(failed.sorted { $0.key < $1.key })")
         XCTAssertEqual(failed, [:], "届かなかった段がある")
     }
