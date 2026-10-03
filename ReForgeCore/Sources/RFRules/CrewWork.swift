@@ -25,8 +25,9 @@ public enum CrewWork {
             return Rejection("reason.assign.not_done_by_hand", detail: ["family": .string(fam.rawValue)])
         }
         if isWork(a), let cap = workable(w, c) {
-            // 今その人を除いて働いている数が枠に届いていれば、頼めない
-            let others = explicitWorkers(w).filter { $0 != person }
+            // 今その人を除いて「ノアの頼み」で働いている数が枠に届いていれば、頼めない。
+            // 自発の作業(override)は頼みに押しのけられるので数えない(W-27)。
+            let others = askedWorkers(w).filter { $0 != person }
             if others.count >= cap {
                 return Rejection("reason.assign.no_slot", detail: ["count": .int(Int64(cap))])
             }
@@ -97,7 +98,9 @@ public enum CrewWork {
     public static func working(_ w: WorldState, _ c: ContentDB) -> Set<PersonID>? {
         guard let cap = workable(w, c) else { return nil }
         var out: [PersonID] = []
-        for id in byAssignmentOrder(explicitWorkers(w), w) where out.count < cap { out.append(id) }
+        // 枠にはノアの頼み(頼んだ順)を先に入れ、残りを自発の作業(override)に。超えた分は自発から休む(W-27)。
+        for id in byAssignmentOrder(askedWorkers(w), w) where out.count < cap { out.append(id) }
+        for id in byAssignmentOrder(spontaneousWorkers(w), w) where out.count < cap { out.append(id) }
         for id in crew(w) where out.count < cap && !out.contains(id) {
             if case .idle = w.people.effectiveAssignment(id) ?? .idle { out.append(id) }
         }
@@ -119,6 +122,16 @@ public enum CrewWork {
 
     static func explicitWorkers(_ w: WorldState) -> [PersonID] {
         crew(w).filter { isWork(w.people.effectiveAssignment($0) ?? .idle) }
+    }
+
+    /// ノアの頼みで働いている人(override の無い人)。
+    static func askedWorkers(_ w: WorldState) -> [PersonID] {
+        explicitWorkers(w).filter { w.people[$0]?.override == nil }
+    }
+
+    /// 自発の作業で働いている人(override で付いた配属)。
+    static func spontaneousWorkers(_ w: WorldState) -> [PersonID] {
+        explicitWorkers(w).filter { w.people[$0]?.override != nil }
     }
 
     /// 頼んだ順(来歴の最後の配属の記録が古い順。記録が無い人は先頭・人の順)。
