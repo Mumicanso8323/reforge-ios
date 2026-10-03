@@ -220,15 +220,16 @@ final class AppTests: XCTestCase {
         store.select(target)
         XCTAssertEqual(store.selected, target)
         XCTAssertTrue(store.route.isEmpty)
+        XCTAssertNil(store.notice, "1 度目の選びでは歩く命令を送らない(送れば受け付けか断りの 1 行が出る)")
         let afterFirstSelection = await store.host.world.people[.noah]?.position
         XCTAssertEqual(afterFirstSelection, start)
 
         store.select(target)
-        // 歩き出したか(経路・動き・着いた、のどれか)。1 マスなので、歩き終えていてもよい
+        // 歩く命令が送られたか(経路・動き・着いた、または断りの 1 行のどれか。灯りの範囲の外なら断られる)
         var started = false
         for _ in 0..<100 {
             let noah = await store.host.world.people[.noah]
-            if noah?.motion != nil || noah?.position?.point == target || !store.route.isEmpty { started = true; break }
+            if noah?.motion != nil || noah?.position?.point == target || !store.route.isEmpty || store.notice != nil { started = true; break }
             try await Task.sleep(nanoseconds: 20_000_000)
         }
         XCTAssertTrue(started, "同じマスの 2 度目の選びで歩き出す")
