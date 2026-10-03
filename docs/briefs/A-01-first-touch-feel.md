@@ -1,0 +1,41 @@
+# A-01 最初の手触り: 起動の色・語・序の明るさと飛ばす・振動・配る版の設定(Codex への説明書)
+
+書いた人: architect(統合担当)。実装: Codex(relay:codex-impl)。土台: 出す時点の `integration-c` の先頭。ほぼアプリだけ(本体の変更は無いか、ごく小さい)。
+もと: 最初の 10 分の版(非公開の計画の SL-01・SL-02・SL-03・SL-05・SL-34・SL-39)と、初見の監査(5・6・15・19・21)。**この版は日本語だけで配る**(翻訳はしない。ほかの 4 言語は静的な確かめと画面の写真が落ちない最小の形のまま)。
+
+## 1. 起動の画面の地の色(SL-01)
+- 起動から題の画面まで、白が 1 フレームも出ない。`project.yml` の `INFOPLIST_KEY_UILaunchScreen_Generation` の生成の起動画面に、地の色(`InkColor.prologueGround` と同じ色の色の資産。`Assets.xcassets` に `LaunchBackground` を足す)を `UILaunchScreen` の `UIColorName` で渡す。題の画面・読み込み中の画面・`RootView` の一番下の地も、同じ色(暗い場面と同じ)にする。
+
+## 2. 語をそろえる(SL-02)
+- 「はじめから」と「最初から」が同じ意味で混ざっている(題の画面・ゲームオーバーの 4 択・説明の文)。画面の文言は「はじめから」に一本化する。`python3 tools/gen-xcstrings.py` でカタログを作り直す。
+
+## 3. 序の明るさと「飛ばす」(SL-03)
+- 序(`PrologueScene`)の文の色と地の色の明るさの比を **4.5 以上**にする(WCAG の相対輝度で計算。色を決める所に、比を計算するアプリのテストを 1 つ置く)。序の見せ方の 3 案(A・B・C)のどれでも満たす。
+- 序を**一度最後まで読んだ端末**(`UserDefaults` に 1 つの印。保存には入れない)では、2 回目からの序に、右上に「飛ばす」のボタンを 1 つ出す(44pt 以上)。押すと、序の残りの行を本体の今の送り(`.narrative(.advanceScene)`)で最後まで送る(序の効果・`then` は今のまま起きる。本体に新しい命令は足さない)。1 回目は出さない。確かめのダイアログは出さない。
+- 角の設定のボタンが序の間は隠れる今の決まり(DEC-F9)はそのまま。「飛ばす」は角のボタンと重ならない位置。
+
+## 4. 振動(SL-05・SL-34)
+- `ReForge/Sources/Game/Haptics.swift` を足し、振動の出し方を 1 か所にまとめる(`UIImpactFeedbackGenerator` と `UINotificationFeedbackGenerator`。減らす設定・シミュレータでは何もしない)。
+- 鳴らす出来事は 5 つだけ: **火が点いた**・**採取で物を得た**(採取の行為の終わり)・**火床にくべた**・**置いた物の部品の状態が「開いた」に変わった**(`setPart` の効果で状態が変わった時。どの部品かはデータ次第)・**建った**(建造が完了した)。本体の `StepReport` の出来事(`DomainEvent`)から判断する(画面の推測で鳴らさない)。PT-B3 の脈打ち(feedback pulses)が同じ出来事を拾っていれば、その口に並べる。
+- 暗い場面の長押し(PT-B8 の `DarkStartActionButton`)の間は、進みに合わせて軽い振動を少しずつ強める(押し始めは弱く、終わりに近いほど強く。間隔は 0.25 秒程度。離したら止める)。
+- 音は足さない(この版は振動だけ)。
+
+## 5. 配る版の設定(SL-39)
+- 設定の「開発」の節(時計を止める・序の見せ方の 3 案など)は **DEBUG のビルドだけ**に出す。dev の ipa(知らない人に配る版)には出さない。dev の ipa の作り方(CI の `ios` の仕事)を読んで、DEBUG と区別できる形で切る(dev の ipa の名前・タグ・URL は変えない)。
+- 「記録を消す」は設定の一番下に動かす。押し方は今の形のまま(新しい確かめのダイアログを足さない。オーナーの決まり)。
+
+## テスト
+- アプリのテスト(`ReForgeTests`): 序の文と地の明るさの比が 4.5 以上(3 案とも)。「飛ばす」の印: 初回は出ない・読み終えると立つ・2 回目は出る(`UserDefaults` を試験用に差し替えて)。振動: 5 つの出来事それぞれで、振動の口が 1 回呼ばれる(振動の口を差し替えて数える)。ほかの出来事では呼ばれない。
+- 画面の写真の UI テスト(`ScreenSnapshotTests`): 序で「飛ばす」が初回は無い。設定の写真で開発の節が無いことは、DEBUG で撮るので確かめない(コードの `#if DEBUG` で担保)。
+- 本体: 変更があれば `swift test --package-path ReForgeCore` が公開の層で全部通る。
+
+## 受け入れ
+- 静的: `check-app-switches.py`・`check-app-names.py`・`gen-xcstrings.py --check`・`check-public-spoilers.py`。
+- アプリは hub で組めない(macOS の CI で統合担当が確かめる)。型・アクター(`@MainActor` の `GameStore`)に気をつけて書く。
+
+## コミット
+メッセージは中立に。末尾は統合担当の決まりの 2 行:
+```
+Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Bk5mMUPjcpLyRtpyHwRQNF
+```

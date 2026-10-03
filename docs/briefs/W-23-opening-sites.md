@@ -9,6 +9,12 @@
 - **森の保証**: `OpeningRules` に `startReachForestMin: Int`(既定 1)と `firstLightForestMin: Int`(既定 2)を足す。生成で、ノアの始まりのマスの隣 8 マスに森が `startReachForestMin` 以上、`firstFireSite` から半径 2(チェビシェフ)に森が `firstLightForestMin` 以上になるよう、足りなければ乾いた陸(草地・整地。置き場とノアのマスと残骸は除く)を森にする(乱数を使わない。近い順・同じなら y → x)。
 - データの側(非公開の層の `light_fire` の `placeStructure.at` を `.openingSite(.firstFire)` に替える)は U14。
 
+## 追加(最初の 10 分の版 SL-16): 夜明けに初めて見える置き場
+- `OpeningSiteKind` に `dawnFind` を足し、層に `dawnFindSite: GridPoint?` を持つ(任意の欄。古い保存は nil)。
+- 決め方(生成の時。乱数を使わない): `firstFireSite` から見て、**最初の夜の灯りの中には入らず**(火床の最大の段の灯りの半径より外。ノアの始まりのマスの隣 8 マスにも入らない)、**1 日目の夜明けの昼の視界には必ず入る**(昼の視界の今の決まりで、夜明けにノアが `firstFireSite` のそばにいる時に見える範囲の内側 1 マス以上)。その帯の中で、乾いた陸・建てられるマスを、残骸(拠点の中心)から遠い順 → y → x で 1 つ。無ければ帯を 1 マスずつ広げる。
+- データの側(U14)は、今の効果 `placeStructure(at: .openingSite(.dawnFind), built: true)` で、その置き場に物を置く。行為の無い物なので、足元カードにボタンは出ない(PT-B5 §2c と同じ決まり)。
+- テスト: 1000 個の seed で `dawnFindSite` が非 nil・最初の夜の灯りの外・1 日目の夜明けの昼の視界の中(視界の計算は本体の今の関数を呼ぶ。式を写さない)。
+
 ## テスト(Linux。公開の層)
 - 1000 個の seed で: 始まりのマスの隣 8 マスに森が 1 以上・`firstFireSite` が非 nil で建てられる・その半径 2 に森が 2 以上(TEST-F3)。
 - `.openingSite(.firstFire)` で `placeStructure` すると、`firstFireSite` に置かれる。塞いでおくと、今の探し方で近くに置かれる。
