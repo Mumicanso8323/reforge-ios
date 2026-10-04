@@ -52,8 +52,14 @@ final class PrologueSceneTests: XCTestCase {
             app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)).tap()
             Thread.sleep(forTimeInterval: 0.6)
         }
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "footCard").firstMatch.waitForExistence(timeout: 15),
-                      "最後の行の後のタップで地図の画面に移らない")
+        let reachedMap = app.descendants(matching: .any).matching(identifier: "footCard").firstMatch.waitForExistence(timeout: 15)
+        // 落ちた時に、画面にある識別子の一覧を出す(原因を当て推量しない)
+        let present = reachedMap ? "" : app.debugDescription.split(separator: "\n")
+            .compactMap { line -> String? in
+                guard let r = line.range(of: "identifier: '") else { return nil }
+                return String(line[r.upperBound...].prefix { $0 != "'" })
+            }.joined(separator: ",")
+        XCTAssertTrue(reachedMap, "最後の行の後のタップで地図の画面に移らない。画面の識別子: \(present)")
         // 移りの演出(約 1.7 秒)が終わると、覆いが消え、角のボタンが戻る
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "settingsButton").firstMatch.waitForExistence(timeout: 15),
                       "地図に移った後に角のボタンが戻らない")
