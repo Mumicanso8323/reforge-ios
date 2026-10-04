@@ -12,17 +12,51 @@ final class ReplayDriverTests: XCTestCase {
         return dir
     }
 
+
+    /// 焚き火を置いて点けた、序の後の世界(新しい世界のままだと歩く命令が断られる。AppTests の litWorld と同じ)。
+    private func litWorld(_ content: ContentDB) -> WorldState {
+        var world = GameBootstrap.newWorld(content: content, seed: 5)
+        world.clock.held = false
+        world.narrative.scene = nil
+        let origin = world.map.spawn
+        var ctx = StepContext(world: world, content: content)
+        EffectApplier.apply([
+            .placeStructure(structure: "structure.campfire", at: .point(at: origin), built: true),
+            .hearth(at: .point(at: origin), op: .ignite()),
+        ], &ctx, cause: nil)
+        return ctx.world
+    }
+
+    /// 歩ける範囲の中の、隣の 1 マス(除くマスを避ける)。
+    private func walkableNeighbour(_ store: GameStore, of start: GridPoint, excluding: Set<GridPoint> = []) -> GridPoint? {
+        let around = [GridPoint(1, 0), GridPoint(-1, 0), GridPoint(0, 1), GridPoint(0, -1)].map { start + $0 }
+        return around.first { c in
+            !excluding.contains(c) && store.walkable.contains { $0.y == c.y && $0.minX <= c.x && c.x <= $0.maxX }
+        }
+    }
+
+    /// 歩く命令 2 つ(隣のマス・その隣)。歩ける範囲は読み込みの後に決まる。
+    private func twoWalks(_ store: GameStore, from start: WorldPoint) async throws -> (Command, Command) {
+        await store.load()
+        let a = try XCTUnwrap(walkableNeighbour(store, of: start.point), "歩ける隣が無い walkable=\(store.walkable.count)")
+        let b = try XCTUnwrap(walkableNeighbour(store, of: a, excluding: [start.point, a]), "2 歩目の隣が無い")
+        return (.crew(.walk(to: WorldPoint(start.layer, a))), .crew(.walk(to: WorldPoint(start.layer, b))))
+    }
+
+    private func logText(_ store: GameStore) async -> String {
+        let log = await store.host.replayLog
+        return "送られた \(log.count) 本 notice=\(store.notice ?? "nil")"
+    }
+
     func testDrivesCommandsAndWritesDoneMark() async throws {
         let dir = tempDir()
         let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))
         let content = try XCTUnwrap(app.content)
-        var world = GameBootstrap.newWorld(content: content, seed: 1)
-        world.clock.held = false
+        let world = litWorld(content)
         let noah = try XCTUnwrap(world.people[.noah]?.position)
-        let walk1 = Command.crew(.walk(to: WorldPoint(noah.layer, GridPoint(noah.point.x + 1, noah.point.y))))
-        let walk2 = Command.crew(.walk(to: WorldPoint(noah.layer, GridPoint(noah.point.x + 2, noah.point.y))))
-        let script = ReplayScript(seed: 1, seconds: 1, commands: [.init(step: 0, command: walk1), .init(step: 2, command: walk2)])
         let store = GameStore(content: content, world: world, saves: FileSaveStorage(directory: dir.appendingPathComponent("saves2")))
+        let (walk1, walk2) = try await twoWalks(store, from: noah)
+        let script = ReplayScript(seed: 1, seconds: 1, commands: [.init(step: 0, command: walk1), .init(step: 2, command: walk2)])
         let done = dir.appendingPathComponent("done")
 
         let ticker = Task { @MainActor in
@@ -39,11 +73,13 @@ final class ReplayDriverTests: XCTestCase {
         ticker.cancel()
 
         let log = await store.host.replayLog
-        XCTAssertEqual(log.map(\.command), [walk1, walk2])
-        XCTAssertGreaterThanOrEqual(log[1].step, 2, "歩みが台本の step に届いてから送る")
+        let why = await logText(store)
+        XCTAssertEqual(log.map(\.command), [walk1, walk2], why)
+        XCTAssertEqual(log.count, 2, why)
+        if log.count == 2 { XCTAssertGreaterThanOrEqual(log[1].step, 2, "歩みが台本の step に届いてから送る") }
         let step = await store.host.step
         XCTAssertGreaterThanOrEqual(step, 2)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 2\n")
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 2\n", why)
     }
 
     func testSceneAdvancesAreSpacedByAtLeastTheGap() async throws {
@@ -70,15 +106,14 @@ final class ReplayDriverTests: XCTestCase {
         let dir = tempDir()
         let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))
         let content = try XCTUnwrap(app.content)
-        var world = GameBootstrap.newWorld(content: content, seed: 1)
-        world.clock.held = false
+        let world = litWorld(content)
         let noah = try XCTUnwrap(world.people[.noah]?.position)
-        let ok = Command.crew(.walk(to: WorldPoint(noah.layer, GridPoint(noah.point.x + 1, noah.point.y))))
+        let store = GameStore(content: content, world: world, saves: FileSaveStorage(directory: dir.appendingPathComponent("saves2")))
+        let (ok, _) = try await twoWalks(store, from: noah)
         let bad = Command.base(.build(structure: "structure.no_such_kind", at: noah, facing: .south))
         let script = ReplayScript(seed: 1, seconds: 1, commands: [
             .init(step: 0, command: ok), .init(step: 0, command: bad), .init(step: 0, command: ok),
         ])
-        let store = GameStore(content: content, world: world, saves: FileSaveStorage(directory: dir.appendingPathComponent("saves2")))
         let done = dir.appendingPathComponent("done")
         var pacing = ReplayDriver.Pacing()
         pacing.poll = .milliseconds(5)
@@ -86,8 +121,9 @@ final class ReplayDriverTests: XCTestCase {
         pacing.tail = 0
         await ReplayDriver.run(script: script, store: store, donePath: done.path, pacing: pacing)
         let log = await store.host.replayLog
-        XCTAssertEqual(log.map(\.command), [ok, bad], "断られた命令の後は送らない")
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "refused 2/3\n")
+        let why = await logText(store)
+        XCTAssertEqual(log.map(\.command), [ok, bad], "断られた命令の後は送らない。" + why)
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "refused 2/3\n", why)
     }
 
     func testMissingOrBrokenScriptDoesNothing() throws {
