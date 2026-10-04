@@ -54,6 +54,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var toured: Set<String> = []
         var noSource: Set<String> = []
         var gatherMiss: [String: String] = [:]
+        /// 送った命令の記録(REFORGE_TENMIN_SCRIPT がある通しだけ nil でなくなる。A-07)
+        var script: [ReplayScript.Entry]?
 
         init(content: ContentDB, seed: UInt64) {
             self.content = content
@@ -96,6 +98,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         /// コマンドを送り、その中で言われた一言も記録する。
         @discardableResult
         mutating func send(_ c: Command) -> StepReport {
+            script?.append(.init(step: Int(w.clock.now.seconds / SimStep.gameSeconds), command: c))
             let r = sim.apply(c, to: &w)
             record(r)
             auditNames()
@@ -998,6 +1001,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
              nameAudit: [(PersonID, String, FactID)] = [], snapshots: Bool = false) -> Run {
         var b = Bot(content: content, seed: seed)
         b.nameAudit = nameAudit
+        if !snapshots, Self.scriptPath != nil { b.script = [] }
         var out = Run()
         let fireTag = content.base.constructionFireTag
         func fireLit() -> Bool { fireTag.map { BaseRules.total($0, b.w, content) > 0 } ?? true }
@@ -1618,7 +1622,22 @@ final class FirstTenMinutesBotTests: XCTestCase {
         if b.cooldownHits > 0 { out.diag.append("間を置くマスで断られた \(b.cooldownHits) 回") }
         if !b.noSource.isEmpty { out.diag.append("産む行為が無い物 \(b.noSource.sorted())") }
         if !b.gatherMiss.isEmpty { out.diag.append("採れなかった: \(b.gatherMiss.sorted { $0.key < $1.key })") }
+        Self.writeScript(b, seed: seed)
         return out
+    }
+
+    /// 台本の書き出し先(REFORGE_TENMIN_SCRIPT。A-07)。通しの seed は 1 つ(REFORGE_TENMIN_SEEDS=1)で使う。
+    static var scriptPath: String? {
+        let p = ProcessInfo.processInfo.environment["REFORGE_TENMIN_SCRIPT"]
+        return p?.isEmpty == false ? p : nil
+    }
+
+    /// 送った命令を台本にしてファイルへ書く(print はしない)。seconds = 最後の命令の歩み × 実時間の 1 歩の長さ。
+    static func writeScript(_ b: Bot, seed: UInt64) {
+        guard let path = scriptPath, let entries = b.script else { return }
+        let last = entries.last?.step ?? 0
+        let script = ReplayScript(seed: Int(seed), seconds: Double(last) * Bot.realPerStep, commands: entries)
+        do { try script.write(to: URL(fileURLWithPath: path)) } catch { XCTFail("台本を書けない: \(error)") }
     }
 
     func testFirstTenMinutesTimeline() throws {

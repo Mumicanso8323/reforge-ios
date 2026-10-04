@@ -8,7 +8,12 @@ struct ReForgeApp: App {
     init() {
 #if DEBUG
         // 撮る起動(-ReForgeScreenshot)なら、公開の層の新しい世界を開いた状態で始める(Debug/ScreenshotMode.swift)
-        _app = State(initialValue: ScreenshotMode.makeModel())
+        // 通しの台本の流し込み(-ReForgeReplay)なら、台本の seed の新しい世界で始める(Debug/ReplayDriver.swift。A-07)
+        if !ScreenshotMode.isActive, let script = ReplayMode.script {
+            _app = State(initialValue: ReplayMode.makeModel(script: script))
+        } else {
+            _app = State(initialValue: ScreenshotMode.makeModel())
+        }
 #else
         _app = State(initialValue: AppModel())
 #endif
@@ -20,6 +25,7 @@ struct ReForgeApp: App {
                 .preferredColorScheme(.dark)
 #if DEBUG
                 .screenshotSupport(app: app)
+                .replaySupport(app: app)
 #endif
         }
     }
@@ -162,6 +168,15 @@ final class AppModel {
     }
 
 #if DEBUG
+    /// 通しの台本の流し込み(Debug/ReplayDriver.swift。A-07): 保存を読まず、台本の seed の新しい世界を開く。時計は止めない。
+    func startReplayGame(seed: UInt64) {
+        guard let content else { return }
+        GameStore.forgetLastOperation()
+        let world = GameBootstrap.newWorld(content: content, seed: seed)
+        game = GameStore(content: content, world: world, saves: saves)
+        game?.isPaused = settingsOpen
+    }
+
     /// 撮る起動(Debug/ScreenshotMode.swift): 保存を読まず・書かない、固定の種の新しい世界を開く。
     /// failed なら走行が終わった形(ゲームオーバーの 4 択)にする。
     /// decision なら、公開の層の試験用の決断を 1 つ出した形にする(決断の帯)。
