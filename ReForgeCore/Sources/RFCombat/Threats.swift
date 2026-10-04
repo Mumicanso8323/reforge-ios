@@ -254,7 +254,9 @@ enum Threats {
         guard !kinds.isEmpty else { return }
         let people = fighters(ctx.world).filter { $0.1.layer == .surface }
         guard !people.isEmpty else { return }
+        let known = ctx.world.knowledge.factSet
         for (kind, d) in kinds {
+            if let gate = d.nestGuardRequiresFact, !gate.evaluate(known) { continue }
             for (poi, state) in nests(of: kind, ctx) {
                 if let g = ctx.world.combat.nests[poi]?.guardThreat, ctx.world.combat.threats[g] != nil { continue }
                 guard people.contains(where: { $0.1.point.chebyshev(to: state.at) <= def.engage + 2 }) else { continue }

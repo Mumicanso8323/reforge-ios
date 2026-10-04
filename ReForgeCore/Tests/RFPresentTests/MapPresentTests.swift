@@ -486,6 +486,27 @@ final class MapPresentTests: XCTestCase {
         XCTAssertGreaterThan(frame.walkable.count, 1, "歩ける範囲はノアのマス 1 つではない")
     }
 
+    /// 足元カードの写真の世界(アプリの ScreenshotMode の foot と同じ置き方): ノアの隣に森と鉱脈を置くと、
+    /// 押すだけの行為と長押しの行為が両方並ぶ。
+    func testFootPhotoWorldHasTapAndHoldActions() throws {
+        let content = try TestContent.publicOnly()
+        var w = GameBootstrap.newWorld(content: content, seed: 1)
+        let origin = w.map.spawn
+        let forest = GridPoint(origin.point.x + 1, origin.point.y)
+        let vein = GridPoint(origin.point.x, origin.point.y - 1)
+        w.map[origin.layer]?.setTerrain("forest", at: forest)
+        var rng = SeededRandom(state: 1)
+        w.map[origin.layer]?.deposits.add(
+            DepositGenerator.make(id: DepositID("deposit.screenshot"), at: vein, category: .coal, rng: &rng))
+        let b = FrameBuilder(content: content)
+        let noah = try XCTUnwrap(w.people[.noah]?.position?.point)
+        let card = try XCTUnwrap(b.footCard(w, at: noah))
+        let summary = "noah=\(noah) origin=\(origin.point) held=\(w.clock.held) scene=\(w.narrative.scene != nil) "
+            + "actions=\(card.actions.map { "\($0.id.rawValue):\($0.hold)" }) state=\(card.state) hint=\(String(describing: card.hint))"
+        XCTAssertTrue(card.actions.contains { $0.hold }, "長押しの行為が並ぶ: " + summary)
+        XCTAssertTrue(card.actions.contains { !$0.hold }, "押すだけの行為が並ぶ: " + summary)
+    }
+
     // MARK: - 上の帯
 
     func testBandShowsObjectiveAndTimeChoicesWithoutSheets() {

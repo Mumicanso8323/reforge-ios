@@ -54,6 +54,8 @@ public struct EnemyDef: ContentDef, Equatable {
     public var laneSize: Int?
     /// 倒した数 1 あたりの強さの上積み(千分率。原作 Enemy.Scale は 10 = 1%)。R1 は 0。
     public var growthPerKill: Int?
+    /// 巣の守りはこの事実を知ってから出る(門が無ければ巣に近づけばいつでも出る。encounterRequiresFact と同じ事実の門)。
+    public var nestGuardRequiresFact: FactExpr?
 
     public init(id: EnemyKindID, health: Int, attack: Int, drops: [Yield] = [], parameters: Value? = nil,
                 defense: Int? = nil, speed: Int? = nil, reachMin: Int? = nil, reachMax: Int? = nil,
@@ -63,7 +65,7 @@ public struct EnemyDef: ContentDef, Equatable {
                 encounterUntilFact: FactExpr? = nil, encounterFactModifiers: [FactRateModifier]? = nil,
                 steals: [Ingredient]? = nil,
                 tags: [ProvenanceTag]? = nil, nestTags: [ProvenanceTag]? = nil, laneSize: Int? = nil,
-                growthPerKill: Int? = nil) {
+                growthPerKill: Int? = nil, nestGuardRequiresFact: FactExpr? = nil) {
         self.id = id
         self.health = health
         self.attack = attack
@@ -90,6 +92,7 @@ public struct EnemyDef: ContentDef, Equatable {
         self.nestTags = nestTags
         self.laneSize = laneSize
         self.growthPerKill = growthPerKill
+        self.nestGuardRequiresFact = nestGuardRequiresFact
     }
 }
 

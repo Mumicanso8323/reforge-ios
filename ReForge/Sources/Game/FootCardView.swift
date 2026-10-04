@@ -60,6 +60,8 @@ struct FootCardView: View {
                 .frame(maxWidth: .infinity, minHeight: InkMetric.buttonHeight, alignment: .leading)
             }
         }
+        // 子の識別子(holdRing・footAction など)を上書きしないよう、まとめずに含む形にする
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("footCard")
     }
 }
@@ -110,6 +112,7 @@ struct ActionButton: View {
                     .frame(minHeight: InkMetric.buttonHeight)
             }
             .buttonStyle(.ink(.secondary, fill: false))
+            .accessibilityIdentifier("footAction")
         }
     }
 }

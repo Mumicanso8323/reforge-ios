@@ -218,11 +218,10 @@ final class ScreenSnapshotTests: XCTestCase {
     /// A-04c 長押しの行為は輪(holdRing)で分かる(押すだけの行為の Button には輪の識別子が付かない)。
     private func assertHoldRing(_ app: XCUIApplication, language: String) {
         // 撮影の世界(ScreenshotMode の foot)は、ノアの隣に押すだけの行為と長押しの行為が並ぶ形
-        let card = element(app, "footCard")
-        let holds = card.descendants(matching: .any).matching(identifier: "holdRing").allElementsBoundByIndex
+        let holds = app.descendants(matching: .any).matching(identifier: "holdRing").allElementsBoundByIndex
         XCTAssertFalse(holds.isEmpty, "\(language)_foot: 長押しの行為(輪)が足元カードに無い")
         for h in holds { XCTAssertGreaterThanOrEqual(h.frame.height, 44, "\(language)_foot: 長押しの行為が小さい") }
-        let plain = card.buttons.allElementsBoundByIndex.filter { $0.identifier != "holdRing" }
+        let plain = app.descendants(matching: .any).matching(identifier: "footAction").allElementsBoundByIndex
         XCTAssertFalse(plain.isEmpty, "\(language)_foot: 押すだけの行為が足元カードに無い")
         for b in plain { XCTAssertGreaterThanOrEqual(b.frame.height, 44, "\(language)_foot: 押すだけの行為が小さい") }
     }

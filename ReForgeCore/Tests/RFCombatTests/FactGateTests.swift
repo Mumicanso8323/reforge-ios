@@ -70,6 +70,32 @@ final class FactGateTests: XCTestCase {
         XCTAssertEqual(plan.first?.nest, EntityID(9_999), "見つけた巣から来る")
     }
 
+    /// 巣の守りも事実の門で止められる(門が無ければ巣に近づけば出る。門があれば、事実を知るまで出ない)。
+    func testNestGuardWaitsForItsFact() throws {
+        let json = """
+        {"enemies": [{"id": "enemy.test.pack", "health": 35, "attack": 8, "drops": [], "nests": ["poi.test.den"],
+          "nestGuard": 2, "nestGuardRequiresFact": "fact.test.first_threat"}]}
+        """
+        let rig = try Fixture.rig(json)
+        func world() -> WorldState {
+            var w = rig.factory.newWorld(seed: 4)
+            let den = GridPoint(6, 6)
+            _ = w.map[.surface]?.placements.place(MapPlacement(id: "nest.test", kind: .nest, templateID: "poi.test.den",
+                                                               anchor: den, entity: EntityID(9_999)))
+            Fixture.clearPeople(&w, except: [.noah])
+            w.people[.noah]?.position = Fixture.at(den + GridPoint(2, 0))
+            return w
+        }
+        func appeared(_ r: StepReport) -> Bool {
+            r.events.contains { if case .threatAppeared = $0 { true } else { false } }
+        }
+        var closed = world()
+        XCTAssertFalse(appeared(rig.simulation.runSteps(60, &closed)), "事実を知るまで巣の守りは出ない")
+        var open = world()
+        know(&open, "fact.test.first_threat")
+        XCTAssertTrue(appeared(rig.simulation.runSteps(60, &open)), "知った後は巣に近づけば出る")
+    }
+
     /// 昼の出会いも事実で下がる・止まる(例: 獣の行動の記録を得たら下がる)。
     func testEncounterRateFollowsFacts() {
         let mods = [FactRateModifier(fact: .fact("fact.test.notes"), permille: 250)]

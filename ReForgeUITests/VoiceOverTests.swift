@@ -40,7 +40,8 @@ final class VoiceOverTests: XCTestCase {
         XCTAssertTrue(element(app, "footCard").waitForExistence(timeout: 30))
         // 足元カードの行為(押すだけは Button、長押しは holdRing)。名前のある行為が 1 つ以上ある
         let card = element(app, "footCard")
-        let actions = card.buttons.allElementsBoundByIndex + card.descendants(matching: .any).matching(identifier: "holdRing").allElementsBoundByIndex
+        let actions = app.descendants(matching: .any).matching(identifier: "holdRing").allElementsBoundByIndex
+            + app.descendants(matching: .any).matching(identifier: "footAction").allElementsBoundByIndex
         XCTAssertFalse(actions.isEmpty, "足元カードに行為が無い")
         XCTAssertTrue(actions.contains { !$0.label.isEmpty }, "足元カードの行為に名前が無い")
 
