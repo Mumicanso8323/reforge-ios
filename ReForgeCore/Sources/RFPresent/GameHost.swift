@@ -19,6 +19,8 @@ public actor GameHost {
     public private(set) var world: WorldState
     public private(set) var frame: Frame
     public private(set) var replayLog: [(step: Int64, command: Command)] = []
+    /// いまの歩みの通し番号(世界の clock.now の秒 / SimStep.gameSeconds。台本の流し込みが読む)。
+    public var step: Int64 { world.clock.now.seconds / SimStep.gameSeconds }
     private var revision = 0
     /// 保留中の最初の行為だけに使う実時間の端数。保存しない。
     private var heldCarry: Int64 = 0
