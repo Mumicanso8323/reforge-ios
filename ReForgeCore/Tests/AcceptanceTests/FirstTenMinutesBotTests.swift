@@ -1580,10 +1580,22 @@ final class FirstTenMinutesBotTests: XCTestCase {
         out.answers = b.answers
         out.battles = b.battles.map { ($0.0, $0.1) }
         out.battleDays = b.battles.map { ($0.1, $0.3, $0.4) }
-        // INV-S3 の F: 材料がそろった時の一言(材料集めの終わりにいちばん近い 3 秒以内の人の一言。ID は内容から引かない)から、
+        // INV-S3 の F: 材料がそろった時の一言(ID は内容から引かない)から、
         // その人が建てはじめる(作業の字)まで(20 秒以内)
-        if let (_, m1) = out.materialWindow,
-           let ready = b.answers.filter({ $0.0.hasPrefix("line:") && abs($0.1 - m1) <= 3 }).min(by: { abs($0.1 - m1) < abs($1.1 - m1) }),
+        // 材料がそろった一言は、焚き火の段で行が分かれる(行の条件に hearthAtLeast がある)。材料集めの間に出た、そういう行だけを見る
+        func byHearth(_ c: Condition?) -> Bool {
+            switch c {
+            case .hearthAtLeast?: return true
+            case .not(let x)?: return byHearth(x)
+            case .all(let xs)?, .any(let xs)?: return xs.contains { byHearth($0) }
+            default: return false
+            }
+        }
+        if let (m0, m1) = out.materialWindow,
+           let ready = b.answers.filter({ a in
+               a.0.hasPrefix("line:") && a.1 >= m0 - 3 && a.1 <= m1 + 3
+                   && byHearth(content.lines[LineID(String(a.0.dropFirst("line:".count)))]?.when)
+           }).min(by: { abs($0.1 - m1) < abs($1.1 - m1) }),
            let who = content.lines[LineID(String(ready.0.dropFirst("line:".count)))]?.speaker {
             out.milestones.append(("SL-22 建てるぞ", ready.1))
             let lineID = String(ready.0.dropFirst("line:".count))
