@@ -59,18 +59,27 @@ enum ReplayDriver {
             let isScene = entry.command == .narrative(.advanceScene)
             let waited = uptime() - lastSend
             if Int64(entry.step) <= step, !isScene || waited >= pacing.sceneGap {
-                _ = await store.perform(entry.command)
+                let rejection = await store.perform(entry.command)
                 lastSend = uptime()
                 index += 1
+                // 断られたら(再生が時計とずれた)そこで止め、何番目(1 始まり)から断られたかだけを残す
+                if rejection != nil {
+                    writeMark("refused \(index)/\(script.commands.count)", to: donePath)
+                    return
+                }
                 continue
             }
             try? await Task.sleep(for: pacing.poll)
         }
         guard !Task.isCancelled else { return }
         try? await Task.sleep(for: .seconds(pacing.tail))
-        if let donePath {
-            try? "done\n".write(toFile: donePath, atomically: true, encoding: .utf8)
-        }
+        writeMark("ok \(script.commands.count)", to: donePath)
+    }
+
+    /// 完了の印(1 行)。
+    private static func writeMark(_ line: String, to path: String?) {
+        guard let path else { return }
+        try? (line + "\n").write(toFile: path, atomically: true, encoding: .utf8)
     }
 }
 

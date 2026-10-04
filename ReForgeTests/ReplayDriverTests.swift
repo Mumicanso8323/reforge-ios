@@ -43,7 +43,7 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(log[1].step, 2, "歩みが台本の step に届いてから送る")
         let step = await store.host.step
         XCTAssertGreaterThanOrEqual(step, 2)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "done\n")
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 2\n")
     }
 
     func testSceneAdvancesAreSpacedByAtLeastTheGap() async throws {
@@ -64,6 +64,30 @@ final class ReplayDriverTests: XCTestCase {
         let log = await store.host.replayLog
         XCTAssertEqual(log.count, 2)
         XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - started, 0.3)
+    }
+
+    func testStopsAtFirstRefusedCommandAndRecordsItsNumber() async throws {
+        let dir = tempDir()
+        let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))
+        let content = try XCTUnwrap(app.content)
+        var world = GameBootstrap.newWorld(content: content, seed: 1)
+        world.clock.held = false
+        let noah = try XCTUnwrap(world.people[.noah]?.position)
+        let ok = Command.crew(.walk(to: WorldPoint(noah.layer, GridPoint(noah.point.x + 1, noah.point.y))))
+        let bad = Command.base(.build(structure: "structure.no_such_kind", at: noah, facing: .south))
+        let script = ReplayScript(seed: 1, seconds: 1, commands: [
+            .init(step: 0, command: ok), .init(step: 0, command: bad), .init(step: 0, command: ok),
+        ])
+        let store = GameStore(content: content, world: world, saves: FileSaveStorage(directory: dir.appendingPathComponent("saves2")))
+        let done = dir.appendingPathComponent("done")
+        var pacing = ReplayDriver.Pacing()
+        pacing.poll = .milliseconds(5)
+        pacing.warmup = .milliseconds(1)
+        pacing.tail = 0
+        await ReplayDriver.run(script: script, store: store, donePath: done.path, pacing: pacing)
+        let log = await store.host.replayLog
+        XCTAssertEqual(log.map(\.command), [ok, bad], "断られた命令の後は送らない")
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "refused 2/3\n")
     }
 
     func testMissingOrBrokenScriptDoesNothing() throws {
