@@ -44,7 +44,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         /// 焚き火の段が変わった時刻と段
         var levelLog: [(Double, Int)] = []
         /// 戦いが始まった時刻・種類(raid・encounter など)
-        var battles: [(Double, String, EntityID)] = []
+        var battles: [(Double, String, EntityID, Int, Bool)] = []
         /// 場面の行を聞き取る(応えの変化のテスト)。true の間、画面に出た場面の行を (場面, 行) で順に貯める
         var listen = false
         var heard: [(SceneID, String)] = []
@@ -200,7 +200,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
                 let lv = CrewWork.campfireLevel(w, content)
                 if lv != levelLog.last?.1 { levelLog.append((real, lv)) }
                 if let bt = w.combat.battles.values.first, battles.last?.2 != bt.id {
-                    battles.append((real, "\(bt.kind)".components(separatedBy: "(").first ?? "?", bt.id))
+                    let night = w.clock.phase != .day
+                    battles.append((real, "\(bt.kind)".components(separatedBy: "(").first ?? "?", bt.id, w.clock.day, night))
                 }
                 note()
                 record(r)
@@ -979,6 +980,9 @@ final class FirstTenMinutesBotTests: XCTestCase {
         /// 水の頼みの結果(通った・断りの理由)と、頼む前にくべた時の働く枠(前→後)
         var waterAsk = "頼んでいない"
         var battles: [(Double, String)] = []
+        /// 戦いの種類・日・夜か(日没から夜明けまで)
+        var battleDays: [(String, Int, Bool)] = []
+        var firstThreatDay: Int?
         var askStoke: (Int, Int)?
         var leaks: [String] = []
         /// SL-23〜27 の段と時刻(実時間の目安)
@@ -1555,9 +1559,27 @@ final class FirstTenMinutesBotTests: XCTestCase {
             b.readScenes()
             out.ok["最初の鉄の場面"] = b.w.narrative.fired.keys.contains { !firedBeforeTrial.contains($0) && Self.hasScene($0, content) }
         }
+        // DEC-F7: 最初の脅威は 3 日目(day 2)の夜から。REFORGE_TENMIN_NIGHT3=1 なら、最初の鉄の後も 5 日目の夜明けまで
+        // 時を進め(日没は寝る)、戦いの日と、最初に夜の略奪が予定に入った日を記録する
+        if ProcessInfo.processInfo.environment["REFORGE_TENMIN_NIGHT3"] == "1" {
+            var n = 0
+            while b.w.clock.day < 5 && n < 40000 {
+                if b.w.clock.phase == .dusk || b.w.clock.phase == .nightWork, !b.w.clock.sleeping {
+                    _ = b.send(.time(.sleep))
+                }
+                b.steps(1)
+                n += 1
+                // 夜の脅威 = 獣の略奪が予定に入った(寄り方・確率のどちらでも)か、略奪の戦いが始まった
+                let raidBattle = b.w.combat.battles.values.contains { if case .raid = $0.kind { true } else { false } }
+                if out.firstThreatDay == nil, !b.w.combat.plannedRaids.isEmpty || raidBattle {
+                    out.firstThreatDay = b.w.clock.day
+                }
+            }
+        }
         out.log = b.log
         out.answers = b.answers
         out.battles = b.battles.map { ($0.0, $0.1) }
+        out.battleDays = b.battles.map { ($0.1, $0.3, $0.4) }
         // INV-S3 の F: 材料がそろった時の一言(材料集めの終わりにいちばん近い 3 秒以内の人の一言。ID は内容から引かない)から、
         // その人が建てはじめる(作業の字)まで(20 秒以内)
         if let (_, m1) = out.materialWindow,
@@ -1622,6 +1644,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var waterAsks: [String: Int] = [:]
         var waterMiss: [String: [UInt64]] = [:]
         var battleList: [String] = []
+        var beforeNight3: [String] = []
+        var threatDays: [String: Int] = [:]
         var askStokes: [String: Int] = [:]
         var readySecs: [String: [Int]] = [:]
         var outOfWindow: [String] = []
@@ -1647,6 +1671,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
             if let at = r.stoppedAt { stopped.append("seed \(seed): \(at)") }
             for d in r.diag where d.hasPrefix("建てるぞ") { slowBuild.append("seed \(seed) \(d)") }
             for (t, k) in r.battles where t <= 600 { battleList.append("seed \(seed) \(k)@\(Int(t))s") }
+            for (k, d, night) in r.battleDays where d < 2 || (d == 2 && !night) { beforeNight3.append("seed \(seed) \(k) 日 \(d)\(night ? " 夜" : "")") }
+            threatDays[r.firstThreatDay.map { "日 \($0)" } ?? "無し", default: 0] += 1
             waterAsks[r.waterAsk, default: 0] += 1
             if r.waterAsk != "通った" { waterMiss[r.waterAsk, default: []].append(seed) }
             if let (x, y) = r.askStoke { askStokes["\(x)→\(y)", default: 0] += 1 }
@@ -1738,6 +1764,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
             + " / 監査した seed \(min(namesSeeds, seeds)) / 名乗る前に名前が出た \(leaks.count) 件")
         for l in leaks { print("[TEST-F9]   \(l)") }
         print("[SL-40-battle] 600 秒までの戦い \(battleList.count) 件: \(battleList.joined(separator: " / "))")
+        print("[SL-40-battle] 3 日目(day 2)の夜より前の戦い \(beforeNight3.count) 件: \(beforeNight3.joined(separator: " / "))"
+              + " / 最初に夜の略奪が予定に入った日(day 0 始まり。REFORGE_TENMIN_NIGHT3=1 の時) \(threatDays.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))")
         print("[SL-21-ask] \(seeds) seed: 水の頼み \(waterAsks.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))"
               + " / 通らなかった seed \(waterMiss.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))"
               + " / 頼む前にくべた(働く枠 前→後) \(askStokes.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))")
