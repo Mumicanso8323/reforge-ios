@@ -3,6 +3,7 @@ name: ci
 # Re:Forge の CI。
 #   core: ReForgeCore を Linux で swift test(安くて速い)
 #   ios : xcodegen → シミュレータで単体テスト → 未署名 ipa を作る → (手動起動で release=true なら) プレリリース公開
+#   rec: 手動起動で rec=true のときだけ。10 分の通しを録画し、公開鍵(age)で暗号化した成果物だけを上げる(別ジョブ・保持 1 日)
 #   screens: 手動起動で screens=true のときだけ。公開の層だけのアプリで主な画面を 5 言語で撮り、PNG を artifact に上げる
 # ipa は未署名。SideStore が自分の Apple ID で再署名して入れる。
 
@@ -23,6 +24,10 @@ on:
         default: true
       screens:
         description: '画面の写真を撮る(公開の層だけ。PNG を artifact screens に上げる)'
+        type: boolean
+        default: false
+      rec:
+        description: '10 分の通しを録画し、公開鍵で暗号化した成果物だけを上げる(別ジョブ)'
         type: boolean
         default: false
 
@@ -355,3 +360,98 @@ jobs:
             screens-video/*.mp4
           if-no-files-found: warn
           retention-days: 14
+
+  rec:
+    name: 録画(暗号化)
+    # 手動起動で rec=true のときだけ回す。screens と ios とは別ジョブ(非公開の層の封は、このジョブの中だけで開く)。
+    if: github.event_name == 'workflow_dispatch' && inputs.rec
+    needs: [core, app-switches]
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
+      # age の受け手(公開鍵。Repository variable REC_AGE_RECIPIENT)。秘密鍵は hub の ~/.config/reforge-rec/key.txt だけにある。
+      REC_RECIPIENT: ${{ vars.REC_AGE_RECIPIENT }}
+    steps:
+      - name: 公開鍵があること
+        run: test -n "$REC_RECIPIENT" || { echo "暗号化の公開鍵が無い。録画しない"; exit 1; }
+
+      - uses: actions/checkout@v5
+
+      - name: 非公開のコンテンツを取り込む
+        if: env.HAS_CONTENT_KEY == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: Mumicanso8323/reforge-content
+          ssh-key: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY }}
+          path: content/private
+          persist-credentials: false
+
+      - name: Xcode
+        run: |
+          x=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1); sudo xcode-select -s "$x"
+
+      # 10 分のボット(ReForgeCore の受け入れテスト)を回して、送った命令の台本(時刻つき)を書く。
+      # 出力は全部ファイルへ(ボットの記録には内容の名前が出るので、ログにも成果物にも出さない)。長さだけを出す。
+      - name: 通しの台本を作る
+        run: |
+          set +x
+          mkdir -p "$RUNNER_TEMP/rec"
+          REFORGE_PRIVATE_CONTENT="$PWD/content/private" REFORGE_TENMIN_BOT=1 REFORGE_TENMIN_SEEDS=1 \
+          REFORGE_TENMIN_SCRIPT="$RUNNER_TEMP/rec/play.json" \
+            swift test --package-path ReForgeCore --filter FirstTenMinutesBotTests > "$RUNNER_TEMP/rec/bot.log" 2>&1 \
+            || { echo "台本の作成に失敗(詳細は成果物に出さない)"; exit 1; }
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print('commands', len(d['commands']), 'seconds', d['seconds'])" "$RUNNER_TEMP/rec/play.json"
+
+      - name: コンテンツの束を作る
+        run: tools/content/stage.sh
+
+      - name: XcodeGen
+        run: |
+          command -v xcodegen || brew install xcodegen
+          xcodegen generate
+
+      - name: アプリを組む(シミュレータ用)
+        run: |
+          set +x
+          xcodebuild build -project ReForge.xcodeproj -scheme ReForge -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath "$RUNNER_TEMP/rec/dd" \
+            CODE_SIGNING_ALLOWED=NO > "$RUNNER_TEMP/rec/build.log" 2>&1 \
+            || { grep -c "error:" "$RUNNER_TEMP/rec/build.log"; echo "組むのに失敗(詳細は出さない)"; exit 1; }
+
+      # 台本を流し込む起動(-ReForgeReplay。DEBUG の組みだけ)。シミュレータのアプリは host のファイルを読めるので、台本は $RUNNER_TEMP のまま渡す。
+      - name: 録る
+        run: |
+          set +x
+          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
+          xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b >/dev/null
+          app="$RUNNER_TEMP/rec/dd/Build/Products/Debug-iphonesimulator/ReForge.app"
+          xcrun simctl install "$udid" "$app"
+          xcrun simctl io "$udid" recordVideo --codec h264 --force "$RUNNER_TEMP/rec/rec.mp4" &
+          rec_pid=$!
+          sleep 3
+          xcrun simctl launch "$udid" com.yusukedoi.reforge -ReForgeReplay "$RUNNER_TEMP/rec/play.json" -ReForgeReplayDone "$RUNNER_TEMP/rec/done" -AppleLanguages "(ja)" >/dev/null
+          # 台本が終わると、アプリが done ファイルを書く(最大 15 分待つ)
+          for i in $(seq 1 450); do test -e "$RUNNER_TEMP/rec/done" && break; sleep 2; done
+          if test -e "$RUNNER_TEMP/rec/done"; then echo "台本の結果: $(head -c 40 "$RUNNER_TEMP/rec/done")"; else echo "台本の結果: 終わらなかった"; fi
+          sleep 3
+          kill -INT "$rec_pid"; wait "$rec_pid" || true
+          xcrun simctl shutdown "$udid" || true
+          ls -l "$RUNNER_TEMP/rec/rec.mp4" | awk '{print "録画のバイト数", $5}'
+
+      # 暗号化。成果物は暗号文だけ。平文の動画・台本・ログは暗号化の直後に消す(消せなくてもこのジョブの後に runner ごと消える)。
+      - name: 暗号化する
+        run: |
+          set +x
+          command -v age || brew install age
+          age -r "$REC_RECIPIENT" -o "$RUNNER_TEMP/rec/rec.mp4.age" "$RUNNER_TEMP/rec/rec.mp4"
+          ls -l "$RUNNER_TEMP/rec/rec.mp4.age" | awk '{print "暗号文のバイト数", $5}'
+          rm -f "$RUNNER_TEMP/rec/rec.mp4" "$RUNNER_TEMP/rec/play.json" "$RUNNER_TEMP/rec/bot.log" "$RUNNER_TEMP/rec/build.log" "$RUNNER_TEMP/rec/done"
+          test ! -e "$RUNNER_TEMP/rec/rec.mp4"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: rec-${{ github.run_number }}
+          path: ${{ runner.temp }}/rec/rec.mp4.age
+          retention-days: 1
+          if-no-files-found: error
