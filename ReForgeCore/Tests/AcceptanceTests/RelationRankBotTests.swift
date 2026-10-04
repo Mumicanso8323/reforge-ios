@@ -31,6 +31,16 @@ final class RelationRankBotTests: XCTestCase {
         XCTAssertFalse(world.clock.held, "最初の行為で時計の保留が解けない")
     }
 
+    /// 開いている場面を読み終える。全画面の場面(stage)は送るまで閉じず、その間は話せない(reason.scene.reading)。
+    /// 人も場面を読み終えてから話すので、ボットも送る。
+    private func readScenes(_ sim: Simulation, _ world: inout WorldState) {
+        var n = 0
+        while world.narrative.scene != nil && n < 50 {
+            _ = sim.apply(.narrative(.advanceScene), to: &world)
+            n += 1
+        }
+    }
+
     /// 毎晩話して、相手がランク `rank` に届いた夜(届かなければ nil)。
     private func nightsToRank(content base: ContentDB, person: PersonID, rank: Int, maxNights: Int) -> Int? {
         var content = base
@@ -42,9 +52,11 @@ final class RelationRankBotTests: XCTestCase {
             var n = 0
             while world.clock.phase == .day && n < 20000 {
                 _ = sim.runSteps(1, &world)
+                readScenes(sim, &world)
                 n += 1
             }
             _ = sim.apply(.time(.startNightWork), to: &world)
+            readScenes(sim, &world)
             let r = sim.apply(.crew(.talk(person: person)), to: &world)
             XCTAssertNil(r.rejection, "夜 \(night): 話せない \(String(describing: r.rejection))")
             if (world.people[person]?.relation.rank ?? 0) >= rank { return night }
