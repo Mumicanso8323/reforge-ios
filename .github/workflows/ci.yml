@@ -36,13 +36,15 @@ on:
         type: boolean
         default: false
 
+# 既定は読むだけ。書く(リリースの公開)のは ios ジョブだけが job レベルで足す。
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   # 手動起動(リリース)が後続の push で取り消されないよう、イベント種別ごとに分ける
   group: ci-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  # push・PR は新しい方で取り消す。手動起動(testflight・rec・screens・release)どうしは取り消さない
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
 
 jobs:
   core:
@@ -66,6 +68,10 @@ jobs:
       REFORGE_FIRSTFIRE_SEEDS: "200"
     steps:
       - uses: actions/checkout@v5
+      # main への push で鍵が無いと非公開の層が丸ごと飛ばされて緑になる。それは失敗にする(手動起動・PR は fork などで鍵が無いことがあるので今のまま)。
+      - name: 非公開の層の鍵があること(main への push)
+        if: matrix.layer == 'private' && env.HAS_CONTENT_KEY != 'true' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: echo "REFORGE_CONTENT_DEPLOY_KEY が無く、非公開の層を回せない"; exit 1
       - name: swift test(公開の層だけ)
         if: matrix.layer == 'public'
         run: swift test --package-path ReForgeCore
@@ -115,6 +121,10 @@ jobs:
       - name: 公開語の検査器を確かめる
         if: always()
         run: python3 tools/test_check_public_spoilers.py
+      # testflight ジョブは app-switches を needs に持つので、ここが落ちると TestFlight へ上げない(門)
+      - name: Release の組みに debug の物が入らない
+        if: always()
+        run: python3 tools/check-release-build.py
       # 公開リポジトリに物語の語が入っていないこと(語は非公開の層の perception/forbidden.json)。
       # 当たった語・文はログに出さず、ファイルと行だけを出す。fork の PR など鍵が無いときは飛ばす。
       - name: 非公開のコンテンツを取り込む(物語の語の一覧のため)
@@ -134,6 +144,9 @@ jobs:
     needs: [core, app-switches]
     runs-on: macos-26
     timeout-minutes: 60
+    # Pre-release と dev release の公開(gh release create / upload)に要る。他のジョブは読むだけ。
+    permissions:
+      contents: write
     env:
       VERSION: 0.1.0
       BUILD: ${{ github.run_number }}
@@ -180,7 +193,16 @@ jobs:
           xcodebuild test -project ReForge.xcodeproj -scheme ReForge \
             -destination "id=$udid" -derivedDataPath build-test \
             CODE_SIGNING_ALLOWED=NO > test.log 2>&1 \
-            || { grep -E "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log; exit 1; }
+            || {
+              if [ "$HAS_CONTENT_KEY" = "true" ]; then
+                # 非公開の層を重ねて回した。公開ログに XCTAssert の文面(物語の文が入りうる)を出さない。テストの名前(公開のコード)だけ。
+                grep -oE "Test Case '[^']+' failed" test.log | sort -u | head -50 || true
+                grep -qE "error: |Undefined symbol" test.log && echo "ビルドかテストにエラー(詳細は手元で)"
+              else
+                grep -E "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
+              fi
+              exit 1
+            }
           grep -E "Test Case .*(passed|failed)|Executed|\*\* TEST" test.log | tail -20
 
       - name: Build (unsigned)
@@ -320,11 +342,12 @@ jobs:
 
       # 序の短い動画(PT-B6 §3)。simctl の recordVideo を回したまま、UI テストが序の見本を起動から地図まで送る(案 A・B・C の 3 本)。
       # 動画は試験の見本の文だけを写す(公開の層)。録画が止まる等で撮れなくても、ジョブは落とさない(要約に 1 行出す)。
+      # 録画が撮れないのは許す(要約に出すだけ)。テスト(PrologueVideoTests)の失敗は印を残し、最後の step で赤にする。
       - name: 序の動画を撮る(案 A・B・C)
         if: always()
-        continue-on-error: true
         run: |
           mkdir -p screens-video
+          rm -f "$RUNNER_TEMP/video-test-failed"
           for s in A B C; do
             out="screens-video/prologue-$(echo "$s" | tr 'A-Z' 'a-z').mp4"
             xcrun simctl io "${{ steps.sim.outputs.udid }}" recordVideo --codec=h264 --force "$out" > /dev/null 2>&1 &
@@ -333,7 +356,11 @@ jobs:
             xcodebuild test-without-building -project ReForge.xcodeproj -scheme ReForgeScreens \
               -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build-screens \
               -only-testing:ReForgeUITests/PrologueVideoTests/testStyle$s \
-              CODE_SIGNING_ALLOWED=NO > "video-$s.log" 2>&1 || echo "動画 $s: テストが落ちた(動画はあれば残す)"
+              CODE_SIGNING_ALLOWED=NO > "video-$s.log" 2>&1 || {
+                echo "動画 $s: テストが落ちた(動画はあれば残す)"
+                echo "$s" >> "$RUNNER_TEMP/video-test-failed"
+                grep -oE "Test Case '[^']+' failed" "video-$s.log" | sort -u | head -10 || true
+              }
             kill -INT "$rec" 2>/dev/null || true
             wait "$rec" 2>/dev/null || true
             if [ -s "$out" ]; then
@@ -365,6 +392,14 @@ jobs:
             screens-video/*.mp4
           if-no-files-found: warn
           retention-days: 14
+
+      # 序の動画のテストが落ちていたら赤にする(録画だけの失敗は上の step で許している)
+      - name: 序の動画のテストの結果
+        if: always()
+        run: |
+          if [ -e "$RUNNER_TEMP/video-test-failed" ]; then
+            echo "序の動画のテストが落ちた(案: $(tr '\n' ' ' < "$RUNNER_TEMP/video-test-failed"))"; exit 1
+          fi
 
   rec:
     name: 録画(暗号化)
@@ -466,7 +501,7 @@ jobs:
   # Release で archive → exportArchive(app-store-connect・upload)。ios・screens・rec とは独立(needs は core と app-switches だけ)。
   # 認証は App Store Connect の API キー(secrets: ASC_KEY_ID・ASC_ISSUER_ID・ASC_KEY_P8)と、チーム ID(secrets: APPLE_TEAM_ID)。
   # どれかが無い間は、署名なしで archive まで通して止める(試し。成功で終わり、送らない)。
-  # このジョブは開発の切り替え(SWIFT_ACTIVE_COMPILATION_CONDITIONS・REFORGE_DEV)を持ち込まない(tools/check-release-build.py が見張る)。
+  # このジョブは開発の切り替え(SWIFT_ACTIVE_COMPILATION_CONDITIONS・REFORGE_DEV)を持ち込まない(tools/check-release-build.py が見張る。app-switches ジョブで回り、このジョブの門になる)。
   # 公開リポジトリのログは誰でも読めるので、鍵・ID の値は出さない。xcodebuild の出力は一度ファイルへ落とし、error 行だけを出す。
   testflight:
     name: TestFlight (Release archive・上げる)
@@ -474,9 +509,13 @@ jobs:
     needs: [core, app-switches]
     runs-on: macos-26
     timeout-minutes: 60
+    # 上げる処理は並べない(取り消しもしない。取り消すと途中の送信が半端になる)
+    concurrency:
+      group: testflight
+      cancel-in-progress: false
     env:
       VERSION: 0.1.0
-      BUILD: ${{ github.run_number }}
+      # BUILD(CFBundleVersion)は最初の step で決める(run 番号 + 再実行の回数 2 桁。数値のみ・単調増加)
       HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
       # 鍵とチーム ID が全部そろっているか(値は出さない。有無だけ)
       CAN_UPLOAD: ${{ secrets.ASC_KEY_ID != '' && secrets.ASC_ISSUER_ID != '' && secrets.ASC_KEY_P8 != '' && secrets.APPLE_TEAM_ID != '' }}
@@ -484,6 +523,14 @@ jobs:
       REFORGE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
     steps:
       - uses: actions/checkout@v5
+
+      # 同じ run の再実行(run_attempt が増える)でも App Store Connect に弾かれないよう、BUILD を一意にする。
+      # 例: run 123・1 回目 → 12301、再実行 → 12302。以後の step は $BUILD を読む。
+      - name: BUILD を決める
+        run: |
+          build=$(printf '%d%02d' "${{ github.run_number }}" "${{ github.run_attempt }}")
+          echo "BUILD=$build" >> "$GITHUB_ENV"
+          echo "build $build"
 
       - name: 非公開のコンテンツを取り込む
         if: env.HAS_CONTENT_KEY == 'true'
@@ -558,7 +605,7 @@ jobs:
           APP=build/ReForge.xcarchive/Products/Applications/ReForge.app
           test -d "$APP" || { echo ".app が archive に無い"; exit 1; }
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = com.yusukedoi.reforge
-          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")" = "$BUILD" || { echo "CFBundleVersion が run 番号と違う"; exit 1; }
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")" = "$BUILD" || { echo "CFBundleVersion が BUILD と違う"; exit 1; }
           lipo -info "$APP/ReForge"
           test -f "$APP/PrivacyInfo.xcprivacy" || { echo "PrivacyInfo.xcprivacy が .app に無い"; exit 1; }
 
