@@ -1,6 +1,7 @@
 import RFCrew
 import RFContent
 import RFKernel
+import RFRules
 import RFSim
 import RFTestSupport
 import RFWorld
@@ -120,5 +121,44 @@ final class SteerTests: XCTestCase {
         _ = rig.simulation.runSteps(12, &dark)
         XCTAssertLessThanOrEqual(dark.people[.noah]!.position!.point.chebyshev(to: start), 5)
         XCTAssertGreaterThan(dark.people[.noah]!.position!.point.chebyshev(to: start), lit.people[.noah]!.position!.point.chebyshev(to: start))
+    }
+
+    /// 灯りの円の外で日没を迎えても、棒が出ているのに全方向が詰まらない(ノア自身の夜目の円を足す)。
+    func testSteerIsNotStuckOutsideEveryLightAtNight() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        let start = world.people[.noah]!.position!.point
+        world.clock.phase = .nightWork
+        world.placements.items.removeAll()
+        let hearth = world.newEntityID()
+        var placement = Placement(id: hearth, kind: .structure("structure.campfire"),
+                                  at: WorldPoint(.surface, GridPoint(start.x - 14, start.y)),
+                                  facing: .north, origin: ProvenanceLedger.unknownOrigin, status: .running)
+        var runtime = StructureRuntime()
+        runtime.hearth = HearthState(fuel: 60_000, lit: true)
+        placement.structure = runtime
+        world.placements.items[hearth] = placement
+        let light = try XCTUnwrap(WalkRange.circles(world, content: rig.content, layer: .surface).first { $0.center != start },
+                                  "焚き火の灯りの円がある")
+        XCTAssertFalse(light.contains(start), "前提: ノアは灯りの円の外")
+        _ = command(rig, &world, .east)
+        let report = rig.simulation.runSteps(6, &world)
+        XCTAssertFalse(report.events.contains { if case .steerBlocked = $0 { true } else { false } })
+        XCTAssertGreaterThan(world.people[.noah]!.position!.point.x, start.x)
+    }
+
+    /// 眠る・時計の保留に入ったら、倒しっぱなしの向きは世界から落ちる(指を離せなくても歩き続けない)。
+    func testSteerIsDroppedWhileSleepingOrHeld() throws {
+        let rig = try TestRig.publicOnly()
+        for suspend in [{ (w: inout WorldState) in w.clock.sleeping = true }, { (w: inout WorldState) in w.clock.held = true }] {
+            var world = rig.factory.newWorld(seed: 1)
+            world.clock.held = false
+            _ = command(rig, &world, .east)
+            XCTAssertNotNil(world.people[.noah]?.steer)
+            suspend(&world)
+            _ = rig.simulation.runSteps(1, &world)
+            XCTAssertNil(world.people[.noah]?.steer)
+            XCTAssertNil(world.people[.noah]?.steerBlocked)
+        }
     }
 }

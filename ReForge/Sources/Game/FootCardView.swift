@@ -40,7 +40,7 @@ struct FootCardView: View {
                     FireOutlookLine(fire: fire)
                 }
                 HStack(spacing: 8) {
-                    ForEach(store.footCard?.actions ?? [], id: \.id) { a in
+                    ForEach(store.footCard?.actions ?? [], id: \.key) { a in
                         ActionButton(action: a, store: store)
                     }
                     if let card = store.footCard, card.pageCount > 1 {

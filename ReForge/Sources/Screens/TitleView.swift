@@ -40,7 +40,7 @@ struct TitleView: View {
                         .buttonStyle(.ink(.primary))
                         .accessibilityIdentifier("continueButton")
                         // いまの記録を消すので、確かめのダイアログの代わりに長押しにする
-                        InkHoldButton(label: Text("はじめから"), hint: Text("長押しで、いまの記録を消してはじめる")) {
+                        InkHoldButton(label: Text("はじめから"), hint: Text("長押しで、いまの記録を消してはじめる"), showsHint: false) {
                             app.startNewGame()
                         }
                         .accessibilityIdentifier("newGameButton")

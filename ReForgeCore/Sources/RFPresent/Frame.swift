@@ -607,6 +607,9 @@ public struct FootCard: Equatable, Sendable {
         /// いまの 1 単位の進み(0...1000)。押していないときは nil(PT-B3 のバーもこれを読む)。
         public var progressPermille: Int?
 
+        /// 一覧の識別(行為と対象のマスの組。ボタンの並びの id に使う)。
+        public var key: String { "\(id.rawValue)@\(at.layer.rawValue):\(target.x),\(target.y)" }
+
         public init(id: InteractionID, label: String, hold: Bool, at: WorldPoint, progressPermille: Int? = nil) {
             self.id = id
             self.label = label

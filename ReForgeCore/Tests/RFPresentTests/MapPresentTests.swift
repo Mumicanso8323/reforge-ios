@@ -419,10 +419,20 @@ final class MapPresentTests: XCTestCase {
     }
 
     func testFootCardOnlyListsActionsWithinReachInFixedOrder() throws {
-        let b = FrameBuilder(content: try contentWithInteractions())
+        // 足元の行為が 3 つを超えるように、地面の行為を足す(同じ行為は周りの何マスにあっても 1 つだけ出す)
+        var db = try contentWithInteractions()
+        let extra = (2...4).map {
+            """
+            { "id": "interaction.test.present.pick\($0)", "target": { "terrain": { "tag": "ground" } }, "seconds": 30,
+              "hold": false, "yields": [] }
+            """
+        }.joined(separator: ",")
+        try ContentLoader.apply(json: Data("{ \"interactions\": [\(extra)] }".utf8), to: &db)
+        let b = FrameBuilder(content: db)
         var w = world()
         let start = w.map.spawn.point
         w.people[.noah]?.position = WorldPoint(.surface, start)
+        var ids: [InteractionID] = []
         var targets: [GridPoint] = []
         var page = 0
         var pageCount = 1
@@ -431,15 +441,15 @@ final class MapPresentTests: XCTestCase {
             pageCount = card.pageCount
             XCTAssertEqual(card.page, page)
             XCTAssertLessThanOrEqual(card.actions.count, FootCard.maxActions)
+            ids += card.actions.map(\.id)
             targets += card.actions.map(\.target)
             page += 1
         } while page < pageCount
         XCTAssertEqual(targets.first, start, "ノアのマスが先")
         XCTAssertTrue(targets.allSatisfy { $0.chebyshev(to: start) <= 1 }, "手の届く所だけ")
         XCTAssertGreaterThan(pageCount, 1, "4 つ目からは次のページ")
-        let neighbours = Array(targets.dropFirst())
-        let sorted = neighbours.sorted { ($0.x, $0.y) < ($1.x, $1.y) }
-        XCTAssertEqual(neighbours, sorted, "同じ行為の中ではマスの座標の順")
+        XCTAssertEqual(Set(ids).count, ids.count, "同じ行為は 1 つだけ(周りの何マスにあっても)")
+        XCTAssertEqual(ids, ids.sorted(), "ID の順")
         for far in [GridPoint(start.x + 2, start.y), GridPoint(start.x, start.y - 5)] {
             know(&w, [far])
             let card = try XCTUnwrap(b.footCard(w, at: far))

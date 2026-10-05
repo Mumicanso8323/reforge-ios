@@ -18,8 +18,10 @@ final class AppTests: XCTestCase {
 
     @MainActor private final class BackgroundTasks: BackgroundTaskManaging {
         private(set) var events: [String] = []
+        private(set) var handlers: [() -> Void] = []
         func begin(name: String, expirationHandler: @escaping () -> Void) -> UIBackgroundTaskIdentifier {
             events.append("begin")
+            handlers.append(expirationHandler)
             return UIBackgroundTaskIdentifier(rawValue: 1)
         }
         func end(_ identifier: UIBackgroundTaskIdentifier) { events.append("end") }
@@ -156,6 +158,19 @@ final class AppTests: XCTestCase {
         XCTAssertEqual(tasks.events, ["begin"])
         for _ in 0..<50 where tasks.events.count < 2 { try await Task.sleep(nanoseconds: 20_000_000) }
         XCTAssertEqual(tasks.events, ["begin", "end"])
+    }
+
+    /// 時間切れの通知が先に来たら、その場で終える(後から保存が終わっても 2 度は終えない)。
+    func testBackgroundSaveEndsWhenExpired() async throws {
+        let tasks = BackgroundTasks()
+        let app = AppModel(saves: tempSaves(), backgroundTasks: tasks)
+        let content = try XCTUnwrap(app.content)
+        let store = GameStore(content: content, world: GameBootstrap.newWorld(content: content, seed: 5), saves: tempSaves())
+        app.saveInBackground(store)
+        tasks.handlers.first?()
+        XCTAssertEqual(tasks.events, ["begin", "end"])
+        try await Task.sleep(nanoseconds: 300_000_000)
+        XCTAssertEqual(tasks.events, ["begin", "end"], "2 度終えない")
     }
 
     func testClockStepRecordsOnlySlowSteps() async throws {

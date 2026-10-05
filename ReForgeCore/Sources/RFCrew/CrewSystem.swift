@@ -204,6 +204,12 @@ public struct CrewSystem: SimSystem {
         let base = CrewRules.progressPerStep(ctx.content.clock)
         var planner = PathPlanner(world: ctx.world, content: ctx.content, workspace: workspace)
 
+        // 操作棒を出さない間(時計の保留・眠り・戦闘)に倒しっぱなしの向きが残らないよう、ここで落とす
+        if ctx.world.people[.noah]?.steer != nil, Self.steeringSuspended(ctx.world) {
+            ctx.world.people[.noah]?.steer = nil
+            ctx.world.people[.noah]?.steerBlocked = nil
+            ctx.changes.mark(.people)
+        }
         if let direction = ctx.world.people[.noah]?.steer {
             steerStep(direction, &ctx, planner: &planner)
         }
@@ -235,6 +241,13 @@ public struct CrewSystem: SimSystem {
             guard let ps = ctx.world.people[id], ps.presence.isMember, ps.position != nil else { continue }
             Duties.run(id, &ctx, planner: &planner, allowed: allowed)
         }
+    }
+
+    /// 操作棒が使えない間か(画面が棒を隠す条件と同じ: 保留・眠り・戦闘中)。
+    static func steeringSuspended(_ w: WorldState) -> Bool {
+        if w.clock.held || w.clock.sleeping { return true }
+        if case .fighting(let b) = w.people[.noah]?.activity, w.combat.battles[b] != nil { return true }
+        return false
     }
 
     private func steerStep(_ direction: StickDirection, _ ctx: inout StepContext, planner: inout PathPlanner) {

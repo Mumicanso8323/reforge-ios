@@ -31,8 +31,10 @@ public enum WalkRange {
                 let r = Hearths.lightRadius(p, content)
                 return r > 0 ? Circle(center: p.at.point, radius: r) : nil
             }
-            if !lights.isEmpty { return lights }
-            return [Circle(center: noah.point, radius: rule.radius(isNight: true, hasTorch: false))]
+            // 灯りの円の外にいる(日没で焚き火から遠い等)ときは、ノア自身の夜目の円も足す。出ている棒が全方向で詰まらない
+            let own = Circle(center: noah.point, radius: rule.radius(isNight: true, hasTorch: false))
+            if lights.contains(where: { $0.contains(noah.point) }) { return lights }
+            return lights + [own]
         }
         return [Circle(center: noah.point, radius: rule.radius(isNight: false, hasTorch: false))]
     }

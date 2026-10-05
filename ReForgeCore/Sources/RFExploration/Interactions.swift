@@ -177,7 +177,7 @@ public enum Interactions {
                 if def.continues == true, a.holding, p.motion != nil { continue }
                 // 歩きが通らなかった(歩き出せなかった)ノアは、黙って取り消さず「近くにもう無い」で止まる
                 if def.continues == true, a.holding, actorID == .noah {
-                    ctx.world.exploration.continueStop = ContinueStop(interaction: def.id, at: a.at)
+                    ctx.world.exploration.continueStop = ContinueStop(interaction: def.id, at: a.at, day: ctx.world.clock.day)
                 }
                 cancel(actorID, &ctx)
                 continue
@@ -221,7 +221,7 @@ public enum Interactions {
                                             current: done.at, standing: pos),
               case .success = start(def, at: next, holding: true, actor: .noah, requireReach: false, &ctx)
         else {
-            ctx.world.exploration.continueStop = ContinueStop(interaction: def.id, at: done.at)
+            ctx.world.exploration.continueStop = ContinueStop(interaction: def.id, at: done.at, day: ctx.world.clock.day)
             ctx.changes.mark(.people)
             return
         }
@@ -412,6 +412,11 @@ public enum Interactions {
             return Rejection("reason.explore.cooldown", detail: ["days": .int(Int64(left))])
         }
         return nil
+    }
+
+    /// いま押しても使い切り・クールダウンで断られる行為か(足元カードのボタンを出さない判定。断りと同じ 1 か所の式を使う)。
+    public static func isBlocked(_ def: InteractionDef, at: WorldPoint, poi: EntityID?, world w: WorldState) -> Bool {
+        checkLimits(def, at: at, target: ResolvedTarget(poi: poi, cells: [], layer: at.layer), world: w) != nil
     }
 
     /// クールダウンの残り日数(明けている・クールダウンの無い行為は nil)。断りと地図の見た目はこの 1 か所の式を使う。

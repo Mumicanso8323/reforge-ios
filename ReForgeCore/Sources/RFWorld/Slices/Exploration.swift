@@ -92,10 +92,13 @@ public struct ContinueHome: Codable, Equatable, Sendable {
 public struct ContinueStop: Codable, Equatable, Sendable {
     public var interaction: InteractionID
     public var at: WorldPoint
+    /// 止まった日。日が変われば印は出さない(古い保存は nil で、そのまま出す)。
+    public var day: Int?
 
-    public init(interaction: InteractionID, at: WorldPoint) {
+    public init(interaction: InteractionID, at: WorldPoint, day: Int? = nil) {
         self.interaction = interaction
         self.at = at
+        self.day = day
     }
 }
 

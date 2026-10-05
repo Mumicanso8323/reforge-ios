@@ -91,4 +91,22 @@ final class U18ScreenTests: XCTestCase {
         XCTAssertFalse(s.runEnded)
         XCTAssertTrue(s.savePoints().contains { $0.slot == .manual(index: 0) }, "はじめからでも手動セーブは残る")
     }
+
+    /// 古い Frame の取り込みが await の途中で止まり、新しい Frame の取り込みが先に終わっても、古い側の暗い場面は居残らない。
+    func testStaleRefreshDoesNotWriteBackDarkStart() async throws {
+        let s = try store()
+        let w = await s.host.world
+        let older = await s.host.replace(world: w)
+        let newer = await s.host.replace(world: w)
+        XCTAssertGreaterThan(newer.revision, older.revision)
+        var stale = older
+        stale.darkStart = DarkStartView(action: FootCard.Action(id: "interaction.test", label: "x", hold: false,
+                                                                at: WorldPoint(.surface, GridPoint(0, 0))))
+        let task = Task { await s.refresh(stale) }
+        await Task.yield()
+        await s.refresh(newer)
+        await task.value
+        XCTAssertNil(s.darkStart, "新しい Frame に暗い場面は無い。古い側が書き戻さない")
+        XCTAssertEqual(s.revision, newer.revision)
+    }
 }

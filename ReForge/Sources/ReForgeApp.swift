@@ -252,7 +252,7 @@ final class AppModel {
         hasResume = (try? saves.read(slot: .resume)) != nil
     }
 
-    /// 記録を消す(取り返しがつかないので、画面は確認ダイアログを出してから呼ぶ)。
+    /// 記録を消す(取り返しがつかない。確認のダイアログは出さず、題の画面の長押しだけが呼ぶ)。
     func deleteSave() {
         settingsOpen = false
         game = nil
@@ -269,11 +269,22 @@ final class AppModel {
 
     /// 背面へ移るとき、保存が終わるまでの時間を OS に確保してもらう。
     func saveInBackground(_ game: GameStore) {
-        let task = backgroundTasks.begin(name: "save") { }
+        let task = BackgroundTaskBox()
+        task.id = backgroundTasks.begin(name: "save") { [weak self] in
+            // 時間切れ。OS はこの中で終了を呼ぶことを求める(呼ばないとアプリごと止められる)
+            MainActor.assumeIsolated { self?.endBackgroundSave(task) }
+        }
         Task {
             await game.saveResume()
-            backgroundTasks.end(task)
+            endBackgroundSave(task)
         }
+    }
+
+    /// 背面の保存の確保を 1 度だけ終える(完了と時間切れのどちらが先でも)。
+    private func endBackgroundSave(_ task: BackgroundTaskBox) {
+        guard !task.ended else { return }
+        task.ended = true
+        backgroundTasks.end(task.id)
     }
 
     func refreshEntitlements() async {
@@ -293,6 +304,13 @@ final class AppModel {
     func restorePurchases() async {
         if await storeService.restore() { setAdsRemoved(true) }
     }
+}
+
+/// 背面の保存の確保の識別と、終えたかの印(完了と時間切れで 2 度終えない)。
+@MainActor
+final class BackgroundTaskBox {
+    var id: UIBackgroundTaskIdentifier = .invalid
+    var ended = false
 }
 
 /// 全画面の共通の土台。広告枠コンテナの内側に画面を置くので、どの画面でも下の枠は残る。

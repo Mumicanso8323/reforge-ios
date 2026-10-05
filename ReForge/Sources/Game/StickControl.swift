@@ -48,6 +48,14 @@ struct StickControl: View {
                 })
             .accessibilityLabel(Text("移動の操作棒"))
             .accessibilityIdentifier("stickControl")
+            .onDisappear {
+                // 倒したまま棒が消える(戦闘・眠り・場面・背面)と onEnded が来ない。向きを残さない
+                guard sent != nil else { return }
+                sent = nil
+                neutral = nil
+                offset = .zero
+                store.steer(nil, reason: "disappeared")
+            }
             .onChange(of: store.lastSteerBlocked) { _, value in
                 guard value else { return }
                 blocked = true

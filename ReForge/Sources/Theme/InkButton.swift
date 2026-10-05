@@ -71,6 +71,8 @@ extension ButtonStyle where Self == InkButtonStyle {
 struct InkHoldButton: View {
     let label: Text
     var hint: Text? = nil
+    /// hint を画面にも出すか。false なら読み上げ(accessibilityHint)だけ。最初の画面のように、画面の文を減らしたい所で使う。
+    var showsHint: Bool = true
     /// 満ちるまでの秒数。
     var duration: Double = 1.2
     let action: () -> Void
@@ -112,9 +114,11 @@ struct InkHoldButton: View {
                         withAnimation(.easeOut(duration: 0.2)) { progress = 0 }
                     }
                 })
+                // accessibilityAction は付けない。付けると VoiceOver の二重タップが長押しの保護を通らずに action を走らせる。
+                // VoiceOver の「二回タップして長押し」は上の長押しにそのまま届く
                 .accessibilityAddTraits(.isButton)
-                .accessibilityAction { action() }
-            if let hint {
+                .accessibilityHint(hint ?? Text(verbatim: ""))
+            if let hint, showsHint {
                 hint
                     .font(InkFont.caption)
                     .foregroundStyle(InkColor.textDim)

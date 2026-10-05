@@ -372,9 +372,15 @@ public struct FrameBuilder: Sendable {
                     }
                 }
                 let own = tileActions(w, p, proj, ui: ui, at: pt)
+                // 同じ行為が何マスにもあるときは最寄りの 1 つだけ(ボタンと対象がずれず、ID も重ならない)
                 let around = neighbours.flatMap { tileActions(w, p, proj, ui: ui, at: $0) }
-                    .sorted { ($0.id, $0.target.x, $0.target.y) < ($1.id, $1.target.x, $1.target.y) }
-                actions = own + around
+                    .sorted { (a, b) in
+                        let da = a.target.chebyshev(to: pt), db = b.target.chebyshev(to: pt)
+                        return (a.id, da, a.target.x, a.target.y) < (b.id, db, b.target.x, b.target.y)
+                    }
+                var seen = Set(own.map(\.id))
+                actions = own
+                for a in around where seen.insert(a.id).inserted { actions.append(a) }
             } else {
                 actions = tileActions(w, p, proj, ui: ui, at: pt)
             }
@@ -400,7 +406,7 @@ public struct FrameBuilder: Sendable {
             card.state = .empty
             card.hint = p.text("ui.foot.hint.empty")
         }
-        card.nothingNearby = w.exploration.continueStop != nil
+        card.nothingNearby = w.exploration.continueStop.map { $0.day == nil || $0.day == w.clock.day } ?? false
         card.fire = placed.lazy.compactMap { fireView($0, w) }.first
         if let poi {
             // 残骸から開く資料(段のある資料のうち、この種類の POI に付いていて、いま記録に載るもの)
@@ -438,7 +444,8 @@ public struct FrameBuilder: Sendable {
             if let phases = def.allowedPhases, !phases.contains(w.clock.phase) { return nil }
             if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) == false { return nil }
             // クールダウン中のマスは押しても断られるので、ボタンを出さない(地図の使い切りの見た目と同じ判定)
-            if case .terrain = def.target, Interactions.isCoolingDown(def, at: at, world: w) { return nil }
+            // 使い切り(limit・POI の残り)も同じ。出して押せないボタンは出さない
+            if Interactions.isBlocked(def, at: at, poi: poi?.id, world: w) { return nil }
             return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)),
                                    hold: def.hold || def.continues == true, at: at,
                                    progressPermille: progress(of: def, w))

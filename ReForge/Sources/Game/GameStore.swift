@@ -402,6 +402,9 @@ final class GameStore {
             }
         }
         await refreshCard()
+        // await の間に、もっと新しい Frame の取り込みが先に入っていたら、古い側はここで捨てる
+        // (古い序・暗い場面・日の区切りを書き戻して、消えたはずの画面が居残るのを防ぐ)
+        guard lastRevision == f.revision else { return }
         // 序が終わったことは、地図の区画と足元カードを引き終えてから見せる(序の画面が消えた時に、地図と足元カードがそろっている)
         if prologue != f.prologue { prologue = f.prologue }
         if darkStart != f.darkStart { darkStart = f.darkStart }
