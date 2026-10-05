@@ -147,7 +147,7 @@ final class AppModel {
         self.adProvider = adProvider
         self.backgroundTasks = backgroundTasks
         self.adsRemoved = UserDefaults.standard.bool(forKey: Self.adsRemovedKey)
-        self.hasResume = (try? saves.read(slot: .resume)) != nil
+        self.hasResume = Self.resumeIsReadable(saves)
     }
 
     /// アプリの束に同梱した `content/`(公開の層と、あれば封をした非公開の層)を読む。鍵は rf-seal が生成した ContentKey。
@@ -234,6 +234,13 @@ final class AppModel {
         Task { await g.saveResume() }
     }
 
+    /// 「つづきから」を出してよいか。読み出せて SaveCodec で読め(壊れ・未来の版でない)、世界を作れるときだけ true。
+    /// 重いので毎フレームは呼ばない(題の画面を作る時・保存を書いた/消した時だけ)。読めない保存のファイルは消さない(復旧の余地)。
+    static func resumeIsReadable(_ saves: FileSaveStorage) -> Bool {
+        guard let data = try? saves.read(slot: .resume) else { return false }
+        return (try? SaveCodec.decode(data)) != nil
+    }
+
     /// 「つづきから」。読めない保存なら始めない(理由は出さずにタイトルに残る)。
     func continueGame() {
         guard let content, let data = try? saves.read(slot: .resume),
@@ -249,7 +256,7 @@ final class AppModel {
         await game?.saveResume()
         settingsOpen = false
         game = nil
-        hasResume = (try? saves.read(slot: .resume)) != nil
+        hasResume = Self.resumeIsReadable(saves)
     }
 
     /// 記録を消す(取り返しがつかない。確認のダイアログは出さず、題の画面の長押しだけが呼ぶ)。

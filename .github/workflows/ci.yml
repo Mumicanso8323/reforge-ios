@@ -524,6 +524,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: 保存の形が凍結されていること
+        run: |
+          grep -qE 'compatibilityFrozen *(: *Bool)? *= *true' ReForgeCore/Sources/RFSave/SaveCodec.swift \
+            || { echo "保存の形を凍結してから出す(SaveCodec.compatibilityFrozen を true に)"; exit 1; }
+
       # 同じ run の再実行(run_attempt が増える)でも App Store Connect に弾かれないよう、BUILD を一意にする。
       # 例: run 123・1 回目 → 12301、再実行 → 12302。以後の step は $BUILD を読む。
       - name: BUILD を決める

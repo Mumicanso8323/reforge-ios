@@ -346,6 +346,31 @@ final class AppTests: XCTestCase {
         app.deleteSave()
         XCTAssertFalse(app.hasResume)
     }
+    /// 読めない保存では「つづきから」を出さない(壊れ・未来の版)。ファイルは消さず、「はじめから」で新しい保存に置き換わる。
+    func testResumeHiddenWhenUnreadable() async throws {
+        let saves = tempSaves()
+        // (a) 壊れたバイト列
+        let junk = Data("not json".utf8)
+        try saves.write(junk, slot: .resume)
+        let a = AppModel(saves: saves)
+        XCTAssertFalse(a.hasResume)
+        XCTAssertEqual(try saves.read(slot: .resume), junk, "読めない保存を消さない")
+        // (b) 未知の版
+        let future = Data(#"{"format":"reforge.save","schemaVersion":999}"#.utf8)
+        try saves.write(future, slot: .resume)
+        XCTAssertFalse(AppModel(saves: saves).hasResume)
+        XCTAssertEqual(try saves.read(slot: .resume), future)
+        // (d) 読めない保存のまま「はじめから」
+        let app = AppModel(saves: saves)
+        app.startNewGame()
+        let store = try XCTUnwrap(app.game)
+        await store.saveResume()
+        XCTAssertTrue(app.hasResume)
+        XCTAssertTrue(AppModel.resumeIsReadable(saves))
+        // (c) 正しい保存
+        XCTAssertTrue(AppModel(saves: saves).hasResume)
+    }
+
     /// L-10a: 設定が開いている間は GameStore の時計が進まない。閉じたら、止めていた間の実時間を進めず、再開した点から進む。
     func testClockStopsWhileSettingsOpen() async throws {
         let c = try content()
