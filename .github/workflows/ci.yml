@@ -399,12 +399,13 @@ jobs:
       # 10 分のボット(ReForgeCore の受け入れテスト)を回して、送った命令の台本(時刻つき)を書く。
       # 出力は全部ファイルへ(ボットの記録には内容の名前が出るので、ログにも成果物にも出さない)。長さだけを出す。
       - name: 通しの台本を作る
+        timeout-minutes: 25
         run: |
           set +x
           mkdir -p "$RUNNER_TEMP/rec"
           REFORGE_PRIVATE_CONTENT="$PWD/content/private" REFORGE_TENMIN_BOT=1 REFORGE_TENMIN_SEEDS=1 \
           REFORGE_TENMIN_SCRIPT="$RUNNER_TEMP/rec/play.json" \
-            swift test --package-path ReForgeCore --filter FirstTenMinutesBotTests > "$RUNNER_TEMP/rec/bot.log" 2>&1 \
+            swift test --package-path ReForgeCore --filter FirstTenMinutesBotTests/testFirstTenMinutesTimeline > "$RUNNER_TEMP/rec/bot.log" 2>&1 \
             || { echo "台本の作成に失敗(詳細は成果物に出さない)"; exit 1; }
           python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print('commands', len(d['commands']), 'seconds', d['seconds'])" "$RUNNER_TEMP/rec/play.json"
 
