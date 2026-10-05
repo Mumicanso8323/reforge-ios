@@ -11,6 +11,7 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     MARKETING_VERSION: "0.1.0"
+    # ローカルは 1。CI は xcodebuild の引数で run 番号(ios ジョブの BUILD と同じ値)を渡して上書きする。
     CURRENT_PROJECT_VERSION: "1"
 
 packages:
@@ -23,6 +24,7 @@ targets:
     platform: iOS
     sources:
       # Sources(SwiftUI)と Resources(Localizable.xcstrings・同梱フォント BIZ UDGothic と OFL のライセンス文)
+      # (Resources/PrivacyInfo.xcprivacy も、ここから拡張子で自動的にリソースの段に束ねられる)
       - path: ReForge
       # コンテンツの束(公開の層の平文と、封をした非公開の層 private.sealed)。tools/content/stage.sh が作る。
       # 平文の content/private は同梱しない(docs/architecture/E-content.md §4.5)。
@@ -50,6 +52,13 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
         TARGETED_DEVICE_FAMILY: "1"
         ENABLE_PREVIEWS: YES
+      configs:
+        # Release だけ自動署名。チーム ID は環境変数 REFORGE_TEAM_ID から(Xcode が実行時に展開する)。
+        # 環境変数が無ければ空=署名しない従来どおり(CODE_SIGNING_ALLOWED=NO の未署名 ipa のジョブが壊れない)。
+        # Debug・テストの設定は変えない。
+        Release:
+          CODE_SIGN_STYLE: Automatic
+          DEVELOPMENT_TEAM: "$(REFORGE_TEAM_ID)"
 
   ReForgeTests:
     type: bundle.unit-test

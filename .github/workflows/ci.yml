@@ -4,6 +4,7 @@ name: ci
 #   core: ReForgeCore を Linux で swift test(安くて速い)
 #   ios : xcodegen → シミュレータで単体テスト → 未署名 ipa を作る → (手動起動で release=true なら) プレリリース公開
 #   rec: 手動起動で rec=true のときだけ。10 分の通しを録画し、公開鍵(age)で暗号化した成果物だけを上げる(別ジョブ・保持 1 日)
+#   testflight: 手動起動で testflight=true・main のときだけ。Release で archive → App Store Connect へ(鍵が無ければ署名なしで archive まで)
 #   screens: 手動起動で screens=true のときだけ。公開の層だけのアプリで主な画面を 5 言語で撮り、PNG を artifact に上げる
 # ipa は未署名。SideStore が自分の Apple ID で再署名して入れる。
 
@@ -28,6 +29,10 @@ on:
         default: false
       rec:
         description: '10 分の通しを録画し、公開鍵で暗号化した成果物だけを上げる(別ジョブ)'
+        type: boolean
+        default: false
+      testflight:
+        description: 'TestFlight へ上げる(main だけ。Release で archive。鍵が無ければ署名なしで archive まで)'
         type: boolean
         default: false
 
@@ -455,3 +460,171 @@ jobs:
           path: ${{ runner.temp }}/rec/rec.mp4.age
           retention-days: 1
           if-no-files-found: error
+
+  # TestFlight(docs: testflight-plan TF-T1)。手動起動で testflight=true、かつ main のときだけ回す。
+  # Release で archive → exportArchive(app-store-connect・upload)。ios・screens・rec とは独立(needs は core と app-switches だけ)。
+  # 認証は App Store Connect の API キー(secrets: ASC_KEY_ID・ASC_ISSUER_ID・ASC_KEY_P8)と、チーム ID(secrets: APPLE_TEAM_ID)。
+  # どれかが無い間は、署名なしで archive まで通して止める(試し。成功で終わり、送らない)。
+  # このジョブは開発の切り替え(SWIFT_ACTIVE_COMPILATION_CONDITIONS・REFORGE_DEV)を持ち込まない(tools/check-release-build.py が見張る)。
+  # 公開リポジトリのログは誰でも読めるので、鍵・ID の値は出さない。xcodebuild の出力は一度ファイルへ落とし、error 行だけを出す。
+  testflight:
+    name: TestFlight (Release archive・上げる)
+    if: github.event_name == 'workflow_dispatch' && inputs.testflight && github.ref == 'refs/heads/main'
+    needs: [core, app-switches]
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      VERSION: 0.1.0
+      BUILD: ${{ github.run_number }}
+      HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
+      # 鍵とチーム ID が全部そろっているか(値は出さない。有無だけ)
+      CAN_UPLOAD: ${{ secrets.ASC_KEY_ID != '' && secrets.ASC_ISSUER_ID != '' && secrets.ASC_KEY_P8 != '' && secrets.APPLE_TEAM_ID != '' }}
+      # project.yml の DEVELOPMENT_TEAM($(REFORGE_TEAM_ID))と ExportOptions の teamID が読む
+      REFORGE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: 非公開のコンテンツを取り込む
+        if: env.HAS_CONTENT_KEY == 'true'
+        uses: actions/checkout@v5
+        with:
+          repository: Mumicanso8323/reforge-content
+          ssh-key: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY }}
+          path: content/private
+          persist-credentials: false
+
+      - name: Xcode
+        run: |
+          x=$(ls -d /Applications/Xcode_26*.app | sort -V | tail -1); echo "using $x"
+          sudo xcode-select -s "$x"; xcodebuild -version
+
+      - name: コンテンツの束を作る
+        run: tools/content/stage.sh
+
+      - name: XcodeGen
+        run: |
+          command -v xcodegen || brew install xcodegen
+          xcodegen generate
+
+      # API キー(.p8)を一時ファイルに書く(権限 600)。ジョブの最後(always)に消す。set +x で値をログに出さない。
+      - name: API キーを置く
+        if: env.CAN_UPLOAD == 'true'
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          set +x
+          umask 077
+          mkdir -p "$RUNNER_TEMP/asc"
+          printf '%s\n' "$ASC_KEY_P8" > "$RUNNER_TEMP/asc/AuthKey.p8"
+          chmod 600 "$RUNNER_TEMP/asc/AuthKey.p8"
+          test -s "$RUNNER_TEMP/asc/AuthKey.p8" || { echo "API キーが空"; exit 1; }
+          echo "ASC_KEY_PATH=$RUNNER_TEMP/asc/AuthKey.p8" >> "$GITHUB_ENV"
+          echo "API キーを置いた(値は出さない)"
+
+      - name: Archive (Release)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set +x
+          log="$RUNNER_TEMP/archive.log"
+          if [ "$CAN_UPLOAD" = "true" ]; then
+            echo "署名して archive する(自動署名・API キー)"
+            xcodebuild archive -project ReForge.xcodeproj -scheme ReForge \
+              -configuration Release -destination 'generic/platform=iOS' \
+              -archivePath build/ReForge.xcarchive \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath "$ASC_KEY_PATH" \
+              -authenticationKeyID "$ASC_KEY_ID" \
+              -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+              MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" > "$log" 2>&1 \
+              || { grep -E "error:" "$log" | sort -u | head -40; echo "archive に失敗"; exit 1; }
+          else
+            echo "鍵かチーム ID が無いので、署名なしで archive だけ通す(試し)"
+            xcodebuild archive -project ReForge.xcodeproj -scheme ReForge \
+              -configuration Release -destination 'generic/platform=iOS' \
+              -archivePath build/ReForge.xcarchive \
+              CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+              MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$BUILD" > "$log" 2>&1 \
+              || { grep -E "error:" "$log" | sort -u | head -40; echo "archive に失敗"; exit 1; }
+          fi
+          grep -E "\*\* ARCHIVE" "$log" || true
+
+      # archive の中の .app を調べる。非公開の層の封(ios ジョブの ipa の段と同じ検査)と、debug 専用の物が入っていないこと。
+      - name: archive の中身を確かめる
+        run: |
+          set +x
+          APP=build/ReForge.xcarchive/Products/Applications/ReForge.app
+          test -d "$APP" || { echo ".app が archive に無い"; exit 1; }
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = com.yusukedoi.reforge
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP/Info.plist")" = "$BUILD" || { echo "CFBundleVersion が run 番号と違う"; exit 1; }
+          lipo -info "$APP/ReForge"
+          test -f "$APP/PrivacyInfo.xcprivacy" || { echo "PrivacyInfo.xcprivacy が .app に無い"; exit 1; }
+
+          # 平文の非公開の層が入っていないこと。見張りの文字列(値はログに出さない)が平文で現れないこと
+          test ! -e "$APP/content/private" || { echo "平文の非公開の層が .app に入っている"; exit 1; }
+          if [ -d content/private/art ]; then
+            find content/private/art -type f -exec shasum -a 256 {} + | awk '{print $1}' | sort -u > private-art.sha
+            find "$APP" -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \) -exec shasum -a 256 {} + \
+              | awk '{print $1}' | sort -u > payload-art.sha
+            if [ -n "$(comm -12 private-art.sha payload-art.sha)" ]; then
+              echo "非公開の絵が .app に平文で入っている"; exit 1
+            fi
+          fi
+          if [ -f content/private/bundle.json ]; then
+            canary=$(python3 -c 'import json; print(json.load(open("content/private/bundle.json"))["bundle"].get("canary") or "")')
+            if [ -n "$canary" ] && grep -rqF -- "$canary" "$APP"; then
+              echo "見張りの文字列が .app の中に平文で見つかった(封が効いていない)"; exit 1
+            fi
+          fi
+
+          # debug 専用の文字列(台本の流し込み・撮影の起動引数)が、組んだバイナリに無いこと
+          strings -a "$APP/ReForge" > "$RUNNER_TEMP/app.strings"
+          if grep -qE "ReForgeReplay|ReForgeScreenshot" "$RUNNER_TEMP/app.strings"; then
+            grep -oE "ReForgeReplay[A-Za-z]*|ReForgeScreenshot[A-Za-z]*" "$RUNNER_TEMP/app.strings" | sort -u
+            echo "debug 専用の文字列が Release のバイナリに入っている"; exit 1
+          fi
+          echo "archive の中身の確かめは通った"
+
+      - name: App Store Connect へ上げる
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set +x
+          if [ "$CAN_UPLOAD" != "true" ]; then
+            echo "鍵が無いので送らない(archive まで通した)"
+            exit 0
+          fi
+          log="$RUNNER_TEMP/export.log"
+          cat > "$RUNNER_TEMP/ExportOptions.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${REFORGE_TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath build/ReForge.xcarchive \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath build/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" > "$log" 2>&1 \
+            || { grep -E "error:" "$log" | sort -u | head -40; echo "上げるのに失敗"; exit 1; }
+          grep -E "\*\* EXPORT" "$log" || true
+          echo "App Store Connect へ上げた(build $BUILD)"
+
+      - name: API キーを消す
+        if: always()
+        run: |
+          set +x
+          rm -rf "$RUNNER_TEMP/asc" "$RUNNER_TEMP/ExportOptions.plist" "$RUNNER_TEMP/archive.log" "$RUNNER_TEMP/export.log" "$RUNNER_TEMP/app.strings"
+          echo "一時ファイルを消した"
