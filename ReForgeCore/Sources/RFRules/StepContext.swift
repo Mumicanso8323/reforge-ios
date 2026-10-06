@@ -171,3 +171,14 @@ extension Ingredient {
         }
     }
 }
+
+extension StepContext {
+    /// ノアの操作棒の向きを落とす。世界が止まる入口(ブロックする決断・眠り・戦闘・場面)で、
+    /// 次の step を待たずに呼ぶ(開いた直後に保存されても古い向きが残らないように)。止まりが明けても自動では戻らない。
+    public mutating func dropNoahSteer() {
+        guard world.people[.noah]?.steer != nil || world.people[.noah]?.steerBlocked != nil else { return }
+        world.people[.noah]?.steer = nil
+        world.people[.noah]?.steerBlocked = nil
+        changes.mark(.people)
+    }
+}

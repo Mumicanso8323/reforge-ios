@@ -29,6 +29,7 @@ public struct TimeSystem: SimSystem {
         case .sleep:
             guard clock.phase != .day else { return .rejected(Rejection("reason.time.still_day")) }
             ctx.world.clock.sleeping = true
+            ctx.dropNoahSteer()
             ctx.changes.mark(.clock)
             return .accepted(time: Self.untilDawn(clock, ctx.content.clock))
         }

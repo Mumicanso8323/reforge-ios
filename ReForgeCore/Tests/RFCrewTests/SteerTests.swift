@@ -2,6 +2,7 @@ import RFCrew
 import RFContent
 import RFKernel
 import RFRules
+import RFSave
 import RFSim
 import RFTestSupport
 import RFWorld
@@ -196,5 +197,82 @@ final class SteerTests: XCTestCase {
         world.narrative.pending.append(decision(blocking: false, world))
         _ = rig.simulation.runSteps(1, &world)
         XCTAssertNotNil(world.people[.noah]?.steer)
+    }
+
+    // MARK: 世界が止まる入口は、step を待たずに棒を落とす(開いた瞬間に保存されても古い向きが残らない)
+
+    /// 棒を倒した世界で、ブロックする決断を開く step。
+    private func openBlockingDecisionInStep(_ rig: TestRig, _ world: inout WorldState) {
+        var ctx = StepContext(world: world, content: rig.content)
+        ctx.learn("fact.test.stop")
+        var report = StepReport()
+        rig.simulation.settle(&ctx, &report)
+        world = ctx.world
+    }
+
+    /// 開いた直後(次の step を待たない)の保存する形で steer が nil。読み戻しても nil。決めても歩かない。押し直せば歩く。
+    func testBlockingDecisionOpenDropsSteerImmediatelyAndSurvivesSave() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        world.clock.held = false
+        _ = command(rig, &world, .east)
+        _ = rig.simulation.runSteps(1, &world)
+        XCTAssertNotNil(world.people[.noah]?.steer)
+        openBlockingDecisionInStep(rig, &world)
+        let pending = try XCTUnwrap(world.narrative.pending.first(where: \.blocking))
+        XCTAssertNil(world.people[.noah]?.steer, "開いた瞬間に落ちる")
+        XCTAssertNil(world.people[.noah]?.steerBlocked)
+
+        let data = try SaveCodec.encode(SaveEnvelope(slot: .resume, world: world, content: [ContentStamp(layer: "public", version: "t")]))
+        var loaded = try SaveCodec.decode(data).world
+        XCTAssertNil(loaded.people[.noah]?.steer, "保存して読み戻しても nil")
+
+        _ = rig.simulation.apply(.narrative(.decide(decision: pending.id, choice: "choice.test.yes")), to: &loaded)
+        // 歩きかけのマスには着く(棒の仕様)。その先へは自動で進まない
+        for _ in 0..<20 where loaded.people[.noah]?.motion != nil { _ = rig.simulation.runSteps(1, &loaded) }
+        let start = loaded.people[.noah]!.position!.point
+        _ = rig.simulation.advance(&loaded, realSeconds: 1)
+        _ = rig.simulation.runSteps(10, &loaded)
+        XCTAssertEqual(loaded.people[.noah]!.position!.point, start, "決めた後も勝手に歩かない")
+        _ = command(rig, &loaded, .east)
+        _ = rig.simulation.advance(&loaded, realSeconds: 1)
+        XCTAssertNotEqual(loaded.people[.noah]!.position!.point, start, "押し直せば歩ける")
+    }
+
+    /// ブロックしない決断を開いても棒は残る。
+    func testNonBlockingDecisionOpenKeepsSteerImmediately() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        world.clock.held = false
+        _ = command(rig, &world, .east)
+        var ctx = StepContext(world: world, content: rig.content)
+        ctx.learn("fact.test.alpha")
+        var report = StepReport()
+        rig.simulation.settle(&ctx, &report)
+        world = ctx.world
+        XCTAssertTrue(world.narrative.pending.contains { !$0.blocking })
+        XCTAssertNotNil(world.people[.noah]?.steer)
+    }
+
+    /// 眠りに入る・場面に入る瞬間にも、step を待たずに落ちる。
+    func testSleepAndSceneEntryDropSteerImmediately() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        world.clock.held = false
+        _ = command(rig, &world, .east)
+        world.clock.phase = .dusk
+        var sctx = StepContext(world: world, content: rig.content)
+        XCTAssertNotNil(sctx.world.people[.noah]?.steer)
+        _ = rig.simulation.dispatch(.time(.sleep), &sctx)
+        XCTAssertTrue(sctx.world.clock.sleeping)
+        XCTAssertNil(sctx.world.people[.noah]?.steer, "眠りに入った瞬間に落ちる")
+
+        var w2 = rig.factory.newWorld(seed: 1)
+        w2.clock.held = false
+        _ = command(rig, &w2, .east)
+        var ctx = StepContext(world: w2, content: rig.content)
+        EffectApplier.apply([.startScene(scene: "scene.test.one")], &ctx, cause: nil)
+        XCTAssertNotNil(ctx.world.narrative.scene)
+        XCTAssertNil(ctx.world.people[.noah]?.steer, "場面に入った瞬間に落ちる")
     }
 }

@@ -235,6 +235,7 @@ public enum EffectApplier {
             }
             guard first < lines.count else { return }
             ctx.world.narrative.scene = SceneProgress(scene: scene, line: first, lineSince: w.clock.now, origin: cause)
+            ctx.dropNoahSteer()
             for fact in lines[first].learns ?? [] { ctx.learn(fact, via: cause) }
             ctx.emit(.sceneStarted(scene: scene))
             ctx.changes.mark(.narrative)

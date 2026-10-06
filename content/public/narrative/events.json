@@ -5,6 +5,7 @@
     { "id": "fact.test.beta", "implies": ["fact.test.gamma"] },
     { "id": "fact.test.gamma" },
     { "id": "fact.test.revealed" },
+    { "id": "fact.test.stop" },
     { "id": "fact.test.timeline", "scope": "timeline" }
   ],
   "events": [
@@ -24,6 +25,18 @@
           "effects": [ { "learn": { "fact": "fact.test.revealed" } }, { "relation": { "person": "person.test_a", "add": 5 } } ],
           "tags": ["tag.test.build"] },
         { "id": "choice.test.no", "label": "text.test.no", "effects": [ { "counter": { "id": "counter.test.refused", "add": 1 } } ] }
+      ]
+    }
+    ,
+    {
+      "id": "event.test.blocking",
+      "prompt": "text.test.prompt",
+      "blocking": true,
+      "effects": [],
+      "trigger": { "on": ["fact"], "when": { "known": { "expr": "fact.test.stop" } } },
+      "choices": [
+        { "id": "choice.test.yes", "label": "text.test.yes", "effects": [] },
+        { "id": "choice.test.no", "label": "text.test.no", "effects": [] }
       ]
     }
   ],

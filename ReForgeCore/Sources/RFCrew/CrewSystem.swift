@@ -315,6 +315,7 @@ public struct CrewSystem: SimSystem {
                 ctx.world.people[id]?.workSpeed = nil
                 ctx.changes.mark(.people)
             }
+            ctx.dropNoahSteer()
         case .battleEnded(let b, _, _, _):
             for id in ctx.world.people.order {
                 guard case .fighting(let x) = ctx.world.people[id]?.activity, x == b else { continue }

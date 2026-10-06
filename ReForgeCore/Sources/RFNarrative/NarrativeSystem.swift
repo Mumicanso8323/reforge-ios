@@ -122,6 +122,7 @@ public struct NarrativeSystem: SimSystem {
                 let did = ctx.world.newEntityID()
                 ctx.world.narrative.pending.append(PendingDecision(id: did, event: id, choices: open, blocking: def.blocking ?? false,
                                                                    since: ctx.world.clock.now, origin: rec))
+                if def.blocking ?? false { ctx.dropNoahSteer() }
                 ctx.emit(.decisionOpened(decision: did, event: id))
             }
         }
