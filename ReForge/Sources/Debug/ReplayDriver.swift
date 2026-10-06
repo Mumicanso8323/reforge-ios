@@ -58,7 +58,9 @@ enum ReplayDriver {
             let step = await store.host.step
             let isScene = entry.command == .narrative(.advanceScene)
             let waited = uptime() - lastSend
-            if Int64(entry.step) <= step, !isScene || waited >= pacing.sceneGap {
+            // 時計が保留の間は歩みが進まない。長押しなどの「間」は、台本の after(前の命令からの実時間)で待つ
+            let afterOK = entry.after.map { waited >= $0 } ?? true
+            if Int64(entry.step) <= step, afterOK, !isScene || waited >= pacing.sceneGap {
                 let rejection = await store.perform(entry.command)
                 lastSend = uptime()
                 index += 1

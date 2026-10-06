@@ -21,6 +21,21 @@ final class ReplayScriptTests: XCTestCase {
         XCTAssertEqual(try JSONDecoder().decode([Command].self, from: data), commands)
     }
 
+    func testAfterRoundTripsAndOldScriptsWithoutItStillLoad() throws {
+        var s = sample()
+        s.commands[1].after = 7.5
+        let back = try ReplayScript.decode(s.encoded())
+        XCTAssertEqual(back.commands[1].after, 7.5)
+        XCTAssertNil(back.commands[0].after)
+        // after の無い古い台本(欄ごと無い JSON)も読める
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: sample().encoded()) as? [String: Any])
+        var commands = try XCTUnwrap(object["commands"] as? [[String: Any]])
+        for i in commands.indices { commands[i].removeValue(forKey: "after") }
+        object["commands"] = commands
+        let old = try ReplayScript.decode(JSONSerialization.data(withJSONObject: object))
+        XCTAssertEqual(old, sample())
+    }
+
     func testScriptRoundTripsThroughData() throws {
         let s = sample()
         XCTAssertEqual(try ReplayScript.decode(s.encoded()), s)

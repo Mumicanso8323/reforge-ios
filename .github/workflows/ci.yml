@@ -407,7 +407,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.rec
     needs: [core, app-switches]
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 100
     env:
       HAS_CONTENT_KEY: ${{ secrets.REFORGE_CONTENT_DEPLOY_KEY != '' }}
       # age の受け手(公開鍵。Repository variable REC_AGE_RECIPIENT)。秘密鍵は hub の ~/.config/reforge-rec/key.txt だけにある。
@@ -473,7 +473,10 @@ jobs:
           sleep 3
           xcrun simctl launch "$udid" com.yusukedoi.reforge -ReForgeReplay "$RUNNER_TEMP/rec/play.json" -ReForgeReplayDone "$RUNNER_TEMP/rec/done" -AppleLanguages "(ja)" >/dev/null
           # 台本が終わると、アプリが done ファイルを書く(最大 15 分待つ)
-          for i in $(seq 1 450); do test -e "$RUNNER_TEMP/rec/done" && break; sleep 2; done
+          # 待ちは台本の秒数 + 余裕(台本の seconds は保留の長押しと場面の送りの間を含む見込み)。最大 55 分
+          limit=$(python3 -c "import json,sys; s=json.load(open(sys.argv[1]))['seconds']; print(min(3300, int(s*1.25)+240))" "$RUNNER_TEMP/rec/play.json")
+          echo "待ちの上限(秒) $limit"
+          for i in $(seq 1 $((limit / 2))); do test -e "$RUNNER_TEMP/rec/done" && break; sleep 2; done
           if test -e "$RUNNER_TEMP/rec/done"; then echo "台本の結果: $(head -c 40 "$RUNNER_TEMP/rec/done")"; else echo "台本の結果: 終わらなかった"; fi
           sleep 3
           kill -INT "$rec_pid"; wait "$rec_pid" || true

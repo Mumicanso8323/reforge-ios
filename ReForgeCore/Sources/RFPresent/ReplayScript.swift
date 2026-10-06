@@ -9,10 +9,13 @@ public struct ReplayScript: Codable, Equatable, Sendable {
         /// 命令を送った時の歩みの通し番号(世界の clock.now の秒 / SimStep.gameSeconds)。
         public var step: Int
         public var command: Command
+        /// 前の命令を送ってから、実時間で最低これだけ(秒)あけて送る。時計が保留の間(暗い場面の長押し)は歩みが進まないので、押している時間をこれで持つ。無ければ歩みだけで決める。
+        public var after: Double?
 
-        public init(step: Int, command: Command) {
+        public init(step: Int, command: Command, after: Double? = nil) {
             self.step = step
             self.command = command
+            self.after = after
         }
     }
 

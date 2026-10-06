@@ -101,6 +101,29 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - started, 0.3)
     }
 
+    func testAfterDelaysTheCommandByRealTimeEvenWhenStepsDoNotAdvance() async throws {
+        let dir = tempDir()
+        let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))
+        let content = try XCTUnwrap(app.content)
+        let world = GameBootstrap.newWorld(content: content, seed: 1)
+        let store = GameStore(content: content, world: world, saves: FileSaveStorage(directory: dir.appendingPathComponent("saves2")))
+        let advance = Command.narrative(.advanceScene)
+        // どちらも step 0(保留で歩みが進まない形)。2 つ目は前の命令から 0.4 秒あけて送る
+        let script = ReplayScript(seed: 1, seconds: 1, commands: [
+            .init(step: 0, command: advance), .init(step: 0, command: advance, after: 0.4),
+        ])
+        var pacing = ReplayDriver.Pacing()
+        pacing.poll = .milliseconds(5)
+        pacing.warmup = .milliseconds(1)
+        pacing.sceneGap = 0
+        pacing.tail = 0
+        let started = ProcessInfo.processInfo.systemUptime
+        await ReplayDriver.run(script: script, store: store, donePath: nil, pacing: pacing)
+        XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - started, 0.4)
+        let log = await store.host.replayLog
+        XCTAssertEqual(log.count, 2)
+    }
+
     func testStopsAtFirstRefusedCommandAndRecordsItsNumber() async throws {
         let dir = tempDir()
         let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))

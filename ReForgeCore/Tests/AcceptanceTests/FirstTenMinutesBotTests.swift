@@ -97,8 +97,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
 
         /// コマンドを送り、その中で言われた一言も記録する。
         @discardableResult
-        mutating func send(_ c: Command) -> StepReport {
-            script?.append(.init(step: Int(w.clock.now.seconds / SimStep.gameSeconds), command: c))
+        mutating func send(_ c: Command, after: Double? = nil) -> StepReport {
+            script?.append(.init(step: Int(w.clock.now.seconds / SimStep.gameSeconds), command: c, after: after))
             let r = sim.apply(c, to: &w)
             record(r)
             auditNames()
@@ -222,7 +222,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
             var carry: Int64 = 0
             n = 0
             while w.clock.held && n < 20000 { record(sim.advanceHeld(&w, realSeconds: 0.1, carry: &carry)); n += 1; real += 0.1 }
-            _ = send(act.end)
+            // 保留の間は歩みが進まないので、押していた実時間(0.1 秒 × 回数)を台本に持たせる(離すのは、その後)
+            _ = send(act.end, after: Double(n) * 0.1 + 0.3)
             note()
         }
 
@@ -1632,11 +1633,14 @@ final class FirstTenMinutesBotTests: XCTestCase {
         return p?.isEmpty == false ? p : nil
     }
 
-    /// 送った命令を台本にしてファイルへ書く(print はしない)。seconds = 最後の命令の歩み × 実時間の 1 歩の長さ。
+    /// 送った命令を台本にしてファイルへ書く(print はしない)。seconds = 最後の命令の歩み × 実時間の 1 歩の長さ + 保留の長押し + 場面の送りの間。
     static func writeScript(_ b: Bot, seed: UInt64) {
         guard let path = scriptPath, let entries = b.script else { return }
         let last = entries.last?.step ?? 0
-        let script = ReplayScript(seed: Int(seed), seconds: Double(last) * Bot.realPerStep, commands: entries)
+        // 実時間の見込み = 歩みの分 + 保留の間の長押し(after)+ 場面の送りの間(流し込みの 1.5 秒)
+        let scenes = entries.filter { $0.command == .narrative(.advanceScene) }.count
+        let seconds = Double(last) * Bot.realPerStep + entries.reduce(0) { $0 + ($1.after ?? 0) } + Double(scenes) * 1.5
+        let script = ReplayScript(seed: Int(seed), seconds: seconds, commands: entries)
         do { try script.write(to: URL(fileURLWithPath: path)) } catch { XCTFail("台本を書けない: \(error)") }
     }
 
