@@ -243,9 +243,11 @@ public struct CrewSystem: SimSystem {
         }
     }
 
-    /// 操作棒が使えない間か(画面が棒を隠す条件と同じ: 保留・眠り・戦闘中)。
+    /// 操作棒が使えない間か(画面が棒を隠す条件と同じ: 保留・眠り・戦闘中・待機中のブロックする決断)。
+    /// 決断が閉じても向きは自動では戻らない(落とした steer は指を離して押し直すまで空のまま)。
     static func steeringSuspended(_ w: WorldState) -> Bool {
         if w.clock.held || w.clock.sleeping { return true }
+        if w.narrative.pending.contains(where: \.blocking) { return true }
         if case .fighting(let b) = w.people[.noah]?.activity, w.combat.battles[b] != nil { return true }
         return false
     }

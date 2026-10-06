@@ -480,6 +480,23 @@ final class MapPresentTests: XCTestCase {
         XCTAssertLessThan(night.walkable.map { $0.maxX - $0.minX }.max() ?? 0, 16, "夜は昼より狭い")
     }
 
+    /// 待機中のブロックする決断が開いている間は操作棒を出さない。ブロックしない決断は出したまま。
+    func testBlockingDecisionHidesSteer() throws {
+        var w = world()
+        w.clock.held = false
+        let open = PendingDecision(id: EntityID(9001), event: "event.test.decision", choices: [], blocking: true, since: w.clock.now, origin: nil)
+        w.narrative.pending = [open]
+        let blocked = builder.build(w, revision: 1, previous: nil, report: nil)
+        XCTAssertFalse(blocked.canSteer)
+        XCTAssertTrue(blocked.walkable.isEmpty)
+        var soft = open
+        soft.blocking = false
+        w.narrative.pending = [soft]
+        XCTAssertTrue(builder.build(w, revision: 2, previous: blocked, report: nil).canSteer)
+        w.narrative.pending = []
+        XCTAssertTrue(builder.build(w, revision: 3, previous: blocked, report: nil).canSteer)
+    }
+
     /// 灯りが 1 つも無い夜(火が消えた夜も同じ)でも、ノアは動けなくならない(歩ける範囲はノアの夜の視界。操作棒も出る)。
     func testNightWithoutLightKeepsNoahWalkable() throws {
         var w = world()

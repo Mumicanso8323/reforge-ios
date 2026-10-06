@@ -161,4 +161,40 @@ final class SteerTests: XCTestCase {
             XCTAssertNil(world.people[.noah]?.steerBlocked)
         }
     }
+
+    private func decision(blocking: Bool, _ world: WorldState) -> PendingDecision {
+        PendingDecision(id: EntityID(9001), event: "event.test.decision", choices: [], blocking: blocking, since: world.clock.now, origin: nil)
+    }
+
+    /// 待機中のブロックする決断が開いたら、倒しっぱなしの向きは落ちる。決めた後も押し直すまで歩かない。
+    func testBlockingDecisionDropsSteerAndDoesNotResume() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        world.clock.held = false
+        _ = rig.simulation.runSteps(1, &world)
+        _ = command(rig, &world, .east)
+        world.narrative.pending.append(decision(blocking: true, world))
+        let start = world.people[.noah]!.position!.point
+        for _ in 0..<10 { _ = rig.simulation.runSteps(1, &world) }
+        XCTAssertNil(world.people[.noah]?.steer)
+        XCTAssertEqual(world.people[.noah]!.position!.point, start, "決断が開いている間は動かない")
+        world.narrative.pending.removeAll()
+        for _ in 0..<20 { _ = rig.simulation.runSteps(1, &world) }
+        XCTAssertNil(world.people[.noah]?.steer, "決めても自動では再開しない")
+        XCTAssertEqual(world.people[.noah]!.position!.point, start, "指を離して押し直すまで歩かない")
+        _ = command(rig, &world, .east)
+        _ = rig.simulation.advance(&world, realSeconds: 1)
+        XCTAssertNotEqual(world.people[.noah]!.position!.point, start, "押し直せば歩く")
+    }
+
+    /// ブロックしない決断は操作棒を止めない。
+    func testNonBlockingDecisionKeepsSteer() throws {
+        let rig = try TestRig.publicOnly()
+        var world = rig.factory.newWorld(seed: 1)
+        world.clock.held = false
+        _ = command(rig, &world, .east)
+        world.narrative.pending.append(decision(blocking: false, world))
+        _ = rig.simulation.runSteps(1, &world)
+        XCTAssertNotNil(world.people[.noah]?.steer)
+    }
 }

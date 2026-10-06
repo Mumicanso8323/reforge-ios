@@ -106,7 +106,7 @@ public struct FrameBuilder: Sendable {
 
     /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではない)と、歩ける範囲を Frame に書く。
     func applySteering(_ frame: inout Frame, _ w: WorldState) {
-        guard w.run.isActive, !w.clock.held, !w.clock.sleeping,
+        guard w.run.isActive, !w.clock.held, !w.clock.sleeping, !w.narrative.pending.contains(where: \.blocking),
               let noah = w.people[.noah], noah.presence.isAlive, let pos = noah.position, pos.layer == layer else { return }
         if case .fighting(let battle) = noah.activity, w.combat.battles[battle] != nil { return }
         frame.canSteer = true
