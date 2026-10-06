@@ -509,6 +509,8 @@ jobs:
     needs: [core, app-switches]
     runs-on: macos-26
     timeout-minutes: 60
+    # 鍵(ASC_*・APPLE_TEAM_ID)は GitHub の Environment「testflight」(main だけ)に置く。リポジトリ全体の secrets には置かない
+    environment: testflight
     # 上げる処理は並べない(取り消しもしない。取り消すと途中の送信が半端になる)
     concurrency:
       group: testflight
