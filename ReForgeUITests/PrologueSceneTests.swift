@@ -1,11 +1,11 @@
 import XCTest
 
 /// 序の場面(PT-B6)の受け入れと、動画のための操作。
-/// 序の見本(アプリの Debug/PrologueSample.swift の中立の 3 行 × 2 場面)を `-ReForgeScreenshot prologue` で開く。
+/// 序の見本(アプリの Debug/PrologueSample.swift の中立の 3 行 × 3 場面(3 場面目は折り返す長さの行))を `-ReForgeScreenshot prologue` で開く。
 /// - 序の間は、地図・帯・タブ・角のボタンの識別子が画面に無い。
 /// - タップで送り(時間では送らない)、最後の行の後のタップで地図の画面に移る。
 
-private let sampleLineCount = 6
+private let sampleLineCount = 9
 
 private func launchPrologue(style: String? = nil) -> XCUIApplication {
     let app = XCUIApplication()
@@ -64,6 +64,33 @@ final class PrologueSceneTests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "settingsButton").firstMatch.waitForExistence(timeout: 15),
                       "地図に移った後に角のボタンが戻らない")
         XCTAssertFalse(exists(app, "prologueScene"), "移った後も序が残っている")
+    }
+
+    /// 折り返す長さの行(見本の 3 場面目)を出しても、行どうしの frame が交差しない(次の行は前の行の下に積まれる)。
+    func testWrappedLinesDoNotOverlap() throws {
+        let app = launchPrologue()
+        defer { app.terminate() }
+        let scene = app.descendants(matching: .any).matching(identifier: "prologueScene").firstMatch
+        XCTAssertTrue(scene.waitForExistence(timeout: 60), "序の場面が出ない")
+        func line(_ i: Int) -> XCUIElement {
+            app.descendants(matching: .any).matching(identifier: "prologueLine-\(i)").firstMatch
+        }
+        // 3 場面目の 3 行目まで送る(前の 2 場面で 6 回、同じ場面の 2 行目・3 行目で 2 回)
+        for _ in 0..<8 {
+            app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.8)).tap()
+            Thread.sleep(forTimeInterval: 0.6)
+        }
+        Thread.sleep(forTimeInterval: 1.5)
+        let frames = (0..<3).map { i -> CGRect in
+            XCTAssertTrue(line(i).waitForExistence(timeout: 10), "行 \(i) の識別子が無い")
+            return line(i).frame
+        }
+        // 長い行は 1 段より高い(折り返している)ことを確かめて、試験が空振りしないようにする
+        XCTAssertGreaterThan(frames[0].height, frames[1].height * 1.5, "長い行が折り返していない: \(frames)")
+        for i in 1..<3 {
+            XCTAssertGreaterThanOrEqual(frames[i].minY, frames[i - 1].maxY - 0.5,
+                                        "行 \(i) が前の行と重なる: \(frames[i - 1]) / \(frames[i])")
+        }
     }
 }
 

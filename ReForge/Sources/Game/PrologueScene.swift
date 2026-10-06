@@ -80,6 +80,7 @@ struct PrologueScene: View {
     @State private var job: Task<Void, Never>?
 
     private static let fontSize: CGFloat = 19
+    fileprivate static let space = "prologueSpace"
 
     var body: some View {
         GeometryReader { geo in
@@ -91,6 +92,7 @@ struct PrologueScene: View {
                 textBlock(height: geo.size.height)
                     .allowsHitTesting(false)
             }
+            .coordinateSpace(name: Self.space)
         }
         .opacity(sceneOpacity)
         .accessibilityElement(children: .ignore)
@@ -98,6 +100,24 @@ struct PrologueScene: View {
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("prologueScene")
         .accessibilityAction(.default) { tapped() }
+        #if DEBUG
+        // 試験用: 行ごとの frame を XCUI が取れるように、行の位置に透明の要素を重ねる(場面の 1 要素の外。本番の束には入らない)
+        .overlayPreferenceValue(PrologueLineFramesKey.self) { frames in
+            ZStack(alignment: .topLeading) {
+                ForEach(frames.keys.sorted(), id: \.self) { index in
+                    if let f = frames[index] {
+                        Color.clear
+                            .frame(width: f.width, height: f.height)
+                            .position(x: f.midX, y: f.midY)
+                            .accessibilityElement()
+                            .accessibilityIdentifier("prologueLine-\(index)")
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .allowsHitTesting(false)
+        }
+        #endif
         .onAppear {
             if exiting {
                 runExit()
@@ -163,19 +183,28 @@ struct PrologueScene: View {
     private func lineView(index: Int, line: String) -> some View {
         let isLast = index == lines.count - 1
         let partial = (style == .b && isLast && !exiting) ? String(line.prefix(typed)) : line
-        // 全部の字で場所を取り、出ていない字は見えなくする(字が出ても行が動かない)
-        Text(verbatim: line)
-            .opacity(0)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .topLeading) {
-                Text(verbatim: partial)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+        // 全部の字で場所を取り、出ていない字は見えなくする(字が出ても行が動かない)。
+        // 場所を取る字(見えない)と出ている字は、どちらも自分の折り返しで自分の高さを持つ(下の行はその下に積まれる)。
+        // 出ている字を場所を取る字の overlay にすると、折り返す行の高さを 1 段分に取り違えうるので、同じ ZStack に並べる。
+        ZStack(alignment: .topLeading) {
+            Text(verbatim: line)
+                .opacity(0)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(verbatim: partial)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(InkFont.font(Self.fontSize, relativeTo: .body))
+        .foregroundStyle(InkColor.text)
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: PrologueLineFramesKey.self,
+                                       value: [index: proxy.frame(in: .named(Self.space))])
             }
-            .font(InkFont.font(Self.fontSize, relativeTo: .body))
-            .foregroundStyle(InkColor.text)
-            .fixedSize(horizontal: false, vertical: true)
-            .opacity(index < shown ? olderOpacity(index) : 0)
-            .offset(y: index < shown || reduceMotion ? 0 : 8)
+        )
+        .opacity(index < shown ? olderOpacity(index) : 0)
+        .offset(y: index < shown || reduceMotion ? 0 : 8)
     }
 
     /// 入りきらなくなった行を、古い方から薄くして上へ流す(上の端は mask でも消える)。
@@ -300,5 +329,13 @@ struct PrologueScene: View {
             if Task.isCancelled { return }
             onExitDone()
         }
+    }
+}
+
+/// 各行の frame(場面の座標)。試験用の透明の要素の位置に使う。
+private struct PrologueLineFramesKey: PreferenceKey {
+    static let defaultValue: [Int: CGRect] = [:]
+    static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
+        value.merge(nextValue()) { $1 }
     }
 }

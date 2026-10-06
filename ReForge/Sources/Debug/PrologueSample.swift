@@ -26,6 +26,12 @@ final class DebugPrologue {
             sample(verbatim: "試験の五行目"),
             sample(verbatim: "試験の六行目"),
         ],
+        // 折り返す長さの行を先頭に持つ場面(行どうしが重ならないことの試験)。中立の文
+        [
+            sample(verbatim: "試験の長い一行目は、画面の幅で二段に折り返すように、わざと長く続けて書いてある。試験の長い一行目の終わり。"),
+            sample(verbatim: "試験の短い二行目"),
+            sample(verbatim: "試験の長い三行目も、画面の幅で二段に折り返すように、わざと長く続けて書いてある。試験の長い三行目の終わり。"),
+        ],
     ]
 
     private(set) var scene = 0
