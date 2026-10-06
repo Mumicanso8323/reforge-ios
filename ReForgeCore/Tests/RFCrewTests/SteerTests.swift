@@ -201,24 +201,41 @@ final class SteerTests: XCTestCase {
 
     // MARK: 世界が止まる入口は、step を待たずに棒を落とす(開いた瞬間に保存されても古い向きが残らない)
 
-    /// 棒を倒した世界で、ブロックする決断を開く step。
-    private func openBlockingDecisionInStep(_ rig: TestRig, _ world: inout WorldState) {
+    /// 公開の中身は変えず、出来事・文字列・場面をテストの中で足した枠(非公開の層が重なって試験用の物が消えても動く)。
+    private func ownRig() throws -> TestRig {
+        var content = try TestContent.publicOnly()
+        for key: TextID in ["text.r04.prompt", "text.r04.yes", "text.r04.no", "text.r04.line"] { content.texts[key] = "試験" }
+        func event(_ id: String, blocking: Bool) throws -> EventDef {
+            try JSONDecoder().decode(EventDef.self, from: Data("""
+            { "id": "\(id)", "prompt": "text.r04.prompt", "blocking": \(blocking), "effects": [],
+              "trigger": { "on": [], "when": { "always": {} } },
+              "choices": [ { "id": "choice.r04.yes", "label": "text.r04.yes", "effects": [] },
+                           { "id": "choice.r04.no", "label": "text.r04.no", "effects": [] } ] }
+            """.utf8))
+        }
+        content.events["event.r04.blocking"] = try event("event.r04.blocking", blocking: true)
+        content.events["event.r04.open"] = try event("event.r04.open", blocking: false)
+        content.scenes["scene.r04.one"] = try JSONDecoder().decode(SceneDef.self, from: Data(
+            #"{ "id": "scene.r04.one", "lines": [ { "text": "text.r04.line" } ] }"#.utf8))
+        return TestRig(content: content)
+    }
+
+    /// 棒を倒した世界で、出来事を起こす(決断が開く)。
+    private func fire(_ id: EventID, _ rig: TestRig, _ world: inout WorldState) {
         var ctx = StepContext(world: world, content: rig.content)
-        ctx.learn("fact.test.stop")
-        var report = StepReport()
-        rig.simulation.settle(&ctx, &report)
+        _ = rig.simulation.dispatch(.narrative(.fireFromEffect(event: id, cause: nil)), &ctx)
         world = ctx.world
     }
 
     /// 開いた直後(次の step を待たない)の保存する形で steer が nil。読み戻しても nil。決めても歩かない。押し直せば歩く。
     func testBlockingDecisionOpenDropsSteerImmediatelyAndSurvivesSave() throws {
-        let rig = try TestRig.publicOnly()
+        let rig = try ownRig()
         var world = rig.factory.newWorld(seed: 1)
         world.clock.held = false
         _ = command(rig, &world, .east)
         _ = rig.simulation.runSteps(1, &world)
         XCTAssertNotNil(world.people[.noah]?.steer)
-        openBlockingDecisionInStep(rig, &world)
+        fire("event.r04.blocking", rig, &world)
         let pending = try XCTUnwrap(world.narrative.pending.first(where: \.blocking))
         XCTAssertNil(world.people[.noah]?.steer, "開いた瞬間に落ちる")
         XCTAssertNil(world.people[.noah]?.steerBlocked)
@@ -227,7 +244,7 @@ final class SteerTests: XCTestCase {
         var loaded = try SaveCodec.decode(data).world
         XCTAssertNil(loaded.people[.noah]?.steer, "保存して読み戻しても nil")
 
-        _ = rig.simulation.apply(.narrative(.decide(decision: pending.id, choice: "choice.test.yes")), to: &loaded)
+        _ = rig.simulation.apply(.narrative(.decide(decision: pending.id, choice: "choice.r04.yes")), to: &loaded)
         // 歩きかけのマスには着く(棒の仕様)。その先へは自動で進まない
         for _ in 0..<20 where loaded.people[.noah]?.motion != nil { _ = rig.simulation.runSteps(1, &loaded) }
         let start = loaded.people[.noah]!.position!.point
@@ -241,22 +258,18 @@ final class SteerTests: XCTestCase {
 
     /// ブロックしない決断を開いても棒は残る。
     func testNonBlockingDecisionOpenKeepsSteerImmediately() throws {
-        let rig = try TestRig.publicOnly()
+        let rig = try ownRig()
         var world = rig.factory.newWorld(seed: 1)
         world.clock.held = false
         _ = command(rig, &world, .east)
-        var ctx = StepContext(world: world, content: rig.content)
-        ctx.learn("fact.test.alpha")
-        var report = StepReport()
-        rig.simulation.settle(&ctx, &report)
-        world = ctx.world
+        fire("event.r04.open", rig, &world)
         XCTAssertTrue(world.narrative.pending.contains { !$0.blocking })
         XCTAssertNotNil(world.people[.noah]?.steer)
     }
 
     /// 眠りに入る・場面に入る瞬間にも、step を待たずに落ちる。
     func testSleepAndSceneEntryDropSteerImmediately() throws {
-        let rig = try TestRig.publicOnly()
+        let rig = try ownRig()
         var world = rig.factory.newWorld(seed: 1)
         world.clock.held = false
         _ = command(rig, &world, .east)
@@ -271,7 +284,7 @@ final class SteerTests: XCTestCase {
         w2.clock.held = false
         _ = command(rig, &w2, .east)
         var ctx = StepContext(world: w2, content: rig.content)
-        EffectApplier.apply([.startScene(scene: "scene.test.one")], &ctx, cause: nil)
+        EffectApplier.apply([.startScene(scene: "scene.r04.one")], &ctx, cause: nil)
         XCTAssertNotNil(ctx.world.narrative.scene)
         XCTAssertNil(ctx.world.people[.noah]?.steer, "場面に入った瞬間に落ちる")
     }
