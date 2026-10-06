@@ -44,5 +44,5 @@
 メッセージは中立に。末尾は統合担当の決まりの 2 行:
 ```
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01Bk5mMUPjcpLyRtpyHwRQNF
+Claude-Session: (依頼の文で渡される URL)
 ```

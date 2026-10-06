@@ -3,6 +3,8 @@
 書いた人: architect(統合担当)。土台: `integration-c` の先頭。本体だけ(RFRules・RFPresent の見込み)。アプリは変えない。
 穴: 薪の山(`HearthState.pile`)に積む入口が、プレイヤーの `.stack` 以外に無い(画面にも内容にも送り手が無い)。番(`tendHearth`)が付いていても山が空で、くべる物が無いまま火が消える。
 
+> 後の決め(W-26b。W-26 の実装のあとに入った。ここが今の仕様): 番は山が**空**の時だけ、拠点の蓄えから最大 `HearthRule.tenderBatch`(= 3)本を山へ運ぶ(上限まで満たさない)。下の「決め」は最初の案で、この点は置き換わっている。`HearthTests` がこの挙動を固定している。
+
 ## 決め
 - 番が居る火床(`Hearths.isTended`)では、燃やす歩みの**前に**、山が上限(`HearthRule.pileMax(def, modifiers:)`。薪の囲いの +4 を含む)に満たなければ、拠点の蓄え(`.base`)から、山の物(`def.pileItem`)を、足りるだけ(蓄えが少なければあるだけ)山へ移す。移した分は蓄えから減る。蓄えが無ければ何もしない。
 - くべるのは今まで通り山から(`HearthRule.burn` の tended)。`burn` は純粋なまま変えない。
@@ -26,5 +28,5 @@
 ## コミット
 ```
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01Bk5mMUPjcpLyRtpyHwRQNF
+Claude-Session: (依頼の文で渡される URL)
 ```
