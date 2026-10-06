@@ -123,34 +123,10 @@
     },
     "あと %@×%lld": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@ × %lld more needed"
-          }
-        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "あと %@×%lld"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@×%lld개 더 필요"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "还差 %@×%lld"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "還差 %@×%lld"
           }
         }
       }
@@ -517,34 +493,10 @@
     },
     "付けない": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Skip"
-          }
-        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "付けない"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "부여하지 않음"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不授予"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不授予"
           }
         }
       }
@@ -1121,34 +1073,10 @@
     },
     "技能を付ける": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Grant a skill"
-          }
-        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "技能を付ける"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "기술 부여"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "授予技能"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "授予技能"
           }
         }
       }
@@ -1295,34 +1223,10 @@
     },
     "本人が断った": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Declined by them"
-          }
-        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "本人が断った"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "본인이 거절함"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本人拒绝了"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "本人拒絕了"
           }
         }
       }
@@ -1509,34 +1413,10 @@
     },
     "確定する": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Confirm"
-          }
-        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "確定する"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "확정하기"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "确定"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "確定"
           }
         }
       }
@@ -1853,34 +1733,10 @@
     },
     "足りない": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Not enough"
-          }
-        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "足りない"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "부족함"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不足"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "不足"
           }
         }
       }
@@ -1957,34 +1813,10 @@
     },
     "長押し": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hold"
-          }
-        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "長押し"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "길게 누르기"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "长按"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "長按"
           }
         }
       }
@@ -2021,34 +1853,10 @@
     },
     "長押しで確定": {
       "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Hold to confirm"
-          }
-        },
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "長押しで確定"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "길게 눌러 확정"
-          }
-        },
-        "zh-Hans": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "长按确定"
-          }
-        },
-        "zh-Hant": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "長按確定"
           }
         }
       }
