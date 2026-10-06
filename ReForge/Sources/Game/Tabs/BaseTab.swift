@@ -103,7 +103,10 @@ struct BaseTabView: View {
     }
 
     private func missing(_ option: BaseView.BuildOption) -> Text {
-        Text(verbatim: option.missing.map { "あと \($0.name)×\($0.quantity)" }.joined(separator: " "))
+        option.missing.enumerated().reduce(Text(verbatim: "")) { text, item in
+            let part = Text("あと \(item.element.name)×\(item.element.quantity)") // xcstrings: @,lld
+            return item.offset == 0 ? part : text + Text(verbatim: " ") + part
+        }
     }
 
     private func lines(_ v: BaseView) -> some View {

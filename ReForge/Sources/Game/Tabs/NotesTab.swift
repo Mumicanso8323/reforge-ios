@@ -123,7 +123,7 @@ struct NotesTabView: View {
             if let im = s.grant, let sid = sheetID(source) { grantArea(im, labels: s.labels, sheet: sid) }
             if s.rosterConfirmed == false, let sid = sheetID(source) {
                 let labels = s.labels
-                InkHoldButton(label: Text(verbatim: labels?.rosterConfirm ?? "確定する"), hint: Text(verbatim: labels?.rosterConfirmHint ?? "長押しで確定")) {
+                InkHoldButton(label: coreText(labels?.rosterConfirm, "確定する"), hint: coreText(labels?.rosterConfirmHint, "長押しで確定")) {
                     Task { await wb.confirmRoster(sheet: sid, store) }
                 }
                 .accessibilityIdentifier("confirmRoster")
@@ -132,13 +132,18 @@ struct NotesTabView: View {
     }
 
     /// 人ごとに付けられる技能と、その選択肢。
+    /// 内容の層が名前を渡したらそれ、無ければ画面の文字列カタログの文(端末の言語)。
+    private func coreText(_ text: String?, _ fallback: LocalizedStringKey) -> Text {
+        text.map { Text(verbatim: $0) } ?? Text(fallback)
+    }
+
     private func grantArea(_ im: ProcessSheet.SkillGrant, labels: ProcessSheet.Labels?, sheet sid: SheetID) -> some View {
-        InkSection(title: Text(verbatim: labels?.grantTitle ?? "技能を付ける")) {
+        InkSection(title: coreText(labels?.grantTitle, "技能を付ける")) {
             ForEach(im.targets, id: \.person) { t in
                 VStack(alignment: .leading, spacing: 6) {
                     InkRow(title: Text(verbatim: t.name),
                            detail: t.written.isEmpty ? nil : Text(verbatim: t.written.formatted(.list(type: .and))),
-                           value: t.declined == nil ? nil : (t.declined == true ? Text(verbatim: labels?.grantRefused ?? "本人が断った") : Text(verbatim: labels?.grantSkip ?? "付けない")))
+                           value: t.declined == nil ? nil : (t.declined == true ? coreText(labels?.grantRefused, "本人が断った") : coreText(labels?.grantSkip, "付けない")))
                     if t.declined == nil {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -148,7 +153,7 @@ struct NotesTabView: View {
                                         .buttonStyle(.ink(.secondary, fill: false))
                                 }
                                 Button { Task { await wb.grant(sheet: sid, person: t.person, skill: nil, store) } }
-                                    label: { Text(verbatim: labels?.grantSkip ?? "付けない") }
+                                    label: { coreText(labels?.grantSkip, "付けない") }
                                     .buttonStyle(.ink(.quiet, fill: false))
                             }
                         }

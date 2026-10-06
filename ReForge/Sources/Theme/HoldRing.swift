@@ -29,8 +29,8 @@ struct HoldRing: View {
         return CGFloat(min(max(permille, 0), 1000)) / 1000
     }
 
-    /// 読み上げの値の文。長押しの行為だけ「長押し」。押すだけなら nil(この版は日本語だけ)。
+    /// 読み上げの値の文。長押しの行為だけ「長押し」。押すだけなら nil。文は文字列カタログから引く(端末の言語で読む)。
     static func spokenValue(hold: Bool) -> String? {
-        hold ? "長押し" : nil
+        hold ? String(localized: "長押し") : nil
     }
 }

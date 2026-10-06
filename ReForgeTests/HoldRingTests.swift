@@ -17,7 +17,7 @@ final class HoldRingTests: XCTestCase {
     }
 
     func testSpokenValue() {
-        XCTAssertEqual(HoldRing.spokenValue(hold: true), "長押し")
+        XCTAssertEqual(HoldRing.spokenValue(hold: true), String(localized: "長押し"))
         XCTAssertNil(HoldRing.spokenValue(hold: false))
     }
 }
