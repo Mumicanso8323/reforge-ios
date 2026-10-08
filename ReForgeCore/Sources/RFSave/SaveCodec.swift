@@ -117,9 +117,9 @@ public enum SaveCodec {
     public static let format = "reforge.save"
     /// 世界状態の形の版。1 = この骨組み(b7 の SaveFile とは別物。b7 のセーブは読まない)。
     public static let schemaVersion = 1
-    /// セーブの互換を守り始めたか(最初のリリースで true にする)。false の間は版 1 のまま形を変えてよく、
+    /// セーブの互換を守り始めたか(最初の外部ビルドで true にした)。false の間は版 1 のまま形を変えてよく、
     /// 固定の JSON との突き合わせは「作り直しが要る」と知らせるだけにする(F §4)。
-    public static let compatibilityFrozen = false
+    public static let compatibilityFrozen = true
     /// 移行の並び(from の昇順)。形を変えた担当がここに 1 つ足す。
     public static let migrations: [SaveMigration] = []
 
