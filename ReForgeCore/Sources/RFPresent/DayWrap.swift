@@ -220,8 +220,8 @@ extension FrameBuilder {
         return out
     }
 
-    /// 千分率の日数 → 切り上げた日数(0 のときは 0)。
-    static func wholeDays(_ milli: Int) -> Int { max(0, (milli + 999) / 1000) }
+    /// 千分率の日数 → 切り上げた日数(0 のときは 0)。帯と同じ SurvivalDef.wholeDays を通る。
+    static func wholeDays(_ milli: Int) -> Int { Int(SurvivalDef.wholeDays(milli: Int64(milli))) }
 
     // MARK: - 再開の 1 行
 

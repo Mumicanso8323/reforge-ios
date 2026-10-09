@@ -153,6 +153,32 @@ final class DayWrapTests: XCTestCase {
         XCTAssertLessThan(DayWrapRules.fireMilliDays(.midnight, lit: true)!, DayWrapRules.fireMilliDays(.beforeDawn, lit: true)!)
     }
 
+    /// 帯の「あと何日分」と日没の締めの「あと何日分」は、同じ世界で同じ数(明日から数えて切り上げ。0 は尽きた時だけ)。
+    func testBandAndDayWrapAgreeOnRemainingDays() throws {
+        var db = try TestContent.publicOnly()
+        try ContentLoader.apply(json: Data(#"""
+        {"survival": {"consumables": [], "ailments": []},
+         "perception": [
+           {"subject": "stat:stat.water_days", "variants": [
+             {"when": true, "name": "text.test.days", "display": {"number": {"divisor": 1000, "unit": null}}}]},
+           {"subject": "stat:stat.food_days", "variants": [
+             {"when": true, "name": "text.test.days", "display": {"number": {"divisor": 1000, "unit": null}}}]}],
+         "texts": {"text.test.days": "日数"}}
+        """#.utf8), to: &db)
+        let rig = TestRig(content: db)
+        let b = FrameBuilder(content: db)
+        for raw: Int64 in [0, 1, 400, 999, 1000, 1001, 1500, 2000, 2999] {
+            var w = dusk(rig)
+            w.survival.stats["stat.water_days"] = Milli(raw: raw)
+            w.survival.stats["stat.food_days"] = Milli(raw: 100_000)  // 遠い食料は締めに出ない
+            let band = try XCTUnwrap(b.build(w, revision: 1, previous: nil, report: nil).status
+                .first { $0.key == "stat.water_days" }).value
+            let wrap = try XCTUnwrap(b.dayWrap(w).outlook)
+            XCTAssertEqual(wrap, "水はあと \(band) 日分", "raw=\(raw): 帯 \(band) と締めが食い違う")
+            XCTAssertEqual(band == "0", raw == 0, "raw=\(raw): 0 日分は尽きた時だけ")
+        }
+    }
+
     /// 世界から: 焚き火が消えていれば火、止まったラインがあれば理由つき、どちらも無ければ何も出さない。
     func testOutlookFromWorld() throws {
         let rig = try TestRig.publicOnly()

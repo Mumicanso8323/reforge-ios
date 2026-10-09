@@ -12,21 +12,32 @@ struct DayWrapLinesView: View {
             if !wrap.made.isEmpty {
                 HStack(spacing: 6) {
                     Text("今日できた物").foregroundStyle(InkColor.textDim)
-                    Text(verbatim: wrap.made.map { "\($0.name) \($0.count)" }.joined(separator: "\u{30FB}")).lineLimit(1)
+                        .lineLimit(1).fixedSize().layoutPriority(1)  // 見出しは縮めない(縮めるのは物の名前の並びだけ)
+                        .accessibilityIdentifier("dayWrapMadeLabel")
+                    Text(verbatim: wrap.made.map { "\($0.name) \($0.count)" }.joined(separator: "\u{30FB}"))
+                        .lineLimit(1).truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("dayWrapMade")
                 }
             }
             if let running = wrap.running {
-                Text(verbatim: running).lineLimit(1)
+                Text(verbatim: running).lineLimit(1).truncationMode(.tail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("dayWrapRunning")
             }
             if let outlook = wrap.outlook {
                 HStack(spacing: 6) {
                     Text("明日").foregroundStyle(InkColor.textDim)
-                    Text(verbatim: outlook).lineLimit(1)
+                        .lineLimit(1).fixedSize().layoutPriority(1)
+                        .accessibilityIdentifier("dayWrapOutlookLabel")
+                    Text(verbatim: outlook).lineLimit(1).truncationMode(.tail)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityIdentifier("dayWrapOutlook")
                 }
             }
         }
+        // 親が決めた幅の中に収める(中身の理想の幅が親より広いと、中央寄せの重ねで左へはみ出して切れる)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityIdentifier("dayWrap")
     }
 }
 
