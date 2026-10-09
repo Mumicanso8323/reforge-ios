@@ -109,3 +109,41 @@ final class ReplaceWorldTests: XCTestCase {
         for (a, b) in zip(f.map.chunkRevisions, g.map.chunkRevisions) { XCTAssertGreaterThanOrEqual(b, a) }
     }
 }
+
+/// 明かりの無い夜(火が消えた・灯りの外)でも、ノアの周りは見え、前に見たマスは「覚えている」として区画に残ること。
+final class DarkNightMapTests: XCTestCase {
+    func testDarkNightKeepsNearbyAndRemembered() async throws {
+        let rig = try TestRig.publicOnly()
+        var w = rig.factory.newWorld(seed: 7)
+        let size = w.map[.surface]!.size
+        var n = 0, target = 0
+        while w.clock.phase == .day, n < 100_000 {
+            if n % 150 == 0 {
+                target += 1
+                let p = GridPoint((target * 7) % size.width, (target * 5) % size.height)
+                _ = rig.simulation.apply(.crew(.walk(to: WorldPoint(.surface, p))), to: &w)
+            }
+            _ = rig.simulation.advance(&w, realSeconds: 0.1)
+            n += 1
+        }
+        // 灯りを全部消す(火が燃え尽きた夜)。
+        w.placements.items = [:]
+        var phases: [(String, WorldState)] = [("日没", w)]
+        var night = w
+        _ = rig.simulation.apply(.time(.startNightWork), to: &night)
+        phases.append(("夜作業", night))
+        for (label, world) in phases {
+            let noah = try XCTUnwrap(world.people[.noah]?.position, label)
+            let builder = FrameBuilder(content: rig.content)
+            let frame = builder.build(world, revision: 1, previous: nil, report: nil)
+            XCTAssertNil(frame.prologue, label)
+            XCTAssertTrue(frame.map.vision.contains { $0.center == noah.point && $0.radius >= 5 }, "\(label): ノアの周り 5 マスが視界にある")
+            let host = GameHost(simulation: rig.simulation, world: world)
+            let chunks = await host.chunks(Array(0..<frame.map.chunkRevisions.count))
+            var remembered = 0, void = 0
+            for c in chunks { for t in c.tiles { if t.fog == .remembered { remembered += 1 } else if t.glyph.isEmpty { void += 1 } } }
+            XCTAssertGreaterThan(remembered, 0, "\(label): 覚えているマスが区画に残る")
+            XCTAssertEqual(void, 0, "\(label): 空の絵のマスは無い")
+        }
+    }
+}
