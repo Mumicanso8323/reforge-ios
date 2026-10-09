@@ -2,6 +2,7 @@ import Foundation
 import RFContent
 import RFKernel
 import RFMap
+import RFPerception
 import RFPresent
 import RFRules
 import RFSim
@@ -53,11 +54,11 @@ final class DepthHintPresentTests: XCTestCase {
         XCTAssertFalse(b.tile(w, at: GridPoint(3, 3)).glow, "未踏のマスの光は描かない")
         know(&w, [GridPoint(3, 3), GridPoint(4, 3)])
         let a = b.tile(w, at: GridPoint(3, 3))
-        XCTAssertEqual(a.glyph, "▣", "部品の見え方の文字が地図の字になる")
+        XCTAssertEqual(a.glyph, MapGlyphFont.safe("▣"), "部品の見え方の文字が地図の字になる")
         XCTAssertTrue(a.glow, "暗闇でも描く光る印")
         let other = b.tile(w, at: GridPoint(4, 3))
         XCTAssertFalse(other.glow, "見え方の無い部品は POI の見え方のまま")
-        XCTAssertNotEqual(other.glyph, "▣")
+        XCTAssertNotEqual(other.glyph, MapGlyphFont.safe("▣"))
     }
 
     // MARK: 遠景(HNT-11)
