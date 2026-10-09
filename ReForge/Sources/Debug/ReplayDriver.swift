@@ -52,6 +52,8 @@ enum ReplayDriver {
         var stallAdvance: TimeInterval = 4
         /// 1 つの命令にこれだけ(秒)かけても届かなければ飛ばす。
         var giveUp: TimeInterval = 120
+        /// 次の命令に届くまでこれだけ(秒)待ったら、次の合わせ直しの点まで世界を進めて先へ行く(確かめ用の録画で、待ちの間延びを詰める)。
+        var maxGap: TimeInterval = 60
     }
 
     static func run(script: ReplayScript, store: GameStore, donePath: String?, pacing: Pacing = Pacing(),
@@ -67,6 +69,7 @@ enum ReplayDriver {
         // 区間 = 何番目の合わせ直しの点を過ぎたか(0 = 最初の点の前)。区間ごとに飛ばした本数を印に残す
         var section = 0
         var restored = 0
+        var jumps = 0
         var skippedBySection: [Int: Int] = [:]
         var checkpoints: [Int: Data] = [:]
         for cp in script.checkpoints ?? [] where checkpoints[cp.index] == nil { checkpoints[cp.index] = cp.save }
@@ -113,6 +116,18 @@ enum ReplayDriver {
                 _ = await store.perform(.narrative(.advanceScene))
                 lastAdvance = uptime()
             }
+            // 待ちが長い(再採取の間置き・夜の眠り・長押しの完了待ち)なら、次の合わせ直しの点へ進める。
+            // 点で世界がボットのものに戻るので、飛ばした間の命令は要らない。点が無ければ待つ。
+            if uptime() - entryStart >= pacing.maxGap, let next = checkpoints.keys.filter({ $0 > index }).min(),
+               let save = checkpoints.removeValue(forKey: next) {
+                await restore(save, into: store)
+                restored += 1
+                section = restored
+                jumps += 1
+                index = next
+                entryStart = uptime()
+                continue
+            }
             // 届かない命令に居続けない
             if uptime() - entryStart >= pacing.giveUp {
                 skipped.append(index + 1); skippedBySection[section, default: 0] += 1
@@ -124,11 +139,11 @@ enum ReplayDriver {
         }
         guard !Task.isCancelled else { return }
         try? await Task.sleep(for: .seconds(pacing.tail))
-        // 完了の印: 1 行目は結果、2 行目は合わせ直しの点をいくつ越えたか、3 行目は区間ごとの飛ばした本数(区間:本数)
+        // 完了の印: 1 行目は結果、2 行目は合わせ直しの点をいくつ越えたか・待ちを詰めて飛んだ回数、3 行目は区間ごとの飛ばした本数(区間:本数)
         let head = skipped.first.map { "skipped \(skipped.count)/\(script.commands.count) first \($0)" } ?? "ok \(script.commands.count)"
         let total = script.checkpoints?.count ?? 0
         let bySection = skippedBySection.keys.sorted().map { "\($0):\(skippedBySection[$0] ?? 0)" }.joined(separator: " ")
-        writeMark("\(head)\ncheckpoints \(restored)/\(total)\nby-section \(bySection.isEmpty ? "-" : bySection)", to: donePath)
+        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)", to: donePath)
     }
 
     /// 全画面の場面・ふきだしの場面が開いているか(開いていれば、人は画面をタップして送る)。

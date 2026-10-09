@@ -78,7 +78,7 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertEqual(log.map(\.step).map { $0 >= 2 }.last, true, "2 つ目は歩みが台本の step に届いてから送る。" + why)
         let step = await store.host.step
         XCTAssertGreaterThanOrEqual(step, 2)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 2\ncheckpoints 0/0\nby-section -\n", why)
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 2\ncheckpoints 0/0 jumps 0\nby-section -\n", why)
     }
 
     func testSceneAdvancesAreSpacedByAtLeastTheGap() async throws {
@@ -148,7 +148,7 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertEqual(log.first, ok, why)
         XCTAssertTrue(log.contains(bad), "断られた命令は何度か再試行される。" + why)
         XCTAssertEqual(log.last, ok, "飛ばして先へ進む(止めない)。" + why)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "skipped 1/3 first 2\ncheckpoints 0/0\nby-section 0:1\n", why)
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "skipped 1/3 first 2\ncheckpoints 0/0 jumps 0\nby-section 0:1\n", why)
     }
 
     func testCheckpointRestoresTheScriptedWorldBeforeItsCommand() async throws {
@@ -175,6 +175,30 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertEqual(position, there, "命令の前に、台本の世界へ合わせ直す")
     }
 
+    func testLongWaitJumpsToTheNextCheckpoint() async throws {
+        let dir = tempDir()
+        let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))
+        let content = try XCTUnwrap(app.content)
+        let world = litWorld(content)
+        let save = try SaveCodec.encode(SaveEnvelope(slot: .resume, world: world, content: []))
+        let store = GameStore(content: content, world: world, saves: FileSaveStorage(directory: dir.appendingPathComponent("saves2")))
+        let (a, b) = try await twoWalks(store, from: try XCTUnwrap(world.people[.noah]?.position))
+        // 2 つ目は歩みが永遠に届かない(待ちが長い)。3 つ目の前に合わせ直しの点がある
+        let script = ReplayScript(seed: 1, seconds: 1, commands: [
+            .init(step: 0, command: a), .init(step: 1_000_000, command: b), .init(step: 0, command: a),
+        ], checkpoints: [.init(index: 2, save: save)])
+        let done = dir.appendingPathComponent("done")
+        var pacing = ReplayDriver.Pacing()
+        pacing.poll = .milliseconds(5)
+        pacing.warmup = .milliseconds(1)
+        pacing.tail = 0
+        pacing.maxGap = 0.1
+        await ReplayDriver.run(script: script, store: store, donePath: done.path, pacing: pacing)
+        let log = await store.host.replayLog.map(\.command)
+        XCTAssertFalse(log.contains(b), "待たされた命令は飛ばす")
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 3\ncheckpoints 1/1 jumps 1\nby-section -\n")
+    }
+
     func testEmptyScriptEndsWithOkZero() async throws {
         let dir = tempDir()
         let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))
@@ -188,7 +212,7 @@ final class ReplayDriverTests: XCTestCase {
         pacing.tail = 0
         await ReplayDriver.run(script: ReplayScript(seed: 1, seconds: 0, commands: []), store: store,
                                donePath: done.path, pacing: pacing)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 0\ncheckpoints 0/0\nby-section -\n")
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 0\ncheckpoints 0/0 jumps 0\nby-section -\n")
         let log = await store.host.replayLog
         XCTAssertTrue(log.isEmpty)
     }
