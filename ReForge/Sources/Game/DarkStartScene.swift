@@ -95,6 +95,7 @@ private struct DarkStartActionButton: View {
                     .font(InkFont.body)
                     .foregroundStyle(InkColor.text)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }

@@ -183,6 +183,8 @@ struct DesignTabView: View {
                         Text(verbatim: showClues ? "▾" : "▸")
                     }
                         .foregroundStyle(InkColor.textDim)
+                        .frame(minHeight: InkMetric.buttonHeight, alignment: .leading)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("cluesToggle")

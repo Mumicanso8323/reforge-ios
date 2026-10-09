@@ -129,7 +129,7 @@ struct ProcessSheetView: View {
 
     private func glyphButton(_ label: Text, id: String, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            label.frame(minWidth: 32, minHeight: 32)
+            label.frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
         }
         .buttonStyle(.plain)
         .foregroundStyle(InkColor.accent)

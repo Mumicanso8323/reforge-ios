@@ -39,6 +39,7 @@ struct TabBarView: View {
                         } label: {
                             title(t)
                                 .frame(maxWidth: .infinity, minHeight: 44)
+                                .contentShape(Rectangle())
                                 .foregroundStyle(tab == t ? InkColor.accent : InkColor.textDim)
                         }
                         .buttonStyle(.plain)
