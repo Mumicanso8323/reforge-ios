@@ -155,8 +155,7 @@ enum ReplayDriver {
     /// 台本の合わせ直しの点の世界に入れ替える。読めなければ何もしない。
     private static func restore(_ save: Data, into store: GameStore) async {
         guard let envelope = try? SaveCodec.decode(save) else { return }
-        _ = await store.host.replace(world: envelope.world)
-        await store.load()
+        await store.replaceWorld(envelope.world)
     }
 
     /// 完了の印(1 行)。

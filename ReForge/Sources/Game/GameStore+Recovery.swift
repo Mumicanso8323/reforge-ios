@@ -36,7 +36,7 @@ extension GameStore {
         let failed = await host.world
         do {
             let r = try recovery.perform(option, failed: failed, target: target, newSeed: UInt64.random(in: .min ... .max))
-            await refresh(await host.replace(world: r.world))
+            await replaceWorld(r.world)
             return nil
         } catch RecoveryError.unavailable(_, let reason) {
             return await host.describe(Rejection(reason))
@@ -66,7 +66,7 @@ extension GameStore {
     func load(_ slot: SaveSlot) async -> Bool {
         guard let e = try? book.load(slot), e.summary.active else { return false }
         try? book.adoptTimeline(e.world)
-        await refresh(await host.replace(world: e.world))
+        await replaceWorld(e.world)
         await saveResume()
         return true
     }

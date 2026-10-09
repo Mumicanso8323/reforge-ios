@@ -103,6 +103,8 @@ final class GameStore {
     /// 設定が開いている間 true(時計を進めない。L-10a)。閉じたら、止めていた間の実時間は進めず、再開した時点から数える。
     @ObservationIgnored var isPaused = false
     @ObservationIgnored private var lastRevision = -1
+    /// 足元カードを引き直した回数。await から戻った時に番号が違えば、古い問い合わせの答えは捨てる(世界の差し替え・注目の移動)。
+    @ObservationIgnored private var cardGeneration = 0
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     @ObservationIgnored private var decisionUndoTask: Task<Void, Never>?
     @ObservationIgnored private var lastPhase: DayPhase = .day
@@ -218,6 +220,29 @@ final class GameStore {
     /// いまの Frame と全区画を取り込む(最初の 1 回・テスト)。
     func load() async {
         await refresh(await host.frame)
+    }
+
+    /// 世界を丸ごと差し替える唯一の入口(つづきから・巻き戻し・ロード・台本の合わせ直し)。
+    /// 本体の世界を替えたら、画面が持つ前の世界の写し(区画の中身・注目したマスと足元カード・調べた吹き出し・置くモードの照準・
+    /// 断りの一行)を捨て、差し替え後の Frame を必ず取り込む(前の世界の区画や足元カードが居残らない)。
+    @discardableResult
+    func replaceWorld(_ world: WorldState) async -> Frame {
+        let f = await host.replace(world: world)
+        chunks = [:]
+        selected = nil
+        footCardPage = 0
+        footCard = nil
+        inspection = nil
+        preview = nil
+        placing = nil
+        panel = nil
+        noticeTask?.cancel()
+        notice = nil
+        cardGeneration += 1
+        // 取り込み中だった前の世界の Frame は、ここから先で捨てられる(refresh の門)。差し替えの Frame は必ず通す。
+        lastRevision = min(lastRevision, f.revision - 1)
+        await refresh(f)
+        return f
     }
 
     // MARK: - 操作(すべて意図を送るだけ。確認ダイアログは出さない)
@@ -423,11 +448,14 @@ final class GameStore {
     }
 
     private func refreshCard() async {
+        cardGeneration += 1
+        let generation = cardGeneration
         guard let t = cardTarget else {
             footCard = nil
             return
         }
         let card = await host.footCard(at: t, page: footCardPage)
+        guard generation == cardGeneration else { return }
         if card != footCard { footCard = card }
     }
 
