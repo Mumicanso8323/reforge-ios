@@ -64,11 +64,19 @@ enum ReplayDriver {
         var seenStep: Int64 = -1
         var stepChangedAt = uptime()
         var skipped: [Int] = []
+        // 区間 = 何番目の合わせ直しの点を過ぎたか(0 = 最初の点の前)。区間ごとに飛ばした本数を印に残す
+        var section = 0
+        var restored = 0
+        var skippedBySection: [Int: Int] = [:]
         var checkpoints: [Int: Data] = [:]
         for cp in script.checkpoints ?? [] where checkpoints[cp.index] == nil { checkpoints[cp.index] = cp.save }
         while index < script.commands.count, !Task.isCancelled {
             // ボットの世界へ合わせ直す点(命令だけでは、世界の小さな差が積もって途中から合わなくなる)
-            if let save = checkpoints.removeValue(forKey: index) { await restore(save, into: store) }
+            if let save = checkpoints.removeValue(forKey: index) {
+                await restore(save, into: store)
+                restored += 1
+                section = restored
+            }
             let entry = script.commands[index]
             let step = await store.host.step
             if step != seenStep { seenStep = step; stepChangedAt = uptime() }
@@ -93,7 +101,7 @@ enum ReplayDriver {
                 }
                 if isScene { lastAdvance = uptime() }
                 // 断られ続けた命令は飛ばして先へ進む(止めない。次の合わせ直しの点で世界が戻る)。何番目かだけを残す
-                if rejection != nil { skipped.append(index + 1) }
+                if rejection != nil { skipped.append(index + 1); skippedBySection[section, default: 0] += 1 }
                 lastSend = uptime()
                 index += 1
                 entryStart = uptime()
@@ -107,7 +115,7 @@ enum ReplayDriver {
             }
             // 届かない命令に居続けない
             if uptime() - entryStart >= pacing.giveUp {
-                skipped.append(index + 1)
+                skipped.append(index + 1); skippedBySection[section, default: 0] += 1
                 index += 1
                 entryStart = uptime()
                 continue
@@ -116,11 +124,11 @@ enum ReplayDriver {
         }
         guard !Task.isCancelled else { return }
         try? await Task.sleep(for: .seconds(pacing.tail))
-        if let first = skipped.first {
-            writeMark("skipped \(skipped.count)/\(script.commands.count) first \(first)", to: donePath)
-        } else {
-            writeMark("ok \(script.commands.count)", to: donePath)
-        }
+        // 完了の印: 1 行目は結果、2 行目は合わせ直しの点をいくつ越えたか、3 行目は区間ごとの飛ばした本数(区間:本数)
+        let head = skipped.first.map { "skipped \(skipped.count)/\(script.commands.count) first \($0)" } ?? "ok \(script.commands.count)"
+        let total = script.checkpoints?.count ?? 0
+        let bySection = skippedBySection.keys.sorted().map { "\($0):\(skippedBySection[$0] ?? 0)" }.joined(separator: " ")
+        writeMark("\(head)\ncheckpoints \(restored)/\(total)\nby-section \(bySection.isEmpty ? "-" : bySection)", to: donePath)
     }
 
     /// 全画面の場面・ふきだしの場面が開いているか(開いていれば、人は画面をタップして送る)。

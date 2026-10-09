@@ -78,7 +78,7 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertEqual(log.map(\.step).map { $0 >= 2 }.last, true, "2 つ目は歩みが台本の step に届いてから送る。" + why)
         let step = await store.host.step
         XCTAssertGreaterThanOrEqual(step, 2)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 2\n", why)
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 2\ncheckpoints 0/0\nby-section -\n", why)
     }
 
     func testSceneAdvancesAreSpacedByAtLeastTheGap() async throws {
@@ -148,7 +148,7 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertEqual(log.first, ok, why)
         XCTAssertTrue(log.contains(bad), "断られた命令は何度か再試行される。" + why)
         XCTAssertEqual(log.last, ok, "飛ばして先へ進む(止めない)。" + why)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "skipped 1/3 first 2\n", why)
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "skipped 1/3 first 2\ncheckpoints 0/0\nby-section 0:1\n", why)
     }
 
     func testCheckpointRestoresTheScriptedWorldBeforeItsCommand() async throws {
@@ -188,7 +188,7 @@ final class ReplayDriverTests: XCTestCase {
         pacing.tail = 0
         await ReplayDriver.run(script: ReplayScript(seed: 1, seconds: 0, commands: []), store: store,
                                donePath: done.path, pacing: pacing)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 0\n")
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 0\ncheckpoints 0/0\nby-section -\n")
         let log = await store.host.replayLog
         XCTAssertTrue(log.isEmpty)
     }
