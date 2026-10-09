@@ -118,26 +118,52 @@ final class MapTerrainCache {
             .frame(width: Double(chunk.rect.size.width) * cellSize, height: Double(chunk.rect.size.height) * cellSize)
         let renderer = ImageRenderer(content: view)
         renderer.scale = UIScreen.main.scale
+        // nil、または「見える物があるのに全部透明」の画(描画の一瞬の失敗)は、キャッシュに入れず作り直す。
+        // 透明な画を鍵ごと覚えると、視界の鍵が変わるまで地形が黒いまま居座る。
+        let expectsInk = chunk.tiles.contains { $0.fog == .remembered || $0.fog == .visible }
         guard let rendered = renderer.uiImage else {
             renderFailures += 1
 #if DEBUG
             ReplayStats.renderFailures += 1
 #endif
-            // 作れなかった時は、黒(何も描かない)にせず、その区画の直前の画を残す。次の描画でまた作り直す(キャッシュしない)。
-            if let last = lastGood[chunk.index] {
-                fallbackDraws += 1
+            return fallback(for: chunk.index)
+        }
+        if expectsInk, !Self.hasInk(rendered) {
 #if DEBUG
-                ReplayStats.fallbackDraws += 1
+            ReplayStats.blankRenders += 1
 #endif
-                return last
-            }
-            return nil
+            return fallback(for: chunk.index)
         }
         let image = Image(uiImage: rendered)
         images[key] = image
         lastGood[chunk.index] = image
         renderCount[chunk.index, default: 0] += 1
         return image
+    }
+
+    /// 作れなかった時は、黒(何も描かない)にせず、その区画の直前の画を残す。次の描画でまた作り直す(キャッシュしない)。
+    private func fallback(for index: Int) -> Image? {
+        guard let last = lastGood[index] else { return nil }
+        fallbackDraws += 1
+#if DEBUG
+        ReplayStats.fallbackDraws += 1
+#endif
+        return last
+    }
+
+    /// 画に 1 画素でも透明でない所があるか(小さく縮めた α だけの表で見る)。
+    private static func hasInk(_ image: UIImage) -> Bool {
+        guard let cg = image.cgImage else { return true }
+        let side = 48
+        var buffer = [UInt8](repeating: 0, count: side * side)
+        let drawn = buffer.withUnsafeMutableBytes { raw -> Bool in
+            guard let ctx = CGContext(data: raw.baseAddress, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side,
+                                      space: CGColorSpaceCreateDeviceGray(), bitmapInfo: CGImageAlphaInfo.alphaOnly.rawValue) else { return false }
+            ctx.interpolationQuality = .high
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: side, height: side))
+            return true
+        }
+        return !drawn || buffer.contains { $0 > 0 }
     }
 
     func discardOutside(_ indices: Set<Int>) {

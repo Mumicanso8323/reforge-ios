@@ -40,6 +40,7 @@ enum ReplayStats {
     static var renderFailures = 0
     static var fallbackDraws = 0
     static var replaces = 0
+    static var blankRenders = 0
 }
 
 /// 台本を GameStore へ流し込む。実時間の待ちと時刻は差し替えられる(テスト用)。
@@ -83,6 +84,7 @@ enum ReplayDriver {
         var chunksZero = 0
         var sceneOpen = 0   // 全面の場面(prologue/stage)が開いていた周の数
         var allUnknown = 0  // 場面が無いのに、持っている区画のマスが全部未踏(黒)だった周の数
+        var allUnknownLate = 0  // そのうち 2 日目以降(最初の暗い始まりの間は未踏で正しい)
         var skippedBySection: [Int: Int] = [:]
         var checkpoints: [Int: Data] = [:]
         for cp in script.checkpoints ?? [] where checkpoints[cp.index] == nil { checkpoints[cp.index] = cp.save }
@@ -99,7 +101,10 @@ enum ReplayDriver {
             chunksMin = min(chunksMin, chunkCount)
             if chunkCount == 0 { chunksZero += 1 }
             if store.prologue != nil { sceneOpen += 1 }
-            else if chunkCount > 0, !store.chunks.values.contains(where: { $0.tiles.contains { $0.fog != .unknown } }) { allUnknown += 1 }
+            else if chunkCount > 0, !store.chunks.values.contains(where: { $0.tiles.contains { $0.fog != .unknown } }) {
+                allUnknown += 1
+                if store.clock.day >= 2 { allUnknownLate += 1 }
+            }
             if step != seenStep { seenStep = step; stepChangedAt = uptime() }
             let isScene = entry.command == .narrative(.advanceScene)
             let waited = uptime() - lastSend
@@ -161,7 +166,7 @@ enum ReplayDriver {
         let head = skipped.first.map { "skipped \(skipped.count)/\(script.commands.count) first \($0)" } ?? "ok \(script.commands.count)"
         let total = script.checkpoints?.count ?? 0
         let bySection = skippedBySection.keys.sorted().map { "\($0):\(skippedBySection[$0] ?? 0)" }.joined(separator: " ")
-        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)\nmap render-failures \(ReplayStats.renderFailures) fallbacks \(ReplayStats.fallbackDraws) replaces \(ReplayStats.replaces) chunks-min \(chunksMin == Int.max ? 0 : chunksMin) chunks-zero \(chunksZero) scene-open \(sceneOpen) all-unknown \(allUnknown)", to: donePath)
+        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)\nmap render-failures \(ReplayStats.renderFailures) fallbacks \(ReplayStats.fallbackDraws) replaces \(ReplayStats.replaces) blank-renders \(ReplayStats.blankRenders) chunks-min \(chunksMin == Int.max ? 0 : chunksMin) chunks-zero \(chunksZero) scene-open \(sceneOpen) all-unknown \(allUnknown) all-unknown-day2 \(allUnknownLate)", to: donePath)
     }
 
     /// 全画面の場面・ふきだしの場面が開いているか(開いていれば、人は画面をタップして送る)。
