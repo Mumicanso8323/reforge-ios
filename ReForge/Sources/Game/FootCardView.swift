@@ -28,13 +28,7 @@ struct FootCardView: View {
                             .accessibilityIdentifier("nothingNearby")
                     }
                 }
-                if let hint = store.footCard?.hint {
-                    Text(verbatim: hint)
-                        .font(InkFont.small)
-                        .foregroundStyle(InkColor.textDim)
-                        .lineLimit(1)
-                        .accessibilityIdentifier("footCardHint")
-                }
+                // できない理由の一文(card.hint)は出さない: 押せない物はボタンを置かず、説明でも補わない(INV-F1)
                 // 焚き火の火の見込み(PT-B1。焚き火のカードだけ)
                 if let fire = store.footCard?.fire {
                     FireOutlookLine(fire: fire)

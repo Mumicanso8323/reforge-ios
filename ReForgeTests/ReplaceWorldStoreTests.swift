@@ -10,8 +10,17 @@ final class ReplaceWorldStoreTests: XCTestCase {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
         let c = try AppModel.loadBundledContent(bundle: .main)
-        let s = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: seed), saves: FileSaveStorage(directory: dir))
+        let s = GameStore(content: c, world: playable(c, seed: seed), saves: FileSaveStorage(directory: dir))
         return (s, c)
+    }
+
+    /// 序の場面と止まった時計の無い、遊べる状態の新しい世界(非公開の層を重ねると、新しい世界は序の場面から始まる。
+    /// その間は地図が空の絵・足元カードが出ない決めなので、差し替えの前後の比べには向かない)。
+    private func playable(_ c: ContentDB, seed: UInt64) -> WorldState {
+        var w = GameBootstrap.newWorld(content: c, seed: seed)
+        w.clock.held = false
+        w.narrative.scene = nil
+        return w
     }
 
     /// 保存して読み戻した世界(台本の合わせ直しの点と同じ経路)。
@@ -35,14 +44,14 @@ final class ReplaceWorldStoreTests: XCTestCase {
         await s.load()
         await assertScreenMatchesHost(s, "最初")
         // 別の種の世界(地形も違う)を、保存を読み戻した形で差し替える
-        let other = try savedWorld(GameBootstrap.newWorld(content: c, seed: 9))
+        let other = try savedWorld(playable(c, seed: 9))
         let f = await s.replaceWorld(other)
         XCTAssertEqual(s.revision, f.revision)
         await assertScreenMatchesHost(s, "差し替え後")
         XCTAssertEqual(s.mapView.chunkRevisions, Array(repeating: f.revision, count: s.mapView.chunkRevisions.count),
                        "全区画が差し替えの版になっている")
         // もう一度、前の世界へ戻しても同じ
-        let back = try savedWorld(GameBootstrap.newWorld(content: c, seed: 7))
+        let back = try savedWorld(playable(c, seed: 7))
         await s.replaceWorld(back)
         await assertScreenMatchesHost(s, "戻した後")
     }
@@ -54,7 +63,7 @@ final class ReplaceWorldStoreTests: XCTestCase {
         let stale = await s.host.frame
         let task = Task { await s.refresh(stale) }
         await Task.yield()
-        await s.replaceWorld(try savedWorld(GameBootstrap.newWorld(content: c, seed: 9)))
+        await s.replaceWorld(try savedWorld(playable(c, seed: 9)))
         await task.value
         await assertScreenMatchesHost(s, "取り込み中に差し替え")
     }
@@ -63,7 +72,7 @@ final class ReplaceWorldStoreTests: XCTestCase {
     func testClockStepAfterReplaceKeepsScreenInSync() async throws {
         let (s, c) = try store(seed: 7)
         await s.load()
-        await s.replaceWorld(try savedWorld(GameBootstrap.newWorld(content: c, seed: 9)))
+        await s.replaceWorld(try savedWorld(playable(c, seed: 9)))
         await s.clockStep(realSeconds: 0.5)
         await assertScreenMatchesHost(s, "差し替え後の歩み")
     }

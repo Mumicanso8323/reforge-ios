@@ -636,7 +636,7 @@ public struct FootCard: Equatable, Sendable {
     /// いまのページ(0 から)と全ページ数。行為は 1 ページに最大 maxActions 個(4 つ目からは次のページ)。
     public var page: Int = 0
     public var pageCount: Int = 1
-    /// 押せる物がない理由、または次にすることを示す短い一行。
+    /// 押せる物がない理由の短い一行(試験・記録用。画面には出さない: 説明で補わない)。
     public var hint: String?
     /// このマスの残骸から開ける資料(段階つきの資料など。行為の数には数えない。U18)。
     public var documents: [DocumentLink] = []
