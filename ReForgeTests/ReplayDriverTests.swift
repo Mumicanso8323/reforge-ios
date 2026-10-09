@@ -124,7 +124,7 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertEqual(log.count, 2)
     }
 
-    func testStopsAtFirstRefusedCommandAndRecordsItsNumber() async throws {
+    func testSkipsACommandThatKeepsBeingRefusedAndKeepsGoing() async throws {
         let dir = tempDir()
         let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))
         let content = try XCTUnwrap(app.content)
@@ -141,11 +141,38 @@ final class ReplayDriverTests: XCTestCase {
         pacing.poll = .milliseconds(5)
         pacing.warmup = .milliseconds(1)
         pacing.tail = 0
+        pacing.retryWindow = 0.05
         await ReplayDriver.run(script: script, store: store, donePath: done.path, pacing: pacing)
-        let log = await store.host.replayLog
+        let log = await store.host.replayLog.map(\.command)
         let why = await logText(store)
-        XCTAssertEqual(log.map(\.command), [ok, bad], "断られた命令の後は送らない。" + why)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "refused 2/3\n", why)
+        XCTAssertEqual(log.first, ok, why)
+        XCTAssertTrue(log.contains(bad), "断られた命令は何度か再試行される。" + why)
+        XCTAssertEqual(log.last, ok, "飛ばして先へ進む(止めない)。" + why)
+        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "skipped 1/3 first 2\n", why)
+    }
+
+    func testCheckpointRestoresTheScriptedWorldBeforeItsCommand() async throws {
+        let dir = tempDir()
+        let app = AppModel(saves: FileSaveStorage(directory: dir.appendingPathComponent("saves")))
+        let content = try XCTUnwrap(app.content)
+        let world = litWorld(content)
+        var moved = world
+        let start = try XCTUnwrap(world.people[.noah]?.position)
+        let there = WorldPoint(start.layer, GridPoint(start.point.x + 3, start.point.y))
+        moved.people[.noah]?.position = there
+        let save = try SaveCodec.encode(SaveEnvelope(slot: .resume, world: moved, content: []))
+        let store = GameStore(content: content, world: world, saves: FileSaveStorage(directory: dir.appendingPathComponent("saves2")))
+        // 合わせ直しの点だけ(命令は 1 つ。歩きでなく場面の送り=世界を動かさない)
+        let script = ReplayScript(seed: 1, seconds: 1, commands: [.init(step: 0, command: .narrative(.advanceScene))],
+                                  checkpoints: [.init(index: 0, save: save)])
+        var pacing = ReplayDriver.Pacing()
+        pacing.poll = .milliseconds(5)
+        pacing.warmup = .milliseconds(1)
+        pacing.tail = 0
+        pacing.retryWindow = 0
+        await ReplayDriver.run(script: script, store: store, donePath: nil, pacing: pacing)
+        let position = await store.host.world.people[.noah]?.position
+        XCTAssertEqual(position, there, "命令の前に、台本の世界へ合わせ直す")
     }
 
     func testEmptyScriptEndsWithOkZero() async throws {

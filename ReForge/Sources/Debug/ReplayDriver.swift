@@ -46,6 +46,12 @@ enum ReplayDriver {
         var sceneGap: TimeInterval = 1.5
         /// 最後の命令から完了の印を書くまで(秒)。
         var tail: TimeInterval = 5
+        /// 断られた命令を再試行する長さ(秒)。
+        var retryWindow: TimeInterval = 30
+        /// 歩みが進まないまま、これだけ(秒)たったら場面を送る。
+        var stallAdvance: TimeInterval = 4
+        /// 1 つの命令にこれだけ(秒)かけても届かなければ飛ばす。
+        var giveUp: TimeInterval = 120
     }
 
     static func run(script: ReplayScript, store: GameStore, donePath: String?, pacing: Pacing = Pacing(),
@@ -53,29 +59,81 @@ enum ReplayDriver {
         try? await Task.sleep(for: pacing.warmup)
         var index = 0
         var lastSend = -TimeInterval.infinity
+        var lastAdvance = -TimeInterval.infinity
+        var entryStart = uptime()
+        var seenStep: Int64 = -1
+        var stepChangedAt = uptime()
+        var skipped: [Int] = []
+        var checkpoints: [Int: Data] = [:]
+        for cp in script.checkpoints ?? [] where checkpoints[cp.index] == nil { checkpoints[cp.index] = cp.save }
         while index < script.commands.count, !Task.isCancelled {
+            // ボットの世界へ合わせ直す点(命令だけでは、世界の小さな差が積もって途中から合わなくなる)
+            if let save = checkpoints.removeValue(forKey: index) { await restore(save, into: store) }
             let entry = script.commands[index]
             let step = await store.host.step
+            if step != seenStep { seenStep = step; stepChangedAt = uptime() }
             let isScene = entry.command == .narrative(.advanceScene)
             let waited = uptime() - lastSend
             // 時計が保留の間は歩みが進まない。長押しなどの「間」は、台本の after(前の命令からの実時間)で待つ
             let afterOK = entry.after.map { waited >= $0 } ?? true
             if Int64(entry.step) <= step, afterOK, !isScene || waited >= pacing.sceneGap {
-                let rejection = await store.perform(entry.command)
+                var rejection = await store.perform(entry.command)
+                // 命令が少し早く届いただけで断られる(前の長押しが 1 歩で終わる・場面を読んでいる最中)ので、しばらく再試行する。
+                // 場面が開いていて読んでいる最中なら、人が画面をタップするのと同じく場面を送ってから。場面の送りの命令は再試行しない。
+                if rejection != nil, !isScene {
+                    let began = uptime()
+                    while rejection != nil, uptime() - began < pacing.retryWindow, !Task.isCancelled {
+                        try? await Task.sleep(for: pacing.poll)
+                        if await sceneIsOpen(store), uptime() - lastAdvance >= pacing.sceneGap {
+                            _ = await store.perform(.narrative(.advanceScene))
+                            lastAdvance = uptime()
+                        }
+                        rejection = await store.perform(entry.command)
+                    }
+                }
+                if isScene { lastAdvance = uptime() }
+                // 断られ続けた命令は飛ばして先へ進む(止めない。次の合わせ直しの点で世界が戻る)。何番目かだけを残す
+                if rejection != nil { skipped.append(index + 1) }
                 lastSend = uptime()
                 index += 1
-                // 断られたら(再生が時計とずれた)そこで止め、何番目(1 始まり)から断られたかだけを残す
-                if rejection != nil {
-                    writeMark("refused \(index)/\(script.commands.count)", to: donePath)
-                    return
-                }
+                entryStart = uptime()
+                continue
+            }
+            // 歩みが進まない(全画面の場面を読んでいる)間は、人がタップするように場面を送る
+            if uptime() - stepChangedAt >= pacing.stallAdvance, uptime() - lastAdvance >= pacing.sceneGap,
+               await sceneIsOpen(store) {
+                _ = await store.perform(.narrative(.advanceScene))
+                lastAdvance = uptime()
+            }
+            // 届かない命令に居続けない
+            if uptime() - entryStart >= pacing.giveUp {
+                skipped.append(index + 1)
+                index += 1
+                entryStart = uptime()
                 continue
             }
             try? await Task.sleep(for: pacing.poll)
         }
         guard !Task.isCancelled else { return }
         try? await Task.sleep(for: .seconds(pacing.tail))
-        writeMark("ok \(script.commands.count)", to: donePath)
+        if let first = skipped.first {
+            writeMark("skipped \(skipped.count)/\(script.commands.count) first \(first)", to: donePath)
+        } else {
+            writeMark("ok \(script.commands.count)", to: donePath)
+        }
+    }
+
+    /// 全画面の場面・ふきだしの場面が開いているか(開いていれば、人は画面をタップして送る)。
+    private static func sceneIsOpen(_ store: GameStore) async -> Bool {
+        let f = await store.host.frame
+        return !f.sceneLines.isEmpty || f.prologue != nil
+    }
+
+    /// 台本の合わせ直しの点の世界に入れ替える。読めなければ何もしない。
+    private static func restore(_ save: Data, into store: GameStore) async {
+        guard let envelope = try? SaveCodec.decode(save) else { return }
+        _ = await store.host.replace(world: envelope.world)
+        await store.load()
     }
 
     /// 完了の印(1 行)。

@@ -56,6 +56,11 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var gatherMiss: [String: String] = [:]
         /// 送った命令の記録(REFORGE_TENMIN_SCRIPT がある通しだけ nil でなくなる。A-07)
         var script: [ReplayScript.Entry]?
+        /// 次に台本へ入れる命令に付ける、前の命令からの実時間(保留の間の長押しは歩みが進まないので、押していた時間をここに持つ)
+        var pendingAfter: Double?
+        /// 台本の合わせ直しの点(ボットの世界の保存データ。約 45 秒ごと。台本を書く時だけ)
+        var checkpoints: [ReplayScript.Checkpoint] = []
+        var lastCheckpointReal = -1000.0
 
         init(content: ContentDB, seed: UInt64) {
             self.content = content
@@ -98,8 +103,18 @@ final class FirstTenMinutesBotTests: XCTestCase {
         /// コマンドを送り、その中で言われた一言も記録する。
         @discardableResult
         mutating func send(_ c: Command, after: Double? = nil) -> StepReport {
-            script?.append(.init(step: Int(w.clock.now.seconds / SimStep.gameSeconds), command: c, after: after))
+            let stepAtSend = Int(w.clock.now.seconds / SimStep.gameSeconds)
+            if let n = script?.count, real - lastCheckpointReal >= 45,
+               let save = try? SaveCodec.encode(SaveEnvelope(slot: .resume, world: w, content: [])) {
+                checkpoints.append(.init(index: n, save: save))
+                lastCheckpointReal = real
+            }
             let r = sim.apply(c, to: &w)
+            // 断られた命令は世界を変えないので台本に入れない(流し込みで同じ断りに当たって止まるだけになる)
+            if r.rejection == nil {
+                script?.append(.init(step: stepAtSend, command: c, after: after ?? pendingAfter))
+                pendingAfter = nil
+            }
             record(r)
             auditNames()
             hear()
@@ -222,8 +237,10 @@ final class FirstTenMinutesBotTests: XCTestCase {
             var carry: Int64 = 0
             n = 0
             while w.clock.held && n < 20000 { record(sim.advanceHeld(&w, realSeconds: 0.1, carry: &carry)); n += 1; real += 0.1 }
-            // 保留の間は歩みが進まないので、押していた実時間(0.1 秒 × 回数)を台本に持たせる(離すのは、その後)
-            _ = send(act.end, after: Double(n) * 0.1 + 0.3)
+            // 保留の間は歩みが進まないので、押していた実時間(0.1 秒 × 回数)を、次に送る命令の after に持たせる。
+            // 離す命令は完了の後で断られる(世界は変わらない)ので台本に入らない
+            pendingAfter = Double(n) * 0.1 + 0.3
+            _ = send(act.end)
             note()
         }
 
@@ -267,8 +284,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         mutating func act(_ id: InteractionID, radius: Int = 12) -> Bool {
             guard let a = find(id, radius: radius) else { rejects[id.rawValue] = "無い"; return false }
             let d = max(abs(a.at.point.x - here.point.x), abs(a.at.point.y - here.point.y))
-            steps(Int(Double(d) / 4 / Self.realPerStep))
-            w.people[.noah]?.position = a.at
+            relocate(to: a.at, travelSteps: Int(Double(d) / 4 / Self.realPerStep))
             if content.interactions[id]?.cooldownDays != nil { spent.insert(a.at.point) }
             let r = send(a.start)
             guard r.rejection == nil else { rejects[id.rawValue] = r.rejection!.reason.rawValue; return false }
@@ -322,6 +338,17 @@ final class FirstTenMinutesBotTests: XCTestCase {
         mutating func goHome() {
             guard let f = campfire(), let pl = w.placements.items[f] else { return }
             let at = WorldPoint(pl.at.layer, pl.at.point + GridPoint(0, 1))
+            relocate(to: at)
+        }
+
+        /// ノアを at へ移す(通常は時間を進めて置く)。通しの台本を書く時(REFORGE_TENMIN_SCRIPT)は、本物の歩く命令で歩く
+        /// (流し込みが同じ道をたどれる。置いたノアの位置は台本に残らないので、置くだけでは次の行為が「遠すぎる」で断られる)。歩けなければ従来どおり置く。
+        mutating func relocate(to at: WorldPoint, travelSteps: Int = 0) {
+            if script != nil, here != at {
+                walk(to: at.point)
+                if here == at { return }
+            }
+            steps(travelSteps)
             w.people[.noah]?.position = at
         }
 
@@ -356,9 +383,8 @@ final class FirstTenMinutesBotTests: XCTestCase {
             }
             if passable(near) {
                 let d = max(abs(near.x - c.x), abs(near.y - c.y))
-                steps(Int(Double(d) / 4 / Self.realPerStep))
                 let at = WorldPoint(here.layer, near)
-                w.people[.noah]?.position = at
+                relocate(to: at, travelSteps: Int(Double(d) / 4 / Self.realPerStep))
             }
             walk(to: stand)
             steps(2)
@@ -395,14 +421,13 @@ final class FirstTenMinutesBotTests: XCTestCase {
                                        GridPoint(0, stand.y > c.y ? 3 : -3), GridPoint(stand.x > c.x ? 3 : -3, 0)]
                         if let near = offsets.map({ stand + $0 }).first(where: passable) {
                             let d = max(abs(near.x - c.x), abs(near.y - c.y))
-                            steps(Int(Double(d) / 4 / Self.realPerStep))
                             let at = WorldPoint(here.layer, near)
-                            w.people[.noah]?.position = at
+                            relocate(to: at, travelSteps: Int(Double(d) / 4 / Self.realPerStep))
                         }
                         walk(to: stand)
                         if here.point != stand, let next = stand.neighbors8.first(where: { passable($0) && $0 != stand }) {
                             let at = WorldPoint(here.layer, next)
-                            w.people[.noah]?.position = at
+                            relocate(to: at)
                             walk(to: stand)
                         }
                         steps(2)
@@ -1640,7 +1665,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         // 実時間の見込み = 歩みの分 + 保留の間の長押し(after)+ 場面の送りの間(流し込みの 1.5 秒)
         let scenes = entries.filter { $0.command == .narrative(.advanceScene) }.count
         let seconds = Double(last) * Bot.realPerStep + entries.reduce(0) { $0 + ($1.after ?? 0) } + Double(scenes) * 1.5
-        let script = ReplayScript(seed: Int(seed), seconds: seconds, commands: entries)
+        let script = ReplayScript(seed: Int(seed), seconds: seconds, commands: entries, checkpoints: b.checkpoints)
         do { try script.write(to: URL(fileURLWithPath: path)) } catch { XCTFail("台本を書けない: \(error)") }
     }
 

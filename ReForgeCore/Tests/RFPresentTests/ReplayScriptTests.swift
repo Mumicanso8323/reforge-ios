@@ -36,6 +36,18 @@ final class ReplayScriptTests: XCTestCase {
         XCTAssertEqual(old, sample())
     }
 
+    func testCheckpointsRoundTripAndOldScriptsWithoutThemStillLoad() throws {
+        var s = sample()
+        s.checkpoints = [.init(index: 1, save: Data([1, 2, 3, 250]))]
+        XCTAssertEqual(try ReplayScript.decode(s.encoded()), s)
+        // checkpoints の欄ごと無い古い台本も読める
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with: sample().encoded()) as? [String: Any])
+        object.removeValue(forKey: "checkpoints")
+        let old = try ReplayScript.decode(JSONSerialization.data(withJSONObject: object))
+        XCTAssertNil(old.checkpoints)
+        XCTAssertEqual(old, sample())
+    }
+
     func testScriptRoundTripsThroughData() throws {
         let s = sample()
         XCTAssertEqual(try ReplayScript.decode(s.encoded()), s)

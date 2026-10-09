@@ -19,6 +19,19 @@ public struct ReplayScript: Codable, Equatable, Sendable {
         }
     }
 
+    /// 世界の保存データ(SaveCodec のバイト列)。流し込みが、ボットの世界と合わせ直すのに使う。
+    /// 命令の列だけでは、ボットの世界とアプリの世界の小さな差(時刻・歩く道の細かい違い)が積もって、10 分の途中から合わなくなる。
+    public struct Checkpoint: Codable, Equatable, Sendable {
+        /// この番号の命令を送る前に、この世界へ合わせる(0 始まり)。
+        public var index: Int
+        public var save: Data
+
+        public init(index: Int, save: Data) {
+            self.index = index
+            self.save = save
+        }
+    }
+
     public static let currentVersion = 1
 
     public var version: Int
@@ -26,12 +39,16 @@ public struct ReplayScript: Codable, Equatable, Sendable {
     /// 最後の命令までの実時間の見込み(秒)。
     public var seconds: Double
     public var commands: [Entry]
+    /// 世界の合わせ直しの点(無ければ命令だけ)。
+    public var checkpoints: [Checkpoint]?
 
-    public init(version: Int = ReplayScript.currentVersion, seed: Int, seconds: Double, commands: [Entry]) {
+    public init(version: Int = ReplayScript.currentVersion, seed: Int, seconds: Double, commands: [Entry],
+                checkpoints: [Checkpoint]? = nil) {
         self.version = version
         self.seed = seed
         self.seconds = seconds
         self.commands = commands
+        self.checkpoints = checkpoints
     }
 
     public func encoded() throws -> Data {
