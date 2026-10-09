@@ -148,12 +148,38 @@ final class MapGlyphCoverageTests: XCTestCase {
         XCTAssertEqual(same, [], "10 分の地図で同じ字になる物の組(字 ← 見出し)")
     }
 
+    /// 地図の字に、半角カナ(U+FF61〜FF9F)と、字が無い四角(豆腐)に見える箱の字を使わない。
+    /// 書体にあっても、小さく描くと豆腐と見分けがつかない(録画で、岩場の半角カナが一面の豆腐に見えた)。
+    func testMapGlyphsAreNeitherHalfWidthKanaNorBoxLookalikes() throws {
+        let db = try TestContent.full()
+        let boxes: Set<UInt32> = [0x25A1, 0x25A2, 0x25AB, 0x25AF, 0x2610, 0x25FB, 0x25FD, 0x2B1C, 0x2B1B, 0x25FE, 0x25FC]
+        var bad: [String] = []
+        func check(_ glyph: String, _ owner: String) {
+            for u in MapGlyphFont.safe(glyph).unicodeScalars where (0xFF61...0xFF9F).contains(u.value) || boxes.contains(u.value) {
+                bad.append("\(String(format: "U+%04X", u.value)) \(owner)")
+            }
+        }
+        for (id, def) in db.perception.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            for v in def.variants { if let g = v.glyph { check(g, id.rawValue) } }
+        }
+        for (id, g) in db.glyphs.sorted(by: { $0.key.rawValue < $1.key.rawValue }) { check(g, id.rawValue) }
+        for (name, g) in [("noahGlyph", TilePalette.noahGlyph), ("memberGlyph", TilePalette.memberGlyph),
+                          ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "晶")] {
+            check(g, name)
+        }
+        XCTAssertEqual(bad, [], "半角カナ・箱に見える字を使っている地図の字(コードポイント 見出し)")
+    }
+
     /// 受け皿の表の置き換え先は、どれも書体にある。置き換え元は書体に無い(要らない行は消す)。
     func testSubstituteTableIsConsistent() throws {
         let font = try Self.bundledFontScalars()
         for (from, to) in MapGlyphFont.substitutes {
             XCTAssertTrue(to.unicodeScalars.allSatisfy { font.contains($0.value) }, "置き換え先が書体に無い \(code(to))")
             XCTAssertFalse(from.unicodeScalars.allSatisfy { font.contains($0.value) }, "置き換え元が書体にある(行が要らない) \(code(from))")
+        }
+        for (from, to) in MapGlyphFont.readable {
+            XCTAssertTrue(to.unicodeScalars.allSatisfy { font.contains($0.value) }, "読める字への置き換え先が書体に無い \(code(to))")
+            XCTAssertNotNil(from.unicodeScalars.first.map { (0xFF61...0xFF9F).contains($0.value) ? true : nil } ?? nil, "読める字の表の元は半角カナだけ \(code(from))")
         }
     }
 }

@@ -19,9 +19,15 @@ public enum MapGlyphFont {
         "\u{2237}": "\u{2261}", // U+2237 → ≡
     ]
 
-    /// 地図に描く字列を、書体にある字だけにする(表に無い字はそのまま)。
+    /// 書体にはあるが、小さく描くと豆腐と見分けがつかない字 → 読める字。半角カナは 1 マスに小さく描くと一面の豆腐に見える。
+    /// 内容側(非公開の層)の字を直す前の受け皿(game-designer 決定: 岩場は漢字の「岩」)。
+    public static let readable: [Character: Character] = [
+        "\u{FF9B}": "\u{5CA9}", // ﾛ(半角カナ) → 岩
+    ]
+
+    /// 地図に描く字列を、書体にある読める字だけにする(表に無い字はそのまま)。
     public static func safe(_ glyph: String) -> String {
-        guard glyph.contains(where: { substitutes[$0] != nil }) else { return glyph }
-        return String(glyph.map { substitutes[$0] ?? $0 })
+        guard glyph.contains(where: { substitutes[$0] != nil || readable[$0] != nil }) else { return glyph }
+        return String(glyph.map { substitutes[$0] ?? readable[$0] ?? $0 })
     }
 }
