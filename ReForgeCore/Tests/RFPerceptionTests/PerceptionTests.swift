@@ -306,4 +306,35 @@ final class PerceptionTests: XCTestCase {
         let v = ForbiddenAudit.auditFixedStrings(keys, content: try TestContent.full(), origin: "Localizable.xcstrings")
         XCTAssertEqual(v.count, 0, "\(v.prefix(20))")
     }
+
+    // MARK: 名乗る前の人の字(INV-S2・SL-30)
+
+    /// 名乗る前の見え方の地図の字に、その人の名前の文字が入っていない。名前の 1 文字目を字にすると、名乗る前に
+    /// 名前の一部が出る(名前の文字列の監査は 1 文字の字を拾えない)。名前は人の見え方の見出しから引く
+    /// (このテストは物語の語を持たない)。公開 + 非公開(あれば)の全員を、始まりの世界と、名乗りの事実
+    /// (場面の行が learns で教える事実)だけを知らないほかは全部知っている形の 2 通りで見る。
+    func testPersonGlyphBeforeNamingHasNoLetterOfTheName() throws {
+        let content = try TestContent.full()
+        let start = TestRig(content: content).factory.newWorld(seed: 1).knowledge.factSet
+        let naming = Set(content.scenes.values.flatMap { $0.lines.flatMap { $0.learns ?? [] } })
+        let allButNaming = Set(content.facts.keys).subtracting(naming)
+        // 名前の文字に数えない物(名乗る前の「？」などの記号・空白)
+        let ignorable = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters).union(.symbols)
+        var checked = 0
+        var bad: [String] = []
+        for pid in content.people.keys.sorted(by: { $0.rawValue < $1.rawValue }) {
+            let subject = Subject.person(pid)
+            guard let def = content.perception[subject] else { continue }
+            let letters = Set(def.variants.compactMap { $0.name.flatMap { content.texts[$0] } }.joined()
+                .unicodeScalars.filter { !ignorable.contains($0) })
+            for (label, known) in [("始まり", start.subtracting(naming)), ("名乗りの事実だけ知らない", allButNaming)] {
+                let glyph = Perceiver(content: content, known: known).glyph(subject)
+                let hit = String(String.UnicodeScalarView(glyph.unicodeScalars.filter { letters.contains($0) }))
+                if !hit.isEmpty { bad.append("\(pid.rawValue) \(label): 字 \(glyph) が名前の字 \(hit) を含む") }
+            }
+            checked += 1
+        }
+        XCTAssertGreaterThan(checked, 0)
+        XCTAssertEqual(bad, [], "\(bad.prefix(20))")
+    }
 }
