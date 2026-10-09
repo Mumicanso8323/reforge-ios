@@ -42,6 +42,7 @@ struct MapActionBand: View {
                 }
             }
             .padding(8)
+            .frame(maxWidth: .infinity)  // 重ねの幅は地図の領域の幅(中身の理想の幅で広がって左へはみ出さない)
             .background(InkColor.panel.opacity(0.96))
         }
     }

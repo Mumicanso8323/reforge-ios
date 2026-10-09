@@ -104,6 +104,10 @@ final class GameStore {
     @ObservationIgnored var isPaused = false
     @ObservationIgnored private var lastRevision = -1
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
+    /// 断りを出した実時刻(systemUptime。ゲームの時計が止まっていても進む)と、出しておく長さ(秒。テストで短くする)。
+    @ObservationIgnored private var noticeShownAt: TimeInterval = 0
+    @ObservationIgnored private var lastSteerDirection: StickDirection?
+    @ObservationIgnored var noticeLifetime: TimeInterval = 4
     @ObservationIgnored private var decisionUndoTask: Task<Void, Never>?
     @ObservationIgnored private var lastPhase: DayPhase = .day
     @ObservationIgnored private var lastDay = 0
@@ -224,6 +228,7 @@ final class GameStore {
 
     /// マスを選び、足元カードをその場所へ替える。選んだだけでは歩かない。
     func select(_ cell: GridPoint) {
+        clearNotice()
         if selected == cell, placing == nil {
             walkToSelection()
             return
@@ -246,6 +251,7 @@ final class GameStore {
     /// 選んだマスへ歩く。カードのボタンだけがこの命令を送る。
     func walkToSelection() {
         guard let cell = selected else { return }
+        clearNotice()
         logPlay(kind: "walkSel", fields: ["x": "\(cell.x)", "y": "\(cell.y)", "zone": "bottom"])
         send(.crew(.walk(to: WorldPoint(mapView.layer, cell))))
     }
@@ -268,7 +274,7 @@ final class GameStore {
     func dismissInspection() { inspection = nil }
 
     /// 上の帯の時間の選択(夜作業 / 寝る)。
-    func choose(_ a: BandAction) { send(a.command) }
+    func choose(_ a: BandAction) { clearNotice(); send(a.command) }
 
     /// 決断を選ぶ(上の帯)。
     func decide(_ choice: ChoiceID) {
@@ -299,6 +305,7 @@ final class GameStore {
 
     /// 足元カードの行為。押し続ける行為は押し始め(pressing = true)と離した時(false)の 2 回。
     func act(_ a: FootCard.Action, pressing: Bool) {
+        if pressing { clearNotice() }
         if a.hold {
             send(pressing ? a.start : a.end)
         } else if pressing {
@@ -330,6 +337,8 @@ final class GameStore {
 
     /// 操作棒は他の命令と同じく本体へ送る。理由は端末内の記録のために呼び出し側で渡す。
     func steer(_ direction: StickDirection?, reason: String) {
+        if direction != lastSteerDirection { clearNotice() }  // 向きが変わった時だけ(押し続けて同じ断りを何度も出さない)
+        lastSteerDirection = direction
         logPlay(kind: "steer", fields: ["direction": direction?.rawValue ?? "none", "reason": reason, "zone": "bottom"])
         send(.crew(.steer(direction: direction)))
     }
@@ -372,6 +381,7 @@ final class GameStore {
         guard f.revision > lastRevision else { return }
         lastRevision = f.revision
         frameTime = ProcessInfo.processInfo.systemUptime
+        expireNoticeIfStale()
         if clock != f.clock { clock = f.clock }
         if status != f.status { status = f.status }
         if objective != f.objective { objective = f.objective }
@@ -431,14 +441,31 @@ final class GameStore {
         if card != footCard { footCard = card }
     }
 
-    private func show(notice text: String?) {
+    /// 断りを足元カードに出す。同じ文がまだ出ている間の繰り返しは、出す長さを延ばさない(押し続けても居残らない)。
+    func show(notice text: String?) {
+        guard let text else { clearNotice(); return }
+        let t = ProcessInfo.processInfo.systemUptime
+        if notice == text, t - noticeShownAt < noticeLifetime { return }
         noticeTask?.cancel()
         notice = text
-        guard text != nil else { return }
+        noticeShownAt = t
+        let lifetime = noticeLifetime
         noticeTask = Task {
-            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            try? await Task.sleep(nanoseconds: UInt64(lifetime * 1_000_000_000))
             if !Task.isCancelled { notice = nil }
         }
+    }
+
+    /// 断りを消す。次の選び・歩き・行為の開始で呼ぶ(今のマスの断りでなくなるため)。
+    func clearNotice() {
+        noticeTask?.cancel()
+        noticeTask = nil
+        if notice != nil { notice = nil }
+    }
+
+    /// 出してから noticeLifetime 秒たっていたら消す(Task が遅れた時の保険。実時間で見る)。
+    private func expireNoticeIfStale() {
+        if notice != nil, ProcessInfo.processInfo.systemUptime - noticeShownAt >= noticeLifetime { clearNotice() }
     }
 
     // MARK: - 保存

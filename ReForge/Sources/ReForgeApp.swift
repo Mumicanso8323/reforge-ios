@@ -181,7 +181,7 @@ final class AppModel {
     /// failed なら走行が終わった形(ゲームオーバーの 4 択)にする。
     /// decision なら、公開の層の試験用の決断を 1 つ出した形にする(決断の帯)。
     func startScreenshotGame(failed: Bool, decision: Bool, darkStart: Bool = false, darkMark: Bool = false,
-                             foot: Bool = false) {
+                             foot: Bool = false, dusk: Bool = false) {
         guard var content else { return }
         if darkMark, var mark = content.structures["structure.fence"] {
             mark.seenInDark = true
@@ -207,6 +207,20 @@ final class AppModel {
                 .placeStructure(structure: "structure.fence", at: .point(at: WorldPoint(origin.layer, markPoint)), built: true),
             ], &ctx, cause: nil)
             world = ctx.world
+        }
+        if dusk {
+            // 日没の締めの写真: 日没にして、今日できた物を 3 つ(名前が長くなる並び)と、数の多い物を足す
+            world.clock.phase = .dusk
+            let at = world.clock.now
+            let day = world.clock.day
+            let run = world.run.index
+            let made: [(SubjectRef, Int)] = [(.item("wood"), 9), (.item("test_ore"), 4),
+                                             (.structure("structure.test.beacon", nil), 1)]
+            for (subject, count) in made {
+                world.ledger.append { id in
+                    ProvenanceRecord(id: id, at: at, day: day, run: run, actor: .noah, act: .crafted, subject: subject, count: count)
+                }
+            }
         }
         if foot {
             // 足元カードの写真: ノアの隣に、押すだけの行為(森で枝を拾う)と長押しの行為(鉱脈を手で掘る)が並ぶ形にする

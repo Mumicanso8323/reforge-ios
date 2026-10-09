@@ -113,4 +113,38 @@ final class LayoutFitTests: XCTestCase {
         defer { app.terminate() }
         checkFootActions(app, "大きい文字")
     }
+
+    /// 日没の締めの各行が画面の中に収まり(左へはみ出して切れない)、地図の操作棒・足元カードと重ならない。
+    private func checkDayWrap(_ app: XCUIApplication, _ tag: String) {
+        let made = one(app, "dayWrapMade")
+        XCTAssertTrue(made.waitForExistence(timeout: 60), "\(tag): 今日できた物の行が出ない")
+        let screen = app.windows.firstMatch.frame
+        let stick = one(app, "stickControl")
+        let card = one(app, "footCard")
+        XCTAssertTrue(card.waitForExistence(timeout: 30), "\(tag): 足元カードが出ない")
+        for id in ["dayWrapMadeLabel", "dayWrapMade", "dayWrapRunning", "dayWrapOutlookLabel", "dayWrapOutlook"] {
+            let e = one(app, id)
+            guard e.exists else { continue }
+            let f = e.frame
+            XCTAssertGreaterThanOrEqual(f.minX, screen.minX - 0.5, "\(tag): \(id) の左端が画面の外 \(f)")
+            XCTAssertLessThanOrEqual(f.maxX, screen.maxX + 0.5, "\(tag): \(id) の右端が画面の外 \(f)")
+            XCTAssertFalse(f.intersects(card.frame), "\(tag): \(id) が足元カードと重なる \(f)")
+            if stick.exists { XCTAssertFalse(f.intersects(stick.frame), "\(tag): \(id) が操作棒と重なる \(f)") }
+        }
+        let label = one(app, "dayWrapMadeLabel")
+        XCTAssertTrue(label.exists, "\(tag): 見出しが出ない")
+        XCTAssertLessThan(label.frame.maxX, made.frame.minX + 6.5, "\(tag): 見出しと名前の並びが重なる")
+    }
+
+    func testDayWrapFitsScreen() {
+        let app = launch("dayWrap")
+        defer { app.terminate() }
+        checkDayWrap(app, "標準")
+    }
+
+    func testDayWrapFitsScreenAtLargeText() {
+        let app = launch("dayWrap", category: "UICTContentSizeCategoryAccessibilityXXXL")
+        defer { app.terminate() }
+        checkDayWrap(app, "大きい文字")
+    }
 }

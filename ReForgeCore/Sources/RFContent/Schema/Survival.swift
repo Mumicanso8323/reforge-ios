@@ -137,6 +137,16 @@ public struct SurvivalDef: Codable, Equatable, Sendable {
     public var waterDaysStat: StatID { statNames?.waterDays ?? "stat.water_days" }
     public var calendarStat: StatID { statNames?.calendar ?? "stat.calendar" }
 
+    /// 食料・水の「あと何日分」の数か(帯の数値と日没の締めが同じ数え方を使うための印)。
+    public func isDaysStat(_ id: StatID) -> Bool { id == foodDaysStat || id == waterDaysStat }
+
+    /// 「あと何日分」の読み方の正本。千分率の日数 → 明日から数えて何日分(切り上げ。0 は蓄えが尽きた時だけ)。
+    /// 帯の数値(Perceiver.stat)と日没の締め(DayWrap)の両方がこの関数を通る。
+    public static func wholeDays(milli: Int64, divisor: Int64 = 1000) -> Int64 {
+        guard milli > 0, divisor > 0 else { return 0 }
+        return (milli + divisor - 1) / divisor
+    }
+
     public func consumable(_ item: ItemID) -> ConsumableDef? { consumables.first { $0.item == item } }
     public func ailment(_ id: StatID) -> AilmentDef? { ailments?.first { $0.id == id } }
 }

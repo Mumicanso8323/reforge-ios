@@ -187,7 +187,13 @@ public struct Perceiver: Sendable {
             guard let l = label else { return nil }
             out = rawText(l)
         case .number(let divisor, let unit, let decimals):
-            let v = divisor > 0 ? value.raw / Int64(divisor) : value.raw
+            // 食料・水の「あと何日分」は日没の締めと同じ数え方(切り上げ)。他の数は切り捨て。
+            let v: Int64
+            if divisor > 0, content.survival?.isDaysStat(id) == true {
+                v = SurvivalDef.wholeDays(milli: value.raw, divisor: Int64(divisor))
+            } else {
+                v = divisor > 0 ? value.raw / Int64(divisor) : value.raw
+            }
             out = Self.decimalString(v, places: decimals ?? 0) + (unit.map { rawText($0) } ?? "")
         }
         return audited(out, origin: "stat:\(id.rawValue)")
