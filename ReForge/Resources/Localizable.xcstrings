@@ -1751,16 +1751,6 @@
         }
       }
     },
-    "近くにもう無い": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "近くにもう無い"
-          }
-        }
-      }
-    },
     "退いている": {
       "localizations": {
         "ja": {
