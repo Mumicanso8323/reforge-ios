@@ -60,6 +60,10 @@ final class MapGlyphCoverageTests: XCTestCase {
         return coveredScalars(ttf: [UInt8](data))
     }
 
+    private func codes(_ s: String) -> String {
+        s.unicodeScalars.map { String(format: "U+%04X", $0.value) }.joined(separator: "+")
+    }
+
     private func code(_ c: Character) -> String {
         c.unicodeScalars.map { String(format: "U+%04X", $0.value) }.joined(separator: "+")
     }
@@ -104,8 +108,8 @@ final class MapGlyphCoverageTests: XCTestCase {
         for (mapped, owners) in byMapped.sorted(by: { $0.key < $1.key }) {
             let originals = Set(owners.map(\.original))
             guard originals.count > 1 else { continue }
-            let names = owners.map { "\($0.owner)[\(code(Character($0.original.first ?? " ")))]" }
-            merged.append("\(code(Character(mapped.first ?? " "))) ← \(Array(Set(names)).sorted().prefix(6))")
+            let names = owners.map { "\($0.owner)[\(codes($0.original))]" }
+            merged.append("\(codes(mapped)) ← \(Array(Set(names)).sorted().prefix(6))")
         }
         XCTAssertEqual(merged, [], "置き換えで別の字が同じ字になる組(置き換え後の字 ← 見出し[元の字])")
     }
@@ -131,7 +135,7 @@ final class MapGlyphCoverageTests: XCTestCase {
         // 意図して同じ字を共有する物(同じ字で良いと決めた組)。理由: 人は名乗る前は全員同じ字・晶は鉱の種類をまとめる・
         // 残骸の 2 つは同じ種類・採取の拠点は同じ役目・水と浜は青い面の塗りで見分ける(game-designer 決定)。
         let allowedGroups: [Set<String>] = [
-            ["poi:wreck.far", "poi:wreck.home"],
+            ["poi:wreck.far", "poi:wreck.home", "fallbackPoi"],  // 見出しの無い POI の既定の字は、元から残骸と同じ字
             ["module:minehead", "structure:forage_post"],
             ["terrain:shore", "terrain:water"],
         ]
@@ -140,7 +144,7 @@ final class MapGlyphCoverageTests: XCTestCase {
             return rest.count <= 1 || allowedGroups.contains { rest.isSubset(of: $0) }
         }
         let same = owners.filter { $0.value.count > 1 && !allowed($0.value) }.sorted { $0.key < $1.key }
-            .map { "\(code(Character($0.key.first ?? " "))) ← \($0.value.sorted().prefix(6))" }
+            .map { "\(codes($0.key)) ← \($0.value.sorted().prefix(6))" }
         XCTAssertEqual(same, [], "10 分の地図で同じ字になる物の組(字 ← 見出し)")
     }
 
