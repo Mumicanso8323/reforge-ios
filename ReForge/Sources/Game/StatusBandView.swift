@@ -75,6 +75,8 @@ struct StatusBandView: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(InkColor.rule).frame(height: InkMetric.rule)
         }
+        // 子の識別子(status-item-*)を上書きしないよう、まとめずに含む形にする(折り返しのレイアウトでは項目が直の子になる)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("statusBand")
     }
 
