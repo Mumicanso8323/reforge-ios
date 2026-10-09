@@ -29,7 +29,6 @@ final class ScreenSnapshotTests: XCTestCase {
     /// 検査から外す要素(識別子 → 理由)。その要素と中身は「画面の外に出る」を見ない。ここ 1 か所に持つ。
     private static let offscreenExclusions: [String: String] = [
         "map": "地図は 1 マス 1 文字を固定の枠に描く。視点の外のマスは画面の外にあって当然",
-        "statusBand": "状態の帯の数値は横に流れる(ScrollView(.horizontal))。見切れは仕様で、切れの検査はアプリの側が見る",
     ]
 
     /// 重なりを見る帯の識別子(下のタブ・上の状態)と、見出しの識別子(Theme の inkFitCheck の id)。
