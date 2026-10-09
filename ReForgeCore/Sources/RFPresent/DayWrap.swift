@@ -214,7 +214,7 @@ extension FrameBuilder {
             guard let pl = w.placements.items[id], case .stopped(let reason) = pl.status else { continue }
             out.append(.init(kind: .line, milliDays: DayWrapRules.stoppedLineMilliDays,
                              text: label("ui.daywrap.line", "{name}が止まっている: {reason}",
-                                         ["name": p.name(of: pl.kind), "reason": p.text(reason)])))
+                                         ["name": p.name(of: pl.kind), "reason": p.stoppedText(reason, waitingFor: pl.module?.waitingFor)])))
             break
         }
         return out

@@ -66,6 +66,31 @@ public struct Perceiver: Sendable {
         audited(rawText(id, args), origin: id.rawValue)
     }
 
+    /// 断った理由の文。断りが持つ数・品・モジュールを {名前}(品・モジュールは {0} も)に差し込む。
+    /// 差し込めずに `{…}` が残った文は出さず、わからない文にする(「あと{days}日」のまま画面に出さない)。
+    public func rejectionText(_ id: TextID, detail: [String: Value] = [:]) -> String {
+        var args: [String: String] = [:]
+        for (k, v) in detail {
+            switch v {
+            case .int(let n): args[k] = String(n)
+            case .uint(let n): args[k] = String(n)
+            case .string(let s):
+                if k == "item" { args[k] = name(Subject.item(ItemID(s))) }
+                else if k == "module" { args[k] = name(Subject.module(ModuleKindID(s))) }
+            default: break
+            }
+        }
+        if let first = args["item"] ?? args["module"] { args["0"] = first }
+        let s = text(id, args)
+        if s.contains("{") || s.contains("}") { return text(Self.unknownText) }
+        return s
+    }
+
+    /// 止まっているライン・モジュールの理由の文(何が来ていないかも差し込む)。
+    public func stoppedText(_ reason: TextID, waitingFor: ItemID?) -> String {
+        rejectionText(reason, detail: waitingFor.map { ["item": .string($0.rawValue)] } ?? [:])
+    }
+
     // MARK: 品の色の系統
 
     /// 見出しのいまの見え方に付いた色の系統(無ければ中立)。真実の素材では分岐しない。

@@ -96,32 +96,31 @@ public enum Interactions {
         return .done
     }
 
-    /// 行為を始める。夜作業ならその場で終え、かかった時間を返す。
-    /// requireReach を false にすると、手の届かない所でも始める(続けて採るで、歩いて次のマスへ移るとき)。
-    static func start(_ def: InteractionDef, at: WorldPoint, holding: Bool, actor: PersonID,
-                      requireReach: Bool = true, _ ctx: inout StepContext) -> Result<GameDuration?, Rejection> {
-        guard isUnlocked(def.id, world: ctx.world, gated: ctx.content.gatedUnlocks) else {
+    /// 行為を始める前の確かめ(世界は変えない)。start の断りと足元カードの「出す行為」は、この 1 か所の式を使う
+    /// (出ていたのに断られる、を作らない)。通れば対象と、取り外す部品(あれば)を返す。
+    static func precheck(_ def: InteractionDef, at: WorldPoint, actor: PersonID, requireReach: Bool = true,
+                         world w: WorldState, content: ContentDB) -> Result<(target: ResolvedTarget, part: String?), Rejection> {
+        guard isUnlocked(def.id, world: w, gated: content.gatedUnlocks) else {
             return .failure(Rejection("reason.explore.locked"))
         }
-        let w = ctx.world
         guard let person = w.people[actor], person.presence.isMember, let pos = person.position else {
             return .failure(Rejection("reason.explore.no_actor"))
         }
         let phases = def.allowedPhases ?? [.day, .nightWork]
         guard phases.contains(w.clock.phase) else { return .failure(Rejection("reason.explore.phase")) }
         let target: ResolvedTarget
-        switch resolve(def, at: at, world: w, content: ctx.content) {
+        switch resolve(def, at: at, world: w, content: content) {
         case .failure(let r): return .failure(r)
         case .success(let t): target = t
         }
         guard !requireReach || inReach(pos, target) else { return .failure(Rejection("reason.explore.too_far")) }
-        if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: ctx.content) != true {
+        if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) != true {
             return .failure(Rejection("reason.explore.not_yet"))
         }
         if let r = checkLimits(def, at: at, target: target, world: w) { return .failure(r) }
         var part: String?
         if let op = def.partOp {
-            switch choosePart(op, at: at, target: target, world: w, content: ctx.content) {
+            switch choosePart(op, at: at, target: target, world: w, content: content) {
             case .failure(let r): return .failure(r)
             case .success(let p): part = p
             }
@@ -129,6 +128,31 @@ public enum Interactions {
         // 夜作業は 1 人でやるので、何人も要る行為はその場の人数で判定する
         if let need = def.requiredPeople, need > 1, helpers(target, world: w) < need {
             return .failure(Rejection("reason.explore.need_more_people", detail: ["count": .int(Int64(need))]))
+        }
+        for ing in def.cost ?? [] {
+            let have = w.inventory.entries(.base).filter(ing.matches).reduce(0) { $0 + $1.quantity }
+            if have < ing.quantity { return .failure(Rejection("reason.explore.missing_cost")) }
+        }
+        return .success((target, part))
+    }
+
+    /// いま actor がこの場所でこの行為を始めたら断られるか(足元カードが出す行為を選ぶ)。nil なら通る。
+    public static func refusal(_ def: InteractionDef, at: WorldPoint, actor: PersonID = .noah, world w: WorldState,
+                               content: ContentDB) -> Rejection? {
+        if case .failure(let r) = precheck(def, at: at, actor: actor, world: w, content: content) { return r }
+        return nil
+    }
+
+    /// 行為を始める。夜作業ならその場で終え、かかった時間を返す。
+    /// requireReach を false にすると、手の届かない所でも始める(続けて採るで、歩いて次のマスへ移るとき)。
+    static func start(_ def: InteractionDef, at: WorldPoint, holding: Bool, actor: PersonID,
+                      requireReach: Bool = true, _ ctx: inout StepContext) -> Result<GameDuration?, Rejection> {
+        let w = ctx.world
+        let part: String?
+        let target: ResolvedTarget
+        switch precheck(def, at: at, actor: actor, requireReach: requireReach, world: w, content: ctx.content) {
+        case .failure(let r): return .failure(r)
+        case .success(let ok): (target, part) = ok
         }
         guard let spent = takeCost(def.cost ?? [], &ctx) else {
             return .failure(Rejection("reason.explore.missing_cost"))

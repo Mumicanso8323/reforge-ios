@@ -207,7 +207,7 @@ public struct FrameBuilder: Sendable {
             case .structure(let k): Subject.structure(k)
             }
             var reason: String?
-            if case .stopped(let r) = pl.status { reason = p.text(r) }
+            if case .stopped(let r) = pl.status { reason = p.stoppedText(r, waitingFor: pl.module?.waitingFor) }
             return PlacementSprite(id: id, glyph: p.glyph(s), at: pl.at.point, facing: pl.facing,
                                    running: pl.status == .running, stoppedReason: reason, throughput: nil,
                                    seenInDark: seenInDark)
@@ -371,9 +371,14 @@ public struct FrameBuilder: Sendable {
                         if proj.size.contains(q) { neighbours.append(q) }
                     }
                 }
-                let own = tileActions(w, p, proj, ui: ui, at: pt)
+                let ownCandidates = tileActionCandidates(w, p, proj, ui: ui, at: pt)
+                let own = ownCandidates.filter(\.offered).map(\.action)
+                // 題のマスに当てはまる行為は、いま出せなくても(使い切りなど)隣のマスの同じ行為で置き換えない
+                // (題は使い切りの林なのに、ボタンは隣の林へ向く、を作らない。隣の林は、その林のカードで押す)
+                let ownIDs = Set(ownCandidates.map(\.action.id))
                 // 同じ行為が何マスにもあるときは最寄りの 1 つだけ(ボタンと対象がずれず、ID も重ならない)
                 let around = neighbours.flatMap { tileActions(w, p, proj, ui: ui, at: $0) }
+                    .filter { !ownIDs.contains($0.id) }
                     .sorted { (a, b) in
                         let da = a.target.chebyshev(to: pt), db = b.target.chebyshev(to: pt)
                         return (a.id, da, a.target.x, a.target.y) < (b.id, db, b.target.x, b.target.y)
@@ -419,8 +424,17 @@ public struct FrameBuilder: Sendable {
         return card
     }
 
-    /// 1 マスにあるいまできる行為(対象・昼夜・条件で絞る。ID の順)。届くかは呼ぶ側が決める。
+    /// 1 マスにあるいまできる行為(ID の順)。出すのは、いま送れば断られない行為だけ(探索の担当の確かめ
+    /// Interactions.precheck と同じ式。出ていたのに断られる、を作らない)。届くかも同じ式で見る。
     func tileActions(_ w: WorldState, _ p: Perceiver, _ proj: MapProjector, ui: UIUnlocks, at pt: GridPoint) -> [FootCard.Action] {
+        tileActionCandidates(w, p, proj, ui: ui, at: pt).filter(\.offered).map(\.action)
+    }
+
+    /// そのマスに当てはまる行為。出せる(offered)かは、いま送って断られないか。
+    /// 使い切りなどで出せない行為も返す(足元のマスの題と別のマスの行為を並べないために、呼ぶ側が使う)。
+    func tileActionCandidates(_ w: WorldState, _ p: Perceiver, _ proj: MapProjector, ui: UIUnlocks, at pt: GridPoint)
+        -> [(action: FootCard.Action, offered: Bool)]
+    {
         guard let l = proj.layer, proj.size.contains(pt), let terrain = l.terrain(at: pt),
               proj.isKnown(pt) || vision.areas(w, layer: layer).contains(where: { $0.contains(pt) }) else { return [] }
         let poi = proj.poiAt[pt]
@@ -430,7 +444,7 @@ public struct FrameBuilder: Sendable {
         }
         let tags = Set(content.terrains[terrain]?.tags ?? [])
         let at = WorldPoint(layer, pt)
-        return content.interactions.keys.sorted().compactMap { id -> FootCard.Action? in
+        return content.interactions.keys.sorted().compactMap { id -> (FootCard.Action, Bool)? in
             guard let def = content.interactions[id] else { return nil }
             let applies: Bool = switch def.target {
             case .terrain(let tag): tags.contains(tag)
@@ -441,15 +455,15 @@ public struct FrameBuilder: Sendable {
             }
             guard applies, ui.isOpen(.interaction(id)),
                   Interactions.isUnlocked(id, world: w, gated: content.gatedUnlocks) else { return nil }
-            if let phases = def.allowedPhases, !phases.contains(w.clock.phase) { return nil }
+            // 昼夜・条件・使い切り(回数・クールダウン)・材料・人数・部品の状態は、送った時の断りと同じ式で見る
             if let c = def.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) == false { return nil }
-            // クールダウン中のマスは押しても断られるので、ボタンを出さない(地図の使い切りの見た目と同じ判定)
-            // 使い切り(limit・POI の残り)も同じ。出して押せないボタンは出さない
-            if Interactions.isBlocked(def, at: at, poi: poi?.id, world: w) { return nil }
-            return FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)),
-                                   hold: def.hold || def.continues == true, at: at,
-                                   progressPermille: progress(of: def, w))
-        }
+            // 走りが終わった後・始まりの暗い画面(最初の行為だけ受ける)は、本体が命令の入口で断る(Simulation.apply)
+            var ok = w.run.isActive && Interactions.refusal(def, at: at, world: w, content: content) == nil
+            if w.clock.held, let first = content.start.clock?.firstAct, id != first { ok = false }
+            return (FootCard.Action(id: id, label: p.name(PresentSubject.interaction(id)),
+                                    hold: def.hold || def.continues == true, at: at,
+                                    progressPermille: progress(of: def, w)), ok)
+        }.map { (action: $0.0, offered: $0.1) }
     }
 
     /// ノアのいまの 1 単位の進み(千分率)。この行為を押している間だけ。

@@ -140,7 +140,7 @@ extension FrameBuilder {
             .filter { content.ruleBook.modules[$0] != nil }
             .sorted()
             .map { m -> DesignBench.Module in
-                let miss = TrialRequirements.check([ProcessStep(m)], world: w, content: content).map { p.text($0.reason) }
+                let miss = TrialRequirements.check([ProcessStep(m)], world: w, content: content).map { p.rejectionText($0.reason, detail: $0.detail) }
                 return DesignBench.Module(module: m, name: p.name(Subject.module(m)), glyph: p.glyph(Subject.module(m)),
                                           missing: miss)
             }

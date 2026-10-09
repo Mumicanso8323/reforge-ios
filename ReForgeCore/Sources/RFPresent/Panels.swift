@@ -223,7 +223,7 @@ extension FrameBuilder {
             let state: BaseView.Built.State = switch pl.status {
             case .running: .running
             case .underConstruction(let pr): .building(permille: buildPermille(pl, pr))
-            case .stopped(let r): .stopped(reason: p.text(r))
+            case .stopped(let r): .stopped(reason: p.stoppedText(r, waitingFor: pl.module?.waitingFor))
             case .broken: .broken
             }
             var research = false
@@ -524,6 +524,6 @@ extension FrameBuilder {
         let r = BaseQueries.siteRejection(kind, at: WorldPoint(layer, pt), facing: PlacementPreview.facing, world: w,
                                           content: content)
         return PlacementPreview(kind: kind, at: pt, cells: fp.map { pt + $0 }, placeable: r == nil,
-                                reason: r.map { Perceiver(content: content, world: w).text($0.reason) })
+                                reason: r.map { Perceiver(content: content, world: w).rejectionText($0.reason, detail: $0.detail) })
     }
 }
