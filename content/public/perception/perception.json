@@ -57,7 +57,7 @@
         {
           "when": true,
           "name": "text.terrain.water",
-          "glyph": "∙"
+          "glyph": "≈"
         }
       ]
     },
