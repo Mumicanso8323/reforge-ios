@@ -87,6 +87,63 @@ final class MapGlyphCoverageTests: XCTestCase {
         XCTAssertEqual(missing, [], "同梱フォントに無い地図の字(コードポイント 見出し)")
     }
 
+    /// 受け皿の表の置き換えが、別の物を同じ字にしない(置き換える前は違う字だった 2 つが、置き換えた後で同じになる組が無い)。
+    /// もともと同じ字を共有している物(同じ字を意図して共有する)は対象外。失敗の文は見出しとコードポイントだけ。
+    func testSubstitutionsDoNotMergeDifferentGlyphs() throws {
+        let db = try TestContent.full()
+        var entries: [(owner: String, glyph: String)] = []
+        for (id, def) in db.perception.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+            for (i, v) in def.variants.enumerated() { if let g = v.glyph { entries.append(("\(id.rawValue) v\(i)", g)) } }
+        }
+        for (id, g) in db.glyphs.sorted(by: { $0.key.rawValue < $1.key.rawValue }) { entries.append((id.rawValue, g)) }
+        entries += [("noahGlyph", TilePalette.noahGlyph), ("memberGlyph", TilePalette.memberGlyph),
+                    ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "晶")]
+        var byMapped: [String: [(owner: String, original: String)]] = [:]
+        for e in entries where !e.glyph.allSatisfy(\.isWhitespace) { byMapped[MapGlyphFont.safe(e.glyph), default: []].append((e.owner, e.glyph)) }
+        var merged: [String] = []
+        for (mapped, owners) in byMapped.sorted(by: { $0.key < $1.key }) {
+            let originals = Set(owners.map(\.original))
+            guard originals.count > 1 else { continue }
+            let names = owners.map { "\($0.owner)[\(code(Character($0.original.first ?? " ")))]" }
+            merged.append("\(code(Character(mapped.first ?? " "))) ← \(Array(Set(names)).sorted().prefix(6))")
+        }
+        XCTAssertEqual(merged, [], "置き換えで別の字が同じ字になる組(置き換え後の字 ← 見出し[元の字])")
+    }
+
+    /// 10 分の地図(公開+非公開を重ねた内容)に出る物の字は、全部違う。置き換えの表を通した後の字で比べる。
+    /// 同じ物の見え方の違い(variants)は同じ物として数える。非公開の層が無い環境では、公開の試験用の内容だけなので省く。
+    func testTenMinuteMapGlyphsAreAllDistinct() throws {
+        try XCTSkipUnless(TestContent.hasPrivateLayer, "非公開の層が無い")
+        let db = try TestContent.full()
+        var owners: [String: Set<String>] = [:]   // 置き換え後の字 → 物の見出し
+        func add(_ glyph: String, _ owner: String) {
+            guard !glyph.allSatisfy(\.isWhitespace) else { return }
+            owners[MapGlyphFont.safe(glyph), default: []].insert(owner)
+        }
+        for (id, def) in db.perception {
+            for v in def.variants { if let g = v.glyph { add(g, id.rawValue) } }
+        }
+        for (id, g) in db.glyphs { add(g, id.rawValue) }
+        for (name, g) in [("noahGlyph", TilePalette.noahGlyph), ("memberGlyph", TilePalette.memberGlyph),
+                          ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "晶")] {
+            add(g, name)
+        }
+        // 意図して同じ字を共有する物(同じ字で良いと決めた組)。理由: 人は名乗る前は全員同じ字・晶は鉱の種類をまとめる・
+        // 残骸の 2 つは同じ種類・採取の拠点は同じ役目・水と浜は青い面の塗りで見分ける(game-designer 決定)。
+        let allowedGroups: [Set<String>] = [
+            ["poi:wreck.far", "poi:wreck.home"],
+            ["module:minehead", "structure:forage_post"],
+            ["terrain:shore", "terrain:water"],
+        ]
+        func allowed(_ names: Set<String>) -> Bool {
+            let rest = names.filter { !$0.hasPrefix("person:") && !$0.hasPrefix("deposit:") }
+            return rest.count <= 1 || allowedGroups.contains { rest.isSubset(of: $0) }
+        }
+        let same = owners.filter { $0.value.count > 1 && !allowed($0.value) }.sorted { $0.key < $1.key }
+            .map { "\(code(Character($0.key.first ?? " "))) ← \($0.value.sorted().prefix(6))" }
+        XCTAssertEqual(same, [], "10 分の地図で同じ字になる物の組(字 ← 見出し)")
+    }
+
     /// 受け皿の表の置き換え先は、どれも書体にある。置き換え元は書体に無い(要らない行は消す)。
     func testSubstituteTableIsConsistent() throws {
         let font = try Self.bundledFontScalars()
