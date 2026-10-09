@@ -121,16 +121,6 @@
         }
       }
     },
-    "あと %@×%lld": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "あと %@×%lld"
-          }
-        }
-      }
-    },
     "いまは購入できません(準備中)": {
       "localizations": {
         "ja": {
@@ -981,6 +971,16 @@
         }
       }
     },
+    "必要: ": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "必要: "
+          }
+        }
+      }
+    },
     "戦いの構え(寝ている間も)": {
       "localizations": {
         "ja": {
@@ -1391,16 +1391,6 @@
         }
       }
     },
-    "研究机がない": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "研究机がない"
-          }
-        }
-      }
-    },
     "硬さ %lld": {
       "localizations": {
         "ja": {
@@ -1731,16 +1721,6 @@
         }
       }
     },
-    "足りない": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "足りない"
-          }
-        }
-      }
-    },
     "距離を取る": {
       "localizations": {
         "ja": {
@@ -1787,6 +1767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "運搬"
+          }
+        }
+      }
+    },
+    "選べない": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "選べない"
           }
         }
       }

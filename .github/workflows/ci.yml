@@ -118,6 +118,9 @@ jobs:
       - name: 文字列カタログが画面の文言と合っている
         if: always()
         run: python3 tools/gen-xcstrings.py --check
+      - name: 足元カード・拠点のタブに、できない理由の文が無い
+        if: always()
+        run: python3 tools/check-no-reason-text.py
       - name: 公開語の検査器を確かめる
         if: always()
         run: python3 tools/test_check_public_spoilers.py

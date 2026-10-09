@@ -82,15 +82,15 @@ struct BaseTabView: View {
                         store.beginPlacing(o.kind)
                     } label: {
                         InkRow(glyph: o.glyph, title: Text(verbatim: o.name),
-                               detail: Text(verbatim: o.cost.map { "\($0.name)×\($0.quantity)" }.joined(separator: " ")),
+                               detail: Text(verbatim: Self.price(o)),
                                selected: store.placing == o.kind)
                     }
                     .buttonStyle(.inkRow)
                     .accessibilityIdentifier("build-\(o.kind.rawValue)")
                 case .plain:
-                    InkRow(glyph: o.glyph, title: Text(verbatim: o.name), detail: missing(o))
+                    InkRow(glyph: o.glyph, title: Text(verbatim: o.name), detail: Text(verbatim: Self.price(o)))
                         .foregroundStyle(InkColor.textDim)
-                        .accessibilityValue("足りない")
+                        .accessibilityValue("選べない")
                 }
             }
             let unknownCount = v.unknownStructures + v.shadows.count
@@ -102,11 +102,9 @@ struct BaseTabView: View {
         }
     }
 
-    private func missing(_ option: BaseView.BuildOption) -> Text {
-        option.missing.enumerated().reduce(Text(verbatim: "")) { text, item in
-            let part = Text("あと \(item.element.name)×\(item.element.quantity)") // xcstrings: @,lld
-            return item.offset == 0 ? part : text + Text(verbatim: " ") + part
-        }
+    /// 必要な材料の値札(足りているかで文を変えない。押せない物は押せない形にするだけ)。
+    private static func price(_ option: BaseView.BuildOption) -> String {
+        "必要: " + option.cost.map { "\($0.name)×\($0.quantity)" }.joined(separator: " ")
     }
 
     private func lines(_ v: BaseView) -> some View {
@@ -178,9 +176,6 @@ struct ResearchSection: View {
 
     var body: some View {
         InkSection(title: Text("研究")) {
-            if !view.hasDesk {
-                InkRow(title: Text("研究机がない")).foregroundStyle(InkColor.textDim)
-            }
             ForEach(view.entries, id: \.id) { e in
                 Button { store.send(e.selectCommand) } label: {
                     InkRow(glyph: mark(e.status), title: Text(verbatim: e.name),
