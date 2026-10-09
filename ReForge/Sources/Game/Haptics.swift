@@ -70,6 +70,12 @@ protocol HapticFiring: AnyObject {
     func fire(_ cue: HapticCue)
     /// 暗い場面の長押しの進みに合わせた軽い振動。intensity は 0〜1。
     func ramp(intensity: Double)
+    /// 押したが受け付けられなかった時の、弱い応え(文は出さない)。
+    func nudge()
+}
+
+extension HapticFiring {
+    func nudge() {}
 }
 
 /// 振動の出し方を 1 か所にまとめる(UIImpactFeedbackGenerator と UINotificationFeedbackGenerator)。
@@ -102,5 +108,10 @@ final class SystemHaptics: HapticFiring {
     func ramp(intensity: Double) {
         guard enabled else { return }
         light.impactOccurred(intensity: CGFloat(intensity))
+    }
+
+    func nudge() {
+        guard enabled else { return }
+        light.impactOccurred(intensity: 0.4)
     }
 }

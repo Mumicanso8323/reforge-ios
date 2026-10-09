@@ -11,12 +11,6 @@ struct DarkStartScene: View {
             InkColor.prologueGround
                 .overlay(alignment: .bottom) {
                     VStack(spacing: 10) {
-                        if let notice = store.notice {
-                            Text(verbatim: notice)
-                                .font(InkFont.small)
-                                .foregroundStyle(InkColor.notice)
-                                .lineLimit(1)
-                        }
                         DarkStartActionButton(action: action, store: store)
                     }
                     .frame(width: 240)

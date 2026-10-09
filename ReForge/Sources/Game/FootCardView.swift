@@ -15,18 +15,7 @@ struct FootCardView: View {
                         .bold()
                         .lineLimit(1)
                     Spacer(minLength: 4)
-                    if let n = store.notice {
-                        Text(verbatim: n)
-                            .foregroundStyle(InkColor.notice)
-                            .lineLimit(1)
-                            .accessibilityIdentifier("notice")
-                    } else if store.footCard?.nothingNearby == true {
-                        // 続けて採るのが止まった(PT-B1。固定の文言)
-                        Text("近くにもう無い")
-                            .foregroundStyle(InkColor.notice)
-                            .lineLimit(1)
-                            .accessibilityIdentifier("nothingNearby")
-                    }
+                    // 断りの文・「近くにもう無い」の類は出さない(説明で補わない)。押した事実への応えはボタンの揺れと触覚
                 }
                 // できない理由の一文(card.hint)は出さない: 押せない物はボタンを置かず、説明でも補わない(INV-F1)
                 // 焚き火の火の見込み(PT-B1。焚き火のカードだけ)
@@ -100,6 +89,7 @@ struct ActionButton: View {
                 .accessibilityValue(Text(verbatim: HoldRing.spokenValue(hold: true) ?? ""))
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("holdRing")
+                .refusalShake(store.refusals)
         } else {
             Button {
                 store.act(action, pressing: true)
@@ -112,6 +102,24 @@ struct ActionButton: View {
             }
             .buttonStyle(.ink(.secondary, fill: true))
             .accessibilityIdentifier("footAction")
+            .refusalShake(store.refusals)
+        }
+    }
+}
+
+extension View {
+    /// 押したが受け付けられなかった時(回数が増えた時)の、短い横の揺れ。文は出さない。「動きを減らす」でも触覚は鳴る。
+    func refusalShake(_ count: Int) -> some View {
+        keyframeAnimator(initialValue: 0.0, trigger: count) { view, dx in
+            view.offset(x: dx)
+        } keyframes: { _ in
+            KeyframeTrack {
+                LinearKeyframe(0, duration: 0.01)
+                LinearKeyframe(-5, duration: 0.03)
+                LinearKeyframe(5, duration: 0.04)
+                LinearKeyframe(-3, duration: 0.03)
+                LinearKeyframe(0, duration: 0.03)
+            }
         }
     }
 }

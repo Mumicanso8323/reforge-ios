@@ -399,26 +399,26 @@ final class MapPresentTests: XCTestCase {
 
         let distant = try XCTUnwrap(b.footCard(w, at: far))
         XCTAssertEqual(distant.state, .far)
-        XCTAssertEqual(distant.hint, "遠い — 近づくとできる")
+        XCTAssertNil(distant.hint, "できない理由の文は付けない(説明で補わない)")
         XCTAssertTrue(distant.actions.isEmpty, "遠いマスにはボタンを出さない")
 
         let unseen = try XCTUnwrap(b.footCard(w, at: GridPoint(1, 1)))
         XCTAssertEqual(unseen.state, .unseen)
-        XCTAssertEqual(unseen.hint, "近づけば見える")
+        XCTAssertNil(unseen.hint, "できない理由の文は付けない(説明で補わない)")
         XCTAssertTrue(unseen.actions.isEmpty)
 
         var emptyContent = b.content
         emptyContent.interactions.removeAll()
         let empty = try XCTUnwrap(FrameBuilder(content: emptyContent).footCard(w, at: start))
         XCTAssertEqual(empty.state, .empty)
-        XCTAssertEqual(empty.hint, "ここで今できることは無い")
+        XCTAssertNil(empty.hint, "できない理由の文は付けない(説明で補わない)")
 
         w.exploration.active[.noah] = ActiveInteraction(interaction: "interaction.test.present.pick",
                                                          at: WorldPoint(.surface, start), poi: nil, part: nil,
                                                          holding: true, spent: [], startedAt: w.clock.now)
         let busy = try XCTUnwrap(b.footCard(w, at: start))
         XCTAssertEqual(busy.state, .busy)
-        XCTAssertEqual(busy.hint, "作業が終わるのを待つ")
+        XCTAssertNil(busy.hint, "できない理由の文は付けない(説明で補わない)")
     }
 
     func testFootCardOnlyListsActionsWithinReachInFixedOrder() throws {
@@ -458,7 +458,7 @@ final class MapPresentTests: XCTestCase {
             let card = try XCTUnwrap(b.footCard(w, at: far))
             XCTAssertTrue(card.actions.isEmpty)
             XCTAssertEqual(card.state, .far)
-            XCTAssertNotNil(card.hint)
+            XCTAssertNil(card.hint, "できない理由の文は付けない(説明で補わない)")
         }
     }
 

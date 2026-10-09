@@ -339,7 +339,6 @@ public struct FrameBuilder: Sendable {
         guard seen else {
             var card = FootCard(point: pt, title: p.text(Perceiver.unknownText), actions: [])
             card.state = .unseen
-            card.hint = p.text("ui.foot.hint.unseen")
             return card
         }
         let poi = proj.poiAt[pt]
@@ -402,14 +401,11 @@ public struct FrameBuilder: Sendable {
         }
         if busy {
             card.state = .busy
-            card.hint = p.text("ui.foot.hint.busy")
         } else if !reachable {
             // 遠いマス: ボタンは出さない(名前と理由の 1 行だけ。歩くのは操作棒)
             card.state = .far
-            card.hint = p.text("ui.foot.hint.far")
         } else if card.actions.isEmpty {
             card.state = .empty
-            card.hint = p.text("ui.foot.hint.empty")
         }
         card.nothingNearby = w.exploration.continueStop.map { $0.day == nil || $0.day == w.clock.day } ?? false
         card.fire = placed.lazy.compactMap { fireView($0, w) }.first

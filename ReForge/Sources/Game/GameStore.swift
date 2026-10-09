@@ -105,6 +105,8 @@ final class GameStore {
     @ObservationIgnored private var lastRevision = -1
     /// 足元カードを引き直した回数。await から戻った時に番号が違えば、古い問い合わせの答えは捨てる(世界の差し替え・注目の移動)。
     @ObservationIgnored private var cardGeneration = 0
+    /// 押したが受け付けられなかった回数。画面は文を出さず、押したボタンの短い揺れ(と弱い触覚)で応える。
+    private(set) var refusals = 0
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     /// 断りを出した実時刻(systemUptime。ゲームの時計が止まっていても進む)と、出しておく長さ(秒。テストで短くする)。
     @ObservationIgnored private var noticeShownAt: TimeInterval = 0
@@ -472,9 +474,13 @@ final class GameStore {
         if card != footCard { footCard = card }
     }
 
-    /// 断りを足元カードに出す。同じ文がまだ出ている間の繰り返しは、出す長さを延ばさない(押し続けても居残らない)。
+    /// 断りの理由を持つ(画面には出さない。診断と試験用)。同じ文がまだ出ている間の繰り返しは、出す長さを延ばさない(押し続けても居残らない)。
     func show(notice text: String?) {
         guard let text else { clearNotice(); return }
+        // 断りの理由は画面に出さない(押せるボタンは必ず受け付けられる決め)。押した事実への応えと、端末内の記録だけ。
+        refusals += 1
+        haptics.nudge()
+        logPlay(kind: "refused", fields: ["reason": text])
         let t = ProcessInfo.processInfo.systemUptime
         if notice == text, t - noticeShownAt < noticeLifetime { return }
         noticeTask?.cancel()
