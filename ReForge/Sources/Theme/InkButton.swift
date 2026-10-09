@@ -24,7 +24,7 @@ struct InkButtonStyle: ButtonStyle {
             .font(InkFont.body)
             .lineLimit(1)
             .padding(.horizontal, 14)
-            .frame(maxWidth: fill ? .infinity : nil, minHeight: kind == .quiet ? 36 : InkMetric.buttonHeight)
+            .frame(minWidth: InkMetric.buttonHeight, maxWidth: fill ? .infinity : nil, minHeight: InkMetric.buttonHeight)
             .foregroundStyle(foreground)
             .background(
                 RoundedRectangle(cornerRadius: InkMetric.corner)

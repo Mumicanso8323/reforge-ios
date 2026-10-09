@@ -46,6 +46,22 @@ final class LayoutFitTests: XCTestCase {
         }
     }
 
+    /// 押せる物は縦も横も 44pt 以上(SL-32)。地図の画面と足元カードの画面にある全てのボタン。
+    func testEveryButtonIsAtLeast44Points() {
+        for screen in ["map", "foot"] {
+            let app = launch(screen)
+            defer { app.terminate() }
+            XCTAssertTrue(one(app, "statusBand").waitForExistence(timeout: 60), "\(screen): 上の帯が出ない")
+            let window = app.windows.firstMatch.frame
+            for button in app.buttons.allElementsBoundByIndex where button.exists && button.isHittable {
+                let f = button.frame
+                guard f.intersects(window) else { continue }
+                XCTAssertGreaterThanOrEqual(f.width, 43.5, "\(screen): \(button.identifier) の幅が 44pt 未満 \(f)")
+                XCTAssertGreaterThanOrEqual(f.height, 43.5, "\(screen): \(button.identifier) の高さが 44pt 未満 \(f)")
+            }
+        }
+    }
+
     func testStatusBandAvoidsGear() {
         let app = launch("map")
         defer { app.terminate() }
