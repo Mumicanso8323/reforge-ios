@@ -126,7 +126,7 @@ struct MapProjector {
             shadow = poi.anchor && landmarkRadius(poi.poi.kind) == nil ? "？" : poiGlyph(poi.poi.kind)
         }
         if fog == .unknown { glow = false }
-        return TileView(glyph: glyph, tint: tint, fog: fog, shadow: shadow, glow: glow)
+        return TileView(glyph: MapGlyphFont.safe(glyph), tint: tint, fog: fog, shadow: shadow.map(MapGlyphFont.safe), glow: glow)
     }
 
     /// 遠景の半径(POIDef.landmarkRadius)。

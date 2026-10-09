@@ -166,7 +166,7 @@ public struct Perceiver: Sendable {
     public func art(_ s: SubjectID) -> ArtID? { variant(s)?.art }
 
     public func glyph(_ s: SubjectID) -> String {
-        audited(variant(s)?.glyph ?? content.glyphs[s] ?? "？", origin: "glyph \(s.rawValue)")
+        MapGlyphFont.safe(audited(variant(s)?.glyph ?? content.glyphs[s] ?? "？", origin: "glyph \(s.rawValue)"))
     }
 
     /// 地図のラベル(POI・地形・置いた物の名前を長押しで出すときなど)。
