@@ -379,7 +379,10 @@ final class MapPresentTests: XCTestCase {
         w.people[.noah]?.position = WorldPoint(.surface, GridPoint(16, 17))
         let night = try XCTUnwrap(b.footCard(w, at: GridPoint(16, 17)))
         XCTAssertEqual(night.actions.map(\.id.rawValue),
-                       ["interaction.test.present.gated", "interaction.test.present.night", "interaction.test.present.pick"])
+                       ["interaction.test.present.gated", "interaction.test.present.night"], "1 ページは maxActions(2)個まで")
+        XCTAssertEqual(night.pageCount, 2)
+        let second = try XCTUnwrap(b.footCard(w, at: GridPoint(16, 17), page: 1))
+        XCTAssertEqual(second.actions.map(\.id.rawValue), ["interaction.test.present.pick"])
         XCTAssertEqual(night.actions.first?.label, "？", "名前の無い行為は英語の ID を出さない")
     }
 

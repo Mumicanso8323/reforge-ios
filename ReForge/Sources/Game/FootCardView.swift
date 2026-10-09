@@ -1,7 +1,7 @@
 import SwiftUI
 import ReForgeEngine
 
-/// 足元カード: 注目しているマス(タップ・長押ししたマス、無ければノアの足元)の名前と、できること 1〜3 個。
+/// 足元カード: 注目しているマス(タップ・長押ししたマス、無ければノアの足元)の名前と、できること 1〜2 個(FootCard.maxActions。名前は 2 行まで折り返す)。
 /// 断られた理由はここに 1 行出す(ダイアログは出さない)。高さは固定して、地図が上下に揺れないようにする。
 struct FootCardView: View {
     let store: GameStore
@@ -78,12 +78,14 @@ struct ActionButton: View {
                 HoldRing(permille: action.progressPermille, pressing: pressing)
                 Text(verbatim: action.label)
                     .font(InkFont.body)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    // 名前は省略せず、2 行まで折り返す
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.leading)
             }
                 .foregroundStyle(pressing ? InkColor.onAccent : InkColor.text)
-                .padding(.horizontal, 14)
-                .frame(minHeight: InkMetric.buttonHeight)
+                .padding(.horizontal, 10)
+                .frame(maxWidth: .infinity, minHeight: InkMetric.buttonHeight)
                 .background(RoundedRectangle(cornerRadius: InkMetric.corner)
                     .fill(pressing ? InkColor.accent : InkColor.panel))
                 .overlay(RoundedRectangle(cornerRadius: InkMetric.corner)
@@ -109,9 +111,12 @@ struct ActionButton: View {
                 store.act(action, pressing: true)
             } label: {
                 Text(verbatim: action.label)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .multilineTextAlignment(.center)
                     .frame(minHeight: InkMetric.buttonHeight)
             }
-            .buttonStyle(.ink(.secondary, fill: false))
+            .buttonStyle(.ink(.secondary, fill: true))
             .accessibilityIdentifier("footAction")
         }
     }

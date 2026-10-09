@@ -625,7 +625,8 @@ public struct FootCard: Equatable, Sendable {
         public var end: Command { .exploration(.interact(interaction: id, at: at, holding: false)) }
     }
 
-    public static let maxActions = 3
+    /// 2 個にして 1 ボタンの幅を取る(名前を 2 行まで折り返して省略しない)。
+    public static let maxActions = 2
 
     public var point: GridPoint
     public var title: String
