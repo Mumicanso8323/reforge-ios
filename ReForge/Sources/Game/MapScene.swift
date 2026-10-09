@@ -105,6 +105,11 @@ private struct TerrainImageKey: Hashable {
 final class MapTerrainCache {
     private var images: [TerrainImageKey: Image] = [:]
     private(set) var renderCount: [Int: Int] = [:]
+    /// 区画ごとに直前に作れた画。ImageRenderer が nil を返した(画が大きい・メモリが苦しい)時に、黒にせず残す。
+    private var lastGood: [Int: Image] = [:]
+    /// 画が作れなかった回数と、直前の画で補った回数。
+    private(set) var renderFailures = 0
+    private(set) var fallbackDraws = 0
 
     func image(for chunk: MapChunk, cellSize: Double, night: Bool, vision: [VisionArea], terrains: [TerrainID: TerrainDef]) -> Image? {
         let key = TerrainImageKey(index: chunk.index, revision: chunk.revision, cellSize: Int(cellSize), night: night, vision: vision)
@@ -113,15 +118,31 @@ final class MapTerrainCache {
             .frame(width: Double(chunk.rect.size.width) * cellSize, height: Double(chunk.rect.size.height) * cellSize)
         let renderer = ImageRenderer(content: view)
         renderer.scale = UIScreen.main.scale
-        guard let rendered = renderer.uiImage else { return nil }
+        guard let rendered = renderer.uiImage else {
+            renderFailures += 1
+#if DEBUG
+            ReplayStats.renderFailures += 1
+#endif
+            // 作れなかった時は、黒(何も描かない)にせず、その区画の直前の画を残す。次の描画でまた作り直す(キャッシュしない)。
+            if let last = lastGood[chunk.index] {
+                fallbackDraws += 1
+#if DEBUG
+                ReplayStats.fallbackDraws += 1
+#endif
+                return last
+            }
+            return nil
+        }
         let image = Image(uiImage: rendered)
         images[key] = image
+        lastGood[chunk.index] = image
         renderCount[chunk.index, default: 0] += 1
         return image
     }
 
     func discardOutside(_ indices: Set<Int>) {
         images = images.filter { indices.contains($0.key.index) }
+        lastGood = lastGood.filter { indices.contains($0.key) }
     }
 }
 

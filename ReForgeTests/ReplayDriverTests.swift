@@ -78,7 +78,7 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertEqual(log.map(\.step).map { $0 >= 2 }.last, true, "2 つ目は歩みが台本の step に届いてから送る。" + why)
         let step = await store.host.step
         XCTAssertGreaterThanOrEqual(step, 2)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 2\ncheckpoints 0/0 jumps 0\nby-section -\n", why)
+        XCTAssertEqual(try markHead(done), "ok 2\ncheckpoints 0/0 jumps 0\nby-section -\n", why)
     }
 
     func testSceneAdvancesAreSpacedByAtLeastTheGap() async throws {
@@ -148,7 +148,7 @@ final class ReplayDriverTests: XCTestCase {
         XCTAssertEqual(log.first, ok, why)
         XCTAssertTrue(log.contains(bad), "断られた命令は何度か再試行される。" + why)
         XCTAssertEqual(log.last, ok, "飛ばして先へ進む(止めない)。" + why)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "skipped 1/3 first 2\ncheckpoints 0/0 jumps 0\nby-section 0:1\n", why)
+        XCTAssertEqual(try markHead(done), "skipped 1/3 first 2\ncheckpoints 0/0 jumps 0\nby-section 0:1\n", why)
     }
 
     func testCheckpointRestoresTheScriptedWorldBeforeItsCommand() async throws {
@@ -196,7 +196,7 @@ final class ReplayDriverTests: XCTestCase {
         await ReplayDriver.run(script: script, store: store, donePath: done.path, pacing: pacing)
         let log = await store.host.replayLog.map(\.command)
         XCTAssertFalse(log.contains(b), "待たされた命令は飛ばす")
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 3\ncheckpoints 1/1 jumps 1\nby-section -\n")
+        XCTAssertEqual(try markHead(done), "ok 3\ncheckpoints 1/1 jumps 1\nby-section -\n")
     }
 
     func testEmptyScriptEndsWithOkZero() async throws {
@@ -212,7 +212,7 @@ final class ReplayDriverTests: XCTestCase {
         pacing.tail = 0
         await ReplayDriver.run(script: ReplayScript(seed: 1, seconds: 0, commands: []), store: store,
                                donePath: done.path, pacing: pacing)
-        XCTAssertEqual(try String(contentsOf: done, encoding: .utf8), "ok 0\ncheckpoints 0/0 jumps 0\nby-section -\n")
+        XCTAssertEqual(try markHead(done), "ok 0\ncheckpoints 0/0 jumps 0\nby-section -\n")
         let log = await store.host.replayLog
         XCTAssertTrue(log.isEmpty)
     }
@@ -223,5 +223,13 @@ final class ReplayDriverTests: XCTestCase {
         let broken = tempDir().appendingPathComponent("broken.json")
         try Data("{ not a script".utf8).write(to: broken)
         XCTAssertNil(ReplayMode.load(path: broken.path))
+    }
+
+    /// 完了の印の最初の 3 行(4 行目は地図の数えで、実行ごとに違う)。
+    private func markHead(_ url: URL) throws -> String {
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let lines = text.split(separator: "\n", omittingEmptySubsequences: false)
+        XCTAssertTrue(lines.contains { $0.hasPrefix("map render-failures ") }, "地図の数えの行が無い")
+        return lines.prefix(3).joined(separator: "\n") + "\n"
     }
 }

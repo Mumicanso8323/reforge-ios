@@ -232,6 +232,9 @@ final class GameStore {
     @discardableResult
     func replaceWorld(_ world: WorldState) async -> Frame {
         let f = await host.replace(world: world)
+#if DEBUG
+        ReplayStats.replaces += 1
+#endif
         chunks = [:]
         selected = nil
         footCardPage = 0

@@ -34,6 +34,14 @@ enum ReplayMode {
     }
 }
 
+/// 録画の確かめ用の数え(完了の印の 4 行目に出す)。地図の画が作れなかった回数・直前の画で補った回数・世界の差し替えの回数。
+@MainActor
+enum ReplayStats {
+    static var renderFailures = 0
+    static var fallbackDraws = 0
+    static var replaces = 0
+}
+
 /// 台本を GameStore へ流し込む。実時間の待ちと時刻は差し替えられる(テスト用)。
 @MainActor
 enum ReplayDriver {
@@ -70,6 +78,9 @@ enum ReplayDriver {
         var section = 0
         var restored = 0
         var jumps = 0
+        // 区画の中身の数(store.chunks)を見張る: 最小と、空だった回数(地図が黒く見える間の手がかり)
+        var chunksMin = Int.max
+        var chunksZero = 0
         var skippedBySection: [Int: Int] = [:]
         var checkpoints: [Int: Data] = [:]
         for cp in script.checkpoints ?? [] where checkpoints[cp.index] == nil { checkpoints[cp.index] = cp.save }
@@ -82,6 +93,9 @@ enum ReplayDriver {
             }
             let entry = script.commands[index]
             let step = await store.host.step
+            let chunkCount = store.chunks.count
+            chunksMin = min(chunksMin, chunkCount)
+            if chunkCount == 0 { chunksZero += 1 }
             if step != seenStep { seenStep = step; stepChangedAt = uptime() }
             let isScene = entry.command == .narrative(.advanceScene)
             let waited = uptime() - lastSend
@@ -143,7 +157,7 @@ enum ReplayDriver {
         let head = skipped.first.map { "skipped \(skipped.count)/\(script.commands.count) first \($0)" } ?? "ok \(script.commands.count)"
         let total = script.checkpoints?.count ?? 0
         let bySection = skippedBySection.keys.sorted().map { "\($0):\(skippedBySection[$0] ?? 0)" }.joined(separator: " ")
-        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)", to: donePath)
+        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)\nmap render-failures \(ReplayStats.renderFailures) fallbacks \(ReplayStats.fallbackDraws) replaces \(ReplayStats.replaces) chunks-min \(chunksMin == Int.max ? 0 : chunksMin) chunks-zero \(chunksZero)", to: donePath)
     }
 
     /// 全画面の場面・ふきだしの場面が開いているか(開いていれば、人は画面をタップして送る)。
