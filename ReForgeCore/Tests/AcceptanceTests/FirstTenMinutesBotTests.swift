@@ -61,6 +61,16 @@ final class FirstTenMinutesBotTests: XCTestCase {
         /// 台本の合わせ直しの点(ボットの世界の保存データ。約 45 秒ごと。台本を書く時だけ)
         var checkpoints: [ReplayScript.Checkpoint] = []
         var lastCheckpointReal = -1000.0
+        /// 上の帯の食料・ガスの数値(SL-37: 要らない物は見せない)。0 日目の日没の帯にあったか(食料・ガス)と、
+        /// 初めて帯に出た時刻とその時に持っていた食料の物の数。数値は内容から引く(食料は生存の foodDaysStat、
+        /// ガスは帯の要素 band.gas に結んだ数値)
+        var bandAtDusk0: (food: Bool, gas: Bool)?
+        var bandFirst: [String: (Double, Int)] = [:]
+        /// 食料の数値が初めて帯に出た時の値(Milli の raw。1000 = 1 日分。1000 未満は「0日分」と出る)
+        var bandFoodRaw: Int64?
+        var bandTick = 0
+        /// 食料の物を持っているのを見た(帯の数値より前に)
+        var foodHeldSeen = false
 
         init(content: ContentDB, seed: UInt64) {
             self.content = content
@@ -75,6 +85,35 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var members: [PersonID] { w.people.members }
 
         func count(_ item: ItemID) -> Int { ConditionEvaluator.stockCount(Ingredient(item: item, quantity: 1), w) }
+
+        /// 食料の物(生存の consumables の food のうち、自動で口にする物。食料の残りの日数に数える物)を今いくつ持っているか。
+        func foodHeld() -> Int {
+            (content.survival?.consumables ?? []).filter { $0.kind == .food && $0.auto != false }
+                .reduce(0) { $0 + count($1.item) }
+        }
+
+        /// 上の帯の食料・ガスの数値を見る(SL-37)。帯を作るのは重いので 40 歩ごとと、0 日目の日没に入った時だけ。
+        mutating func noteBand() {
+            bandTick += 1
+            let dusk0 = bandAtDusk0 == nil && w.clock.day == 0 && w.clock.phase == .dusk
+            guard dusk0 || (bandFirst.count < 2 && bandTick % 40 == 0) else { return }
+            let held = foodHeld()
+            if held > 0 { foodHeldSeen = true }
+            let foodStat = content.survival.map { $0.foodDaysStat.rawValue }
+            let gasStats = Set(content.stats.filter { $0.value.band == UIElements.bandGas }.keys.map(\.rawValue))
+            let f = fb.build(w, revision: 0, previous: nil, report: nil)
+            // 全画面の場面(stage)の間は帯そのものが出ない(Frame.status が空)。帯が見える時だけ数える
+            guard f.prologue == nil else { return }
+            let keys = Set(f.status.map(\.key))
+            let food = foodStat.map { keys.contains($0) } ?? false
+            let gas = !keys.isDisjoint(with: gasStats)
+            if dusk0 { bandAtDusk0 = (food, gas) }
+            if food, bandFirst["food"] == nil {
+                bandFirst["food"] = (real, foodHeldSeen ? max(held, 1) : 0)
+                bandFoodRaw = content.survival.flatMap { w.survival.stats[$0.foodDaysStat]?.raw } ?? 0
+            }
+            if gas, bandFirst["gas"] == nil { bandFirst["gas"] = (real, held) }
+        }
 
         mutating func note() {
             auditNames()
@@ -222,6 +261,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
                     battles.append((real, "\(bt.kind)".components(separatedBy: "(").first ?? "?", bt.id, w.clock.day, night))
                 }
                 note()
+                noteBand()
                 record(r)
                 noteWork()
                 hear()
@@ -1012,6 +1052,10 @@ final class FirstTenMinutesBotTests: XCTestCase {
         /// 戦いの種類・日・夜か(日没から夜明けまで)
         var battleDays: [(String, Int, Bool)] = []
         var firstThreatDay: Int?
+        /// 上の帯の食料・ガス(SL-37): 0 日目の日没にあったか、初めて出た時刻とその時の食料の物の数・食料の値
+        var bandAtDusk0: (food: Bool, gas: Bool)?
+        var bandFirst: [String: (Double, Int)] = [:]
+        var bandFoodRaw: Int64?
         var askStoke: (Int, Int)?
         var leaks: [String] = []
         /// SL-23〜27 の段と時刻(実時間の目安)
@@ -1610,6 +1654,9 @@ final class FirstTenMinutesBotTests: XCTestCase {
         out.answers = b.answers
         out.battles = b.battles.map { ($0.0, $0.1) }
         out.battleDays = b.battles.map { ($0.1, $0.3, $0.4) }
+        out.bandAtDusk0 = b.bandAtDusk0
+        out.bandFirst = b.bandFirst
+        out.bandFoodRaw = b.bandFoodRaw
         // INV-S3 の F: 材料がそろった時の一言(ID は内容から引かない)から、
         // その人が建てはじめる(作業の字)まで(20 秒以内)
         // 材料がそろった一言は、焚き火の段で行が分かれる(行の条件に hearthAtLeast がある)。材料集めの間に出た、そういう行だけを見る
@@ -1706,6 +1753,11 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var battleList: [String] = []
         var beforeNight3: [String] = []
         var threatDays: [String: Int] = [:]
+        // SL-37: 0 日目の日没の帯に食料・ガスがあった seed、日没を見なかった seed、初めて出た時刻と、出た時に食料の物を持っていなかった seed
+        var dusk0Food: [UInt64] = [], dusk0Gas: [UInt64] = [], dusk0Unseen: [UInt64] = []
+        var bandSecs: [String: [Int]] = [:]
+        var bandNoFood: [UInt64] = []
+        var bandZeroFood: [UInt64] = []
         var askStokes: [String: Int] = [:]
         var readySecs: [String: [Int]] = [:]
         var outOfWindow: [String] = []
@@ -1733,6 +1785,13 @@ final class FirstTenMinutesBotTests: XCTestCase {
             for (t, k) in r.battles where t <= 600 { battleList.append("seed \(seed) \(k)@\(Int(t))s") }
             for (k, d, night) in r.battleDays where d < 2 || (d == 2 && !night) { beforeNight3.append("seed \(seed) \(k) 日 \(d)\(night ? " 夜" : "")") }
             threatDays[r.firstThreatDay.map { "日 \($0)" } ?? "無し", default: 0] += 1
+            if let d = r.bandAtDusk0 {
+                if d.food { dusk0Food.append(seed) }
+                if d.gas { dusk0Gas.append(seed) }
+            } else { dusk0Unseen.append(seed) }
+            for (k, v) in r.bandFirst { bandSecs[k, default: []].append(Int(v.0)) }
+            if let f = r.bandFirst["food"], f.1 == 0 { bandNoFood.append(seed) }
+            if let v = r.bandFoodRaw, v < 1000 { bandZeroFood.append(seed) }
             waterAsks[r.waterAsk, default: 0] += 1
             if r.waterAsk != "通った" { waterMiss[r.waterAsk, default: []].append(seed) }
             if let (x, y) = r.askStoke { askStokes["\(x)→\(y)", default: 0] += 1 }
@@ -1826,6 +1885,13 @@ final class FirstTenMinutesBotTests: XCTestCase {
         print("[SL-40-battle] 600 秒までの戦い \(battleList.count) 件: \(battleList.joined(separator: " / "))")
         print("[SL-40-battle] 3 日目(day 2)の夜より前の戦い \(beforeNight3.count) 件: \(beforeNight3.joined(separator: " / "))"
               + " / 最初に夜の略奪が予定に入った日(day 0 始まり。REFORGE_TENMIN_NIGHT3=1 の時) \(threatDays.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))")
+        func secs(_ k: String) -> String {
+            let g = (bandSecs[k] ?? []).sorted()
+            return g.isEmpty ? "出た seed 0" : "出た seed \(g.count)(中央 \(g[g.count / 2]) 秒・最短 \(g.first!) 秒)"
+        }
+        print("[SL-37-band] \(seeds) seed: 0 日目の日没の帯に 食料 \(dusk0Food.count) seed \(dusk0Food.prefix(10))・ガス \(dusk0Gas.count) seed \(dusk0Gas.prefix(10))"
+              + "・日没を見なかった \(dusk0Unseen.count) seed / 食料 \(secs("food"))・出た時に食料の物を持っていなかった \(bandNoFood.count) seed \(bandNoFood.prefix(10))"
+              + "・出た時に 0 日分だった \(bandZeroFood.count) seed \(bandZeroFood.prefix(10)) / ガス \(secs("gas"))")
         print("[SL-21-ask] \(seeds) seed: 水の頼み \(waterAsks.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))"
               + " / 通らなかった seed \(waterMiss.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))"
               + " / 頼む前にくべた(働く枠 前→後) \(askStokes.sorted { $0.key < $1.key }.map { "\($0.key) \($0.value)" }.joined(separator: "・"))")
@@ -1840,5 +1906,9 @@ final class FirstTenMinutesBotTests: XCTestCase {
         fflush(stdout)
         XCTAssertEqual(failed, [:], "届かなかった段がある")
         XCTAssertEqual(leaks, [], "名乗る前の名前が画面に出た(TEST-F9)")
+        // 食料は持った時から出してよい(0 日目の日没に持っていれば出る)。持つ前に出ないことと、ガスが出ないことを確かめる
+        XCTAssertEqual(dusk0Gas, [], "0 日目の日没の帯にガスの数値が出た(SL-37)")
+        XCTAssertEqual(bandNoFood, [], "食料の物を持つ前に帯に食料の数値が出た(SL-37)")
+        XCTAssertEqual(bandZeroFood, [], "帯に初めて出た食料の残りが 0 日分だった(SL-37)")
     }
 }
