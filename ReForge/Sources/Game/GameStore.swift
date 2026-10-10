@@ -236,6 +236,7 @@ final class GameStore {
         let f = await host.replace(world: world)
 #if DEBUG
         ReplayStats.replaces += 1
+        ReplayStats.replaceTimes.append(ProcessInfo.processInfo.systemUptime)
 #endif
         chunks = [:]
         selected = nil

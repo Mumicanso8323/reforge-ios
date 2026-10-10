@@ -41,6 +41,8 @@ enum ReplayStats {
     static var fallbackDraws = 0
     static var replaces = 0
     static var blankRenders = 0
+    /// replaceWorld を呼んだ実時刻(systemUptime)。黒の区間と並べて見る。
+    static var replaceTimes: [TimeInterval] = []
 }
 
 /// 台本を GameStore へ流し込む。実時間の待ちと時刻は差し替えられる(テスト用)。
@@ -85,6 +87,11 @@ enum ReplayDriver {
         var sceneOpen = 0   // 全面の場面(prologue/stage)が開いていた周の数
         var allUnknown = 0  // 場面が無いのに、持っている区画のマスが全部未踏(黒)だった周の数
         var allUnknownLate = 0  // そのうち 2 日目以降(最初の暗い始まりの間は未踏で正しい)
+        // 画面の写し(実際の画素)で地図が黒い区間(開始〜終了の秒)。区画は既知なのに画が黒い、を直接見る
+        let runStart = uptime()
+        var blackSince: TimeInterval?
+        var blackSpans: [String] = []
+        var blackPasses = 0
         var skippedBySection: [Int: Int] = [:]
         var checkpoints: [Int: Data] = [:]
         for cp in script.checkpoints ?? [] where checkpoints[cp.index] == nil { checkpoints[cp.index] = cp.save }
@@ -104,6 +111,17 @@ enum ReplayDriver {
             else if chunkCount > 0, !store.chunks.values.contains(where: { $0.tiles.contains { $0.fog != .unknown } }) {
                 allUnknown += 1
                 if store.clock.day >= 2 { allUnknownLate += 1 }
+            }
+            if store.prologue == nil, chunkCount > 0, store.chunks.values.contains(where: { $0.tiles.contains { $0.fog != .unknown } }),
+               let lit = mapLitFraction() {
+                let now = uptime()
+                if lit < 0.01 {
+                    blackPasses += 1
+                    if blackSince == nil { blackSince = now }
+                } else if let since = blackSince {
+                    if blackSpans.count < 8 { blackSpans.append("\(Int(since - runStart))-\(Int(now - runStart))") }
+                    blackSince = nil
+                }
             }
             if step != seenStep { seenStep = step; stepChangedAt = uptime() }
             let isScene = entry.command == .narrative(.advanceScene)
@@ -166,7 +184,41 @@ enum ReplayDriver {
         let head = skipped.first.map { "skipped \(skipped.count)/\(script.commands.count) first \($0)" } ?? "ok \(script.commands.count)"
         let total = script.checkpoints?.count ?? 0
         let bySection = skippedBySection.keys.sorted().map { "\($0):\(skippedBySection[$0] ?? 0)" }.joined(separator: " ")
-        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)\nmap render-failures \(ReplayStats.renderFailures) fallbacks \(ReplayStats.fallbackDraws) replaces \(ReplayStats.replaces) blank-renders \(ReplayStats.blankRenders) chunks-min \(chunksMin == Int.max ? 0 : chunksMin) chunks-zero \(chunksZero) scene-open \(sceneOpen) all-unknown \(allUnknown) all-unknown-day2 \(allUnknownLate)", to: donePath)
+        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)\nmap render-failures \(ReplayStats.renderFailures) fallbacks \(ReplayStats.fallbackDraws) replaces \(ReplayStats.replaces) blank-renders \(ReplayStats.blankRenders) chunks-min \(chunksMin == Int.max ? 0 : chunksMin) chunks-zero \(chunksZero) scene-open \(sceneOpen) all-unknown \(allUnknown) all-unknown-day2 \(allUnknownLate) black-passes \(blackPasses) black-spans \(blackSpans.isEmpty ? "-" : blackSpans.joined(separator: ",")) replace-at \(ReplayStats.replaceTimes.prefix(16).map { String(Int($0 - runStart)) }.joined(separator: ","))", to: donePath)
+    }
+
+    /// 画面の中ほど(地図の所)の、明るい画素の割合(0...1)。画面の写しを小さく取って数える。取れなければ nil。
+    @MainActor
+    static func mapLitFraction() -> Double? {
+        guard let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
+              let window = scene.windows.first(where: \.isKeyWindow) ?? scene.windows.first else { return nil }
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 0.2
+        format.opaque = true
+        let image = UIGraphicsImageRenderer(size: window.bounds.size, format: format).image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+        }
+        guard let cg = image.cgImage else { return nil }
+        let w = cg.width, h = cg.height
+        guard w > 0, h > 0 else { return nil }
+        var pixels = [UInt8](repeating: 0, count: w * h * 4)
+        let drawn = pixels.withUnsafeMutableBytes { raw -> Bool in
+            guard let ctx = CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return nil }
+        var lit = 0, total = 0
+        for y in (h * 3 / 10)..<(h * 7 / 10) {
+            for x in 0..<w {
+                let i = (y * w + x) * 4
+                total += 1
+                if max(pixels[i], pixels[i + 1], pixels[i + 2]) > 48 { lit += 1 }
+            }
+        }
+        return total == 0 ? nil : Double(lit) / Double(total)
     }
 
     /// 全画面の場面・ふきだしの場面が開いているか(開いていれば、人は画面をタップして送る)。
