@@ -28,6 +28,10 @@ struct BaseTabView: View {
                 Button { Task { await app.backToTitle() } } label: { Text("タイトルへ") }
                     .buttonStyle(.ink(.quiet))
             }
+            #if DEBUG
+            // 研究の写真だけ: 研究の節を上へ送れるだけの余白(内容が短いと、拠点の見出しが帯の下に半分残って写る)
+            if ScreenshotMode.screen == .research { Color.clear.frame(height: 400) }
+            #endif
         }
         .task(id: store.revision) {
             base = await store.host.base()
