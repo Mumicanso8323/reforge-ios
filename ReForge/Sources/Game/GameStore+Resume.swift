@@ -32,6 +32,10 @@ extension GameStore {
 
     /// 前に出たとき(と、保存から読んで始めたとき)に呼ぶ。前回の操作から 10 分以上たっていれば帯に出す。
     func evaluateResume() async {
+#if DEBUG
+        // 撮る起動は、端末に残った前回の操作の時刻(別の起動・別の試験の物)で写真が変わらないよう、再開の 1 行を出さない
+        if ScreenshotMode.screen != nil { return }
+#endif
         guard resumeBanner == nil, !runEnded,
               let at = defaults.object(forKey: Self.lastOperationKey) as? Double else { return }
         guard now().timeIntervalSince1970 - at >= Double(Self.resumeAfterMinutes * 60) else { return }

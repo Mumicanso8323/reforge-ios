@@ -52,6 +52,7 @@ struct GameScreen: View {
                 // 地図は他のタブの間も残す(視点を保つ。時計も止めない)
                 if app.activePrologue == nil {
                     MapCanvasView(store: store, bandHeight: mapBandHeight)
+                        .id(store.worldGeneration)
                         .opacity(tab == .map ? 1 : 0)
                         .allowsHitTesting(tab == .map)
                         // 最初の行為(PT-B8)の後、地図がノアのまわりから灯る

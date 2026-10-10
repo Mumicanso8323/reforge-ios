@@ -45,7 +45,9 @@ final class ReplaceWorldStoreTests: XCTestCase {
         await assertScreenMatchesHost(s, "最初")
         // 別の種の世界(地形も違う)を、保存を読み戻した形で差し替える
         let other = try savedWorld(playable(c, seed: 9))
+        let generation = s.worldGeneration
         let f = await s.replaceWorld(other)
+        XCTAssertEqual(s.worldGeneration, generation + 1, "差し替えで地図の View を作り直す印が進む")
         XCTAssertEqual(s.revision, f.revision)
         await assertScreenMatchesHost(s, "差し替え後")
         XCTAssertEqual(s.mapView.chunkRevisions, Array(repeating: f.revision, count: s.mapView.chunkRevisions.count),

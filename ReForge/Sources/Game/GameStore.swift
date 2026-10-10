@@ -107,6 +107,8 @@ final class GameStore {
     @ObservationIgnored private var cardGeneration = 0
     /// 押したが受け付けられなかった回数。画面は文を出さず、押したボタンの短い揺れ(と弱い触覚)で応える。
     private(set) var refusals = 0
+    /// 世界を差し替えた回数。地図の View はこれを識別にして作り直し、前の世界の画のキャッシュ・視点を残さない。
+    private(set) var worldGeneration = 0
     @ObservationIgnored private var noticeTask: Task<Void, Never>?
     /// 断りを出した実時刻(systemUptime。ゲームの時計が止まっていても進む)と、出しておく長さ(秒。テストで短くする)。
     @ObservationIgnored private var noticeShownAt: TimeInterval = 0
@@ -238,6 +240,7 @@ final class GameStore {
         ReplayStats.replaces += 1
         ReplayStats.replaceTimes.append(ProcessInfo.processInfo.systemUptime)
 #endif
+        worldGeneration += 1
         chunks = [:]
         selected = nil
         footCardPage = 0
