@@ -26,9 +26,9 @@ public struct FrameBuilder: Sendable {
     public func build(_ w: WorldState, revision: Int, previous: Frame?, report: StepReport?) -> Frame {
         let p = Perceiver(content: content, world: w)
         let clock = clockView(w)
-        let definition = content.timeTint ?? TimeOfDay.defaultDef
-        let tint = TimeOfDay.tint(minutes: clock.minutesSinceDawn, definition)
-        let mark = TimeOfDay.mark(minutes: clock.minutesSinceDawn, definition)
+        let definition = TimeOfDay.resolved(content.timeTint, clock: content.clock)
+        let tint = TimeOfDay.tint(minutes: clock.minutesSinceDawn, definition, clock: content.clock)
+        let mark = TimeOfDay.mark(minutes: clock.minutesSinceDawn, definition, clock: content.clock)
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer, timeTint: tint)
         let size = proj.size
         var map = MapView(layer: layer, size: size, chunkRevisions: [], vision: vision.areas(w, layer: layer))

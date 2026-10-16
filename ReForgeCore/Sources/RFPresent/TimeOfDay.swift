@@ -36,12 +36,12 @@ public enum TimeOfDay {
     /// Seven and a half game minutes per step: 64 daytime and 144 nighttime steps.
     public static func step(minutes: Int) -> Int { max(0, minutes) * 2 / 15 }
 
-    public static func mark(minutes: Int, _ def: TimeTintDef) -> TimeMark {
-        key(at: steppedMinutes(minutes), in: usable(def)).mark
+    public static func mark(minutes: Int, _ def: TimeTintDef, clock: ClockDef = ClockDef()) -> TimeMark {
+        key(at: steppedMinutes(minutes), in: usable(def, clock)).mark
     }
 
-    public static func tint(minutes: Int, _ def: TimeTintDef) -> TimeTint {
-        let keys = usable(def)
+    public static func tint(minutes: Int, _ def: TimeTintDef, clock: ClockDef = ClockDef()) -> TimeTint {
+        let keys = usable(def, clock)
         let at = steppedMinutes(minutes)
         let current = key(at: at, in: keys)
         guard let nextIndex = keys.firstIndex(where: { $0.at > at }),
@@ -70,22 +70,40 @@ public enum TimeOfDay {
             step: step(minutes: minutes))
     }
 
-    /// Compatibility for content written before timeTint.  The short boundary
-    /// segments preserve the old all-day/day and all-night values.
-    public static let defaultDef = TimeTintDef(keys: [
-        TimeTintKey(at: 0, mark: .day, brightness: 1000, outside: 420, tint: [0, 0, 0], strength: 0),
-        TimeTintKey(at: 479, mark: .day, brightness: 1000, outside: 420, tint: [0, 0, 0], strength: 0),
-        TimeTintKey(at: 480, mark: .night, brightness: 750, outside: 420, tint: [0, 0, 0], strength: 0),
-        TimeTintKey(at: 1559, mark: .night, brightness: 750, outside: 420, tint: [0, 0, 0], strength: 0),
-        TimeTintKey(at: 1560, mark: .dawn, brightness: 1000, outside: 420, tint: [0, 0, 0], strength: 0),
-    ])
+    /// Compatibility for content written before timeTint, derived from the
+    /// content's own clock.  The short boundary segments preserve the old
+    /// all-day/day and all-night values.
+    public static func defaultDef(dayMinutes: Int, dayLengthMinutes: Int) -> TimeTintDef {
+        let total = max(3, dayLengthMinutes)
+        let edge = max(1, min(dayMinutes, total - 2))
+        func key(_ at: Int, _ mark: TimeMark, _ brightness: Int) -> TimeTintKey {
+            TimeTintKey(at: at, mark: mark, brightness: brightness, outside: 420, tint: [0, 0, 0], strength: 0)
+        }
+        return TimeTintDef(keys: [
+            key(0, .day, 1000),
+            key(edge - 1, .day, 1000),
+            key(edge, .night, 750),
+            key(total - 1, .night, 750),
+            key(total, .dawn, 1000),
+        ])
+    }
+
+    public static func defaultDef(_ clock: ClockDef) -> TimeTintDef {
+        defaultDef(dayMinutes: clock.dayGameHours * 60,
+                   dayLengthMinutes: (clock.dayGameHours + clock.nightGameHours) * 60)
+    }
+
+    /// The definition actually used for a content: its own timeTint, else the clock-derived default.
+    public static func resolved(_ def: TimeTintDef?, clock: ClockDef) -> TimeTintDef {
+        def ?? defaultDef(clock)
+    }
 
     /// Whole minutes (floor) of the step head, used only to pick the key interval.
     private static func steppedMinutes(_ minutes: Int) -> Int { step(minutes: minutes) * 15 / 2 }
 
-    private static func usable(_ def: TimeTintDef) -> [TimeTintKey] {
+    private static func usable(_ def: TimeTintDef, _ clock: ClockDef) -> [TimeTintKey] {
         let keys = def.keys.filter { $0.tint.count == 3 }.sorted { $0.at < $1.at }
-        return keys.count >= 2 ? keys : defaultDef.keys
+        return keys.count >= 2 ? keys : defaultDef(clock).keys
     }
 
     private static func key(at minutes: Int, in keys: [TimeTintKey]) -> TimeTintKey {

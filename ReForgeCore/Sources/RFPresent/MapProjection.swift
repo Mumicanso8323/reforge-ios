@@ -73,7 +73,7 @@ struct MapProjector {
         self.world = w
         let elapsedMinutes = Int(max(0, w.clock.sinceDawn.seconds / 60))
         let minutes = w.clock.isNight ? max(content.clock.dayGameHours * 60, elapsedMinutes) : elapsedMinutes
-        self.timeTint = timeTint ?? TimeOfDay.tint(minutes: minutes, content.timeTint ?? TimeOfDay.defaultDef)
+        self.timeTint = timeTint ?? TimeOfDay.tint(minutes: minutes, TimeOfDay.resolved(content.timeTint, clock: content.clock), clock: content.clock)
         self.isNight = w.clock.isNight
         self.lightAreas = VisionRadiusRule.lightAreas(w, content: content, layer: layerID)
         self.cooldownTerrain = content.interactions.values.sorted { $0.id < $1.id }.compactMap { d in

@@ -44,8 +44,21 @@ final class TimeOfDayTests: XCTestCase {
     func testMarkUsesTheSameSteppedIntervalAsTint() throws {
         let def = try publicDefinition()
         for step in 0...208 {
-            let minutes = step * 15 / 2
-            XCTAssertEqual(TimeOfDay.mark(minutes: minutes, def), markStart(minutes, def).mark)
+            let minutes = (step * 15 + 1) / 2
+            let start = markStart(minutes, def)
+            XCTAssertEqual(TimeOfDay.mark(minutes: minutes, def), start.mark)
+            let tint = TimeOfDay.tint(minutes: minutes, def)
+            XCTAssertEqual(tint.step, step)
+            guard let next = def.keys.first(where: { $0.at > start.at }) else {
+                XCTAssertEqual(tint.brightness, start.brightness)
+                continue
+            }
+            let span = (next.at - start.at) * 2
+            let offset = max(0, min(span, step * 15 - start.at * 2))
+            func lerp(_ a: Int, _ b: Int) -> Int { (a * (span - offset) + b * offset + span / 2) / span }
+            XCTAssertEqual(tint.brightness, lerp(start.brightness, next.brightness), "step \(step)")
+            XCTAssertEqual(tint.strength, lerp(start.strength, next.strength), "step \(step)")
+            XCTAssertEqual(tint.outside, lerp(start.outside ?? 150, next.outside ?? 150), "step \(step)")
         }
     }
 
@@ -140,10 +153,69 @@ final class TimeOfDayTests: XCTestCase {
 
     // TEST-O23 (7)
     func testCompatibilityDefinitionPreservesOldDayAndNightValues() {
-        XCTAssertEqual(TimeOfDay.tint(minutes: 240, TimeOfDay.defaultDef).brightness, 1000)
-        XCTAssertEqual(TimeOfDay.tint(minutes: 720, TimeOfDay.defaultDef).brightness, 750)
-        XCTAssertEqual(TimeOfDay.tint(minutes: 720, TimeOfDay.defaultDef).outside, 420)
+        let def = TimeOfDay.defaultDef(ClockDef())
+        XCTAssertEqual(TimeOfDay.tint(minutes: 240, def).brightness, 1000)
+        XCTAssertEqual(TimeOfDay.tint(minutes: 720, def).brightness, 750)
+        XCTAssertEqual(TimeOfDay.tint(minutes: 720, def).outside, 420)
         XCTAssertTrue(TilePalette.isReservedRed(RGB(255, 0, 0)))
+        XCTAssertEqual(def.keys.map(\.at), [0, 479, 480, 1559, 1560])
+        XCTAssertEqual(def.keys.map(\.brightness), [1000, 1000, 750, 750, 1000])
+        XCTAssertTrue(def.keys.allSatisfy { $0.outside == 420 && $0.strength == 0 && $0.tint == [0, 0, 0] })
+        XCTAssertEqual(def, TimeOfDay.defaultDef(dayMinutes: 480, dayLengthMinutes: 1560))
+    }
+
+    // TEST-O23 (8)
+    func testDefaultBoundaries() {
+        let def = TimeOfDay.defaultDef(ClockDef())
+        XCTAssertEqual(TimeOfDay.mark(minutes: 479, def), .day)
+        XCTAssertEqual(TimeOfDay.mark(minutes: 480, def), .night)
+        XCTAssertEqual(TimeOfDay.tint(minutes: 480, def).brightness, 750)
+        XCTAssertEqual(TimeOfDay.mark(minutes: 1559, def), .night)
+        XCTAssertEqual(TimeOfDay.tint(minutes: 1559, def).brightness, 750)
+        XCTAssertEqual(TimeOfDay.mark(minutes: 1560, def), .dawn)
+        XCTAssertEqual(TimeOfDay.tint(minutes: 1560, def).brightness, 1000)
+        let last = TimeOfDay.tint(minutes: 1560, def)
+        XCTAssertEqual(last.step, 208)
+        XCTAssertEqual(TimeOfDay.tint(minutes: 5000, def).brightness, 1000)
+    }
+
+    // TEST-O23 (9)
+    func testApplyFormulaAndClamping() {
+        func make(strength: Int, tint: RGB = RGB(255, 255, 255)) -> TimeTint {
+            TimeTint(brightness: 1000, outside: 420, tint: tint, strength: strength, step: 0)
+        }
+        let base = RGB(200, 100, 0)
+        XCTAssertEqual(make(strength: 0).apply(base, brightness: 1000), base)
+        // strength 350, black base: (0 * 650 + 255 * 350 + 500) / 1000 = 89
+        XCTAssertEqual(make(strength: 350).apply(RGB(0, 0, 0), brightness: 1000), RGB(89, 89, 89))
+        // brightness 750 with strength 0: 200*750/1000 = 150
+        XCTAssertEqual(make(strength: 0).apply(base, brightness: 750), RGB(150, 75, 0))
+        // clamp high: 200 * 2000 / 1000 = 400 -> 255
+        XCTAssertEqual(make(strength: 0).apply(base, brightness: 2000).r, 255)
+        // clamp low: negative brightness behaves as 0
+        XCTAssertEqual(make(strength: 350).apply(base, brightness: -500), RGB(0, 0, 0))
+        // strength clamps to 0...1000
+        XCTAssertEqual(make(strength: 5000, tint: RGB(10, 20, 30)).apply(base, brightness: 1000), RGB(10, 20, 30))
+        XCTAssertEqual(make(strength: -5).apply(base, brightness: 1000), base)
+    }
+
+    // TEST-O23 (10)
+    func testContentWithoutTimeTintFollowsItsOwnClock() throws {
+        var content = try TestContent.publicOnly()
+        content.timeTint = nil
+        content.clock = ClockDef(dayRealSeconds: 180, dayGameHours: 10, nightGameHours: 16)
+        let def = TimeOfDay.resolved(content.timeTint, clock: content.clock)
+        XCTAssertEqual(def.keys.map(\.at), [0, 599, 600, 1559, 1560])
+        XCTAssertEqual(TimeOfDay.tint(minutes: 480, def, clock: content.clock).brightness, 1000)
+        XCTAssertEqual(TimeOfDay.mark(minutes: 480, def, clock: content.clock), .day)
+        XCTAssertEqual(TimeOfDay.tint(minutes: 600, def, clock: content.clock).brightness, 750)
+        // the fallback for an unusable table uses the same clock-derived default
+        let broken = TimeTintDef(keys: [])
+        XCTAssertEqual(TimeOfDay.tint(minutes: 480, broken, clock: content.clock).brightness, 1000)
+        XCTAssertEqual(TimeOfDay.mark(minutes: 600, broken, clock: content.clock), .night)
+        let frame = FrameBuilder(content: content)
+            .build(TestRig(content: content).factory.newWorld(seed: 1), revision: 1, previous: nil, report: nil)
+        XCTAssertEqual(frame.timeTint.brightness, 1000)
     }
 
     private func hue(_ rgb: RGB) -> Double {
