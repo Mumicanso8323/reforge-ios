@@ -70,7 +70,7 @@ public struct Frame: Equatable, Sendable {
     /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではないとき)。画面は自分で判断しない。
     public var canSteer: Bool = false
 
-    public init(revision: Int, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef),
+    public init(revision: Int, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef(ClockDef())),
                 status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,
                 decision: DecisionView?, sceneLines: [String], notices: [String], renamed: [String],
