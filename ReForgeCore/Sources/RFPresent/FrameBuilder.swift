@@ -25,7 +25,11 @@ public struct FrameBuilder: Sendable {
     ///   それとは別に、区画の中身の指紋を前の Frame と比べ、変わった区画を上げる(他の担当が印を付け忘れても描き直す)。
     public func build(_ w: WorldState, revision: Int, previous: Frame?, report: StepReport?) -> Frame {
         let p = Perceiver(content: content, world: w)
-        let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
+        let clock = clockView(w)
+        let definition = content.timeTint ?? TimeOfDay.defaultDef
+        let tint = TimeOfDay.tint(minutes: clock.minutesSinceDawn, definition)
+        let mark = TimeOfDay.mark(minutes: clock.minutesSinceDawn, definition)
+        let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer, timeTint: tint)
         let size = proj.size
         var map = MapView(layer: layer, size: size, chunkRevisions: [], vision: vision.areas(w, layer: layer))
         map.beacons = w.exploration.beacons.sorted { $0.key < $1.key }.compactMap { $0.value.layer == layer ? $0.value.point : nil }
@@ -34,7 +38,7 @@ public struct FrameBuilder: Sendable {
         var revs: [Int]
         if let prev = previous?.map, prev.size == size, prev.layer == layer, prev.chunkRevisions.count == count {
             revs = prev.chunkRevisions
-            let all = report?.changes.areas.contains(.perception) == true
+            let all = report?.changes.areas.contains(.perception) == true || previous?.timeTint.step != tint.step
             for i in 0..<count where all || i >= prev.chunkSignatures.count || prev.chunkSignatures[i] != signatures[i] {
                 revs[i] = revision
             }
@@ -51,7 +55,9 @@ public struct FrameBuilder: Sendable {
         let noahPos = noah?.position.flatMap { $0.layer == layer ? $0.point : nil }
         var frame = Frame(
             revision: revision,
-            clock: clockView(w),
+            clock: clock,
+            timeMark: mark,
+            timeTint: tint,
             status: statusItems(w, p),
             objective: objective(w, p),
             map: map,
@@ -144,12 +150,16 @@ public struct FrameBuilder: Sendable {
     func clockView(_ w: WorldState) -> ClockView {
         let dayLen = content.clock.dayGameSeconds
         let since = (w.clock.now - w.clock.dayStartedAt).seconds
+        let elapsedMinutes = Int(max(0, since / 60))
+        let dayMinutes = content.clock.dayGameHours * 60
+        let minutesSinceDawn = w.clock.isNight ? max(dayMinutes, elapsedMinutes) : elapsedMinutes
         let readingStage = w.narrative.scene.flatMap { content.scenes[$0.scene] }?.style == .stage
         var v = ClockView(
             day: w.clock.day, phase: w.clock.phase,
             dayRemainingPermille: w.clock.phase == .day && dayLen > 0 ? Int(max(0, (dayLen - since) * 1000 / dayLen)) : 0,
             running: w.run.isActive && w.clock.phase == .day && !w.clock.held
-                && !w.narrative.pending.contains(where: \.blocking) && !readingStage)
+                && !w.narrative.pending.contains(where: \.blocking) && !readingStage,
+            minutesSinceDawn: minutesSinceDawn)
         v.held = w.clock.held
         v.fireOutlook = duskFireOutlook(w)
         return v
@@ -180,6 +190,7 @@ public struct FrameBuilder: Sendable {
             guard let ps = w.people[id], ps.presence.isAlive, let pos = ps.position, pos.layer == layer else { return nil }
             let member = ps.presence.isMember
             if case .unmet = ps.presence { return nil }
+            if w.clock.isNight && !isInLight(pos.point, in: w) { return nil }
             // 一員は視界の外でも描く。それ以外(会った人)は視界の中だけ。
             if !member, !map.isVisible(pos.point) { return nil }
             let isNoah = id == .noah
@@ -195,6 +206,7 @@ public struct FrameBuilder: Sendable {
     func placements(_ w: WorldState, _ p: Perceiver, proj: MapProjector, map: MapView) -> [PlacementSprite] {
         w.placements.sortedIDs.compactMap { id in
             guard let pl = w.placements.items[id], pl.at.layer == layer else { return nil }
+            if w.clock.isNight && !isInLight(pl.at.point, in: w) { return nil }
             let seenInDark: Bool = if case .structure(let kind) = pl.kind {
                 content.structures[kind]?.seenInDark ?? false
             } else {
@@ -212,6 +224,10 @@ public struct FrameBuilder: Sendable {
                                    running: pl.status == .running, stoppedReason: reason, throughput: nil,
                                    seenInDark: seenInDark)
         }
+    }
+
+    func isInLight(_ point: GridPoint, in world: WorldState) -> Bool {
+        VisionRadiusRule.lightAreas(world, content: content, layer: layer).contains { $0.contains(point) }
     }
 
     func decision(_ w: WorldState, _ p: Perceiver) -> DecisionView? {
@@ -287,8 +303,9 @@ public struct FrameBuilder: Sendable {
     /// 1 マスの見え方(視界も含めて)。
     public func tile(_ w: WorldState, at pt: GridPoint) -> TileView {
         let proj = MapProjector(world: w, content: content, perceiver: Perceiver(content: content, world: w), layer: layer)
-        var t = proj.tile(pt)
-        if proj.size.contains(pt), vision.areas(w, layer: layer).contains(where: { $0.contains(pt) }) {
+        let visible = vision.areas(w, layer: layer).contains(where: { $0.contains(pt) })
+        var t = proj.tile(pt, visible: visible)
+        if proj.size.contains(pt), visible {
             t.fog = .visible
             t.shadow = nil
         }

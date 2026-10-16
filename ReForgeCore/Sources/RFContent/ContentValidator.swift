@@ -34,6 +34,7 @@ public enum ContentValidator {
         // 出来事・始まり
         startMembersExist(db, &out)
         startClockWellFormed(db, &out)
+        timeTintWellFormed(db, &out)
         eventPromptNeedsChoices(db, &out)
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)
@@ -350,6 +351,34 @@ public enum ContentValidator {
         }
         if clock.held == true, clock.firstAct == nil {
             out.append(Issue(level: .warning, rule: "start.firstAct.held", message: "時計を止める始まりに行為の指定が無い"))
+        }
+    }
+
+    /// Time tint points are a single timeline spanning the configured day.
+    static func timeTintWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        guard let def = db.timeTint else { return }
+        let dayMinutes = (db.clock.dayGameHours + db.clock.nightGameHours) * 60
+        guard def.keys.count >= 2 else {
+            out.append(Issue(level: .error, rule: "timeTint.keys", message: "timeTint needs at least two keys"))
+            return
+        }
+        if def.keys.first?.at != 0 || def.keys.last?.at != dayMinutes ||
+            zip(def.keys, def.keys.dropFirst()).contains(where: { $0.at >= $1.at })
+        {
+            out.append(Issue(level: .error, rule: "timeTint.at", message: "timeTint keys must span one day in order"))
+        }
+        for (index, key) in def.keys.enumerated() {
+            if !(0...1000).contains(key.brightness) || (key.outside.map { !(0...1000).contains($0) } ?? false) {
+                out.append(Issue(level: .error, rule: "timeTint.brightness", message: "timeTint key \(index) has an invalid brightness"))
+            }
+            if !(0...350).contains(key.strength) {
+                out.append(Issue(level: .error, rule: "timeTint.strength", message: "timeTint key \(index) has an invalid strength"))
+            }
+            if key.tint.count != 3 || key.tint.contains(where: { !(0...255).contains($0) }) {
+                out.append(Issue(level: .error, rule: "timeTint.tint", message: "timeTint key \(index) has an invalid tint"))
+            } else if TimeTintPalette.isReservedRed(key.tint) {
+                out.append(Issue(level: .error, rule: "timeTint.reservedRed", message: "timeTint key \(index) uses reserved red"))
+            }
         }
     }
 
