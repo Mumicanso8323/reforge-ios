@@ -218,7 +218,7 @@ struct LayerKeys {
 /// JSON 1 ファイルの形。どの集まりも省略できる。
 struct ContentFile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case bundle, clock, mapGen, start, rewind, ruleBook, survival, combat, hauling
+        case bundle, clock, timeTint, mapGen, start, rewind, ruleBook, survival, combat, hauling
         // 人の自動化(U22)
         case crewWork
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
@@ -241,6 +241,7 @@ struct ContentFile: Codable {
 
     var bundle: LayerManifest?
     var clock: ClockDef?
+    var timeTint: TimeTintDef?
     var mapGen: MapGenConfig?
     var start: StartDef?
     var rewind: RewindDef?
@@ -315,12 +316,14 @@ struct ContentFile: Codable {
         func one(_ name: String, _ present: Bool) { if present { seen.insert(name, "", dups: &dups) } }
         one("bundle", bundle != nil)
         one("clock", clock != nil)
+        one("timeTint", timeTint != nil)
         one("mapGen", mapGen != nil)
         one("start", start != nil)
         one("rewind", rewind != nil)
         one("ruleBook", ruleBook != nil)
         if let b = bundle { db.layers.append(b) }
         if let v = clock { db.clock = v }
+        if let v = timeTint { db.timeTint = v }
         if let v = mapGen { db.mapGen = v }
         if let v = start { db.start = v }
         if let v = rewind { db.rewind = v }

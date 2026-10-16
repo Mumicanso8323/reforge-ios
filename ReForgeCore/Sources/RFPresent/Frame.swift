@@ -20,6 +20,9 @@ public struct Frame: Equatable, Sendable {
     /// 作るたびに増える番号。
     public var revision: Int
     public var clock: ClockView
+    /// The time band and colour treatment derived from clock, never saved.
+    public var timeMark: TimeMark
+    public var timeTint: TimeTint
     public var status: [StatusItem]
     /// 次の目標(上の帯に 1 つ)。
     public var objective: String?
@@ -67,12 +70,15 @@ public struct Frame: Equatable, Sendable {
     /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではないとき)。画面は自分で判断しない。
     public var canSteer: Bool = false
 
-    public init(revision: Int, clock: ClockView, status: [StatusItem], objective: String? = nil, map: MapView,
+    public init(revision: Int, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef),
+                status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,
                 decision: DecisionView?, sceneLines: [String], notices: [String], renamed: [String],
                 runEnded: Bool = false, prologue: PrologueView? = nil, darkStart: DarkStartView? = nil) {
         self.revision = revision
         self.clock = clock
+        self.timeMark = timeMark
+        self.timeTint = timeTint
         self.status = status
         self.objective = objective
         self.map = map
@@ -137,6 +143,8 @@ public struct DarkStartView: Equatable, Sendable {
 public struct ClockView: Equatable, Sendable {
     public var day: Int
     public var phase: DayPhase
+    /// Whole game minutes elapsed since dawn, including the night after dusk.
+    public var minutesSinceDawn: Int
     /// 昼の残り(0...1000)。昼以外は 0。
     public var dayRemainingPermille: Int
     /// 時計が動くか(昼・続行中・止める決断なし)。
@@ -148,9 +156,10 @@ public struct ClockView: Equatable, Sendable {
     /// 日没の帯に出す、焚き火の見込み(薪の置き場に残る本数ぶんを入れて 4 段。PT-B1)。日没・夜作業で、焚き火がある間だけ。
     public var fireOutlook: FireOutlook?
 
-    public init(day: Int, phase: DayPhase, dayRemainingPermille: Int, running: Bool) {
+    public init(day: Int, phase: DayPhase, dayRemainingPermille: Int, running: Bool, minutesSinceDawn: Int = 0) {
         self.day = day
         self.phase = phase
+        self.minutesSinceDawn = minutesSinceDawn
         self.dayRemainingPermille = dayRemainingPermille
         self.running = running
     }
@@ -277,13 +286,16 @@ public struct TileView: Hashable, Sendable {
     public var shadow: String?
     /// 暗闇でも描く光る印(見え方の glow)。夜の灯りの外でも、既知か手がかりのマスなら描く。
     public var glow: Bool
+    /// Terrain brightness in per-mille.  nil leaves a glowing or unseen tile untouched.
+    public var brightness: Int?
 
-    public init(glyph: String, tint: String, fog: Fog, shadow: String? = nil, glow: Bool = false) {
+    public init(glyph: String, tint: String, fog: Fog, shadow: String? = nil, glow: Bool = false, brightness: Int? = nil) {
         self.glyph = glyph
         self.tint = tint
         self.fog = fog
         self.shadow = shadow
         self.glow = glow
+        self.brightness = brightness
     }
 
     public static let void = TileView(glyph: "", tint: TilePalette.void, fog: .unknown)

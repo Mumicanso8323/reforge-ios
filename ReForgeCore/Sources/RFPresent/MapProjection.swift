@@ -37,8 +37,12 @@ struct MapProjector {
     /// クールダウンのある地形の行為(使い切りの見た目の判定に使う。ID 順)。
     let cooldownTerrain: [(def: InteractionDef, tag: String)]
     let world: WorldState
+    let timeTint: TimeTint
+    let isNight: Bool
+    let lightAreas: [VisionArea]
 
-    init(world w: WorldState, content: ContentDB, perceiver: Perceiver, layer layerID: LayerID) {
+    init(world w: WorldState, content: ContentDB, perceiver: Perceiver, layer layerID: LayerID,
+         timeTint: TimeTint? = nil) {
         self.layerID = layerID
         self.layer = w.map[layerID]
         self.known = w.knowledge.mapKnown[layerID]
@@ -67,6 +71,11 @@ struct MapProjector {
         }
         self.terrainGlyphs = tg
         self.world = w
+        let elapsedMinutes = Int(max(0, w.clock.sinceDawn.seconds / 60))
+        let minutes = w.clock.isNight ? max(content.clock.dayGameHours * 60, elapsedMinutes) : elapsedMinutes
+        self.timeTint = timeTint ?? TimeOfDay.tint(minutes: minutes, content.timeTint ?? TimeOfDay.defaultDef)
+        self.isNight = w.clock.isNight
+        self.lightAreas = VisionRadiusRule.lightAreas(w, content: content, layer: layerID)
         self.cooldownTerrain = content.interactions.values.sorted { $0.id < $1.id }.compactMap { d in
             if case .terrain(let tag) = d.target, (d.cooldownDays ?? 0) > 0 { return (d, tag) }
             return nil
@@ -96,7 +105,7 @@ struct MapProjector {
     }
 
     /// 1 マスの見え方(視界によらない部分)。
-    func tile(_ p: GridPoint) -> TileView {
+    func tile(_ p: GridPoint, visible: Bool = false) -> TileView {
         guard let l = layer, size.contains(p) else { return .void }
         let fog: TileView.Fog = isKnown(p) ? .remembered : (isHint(p) ? .hint : .unknown)
         var glyph: String
@@ -126,7 +135,27 @@ struct MapProjector {
             shadow = poi.anchor && landmarkRadius(poi.poi.kind) == nil ? "？" : poiGlyph(poi.poi.kind)
         }
         if fog == .unknown { glow = false }
-        return TileView(glyph: MapGlyphFont.safe(glyph), tint: tint, fog: fog, shadow: shadow.map(MapGlyphFont.safe), glow: glow)
+        return TileView(glyph: MapGlyphFont.safe(glyph), tint: tint, fog: fog, shadow: shadow.map(MapGlyphFont.safe), glow: glow,
+                        brightness: tileBrightness(at: p, fog: fog, visible: visible, glow: glow))
+    }
+
+    /// The light test intentionally shares VisionRule's circle metric through
+    /// VisionArea.  This changes drawing only, never the visibility model.
+    func tileBrightness(at p: GridPoint, fog: TileView.Fog, visible: Bool, glow: Bool) -> Int? {
+        guard !glow else { return nil }
+        if !isNight {
+            guard visible || fog == .remembered || fog == .visible else { return nil }
+            return visible ? timeTint.brightness : TilePalette.rememberedPermille * timeTint.brightness / 1000
+        }
+        guard fog == .remembered || fog == .visible else { return nil }
+        var onEdge = false
+        for area in lightAreas where area.contains(p) {
+            let dx = p.x - area.center.x
+            let dy = p.y - area.center.y
+            if dx * dx + dy * dy < area.radius * area.radius { return timeTint.brightness }
+            onEdge = true
+        }
+        return onEdge ? 500 : timeTint.outside
     }
 
     /// 遠景の半径(POIDef.landmarkRadius)。
@@ -169,7 +198,10 @@ struct MapProjector {
         var tiles: [TileView] = []
         tiles.reserveCapacity(r.size.count)
         for y in r.origin.y..<(r.origin.y + r.size.height) {
-            for x in r.origin.x..<(r.origin.x + r.size.width) { tiles.append(tile(GridPoint(x, y))) }
+            for x in r.origin.x..<(r.origin.x + r.size.width) {
+                let p = GridPoint(x, y)
+                tiles.append(tile(p, visible: map.isVisible(p)))
+            }
         }
         let rev = index < map.chunkRevisions.count ? map.chunkRevisions[index] : 0
         return MapChunk(index: index, revision: rev, rect: r, tiles: tiles)

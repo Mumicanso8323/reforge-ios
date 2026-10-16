@@ -10,6 +10,9 @@ public struct ContentDB: Equatable, Sendable {
 
     // 1 つだけの設定(後の層が勝つ)
     public var clock = ClockDef()
+    /// Time-of-day presentation control points.  nil keeps old content valid;
+    /// RFPresent supplies its compatibility definition in that case.
+    public var timeTint: TimeTintDef?
     public var mapGen = MapGenConfig(size: GridSize(width: 96, height: 96))
     public var start = StartDef(members: [PersonID.noahID])
     public var rewind = RewindDef()

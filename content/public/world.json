@@ -4,6 +4,18 @@
     { "id": "water", "passable": false, "moveCost": 0, "isWater": true, "tags": ["water"] },
     { "id": "rock", "passable": true, "moveCost": 30, "isWater": false, "tags": ["rock"] }
   ],
+  "timeTint": {
+    "keys": [
+      { "at": 0, "mark": "dawn", "brightness": 650, "tint": [205, 175, 145], "strength": 100 },
+      { "at": 90, "mark": "day", "brightness": 1000, "tint": [170, 170, 170], "strength": 0 },
+      { "at": 240, "mark": "day", "brightness": 1000, "tint": [170, 170, 170], "strength": 0 },
+      { "at": 360, "mark": "evening", "brightness": 850, "tint": [200, 170, 140], "strength": 100 },
+      { "at": 480, "mark": "night", "brightness": 750, "outside": 150, "tint": [135, 145, 175], "strength": 80 },
+      { "at": 540, "mark": "night", "brightness": 750, "outside": 150, "tint": [135, 145, 175], "strength": 80 },
+      { "at": 1470, "mark": "night", "brightness": 750, "outside": 150, "tint": [135, 145, 175], "strength": 80 },
+      { "at": 1560, "mark": "dawn", "brightness": 650, "outside": 400, "tint": [205, 175, 145], "strength": 100 }
+    ]
+  },
   "pois": [
     { "id": "poi.test.wreck", "parts": ["part.a", "part.b"], "parameters": null }
   ],

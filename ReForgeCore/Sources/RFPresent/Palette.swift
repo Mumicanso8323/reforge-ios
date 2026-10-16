@@ -1,3 +1,4 @@
+import RFContent
 import RFKernel
 import RFMap
 
@@ -83,6 +84,13 @@ public enum TilePalette {
     public static let nightVisible = 0.75
     /// 既知だが視界の外(暗い地形だけ)。
     public static let remembered = 0.42
+    /// Integer form of remembered for core presentation arithmetic.
+    public static let rememberedPermille = 420
+
+    /// Presentation forwarding for the content-level reserved-red predicate.
+    public static func isReservedRed(_ color: RGB) -> Bool {
+        TimeTintPalette.isReservedRed(r: Int(color.r), g: Int(color.g), b: Int(color.b))
+    }
 
     public static func style(_ tint: String, terrains: [TerrainID: TerrainDef]) -> TileStyle {
         switch tint {
