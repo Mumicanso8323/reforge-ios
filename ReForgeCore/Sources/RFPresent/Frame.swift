@@ -65,6 +65,10 @@ public struct Frame: Equatable, Sendable {
     public var defaultStance: BattleState.Stance = .keepDistance
     /// 夜の締めの 3 行(PT-B2)。日没(夜作業か寝るかを選ぶ帯が出ている間)だけ入る。
     public var dayWrap: DayWrapView?
+    /// 帯の火のゲージ(UI-04)。拠点の焚き火が建て終わり、火を一度でも持つまでは nil。出すかの門は画面の側(band.fire)。
+    public var fireGauge: FireGaugeView?
+    /// 日没の帯に出る申し出(BEAT-19・UI-09)。状態を持たず、毎回世界から導く。押せば必ず受け付けられる物だけ。
+    public var offers: [PendingOffer] = []
     /// ノアが自分で歩ける範囲(行ごとの横の範囲。視界の rowSpans と同じ形)。画面は縁を細い線で描く。
     public var walkable: [WalkSpan] = []
     /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではないとき)。画面は自分で判断しない。
@@ -685,6 +689,17 @@ public struct FireOutlookView: Equatable, Sendable {
     public init(now: FireOutlook, afterOneMore: FireOutlook) {
         self.now = now
         self.afterOneMore = afterOneMore
+    }
+}
+
+/// 帯の火のゲージ。言葉(5 段)と色は画面の側が決める。
+public struct FireGaugeView: Equatable, Sendable {
+    public var level: HearthLevel
+    public var outlook: FireOutlook
+
+    public init(level: HearthLevel, outlook: FireOutlook) {
+        self.level = level
+        self.outlook = outlook
     }
 }
 

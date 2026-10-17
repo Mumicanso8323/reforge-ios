@@ -45,6 +45,7 @@ public enum ContentValidator {
         codexShadowsWellFormed(db, &out)  // 図鑑の影の欄(U17。Schema/CodexShadows.swift)
         uiGatesWellFormed(db, &out)  // 画面の要素の解放(U18。Schema/UIGates.swift)
         artIDsAreNeutral(db, &out)  // 立ち絵の ID の形(U18)
+        tendOfferWellFormed(db, &out)  // 火の番の申し出(W-02d)
         return out
     }
 
@@ -52,6 +53,17 @@ public enum ContentValidator {
     static func byproductItemsWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
         for (byproduct, item) in db.byproductItems.sorted(by: { $0.key < $1.key }) where item.rawValue.isEmpty {
             out.append(Issue(level: .error, rule: "byproductItems.item", message: "\(byproduct) の品 ID が空"))
+        }
+    }
+
+    /// 火の番の申し出の order の人・lines の鍵は、定義のある人(文字列の存在は text.exists が見る)。
+    static func tendOfferWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        guard let offer = db.crewWork?.tendOffer else { return }
+        for p in offer.order ?? [] where db.people[p] == nil {
+            out.append(Issue(level: .error, rule: "tendOffer.person", message: "tendOffer.order has an undefined person \(p)"))
+        }
+        for p in (offer.lines ?? [:]).keys.sorted() where db.people[p] == nil {
+            out.append(Issue(level: .error, rule: "tendOffer.person", message: "tendOffer.lines has an undefined person \(p)"))
         }
     }
 
@@ -160,6 +172,9 @@ public enum ContentValidator {
         for (id, sh) in db.sheets {
             let rows = sh.rows + (sh.entryRows ?? []) + (sh.entries ?? []).flatMap { $0.rows ?? [] }
             for r in rows { if let n = r.note { refs.append((n, "sheet \(id)")) } }
+        }
+        for (person, text) in (db.crewWork?.tendOffer?.lines ?? [:]).sorted(by: { $0.key < $1.key }) {
+            refs.append((text, "tendOffer \(person)"))
         }
         for (id, d) in db.documents { refs += [(d.title, "document \(id)"), (d.body, "document \(id)")] }
         for (id, e) in db.events {

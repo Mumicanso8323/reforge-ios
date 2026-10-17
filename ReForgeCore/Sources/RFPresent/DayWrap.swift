@@ -193,7 +193,7 @@ extension FrameBuilder {
             }
         }
         // 火(PT-B1 の火の見込みと同じ 4 段。焚き火が無ければ見ない)
-        if !Hearths.structureHearths(w, content).isEmpty, let outlook = duskFireOutlook(w) {
+        if let pl = primaryHearth(w), let outlook = fireGauge(of: pl, w)?.outlook {
             let lit = Hearths.campfireLevel(w, content) != .out
             if let d = DayWrapRules.fireMilliDays(outlook, lit: lit) {
                 let text: String = if !lit {

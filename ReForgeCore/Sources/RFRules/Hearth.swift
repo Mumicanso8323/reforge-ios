@@ -14,6 +14,25 @@ public struct HearthModifiers: Equatable, Sendable {
     }
 }
 
+/// 段ごとの灯りの周り(W-02d)。灯りの半径は段で変わるので、灯りの中の建造物の数と補正も段で変わる。
+/// 実際の歩み(advanceStructures)は毎ステップ今の段から引き直す。見込みも同じに段ごとに引く
+/// (添字は HearthLevel の raw 0...4、5 は埋めた火)。
+public struct HearthLight: Equatable, Sendable {
+    public var structures: [Int]
+    public var modifiers: [HearthModifiers]
+
+    public init(structures: [Int], modifiers: [HearthModifiers]) {
+        self.structures = structures
+        self.modifiers = modifiers
+    }
+
+    func at(_ s: HearthState, _ level: HearthLevel) -> (structures: Int, modifiers: HearthModifiers)? {
+        let i = s.banked ? 5 : level.rawValue
+        guard structures.indices.contains(i), modifiers.indices.contains(i) else { return nil }
+        return (structures[i], modifiers[i])
+    }
+}
+
 /// 火床の純粋な規則(序盤の設計 §3.2・W-02a)。焚き火(RFBase)と炉(RFProduction。U22)が同じ式を使う。持ち主: U21
 ///
 /// 燃料はゲーム秒 × 1000 の整数。1 ゲーム秒ごとに「その秒の始めの段」で決まる率だけ減る。だから、
@@ -98,25 +117,36 @@ public enum HearthRule {
 
     /// burn と全ての見込みが共有する燃焼の一歩。seconds が nil なら燃え尽きるまで進める。
     static func simulate(_ s: HearthState, _ def: HearthDef, seconds: Int?, structuresInLight: Int,
-                         nightWork: Bool, tended: Bool, modifiers: HearthModifiers) -> (state: HearthState, elapsed: Int64) {
+                         nightWork: Bool, tended: Bool, modifiers: HearthModifiers,
+                         light: HearthLight? = nil) -> (state: HearthState, elapsed: Int64) {
         var o = s
         var left = seconds.map { max(0, $0) }
         var elapsed: Int64 = 0
         let tendAt = (def.tendBelowSeconds ?? defaultTendBelowSeconds) * 1000
         let pileValue = def.pileItem.flatMap { fuelValue($0, def) }
+        // 灯りの周りは実際の歩み(advanceStructures)と同じに、15 秒の歩みの頭だけで引き直す(歩みの途中で段が変わっても次の歩みまで使う)。
+        let stepSeconds = Int64(SimStep.gameSeconds)
+        var snapStep: Int64 = -1
+        var around: (structures: Int, modifiers: HearthModifiers)?
         while (left ?? 1) > 0, o.lit, o.fuel > 0 {
+            if let light, elapsed / stepSeconds != snapStep {
+                snapStep = elapsed / stepSeconds
+                around = light.at(o, level(o, def))
+            }
             if tended, let pv = pileValue, o.pile > 0, o.fuel <= tendAt {
                 o.pile -= 1
                 o.fuel = min(def.capSeconds * 1000, o.fuel + pv)
                 continue
             }
             let l = level(o, def)
-            let r = rate(o, def, structuresInLight: structuresInLight, nightWork: nightWork, modifiers: modifiers)
+            let r = rate(o, def, structuresInLight: around?.structures ?? structuresInLight, nightWork: nightWork,
+                         modifiers: around?.modifiers ?? modifiers)
             var bound = l.rawValue >= 1 && def.thresholds.indices.contains(l.rawValue - 1)
                 ? def.thresholds[l.rawValue - 1] * 1000 : 0
             if tended, pileValue != nil, o.pile > 0, tendAt < o.fuel { bound = max(bound, tendAt) }
             let need = (o.fuel - bound + r - 1) / r
-            let k = max(1, min(need, left ?? need))
+            var k = max(1, min(need, left ?? need))
+            if light != nil { k = min(k, Int(stepSeconds - elapsed % stepSeconds)) }
             o.fuel -= k * r
             if left != nil { left! -= k }
             elapsed += Int64(k)
@@ -143,28 +173,52 @@ public enum FireOutlook: String, Equatable, Sendable, CaseIterable {
     case throughNight
 }
 
+/// 帯のゲージ(W-02d・UI-04)。段(5 段)と見込み(4 段)を同じ状態から出す。
+public struct FireGauge: Equatable, Sendable {
+    /// 5 段(消えている…盛ん)。HearthRule.level と同じ。
+    public var level: HearthLevel
+    /// 4 段。尽きる時刻。日没・夜の間の見込み。
+    public var outlook: FireOutlook
+
+    public init(level: HearthLevel, outlook: FireOutlook) {
+        self.level = level
+        self.outlook = outlook
+    }
+}
+
 extension HearthRule {
-    /// 今の燃え方(rate・burn と同じ式。夜作業の足しと番の薪の補充は見ない)で、燃料がいつ尽きるかの 4 段。
-    /// 境目は時計の定義から出す: 日没 = 昼の長さ、夜半 = 夜の半分、夜明け = 1 日の長さ(ゲーム時間は 1 日ごとに
-    /// 0 から数え直した時刻 now % 1 日)。消えている火は「今」の段になる。世界を変えない。
-    public static func outlook(_ state: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
-                               structuresInLight: Int, modifiers: HearthModifiers = HearthModifiers()) -> FireOutlook {
+    /// 燃え尽きるまでの秒から 4 段へ。境目は時計の定義から出す: 日没 = 昼の長さ、夜半 = 夜の半分、
+    /// 夜明け = 1 日の長さ(ゲーム時間は 1 日ごとに 0 から数え直した時刻 now % 1 日)。
+    static func classify(_ s: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef, structuresInLight: Int,
+                         tended: Bool, modifiers: HearthModifiers, light: HearthLight? = nil) -> FireOutlook {
         let dayLength = max(1, clock.dayGameSeconds + clock.nightGameSeconds)
         let tod = ((now.seconds % dayLength) + dayLength) % dayLength
-        let end = Int64(tod) + simulate(state, def, seconds: nil, structuresInLight: structuresInLight,
-                                         nightWork: false, tended: false, modifiers: modifiers).elapsed
-        if end < clock.dayGameSeconds { return .untilEvening }
-        if end < clock.dayGameSeconds + clock.nightGameSeconds / 2 { return .midnight }
-        if end < dayLength { return .beforeDawn }
+        let end = Int64(tod) + simulate(s, def, seconds: nil, structuresInLight: structuresInLight,
+                                         nightWork: false, tended: tended, modifiers: modifiers, light: light).elapsed
+        // 日没・夜半・夜明けの時刻ちょうどに尽きる火は、その境目の歩みで消えている(実際の歩みと同じ)ので次の段ではない
+        if end <= clock.dayGameSeconds { return .untilEvening }
+        if end <= clock.dayGameSeconds + clock.nightGameSeconds / 2 { return .midnight }
+        if end <= dayLength { return .beforeDawn }
         return .throughNight
     }
 
+    /// 今の燃え方(rate・burn と同じ式。夜作業の足しと番の薪の補充は見ない)で、燃料がいつ尽きるかの 4 段。
+    /// 消えている火は「今」の段になる。世界を変えない。
+    public static func outlook(_ state: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
+                               structuresInLight: Int, modifiers: HearthModifiers = HearthModifiers()) -> FireOutlook {
+        classify(state, def, now: now, clock: clock, structuresInLight: structuresInLight, tended: false,
+                 modifiers: modifiers)
+    }
+
     /// 1 本くべた後の見込み(add で燃料を 1 足した状態に同じ関数を当てる)。燃料にならない物なら今と同じ。
+    /// tended と stock を渡せば、番がいるときの山と蓄えの本数も数える(gauge と同じ式)。
     public static func outlookAfterOneMore(_ state: HearthState, _ def: HearthDef, item: ItemID, now: GameTime,
                                            clock: ClockDef, structuresInLight: Int,
-                                           modifiers: HearthModifiers = HearthModifiers()) -> FireOutlook {
+                                           modifiers: HearthModifiers = HearthModifiers(),
+                                           tended: Bool = false, stock: Int = 0, light: HearthLight? = nil) -> FireOutlook {
         let more = add(state, def, item: item, quantity: 1) ?? state
-        return outlook(more, def, now: now, clock: clock, structuresInLight: structuresInLight, modifiers: modifiers)
+        return gauge(more, def, now: now, clock: clock, structuresInLight: structuresInLight, tended: tended,
+                     stock: stock, modifiers: modifiers, light: light).outlook
     }
 
     /// 薪の山に残る本数ぶんを入れた見込み(日没の帯・夜の締め用)。実際の燃え方(burn)と同じく、
@@ -174,14 +228,23 @@ extension HearthRule {
     public static func outlookWithPile(_ state: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
                                        structuresInLight: Int, tended: Bool,
                                        modifiers: HearthModifiers = HearthModifiers()) -> FireOutlook {
-        let dayLength = max(1, clock.dayGameSeconds + clock.nightGameSeconds)
-        let tod = ((now.seconds % dayLength) + dayLength) % dayLength
-        let end = Int64(tod) + simulate(state, def, seconds: nil, structuresInLight: structuresInLight,
-                                         nightWork: false, tended: tended, modifiers: modifiers).elapsed
-        if end < clock.dayGameSeconds { return .untilEvening }
-        if end < clock.dayGameSeconds + clock.nightGameSeconds / 2 { return .midnight }
-        if end < dayLength { return .beforeDawn }
-        return .throughNight
+        classify(state, def, now: now, clock: clock, structuresInLight: structuresInLight, tended: tended,
+                 modifiers: modifiers)
+    }
+
+    /// ゲージと見込みの唯一の入口。level と outlook を同じ状態・同じ simulate から出す。
+    /// light を渡せば、燃えて段が変わるたびにその段の灯りの周り(灯りの中の建造物の数・補正)を使う
+    /// (実際の歩みが毎ステップ引き直すのと同じ。渡さなければ structuresInLight・modifiers を最後まで使う)。
+    /// stock は拠点の蓄えにある山の品(def.pileItem)の数。番がいる(tended)ときだけ、山の本数 = s.pile + stock として
+    /// 数える(Hearths.fillPile が山の空いたときに蓄えから運ぶのと同じ結果)。番がいなければ山も蓄えも見ない。
+    public static func gauge(_ s: HearthState, _ def: HearthDef, now: GameTime, clock: ClockDef,
+                             structuresInLight: Int, tended: Bool, stock: Int,
+                             modifiers: HearthModifiers = HearthModifiers(), light: HearthLight? = nil) -> FireGauge {
+        var counted = s
+        if tended { counted.pile += max(0, stock) }
+        return FireGauge(level: level(s, def),
+                         outlook: classify(counted, def, now: now, clock: clock, structuresInLight: structuresInLight,
+                                           tended: tended, modifiers: modifiers, light: light))
     }
 }
 
@@ -264,7 +327,12 @@ public enum Hearths {
     /// この 2 つの鍵を持つ物は、燃焼を増やす建造物数には数えない。
     public static func modifiers(_ id: EntityID, in w: WorldState, content: ContentDB) -> HearthModifiers {
         guard let p = w.placements.items[id] else { return HearthModifiers() }
-        let r = lightRadius(p, content)
+        return modifiers(id, radius: lightRadius(p, content), in: w, content: content)
+    }
+
+    /// 灯りの半径を指定して(段が変わったときの見込み用)。
+    public static func modifiers(_ id: EntityID, radius r: Int, in w: WorldState, content: ContentDB) -> HearthModifiers {
+        guard let p = w.placements.items[id] else { return HearthModifiers() }
         guard r > 0 else { return HearthModifiers() }
         var pileMaxAdd = 0
         var burnPermille = 1000
@@ -280,10 +348,23 @@ public enum Hearths {
         return HearthModifiers(pileMaxAdd: pileMaxAdd, burnPermille: burnPermille)
     }
 
+    /// 段ごとの灯りの周り(見込み用。実際の歩みは毎ステップ今の段から引き直す)。
+    public static func light(_ id: EntityID, _ d: HearthDef, in w: WorldState, content: ContentDB) -> HearthLight {
+        var radii = (0...4).map { d.light.indices.contains($0) ? d.light[$0] : 0 }
+        radii.append(d.bankedLight ?? HearthRule.defaultBankedLight)
+        return HearthLight(structures: radii.map { structuresInLight(id, radius: $0, in: w, content: content) },
+                           modifiers: radii.map { modifiers(id, radius: $0, in: w, content: content) })
+    }
+
     /// 火の灯りの中にある、ほかの完成した建造物の数(燃える速さに掛かる)。
     public static func structuresInLight(_ id: EntityID, in w: WorldState, content: ContentDB) -> Int {
         guard let p = w.placements.items[id] else { return 0 }
-        let r = lightRadius(p, content)
+        return structuresInLight(id, radius: lightRadius(p, content), in: w, content: content)
+    }
+
+    /// 灯りの半径を指定して(段が変わったときの見込み用)。
+    public static func structuresInLight(_ id: EntityID, radius r: Int, in w: WorldState, content: ContentDB) -> Int {
+        guard let p = w.placements.items[id] else { return 0 }
         guard r > 0 else { return 0 }
         return w.placements.sortedIDs.filter { oid in
             guard oid != id, let o = w.placements.items[oid], case .structure(let kind) = o.kind, isComplete(o),
@@ -405,17 +486,22 @@ public enum Hearths {
         }
     }
 
+    /// 拠点の蓄えにある薪の山の品の数(fillPile が運ぶ数と同じ数え方。見込みも同じ数を使う)。
+    public static func pileStock(_ d: HearthDef, in w: WorldState) -> Int {
+        guard let item = d.pileItem else { return 0 }
+        return w.inventory.entries(.base).filter { $0.stuff == .item(item) && $0.unique == nil }
+            .reduce(0) { $0 + $1.quantity }
+    }
+
     /// 番が居る火床の薪の山が空の時だけ、拠点の蓄えから tenderBatch 個(蓄え・上限までの余地が少なければそこまで)を移す(W-26)。
     /// 山が 1 以上ある間は移さない。蓄えが無ければ何もしない。
-    /// くべるのは今まで通り山から(burn)。見込み(outlookWithPile)は今の山のまま数える
-    /// (蓄えは他の用途でも減るため、実際の歩みとの食い違いを避けて山の本数だけを見る)。
+    /// くべるのは今まで通り山から(burn)。見込み(gauge)は番がいるとき、山 + 蓄え(pileStock)の本数で数える。
     static func fillPile(_ s: HearthState, _ d: HearthDef, modifiers: HearthModifiers, _ ctx: inout StepContext) -> HearthState {
         guard let item = d.pileItem else { return s }
         guard s.pile == 0 else { return s }
         let room = HearthRule.pileMax(d, modifiers: modifiers) - s.pile
         guard room > 0 else { return s }
-        let have = ctx.world.inventory.entries(.base).filter { $0.stuff == .item(item) && $0.unique == nil }
-            .reduce(0) { $0 + $1.quantity }
+        let have = pileStock(d, in: ctx.world)
         let n = min(HearthRule.tenderBatch, room, have)
         guard n > 0,
               ctx.takeStock(n, from: .base, where: { $0.stuff == .item(item) && $0.unique == nil }) != nil else { return s }
