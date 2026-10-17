@@ -29,6 +29,7 @@ def private_layer() -> pathlib.Path | None:
     return p if p.is_dir() else None
 
 
+DROPPED_EN = [0]  # 大文字で始まらない en の語の数(語そのものは持たない)
 LANGUAGES = ("ja", "en", "zh-Hans", "zh-Hant", "ko")
 
 
@@ -54,6 +55,7 @@ def load_words(value: object, words: set[str], word_languages: dict[str, str]) -
             # capitalized English names participate in the public-repository
             # check; every other language keeps the established matcher.
             if language == "en" and not ("A" <= word[0] <= "Z"):
+                DROPPED_EN[0] += 1
                 continue
             words.add(word)
             word_languages.setdefault(word, language)
@@ -210,7 +212,7 @@ def main() -> int:
         print(f"物語の語が公開リポジトリに {len(found)} か所ある(語はログに出さない。手元で該当の行を見て直す)")
         return 1
     breakdown = "・".join(f"{language} {count}" for language, count in language_counts.items() if count)
-    print(f"物語の語は見つからない(語 {len(words)}({breakdown})、正規表現 {len(patterns)}、識別子 {len(identifiers)})")
+    print(f"物語の語は見つからない(語 {len(words)}({breakdown})、正規表現 {len(patterns)}、識別子 {len(identifiers)}、除外 {DROPPED_EN[0]})")
     return 0
 
 

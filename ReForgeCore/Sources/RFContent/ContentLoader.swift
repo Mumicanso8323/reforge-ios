@@ -431,6 +431,7 @@ struct ContentFile: Codable {
         // 禁止語の規則は層をまたいで足し合わせる(公開の試験用の語 + 非公開の本物)
         db.forbidden += forbidden ?? []
         for rule in pronounRules ?? [] {
+            seen.insert("pronounRules", rule.id, dups: &dups)
             if let index = db.pronounRules.firstIndex(where: { $0.id == rule.id }) { db.pronounRules[index] = rule }
             else { db.pronounRules.append(rule) }
         }
@@ -459,7 +460,7 @@ struct ContentFile: Codable {
         }
         for (language, words) in latinAllowed?.byLanguage ?? [:] {
             for word in words {
-                seen.insert("latinAllowed", word, dups: &dups)
+                seen.insert("latinAllowed.\(language.rawValue)", word, dups: &dups)
                 if !db.latinAllowedByLanguage[language].contains(word) {
                     db.latinAllowedByLanguage[language].append(word)
                 }

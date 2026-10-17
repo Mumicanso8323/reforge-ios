@@ -63,6 +63,12 @@ class PublicSpoilerCheckerTests(unittest.TestCase):
         self.assertIn("sample.txt:2", result.stdout)
         self.assertNotIn("zorb", result.stdout)
 
+    def test_decomposed_japanese_hits(self) -> None:
+        rules = {"publicOnlyWords": ["\u304c\u3089\u304f\u305f"], "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("\u304b\u3099\u3089\u304f\u305f\n", rules)
+        self.assertEqual(result.returncode, 1)
+
     def test_decomposed_synthetic_word_hits(self) -> None:
         rules = {"publicOnlyWords": ["zo\u0308rb"], "publicOnlyPatterns": [],
                  "publicOnlyIdentifiers": [], "identifierExceptions": []}
@@ -89,6 +95,31 @@ class PublicSpoilerCheckerTests(unittest.TestCase):
         self.assertNotIn("sample.txt:3", result.stdout)
         self.assertNotIn("sample.txt:4", result.stdout)
         self.assertNotIn("Zorbleft", result.stdout)
+        self.assertNotIn("zorblow", result.stdout)
+
+    def test_latin_word_inside_ja_object_respects_boundary(self) -> None:
+        rules = {"publicOnlyWords": [],
+                 "publicOnlyPatterns": [], "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        forbidden = {"forbidden": [{"words": {"ja": ["zorbja"]}}]}
+        result = self.run_checker("zorbja\nzorbjay\nxzorbja\n", rules, forbidden)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sample.txt:1", result.stdout)
+        self.assertNotIn("sample.txt:2", result.stdout)
+        self.assertNotIn("sample.txt:3", result.stdout)
+
+    def test_non_array_forbidden_fails(self) -> None:
+        rules = {"publicOnlyWords": [], "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("safe\n", rules, {"forbidden": {"words": ["zorbsecret"]}})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("zorbsecret", result.stdout + result.stderr)
+
+    def test_dropped_english_count_is_reported(self) -> None:
+        rules = {"publicOnlyWords": {"en": ["zorblow", "Zorbup"]}, "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("safe\n", rules)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("除外 1", result.stdout)
         self.assertNotIn("zorblow", result.stdout)
 
     def test_legacy_arrays_remain_active(self) -> None:

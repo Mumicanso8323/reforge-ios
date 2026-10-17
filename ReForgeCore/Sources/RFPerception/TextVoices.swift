@@ -1,3 +1,4 @@
+import Foundation
 import RFContent
 import RFKernel
 
@@ -9,7 +10,13 @@ public enum TextVoice: Hashable, Sendable {
 }
 
 public enum TextVoices {
+    private static let counter = NSLock()
+    nonisolated(unsafe) private static var built = 0
+    /// 試験用: 声の表を作った回数。
+    public static var buildCount: Int { counter.lock(); defer { counter.unlock() }; return built }
+
     public static func of(_ content: ContentDB) -> [TextID: Set<TextVoice>] {
+        counter.lock(); built += 1; counter.unlock()
         var result: [TextID: Set<TextVoice>] = [:]
         func add(_ text: TextID, _ voice: TextVoice) { result[text, default: []].insert(voice) }
 

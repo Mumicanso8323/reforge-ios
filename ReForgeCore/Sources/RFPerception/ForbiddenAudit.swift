@@ -55,6 +55,11 @@ public enum ForbiddenAudit {
         activeRules(content, known: known).flatMap { $0.rule.languageWords[wordsLanguage(language)] }
     }
 
+    /// 声の表。scope を持つ規則が無ければ使わないので作らない。1 回の監査・1 回の検査にまとめて 1 度だけ作る。
+    static func voices(_ content: ContentDB, rules: [ForbiddenRule]) -> [TextID: Set<TextVoice>] {
+        rules.contains { $0.scope != nil } ? TextVoices.of(content) : [:]
+    }
+
     static func ruleName(_ i: Int, _ r: ForbiddenRule) -> String { r.id ?? "#\(i)" }
 
     /// 文字列 1 つを調べる(走行中の監査)。
@@ -62,7 +67,7 @@ public enum ForbiddenAudit {
                              origin: String = "", language: LanguageID = .ja, textID: TextID? = nil) -> [Violation]
     {
         check(text, rules: activeRules(content, known: known), allowed: content.latinAllowedByLanguage[wordsLanguage(language)], stage: stage,
-              origin: origin, language: language, textID: textID, voices: TextVoices.of(content))
+              origin: origin, language: language, textID: textID, voices: voices(content, rules: content.forbidden))
     }
 
     /// 文字列の並びを調べる(Frame の全文字列など)。
@@ -70,7 +75,7 @@ public enum ForbiddenAudit {
                              origin: String = "", language: LanguageID = .ja) -> [Violation]
     {
         let rules = activeRules(content, known: known)
-        let voices = TextVoices.of(content)
+        let voices = voices(content, rules: content.forbidden)
         return texts.flatMap { check($0, rules: rules, allowed: content.latinAllowedByLanguage[wordsLanguage(language)], stage: stage,
                                      origin: origin, language: language, textID: nil, voices: voices) }
     }
@@ -117,6 +122,7 @@ public enum ForbiddenAudit {
     public static func audit(_ content: ContentDB, language: LanguageID = .ja) -> [Violation] {
         var out: [Violation] = []
         var seen = Set<Violation>()
+        let voices = voices(content, rules: content.forbidden)
         func add(_ vs: [Violation]) {
             for v in vs where seen.insert(Violation(stage: "", rule: v.rule, word: v.word, text: v.text, origin: v.origin, language: v.language)).inserted {
                 out.append(v)
@@ -128,7 +134,7 @@ public enum ForbiddenAudit {
             if let only = st.onlyRule { rules = rules.filter { $0.index == only } }
             for visible in visibleTexts(content, known: known, language: language) {
                 add(check(visible.text, rules: rules, allowed: content.latinAllowedByLanguage[wordsLanguage(language)], stage: st.id,
-                          origin: visible.origin, language: language, textID: visible.id, voices: TextVoices.of(content)))
+                          origin: visible.origin, language: language, textID: visible.id, voices: voices))
             }
         }
         return out
