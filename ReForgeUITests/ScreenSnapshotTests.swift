@@ -72,7 +72,9 @@ final class ScreenSnapshotTests: XCTestCase {
 
     private func shoot(lang: (code: String, locale: String), screen: String) {
         let app = XCUIApplication()
+        // アプリの書体は端末でなくアプリの言語に従う(L-12)。日本語(ja)は付けず、直す前と同じ起動にする
         app.launchArguments = ["-ReForgeScreenshot", screen, "-AppleLanguages", "(\(lang.code))", "-AppleLocale", lang.locale]
+        if lang.code != "ja" { app.launchArguments += ["-ReForgeLanguage", lang.code] }
         app.launch()
         defer { app.terminate() }
 

@@ -408,6 +408,9 @@ struct RootView: View {
         }
         .background(InkColor.prologueGround)
         .background(SettingsCornerInstaller(app: app, visible: app.cornerButtonVisible && exitingScene == nil))
+        // 言語の印(L-12): iOS が代わりの字体を選ぶときもアプリの言語の字形にする。切り替えで値が替わるだけ(作り直さない)。
+        .environment(\.locale, Locale(identifier: SpeechLanguage.base(app.language.effective)))
+        .background(SpeechLanguageInstaller(identifier: SpeechLanguage.base(app.language.effective)))
         .task { await app.refreshEntitlements() }
         .onChange(of: scenePhase) { _, phase in
             app.scenePhaseChanged(active: phase == .active)
@@ -451,5 +454,39 @@ struct ContentErrorView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(InkColor.ground)
         .accessibilityIdentifier("contentError")
+    }
+}
+
+/// 読み上げの言語(L-12)。SwiftUI の locale の環境は読み上げの言語を決めないので、UIKit の根の view の
+/// `accessibilityLanguage` に今の言語を付ける(iOS 17 で使える範囲。SwiftUI 側の view はこの根の下にある)。
+/// 画面に出る物は無い。
+struct SpeechLanguageInstaller: UIViewRepresentable {
+    let identifier: String
+
+    func makeUIView(context: Context) -> InstallerView {
+        let v = InstallerView()
+        v.identifier = identifier
+        v.isUserInteractionEnabled = false
+        v.isAccessibilityElement = false
+        return v
+    }
+
+    func updateUIView(_ uiView: InstallerView, context: Context) {
+        uiView.identifier = identifier
+        uiView.apply()
+    }
+
+    final class InstallerView: UIView {
+        var identifier = LanguageID.source.rawValue
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            apply()
+        }
+
+        func apply() {
+            guard let root = window?.rootViewController?.view else { return }
+            root.accessibilityLanguage = identifier
+        }
     }
 }

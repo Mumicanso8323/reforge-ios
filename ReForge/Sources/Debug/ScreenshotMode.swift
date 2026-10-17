@@ -7,7 +7,7 @@ import ReForgeEngine
 /// 画面の要素の解放を全部開き(撮るためだけの上書き。保存しない・世界の状態を変えない)、時計を止めて、指定の画面を開く。
 /// 画面: 主な画面 8 つと、タイトル・ノート・決断の帯・読み込みの失敗(説明書 §8)。
 /// 序(prologue)は、公開の層に序の場面が無いので、Debug/PrologueSample.swift の中立の見本(3 行 × 2 場面)を画面全体の場面で出す(PT-B6)。
-/// 言語は `-AppleLanguages (xx)` と `-AppleLocale xx` で与える(InkFont.language の初期値が拾う)。
+/// 言語は `-AppleLanguages (xx)` と `-AppleLocale xx` で与える(端末側。アプリの言語は `-ReForgeLanguage` で与える。L-12)。
 enum ScreenshotScreen: String, CaseIterable {
     case map, foot, design, base, crew, research, gameOver, settings
     case title, notes, decisionBand, bootFailure, prologue, stage, darkStart, darkMark
