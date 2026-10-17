@@ -1,4 +1,5 @@
 import RFContent
+import RFKernel
 
 /// The integer presentation values for a particular time-of-day step.
 public struct TimeTint: Equatable, Hashable, Sendable {
@@ -15,6 +16,10 @@ public struct TimeTint: Equatable, Hashable, Sendable {
         self.strength = strength
         self.step = step
     }
+
+    /// The untinted treatment for chunks which are intentionally empty.
+    public static let neutral = TimeTint(brightness: 1000, outside: 1000,
+                                         tint: RGB(0, 0, 0), strength: 0, step: 0)
 
     /// Applies time brightness, then mixes in the lit tint.  Both operations
     /// deliberately use per-mille integer arithmetic.
@@ -96,6 +101,33 @@ public enum TimeOfDay {
     /// The definition actually used for a content: its own timeTint, else the clock-derived default.
     public static func resolved(_ def: TimeTintDef?, clock: ClockDef) -> TimeTintDef {
         def ?? defaultDef(clock)
+    }
+
+    /// Positions of label changes within the daylight bar, in per-mille.
+    /// This follows the same table that supplies `mark`, so the marker and
+    /// label always change together.
+    public static func dayBarDots(_ def: TimeTintDef, clock: ClockDef) -> [Int] {
+        let dayMinutes = max(1, clock.dayGameHours * 60)
+        var dots: [Int] = []
+        var previous: TimeMark?
+        for key in usable(def, clock) where key.at < dayMinutes {
+            guard key.mark != previous else { continue }
+            let dot = max(0, min(1000, key.at * 1000 / dayMinutes))
+            if dots.last != dot { dots.append(dot) }
+            previous = key.mark
+        }
+        if dots.first != 0 { dots.insert(0, at: 0) }
+        if dots.last != 1000 { dots.append(1000) }
+        return dots
+    }
+
+    public static func wordID(_ mark: TimeMark) -> TextID {
+        switch mark {
+        case .dawn: "ui.time.dawn"
+        case .day: "ui.time.day"
+        case .evening: "ui.time.evening"
+        case .night: "ui.time.night"
+        }
     }
 
     /// Whole minutes (floor) of the step head, used only to pick the key interval.

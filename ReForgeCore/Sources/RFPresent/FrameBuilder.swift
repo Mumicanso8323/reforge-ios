@@ -36,12 +36,15 @@ public struct FrameBuilder: Sendable {
         var map = MapView(layer: layer, size: size, chunkRevisions: [], vision: vision.areas(w, layer: layer))
         map.beacons = w.exploration.beacons.sorted { $0.key < $1.key }.compactMap { $0.value.layer == layer ? $0.value.point : nil }
         let count = map.chunkColumns * map.chunkRows
-        let signatures = (0..<count).map { proj.signature(map.chunkRect($0)) }
+        let signatures = (0..<count).map { proj.signature(map.chunkRect($0), vision: map.vision) }
         var revs: [Int]
         if let prev = previous?.map, prev.size == size, prev.layer == layer, prev.chunkRevisions.count == count {
             revs = prev.chunkRevisions
-            let all = report?.changes.areas.contains(.perception) == true || previous?.timeTint.step != tint.step
-            for i in 0..<count where all || i >= prev.chunkSignatures.count || prev.chunkSignatures[i] != signatures[i] {
+            let perceptionChanged = report?.changes.areas.contains(.perception) == true
+            let timeStepChanged = previous?.timeTint.step != tint.step
+            for i in 0..<count where perceptionChanged ||
+                (timeStepChanged && proj.hasKnown(map.chunkRect(i))) ||
+                i >= prev.chunkSignatures.count || prev.chunkSignatures[i] != signatures[i] {
                 revs[i] = revision
             }
             for t in report?.changes.dirtyTiles ?? [] where t.layer == layer {
@@ -61,6 +64,7 @@ public struct FrameBuilder: Sendable {
             clock: clock,
             timeMark: mark,
             timeTint: tint,
+            timeWord: content.texts[TimeOfDay.wordID(mark)] == nil ? nil : p.text(TimeOfDay.wordID(mark)),
             status: statusItems(w, p),
             objective: objective(w, p),
             map: map,
@@ -308,7 +312,7 @@ public struct FrameBuilder: Sendable {
             return indices.filter { $0 >= 0 && $0 < map.chunkRevisions.count }.map { index in
                 let rect = map.chunkRect(index)
                 return MapChunk(index: index, revision: map.chunkRevisions[index], rect: rect,
-                                tiles: Array(repeating: .void, count: rect.size.count))
+                                tiles: Array(repeating: .void, count: rect.size.count), timeTint: .neutral)
             }
         }
         let proj = MapProjector(world: w, content: content, perceiver: perceiver(w), layer: layer)
