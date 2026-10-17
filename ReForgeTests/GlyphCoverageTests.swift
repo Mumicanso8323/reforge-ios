@@ -7,6 +7,7 @@ import ReForgeEngine
 /// TEST-L7(L-12): 言語ごとに、画面の文と地図の字が字体(と iOS の代わりの字体)で描けること。macOS の CI で回す。
 /// 描ける = CTFontCreateForString が LastResort でない字体を返し、その字体で字形が得られる。
 /// 非公開の層の文の字は、統合担当が非公開の層を重ねてこのテストを回して確かめる(公開の層だけでは日本語の公開の分だけ)。
+@MainActor
 final class GlyphCoverageTests: XCTestCase {
     private struct Miss: CustomStringConvertible {
         var char: String
@@ -32,7 +33,7 @@ final class GlyphCoverageTests: XCTestCase {
         for scalar in text.unicodeScalars {
             if scalar.properties.isWhitespace || scalar.properties.generalCategory == .control || scalar.properties.generalCategory == .format { continue }
             guard seen.insert(scalar).inserted else { continue }
-            if !canDraw(scalar, base: base) { out.append(Miss(char: String(scalar), language: language, place: place, description: "")) }
+            if !canDraw(scalar, base: base) { out.append(Miss(char: String(scalar), language: language, place: place)) }
         }
         return out
     }

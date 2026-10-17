@@ -24,7 +24,7 @@ final class LanguageSettingTests: XCTestCase {
 
     private func makeLanguage(_ defaults: UserDefaults, pseudo: Bool, preferred: [String] = ["en-US"], pinned: LanguageID? = nil) throws -> AppLanguage {
         addTeardownBlock { InkFont.setLanguage("ja") }
-        AppLanguage(defaults: defaults, tables: try tables(), preferred: preferred, includePseudo: pseudo, pinned: pinned)
+        return AppLanguage(defaults: defaults, tables: try tables(), preferred: preferred, includePseudo: pseudo, pinned: pinned)
     }
 
     func testPinnedLanguageWinsEvenWhenNotOfferedAndSelectDoesNotOverride() throws {
