@@ -117,27 +117,28 @@ extension FrameBuilder {
 
     static let madeActs: Set<ActKind> = [.crafted, .produced, .built, .trialed, .designed, .mined, .gathered]
 
-    /// 来歴の対象の名前(数えられない対象は nil)。モジュールのラインの生産は、そのモジュールが作る物の名前で数える。
-    private func madeName(_ r: ProvenanceRecord, _ p: Perceiver) -> String? {
+    /// 数える対象(数えられない対象は nil)。モジュールのラインの生産は、そのモジュールが作る物で数える。
+    private func madeTarget(_ r: ProvenanceRecord) -> SubjectRef? {
         switch r.subject {
         case .none, .entity, .design: return nil
         case .module(let kind, _):
             guard r.act == .produced, let y = content.modules[kind]?.produces?.first else { return nil }
-            if let m = y.matter { return p.name(of: NameGenerator.name(for: m)) }
-            return y.item.map { p.name(Subject.item($0)) }
-        default: return p.name(of: r.subject)
+            if let m = y.matter { return .matter(NameGenerator.name(for: m)) }
+            return y.item.map { SubjectRef.item($0) }
+        default: return r.subject
         }
     }
 
+    /// 来歴の対象(`SubjectRef` の鍵)で数え、同数は鍵で並べる。表示の名前は最後に引く(名前は言語で変わる)。
     func made(_ records: [ProvenanceRecord], _ p: Perceiver) -> [CountedName] {
-        var tally: [String: Int] = [:]
+        var tally: [String: (ref: SubjectRef, count: Int)] = [:]
         for r in records where Self.madeActs.contains(r.act) {
-            guard let name = madeName(r, p) else { continue }
-            tally[name, default: 0] += max(1, r.count)
+            guard let ref = madeTarget(r) else { continue }
+            let key = ref.kindKey
+            tally[key, default: (ref, 0)].count += max(1, r.count)
         }
-        let sorted = tally.map { CountedName(name: $0.key, count: $0.value) }
-            .sorted { $0.count != $1.count ? $0.count > $1.count : $0.name < $1.name }
-        return Array(sorted.prefix(3))
+        let sorted = tally.sorted { $0.value.count != $1.value.count ? $0.value.count > $1.value.count : $0.key < $1.key }
+        return sorted.prefix(3).map { CountedName(name: p.name(of: $0.value.ref), count: $0.value.count) }
     }
 
     // MARK: 2 行目: 動いている物

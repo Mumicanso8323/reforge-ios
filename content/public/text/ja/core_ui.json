@@ -5,6 +5,7 @@
     "ui.daywrap.lines": "動いているライン {n}",
     "ui.daywrap.crew": "仕事に就いた仲間 {n}",
     "ui.daywrap.sep": "。",
+    "ui.finding.percent": "{value}%",
     "ui.daywrap.water": "水はあと {n} 日分",
     "ui.daywrap.food": "食料はあと {n} 日分",
     "ui.daywrap.fire_out": "火が消えている",

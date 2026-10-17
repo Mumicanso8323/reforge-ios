@@ -1,5 +1,6 @@
 import RFContent
 import RFKernel
+import RFPerception
 import RFPresent
 import RFRules
 import RFSim
@@ -61,5 +62,18 @@ final class PresentTests: XCTestCase {
         XCTAssertEqual(f.revision, 1)
         let (_, r2) = await host.send(.time(.sleep))
         XCTAssertEqual(r2.rejection?.reason, "reason.time.still_day")
+    }
+
+    /// 断りの参照を描いた文は、画面に出る describe と rejectionText の文に等しい。
+    func testRejectionRefRendersToTheShownText() async throws {
+        let rig = try TestRig.publicOnly()
+        let host = GameHost(simulation: rig.simulation, world: rig.factory.newWorld(seed: 1))
+        let (_, r) = await host.send(.time(.sleep))
+        let rejection = try XCTUnwrap(r.rejection)
+        let ref = await host.rejectionRef(rejection)
+        let p = Perceiver(content: rig.content, known: [])
+        XCTAssertEqual(p.render(ref), p.rejectionText(rejection.reason, detail: rejection.detail))
+        let shown = await host.describe(rejection)
+        XCTAssertEqual(shown, p.render(ref))
     }
 }

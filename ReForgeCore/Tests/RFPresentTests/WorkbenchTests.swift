@@ -1,6 +1,8 @@
 import RFContent
+import RFInvention
 import RFKernel
 import RFMatter
+import RFPerception
 import RFPresent
 import RFRules
 import RFTestSupport
@@ -195,6 +197,78 @@ final class WorkbenchTests: XCTestCase {
         XCTAssertFalse(ContentValidator.validate(c).contains { $0.rule.hasPrefix("codexShadows") })
         c.codexShadows["codex.test.bad"] = CodexShadowDef(id: "codex.test.bad", name: "misc:codex.test.missing")
         XCTAssertTrue(ContentValidator.validate(c).contains { $0.rule == "codexShadows.name" && $0.level == .error })
+    }
+
+    // MARK: - L-03 段 B(表示の文でなく鍵で数える・引数を型で渡す)
+
+    /// 純度の見当の引数は ui.finding.percent で「NN%」になる(0 と 100 を含む)。ノートの書き留めも同じ道。
+    func testNoteWithPurityArgumentRendersPercentViaTextTable() throws {
+        let rig = try TestRig.publicOnly()
+        var content = rig.content
+        content.textTables.tables[.ja]?["test.note.purity"] = "{0}/{1}"
+        var w = rig.factory.newWorld(seed: 1)
+        let rec = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: w.clock.now, day: w.clock.day, run: w.run.index, actor: .noah,
+                             act: .crafted, subject: .item("wood"), count: 1)
+        }
+        for q in [0, 100] {
+            w.notebook.notes.append(NoteEntry(about: Subject.item("wood"), text: "test.note.purity", source: Subject.item("wood"),
+                                              record: rec, at: w.clock.now, run: w.run.index,
+                                              args: [.purity(Purity(percent: q)), .item("wood")]))
+        }
+        let p = Perceiver(content: content, world: w)
+        let clues = FrameBuilder(content: content).notebook(in: w).clues.map(\.text)
+        XCTAssertEqual(clues, ["100%/" + p.name(Subject.item("wood")), "0%/" + p.name(Subject.item("wood"))])
+        XCTAssertEqual(p.render(TextRef("ui.finding.percent", ["value": .int(30)])), "30%")
+    }
+
+    /// 名前が同じ別の品は拠点の在庫で 1 行にまとめない。同じ品は合わせる。
+    func testBaseStockKeepsDifferentItemsWithSameName() throws {
+        let rig = try TestRig.publicOnly()
+        var content = rig.content
+        for it in ["wood", "test_ore"] {
+            for v in try XCTUnwrap(content.perception[Subject.item(ItemID(it))]).variants {
+                guard let name = v.name else { continue }
+                content.textTables.tables[.ja]?[name] = "same"
+                content.texts[name] = "same"
+            }
+        }
+        var w = rig.factory.newWorld(seed: 1)
+        w.inventory.holders[.base] = [StockEntry(stuff: .item("wood"), quantity: 2), StockEntry(stuff: .item("test_ore"), quantity: 5),
+                                      StockEntry(stuff: .item("wood"), quantity: 1)]
+        let stock = FrameBuilder(content: content).base(w).stock
+        XCTAssertEqual(stock.map(\.name), ["same", "same"])
+        XCTAssertEqual(stock.map(\.quantity), [3, 5])
+    }
+
+    /// 同じ文に描かれる別の所見(FindingID)は、ノートで 1 つにしない。同じ (ID, 引数) は 1 つ。
+    func testNotebookFindingsAreDedupedByIdAndArgsNotText() throws {
+        let rig = try TestRig.publicOnly()
+        var content = rig.content
+        content.findings["test.f1"] = try JSONDecoder().decode(FindingDef.self, from: Data(#"{"id":"test.f1","text":"test.f1.text"}"#.utf8))
+        content.findings["test.f2"] = try JSONDecoder().decode(FindingDef.self, from: Data(#"{"id":"test.f2","text":"test.f2.text"}"#.utf8))
+        content.textTables.tables[.ja]?["test.f1.text"] = "same"
+        content.textTables.tables[.ja]?["test.f2.text"] = "same"
+        var w = rig.factory.newWorld(seed: 1)
+        let rec = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: w.clock.now, day: w.clock.day, run: w.run.index, actor: .noah,
+                             act: .crafted, subject: .item("wood"), count: 1)
+        }
+        let input = Matter.ironOre(purity: Purity(percent: 30))
+        var outcome = ProcessChain.run([], input: input)
+        outcome.findings = [Finding(id: "test.f1", step: nil), Finding(id: "test.f2", step: nil), Finding(id: "test.f1", step: 0)]
+        w.notebook.trials.append(TrialRecord(record: rec, at: w.clock.now, run: w.run.index, input: input, quantity: 1,
+                                             steps: [], outcome: outcome))
+        let findings = FrameBuilder(content: content).notebook(in: w).findings
+        XCTAssertEqual(findings.map(\.text), ["same", "same"])
+    }
+
+    /// 図鑑の空欄の重ね合わせは名前の部品(MatterName)で見る。表示の文が同じでも部品が違えば重ならない。
+    func testCodexShadowCoverageUsesNameParts() {
+        let a = MatterName([.substance("Fe"), .shape(.plate)])
+        let b = MatterName([.substance("Fe"), .shape(.rod)])
+        XCTAssertTrue(Codex.covers(a, MatterName([.substance("Fe")])))
+        XCTAssertFalse(Codex.covers(a, b))
     }
 }
 
