@@ -230,6 +230,7 @@ final class ScreenSnapshotTests: XCTestCase {
         for id in ["map", "statusBand", "footCard", "tab-map", "tab-design", "tab-notes", "tab-base", "tab-crew", "settingsButton"] {
             XCTAssertFalse(element(app, id).exists, "\(language)_darkStart: \(id) が出ている")
         }
+        XCTAssertFalse(element(app, "dayBar").exists, "\(language)_darkStart: dayBar が出ている(最初の画面に部品を増やさない)")
         let action = element(app, "darkStartAct")
         XCTAssertTrue(action.exists, "\(language)_darkStart: 行為が出ない")
         let window = app.windows.firstMatch.frame

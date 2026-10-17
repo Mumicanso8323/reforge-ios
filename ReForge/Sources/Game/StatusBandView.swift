@@ -112,9 +112,7 @@ struct StatusBandView: View {
         case .day:
             // 昼の残り(時間数は出さない)。時計を止めている間・門が閉じている間は出さない(U20)
             if store.clock.showsDayLeft {
-                ProgressView(value: Double(store.clock.dayRemainingPermille), total: 1000)
-                    .tint(InkColor.dusk)
-                    .frame(width: 64)
+                DayBarView(elapsedPermille: 1000 - store.clock.dayRemainingPermille, dots: store.dayBarDots, word: store.timeWord)
             }
         case .dusk:
             Text("日没").foregroundStyle(InkColor.dusk)

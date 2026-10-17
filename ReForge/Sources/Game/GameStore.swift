@@ -24,6 +24,11 @@ final class GameStore {
     private let playLog = PlayLog()
 
     private(set) var clock: ClockView
+    /// 帯の目印の言葉の材料(W-19)。値が替わったときだけ写す。
+    private(set) var timeMark: TimeMark
+    private(set) var timeWord: String?
+    /// 帯の日の棒の点(‰。内容から 1 回だけ作る)。
+    let dayBarDots: [Int]
     private(set) var status: [StatusItem]
     private(set) var objective: String?
     private(set) var mapView: MapView
@@ -148,6 +153,9 @@ final class GameStore {
         self.host = host
         let f = FrameBuilder(content: content).build(world, revision: 0, previous: nil, report: nil)
         clock = f.clock
+        timeMark = f.timeMark
+        timeWord = f.timeWord
+        dayBarDots = TimeOfDay.dayBarDots(TimeOfDay.resolved(content.timeTint, clock: content.clock), clock: content.clock)
         status = f.status
         objective = f.objective
         mapView = f.map
@@ -444,6 +452,8 @@ final class GameStore {
         frameTime = ProcessInfo.processInfo.systemUptime
         expireNoticeIfStale()
         if clock != f.clock { clock = f.clock }
+        if timeMark != f.timeMark { timeMark = f.timeMark }
+        if timeWord != f.timeWord { timeWord = f.timeWord }
         if status != f.status { status = f.status }
         if objective != f.objective { objective = f.objective }
         if mapView != f.map { mapView = f.map }

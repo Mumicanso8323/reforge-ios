@@ -197,8 +197,8 @@ final class AppTests: XCTestCase {
         await store.load()
         let chunk = try XCTUnwrap(store.chunks.values.first)
         let cache = MapTerrainCache()
-        _ = cache.image(for: chunk, cellSize: 24, night: store.clock.isNight, vision: store.mapView.vision, terrains: start.content.terrains)
-        _ = cache.image(for: chunk, cellSize: 24, night: store.clock.isNight, vision: store.mapView.vision, terrains: start.content.terrains)
+        _ = cache.image(for: chunk, cellSize: 24, terrains: start.content.terrains)
+        _ = cache.image(for: chunk, cellSize: 24, terrains: start.content.terrains)
         XCTAssertEqual(cache.renderCount[chunk.index], 1)
     }
 

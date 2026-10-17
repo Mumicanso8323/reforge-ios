@@ -92,59 +92,106 @@ enum PlacementBrightness {
     }
 }
 
-private struct TerrainImageKey: Hashable {
+/// 区画の絵の鍵。明るさは区画の `brightness`(焼き込み済み)に入っているので、視界・昼夜は鍵に入れない。
+/// 時刻の段(`step`)と区画の revision が替わらない限り、同じ絵を使い続ける。
+struct TerrainImageKey: Hashable {
     var index: Int
     var revision: Int
     var cellSize: Int
-    var night: Bool
-    var vision: [VisionArea]
+    var step: Int
+}
+
+/// 1 タイルの色の決め方(試験のため純関数にしてある)。時刻の色は `TimeTint.apply`(整数)だけで掛ける。
+enum TerrainTileColors {
+    /// `brightness` が nil(光る物)なら元の色のまま。値があれば字の色も地の色も同じ明るさ・色味で掛ける。
+    static func resolve(style: TileStyle, point: GridPoint, brightness: Int?, tint: TimeTint) -> (fg: RGB, bg: RGB?) {
+        let fg = style.foreground(at: point)
+        guard let brightness else { return (fg, style.background) }
+        return (tint.apply(fg, brightness: brightness), style.background.map { tint.apply($0, brightness: brightness) })
+    }
 }
 
 /// 見えている区画とその周囲だけを画像で持つ。`renderCount` は回帰試験用。
+/// 控えは区画の番号ごとに 1 枚だけ(鍵が替われば置き換える)。作り直しは 1 回の描きにつき `refreshBudget` 枚まで。
 @MainActor
 final class MapTerrainCache {
-    private var images: [TerrainImageKey: Image] = [:]
+    private var images: [Int: (key: TerrainImageKey, image: Image)] = [:]
     private(set) var renderCount: [Int: Int] = [:]
     /// 画が作れなかった(nil、または見える物があるのに全部透明)鍵と、その実時刻。しばらくは作り直さず、呼び出し側がその場で描く。
     private var failedAt: [TerrainImageKey: TimeInterval] = [:]
     /// 作り直しを待つ秒数(画を作る重い処理を毎フレーム繰り返さない)。
     static let retryAfter: TimeInterval = 1.0
+    /// すでに絵がある区画の作り直しは、1 回の描き(`beginPass` から)で、これだけまで。超えた区画は古い絵を出し続ける。
+    static let refreshBudget = 2
     /// 画が作れなかった回数と、呼び出し側がその場で描いた回数。
     private(set) var renderFailures = 0
     private(set) var fallbackDraws = 0
+    /// この描きで作り直した枚数と、予算を超えて古い絵のままにした区画があるか(true の間は呼び出し側が続きを描く)。
+    private(set) var refreshesInPass = 0
+    private(set) var hasPending = false
+    /// 控えている絵の数(区画の数を超えない。試験用)。
+    var cachedCount: Int { images.count }
 
-    func image(for chunk: MapChunk, cellSize: Double, night: Bool, vision: [VisionArea], terrains: [TerrainID: TerrainDef]) -> Image? {
-        let key = TerrainImageKey(index: chunk.index, revision: chunk.revision, cellSize: Int(cellSize), night: night, vision: vision)
-        if let image = images[key] { return image }
+    /// 1 回の `drawTerrain` の頭で呼ぶ。
+    func beginPass() {
+        refreshesInPass = 0
+        hasPending = false
+    }
+
+    func image(for chunk: MapChunk, cellSize: Double, terrains: [TerrainID: TerrainDef]) -> Image? {
+        let key = TerrainImageKey(index: chunk.index, revision: chunk.revision, cellSize: Int(cellSize), step: chunk.timeTint.step)
+        let existing = images[chunk.index]
+        if let existing, existing.key == key { return existing.image }
         let now = ProcessInfo.processInfo.systemUptime
         if let failed = failedAt[key], now - failed < Self.retryAfter { return directDrawn() }
-        let view = TerrainChunkImage(chunk: chunk, cellSize: cellSize, night: night, vision: vision, terrains: terrains)
+        if let existing {
+            // 絵がすでにある区画の作り直し: 予算を超えたら古い絵を出し続けて、続きは次の描きで
+            guard refreshesInPass < Self.refreshBudget else {
+                hasPending = true
+#if DEBUG
+                ReplayStats.terrainDeferred += 1
+#endif
+                return existing.image
+            }
+            refreshesInPass += 1
+        }
+        let view = TerrainChunkImage(chunk: chunk, cellSize: cellSize, terrains: terrains)
             .frame(width: Double(chunk.rect.size.width) * cellSize, height: Double(chunk.rect.size.height) * cellSize)
         let renderer = ImageRenderer(content: view)
         renderer.scale = UIScreen.main.scale
         // nil、または「見える物があるのに全部透明」の画(描画の一瞬の失敗)は、キャッシュに入れず作り直す。
-        // 透明な画を鍵ごと覚えると、視界の鍵が変わるまで地形が黒いまま居座る。
+        // 透明な画を鍵ごと覚えると、鍵が変わるまで地形が黒いまま居座る。
         let expectsInk = chunk.tiles.contains { $0.fog == .remembered || $0.fog == .visible }
         guard let rendered = renderer.uiImage else {
             renderFailures += 1
 #if DEBUG
             ReplayStats.renderFailures += 1
 #endif
-            failedAt[key] = now
+            markFailed(key, at: now)
             return directDrawn()
         }
         if expectsInk, !Self.hasInk(rendered) {
 #if DEBUG
             ReplayStats.blankRenders += 1
 #endif
-            failedAt[key] = now
+            markFailed(key, at: now)
             return directDrawn()
         }
         let image = Image(uiImage: rendered)
-        images[key] = image
-        failedAt[key] = nil
+        images[chunk.index] = (key, image)
+        // 失敗の記録は、置き換えた鍵の分だけ数える(古い鍵の記録は残さない)
+        failedAt = failedAt.filter { $0.key.index != chunk.index }
         renderCount[chunk.index, default: 0] += 1
+#if DEBUG
+        ReplayStats.terrainRenders += 1
+#endif
         return image
+    }
+
+    /// 失敗の記録は区画の番号ごとに最新の鍵の 1 件だけ(古い鍵の記録は残さない)。
+    private func markFailed(_ key: TerrainImageKey, at now: TimeInterval) {
+        failedAt = failedAt.filter { $0.key.index != key.index }
+        failedAt[key] = now
     }
 
     /// 画が作れなかった時は nil を返し、呼び出し側(MapScene.drawTerrain)がその区画をその場の Canvas に直接描く。
@@ -172,31 +219,29 @@ final class MapTerrainCache {
     }
 
     func discardOutside(_ indices: Set<Int>) {
-        images = images.filter { indices.contains($0.key.index) }
+        images = images.filter { indices.contains($0.key) }
         failedAt = failedAt.filter { indices.contains($0.key.index) }
     }
 }
 
-/// 1 区画の静かな絵。ここでだけ地形の文字を resolve し、同じ鍵なら再び組まない。
+/// 1 区画の静かな絵。ここでだけ地形の文字を resolve する(控えはこの 1 回の描きの中だけ。色が段ごとに替わるので、段をまたいで持たない)。
 private struct TerrainChunkImage: View {
     let chunk: MapChunk
     let cellSize: Double
-    let night: Bool
-    let vision: [VisionArea]
     let terrains: [TerrainID: TerrainDef]
-
-    private struct GlyphKey: Hashable { var glyph: String; var color: RGB }
 
     var body: some View {
         Canvas(opaque: false, rendersAsynchronously: false) { ctx, _ in
             var ctx = ctx
-            Self.paint(&ctx, chunk: chunk, cellSize: cellSize, night: night, vision: vision, terrains: terrains)
+            Self.paint(&ctx, chunk: chunk, cellSize: cellSize, terrains: terrains)
         }
     }
 
+    private struct GlyphKey: Hashable { var glyph: String; var color: RGB }
+
     /// 区画を、原点を区画の左上に置いた描画先へ描く。画にする時も、画が作れなかった時にその場で描く時も、これ 1 本。
-    static func paint(_ ctx: inout GraphicsContext, chunk: MapChunk, cellSize: Double, night: Bool, vision: [VisionArea],
-                      terrains: [TerrainID: TerrainDef]) {
+    /// 明るさと色味は区画に焼き込まれたもの(`tile.brightness`・`chunk.timeTint`)だけを使う。
+    static func paint(_ ctx: inout GraphicsContext, chunk: MapChunk, cellSize: Double, terrains: [TerrainID: TerrainDef]) {
         let font = Font.custom(FontBook.mapFont, fixedSize: cellSize * 0.78)
         var styles: [String: TileStyle] = [:]
         var texts: [GlyphKey: GraphicsContext.ResolvedText] = [:]
@@ -213,7 +258,6 @@ private struct TerrainChunkImage: View {
             texts[key] = text
             return text
         }
-        let lit = night ? TilePalette.nightVisible : 1.0
         let hint = TilePalette.style(TilePalette.hint, terrains: terrains).foreground(at: GridPoint(0, 0))
         for y in chunk.rect.origin.y..<(chunk.rect.origin.y + chunk.rect.size.height) {
             for x in chunk.rect.origin.x..<(chunk.rect.origin.x + chunk.rect.size.width) {
@@ -221,21 +265,20 @@ private struct TerrainChunkImage: View {
                 guard let tile = chunk.tile(at: point) else { continue }
                 let rect = CGRect(x: Double(x - chunk.rect.origin.x) * cellSize,
                                   y: Double(y - chunk.rect.origin.y) * cellSize, width: cellSize, height: cellSize)
-                var brightness = lit
-                if tile.glow, tile.fog != .unknown {
-                    brightness = 1
-                } else if !vision.contains(where: { $0.contains(point) }) {
-                    switch tile.fog {
-                    case .unknown, .visible: continue
-                    case .hint:
-                        if let shadow = tile.shadow { ctx.draw(text(shadow, hint), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center) }
-                        continue
-                    case .remembered: brightness = TilePalette.remembered
-                    }
+                switch tile.fog {
+                case .unknown, .visible:
+                    continue
+                case .hint where !tile.glow:
+                    // 手がかりの影は今の手がかりの色のまま(時刻を掛けない)
+                    if let shadow = tile.shadow { ctx.draw(text(shadow, hint), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center) }
+                    continue
+                case .hint, .remembered:
+                    break
                 }
-                let tileStyle = style(tile.tint)
-                if let background = tileStyle.background { ctx.fill(Path(rect), with: .color(background.scaled(brightness).color)) }
-                ctx.draw(text(tile.glyph, tileStyle.foreground(at: point).scaled(brightness)), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
+                // 光る物(brightness が nil)は色のまま。それ以外は区画の色味と明るさ
+                let colors = TerrainTileColors.resolve(style: style(tile.tint), point: point, brightness: tile.brightness, tint: chunk.timeTint)
+                if let background = colors.bg { ctx.fill(Path(rect), with: .color(background.color)) }
+                ctx.draw(text(tile.glyph, colors.fg), at: CGPoint(x: rect.midX, y: rect.midY), anchor: .center)
             }
         }
     }
@@ -271,20 +314,21 @@ struct MapScene {
         let padded = GridRect(origin: GridPoint(visible.origin.x - MapView.chunkSize, visible.origin.y - MapView.chunkSize),
                               size: GridSize(width: visible.size.width + 2 * MapView.chunkSize, height: visible.size.height + 2 * MapView.chunkSize))
         let retained = Set(map.chunks(overlapping: padded))
+        cache.beginPass()
         cache.discardOutside(retained)
         for index in map.chunks(overlapping: visible) {
             guard let chunk = chunks[index] else { continue }
             let origin = camera.screenOrigin(of: chunk.rect.origin, in: view)
             let rect = CGRect(x: origin.x, y: origin.y, width: Double(chunk.rect.size.width) * camera.cellSize,
                               height: Double(chunk.rect.size.height) * camera.cellSize)
-            if let image = cache.image(for: chunk, cellSize: camera.cellSize, night: night, vision: map.vision, terrains: terrains) {
+            if let image = cache.image(for: chunk, cellSize: camera.cellSize, terrains: terrains) {
                 ctx.draw(image, in: rect)
             } else {
                 // 区画の画が作れなかった時(遅くても、黒よりよい): その場の Canvas に同じ描き方で直接描く
                 var sub = ctx
                 sub.clip(to: Path(rect))
                 sub.translateBy(x: rect.minX, y: rect.minY)
-                TerrainChunkImage.paint(&sub, chunk: chunk, cellSize: camera.cellSize, night: night, vision: map.vision, terrains: terrains)
+                TerrainChunkImage.paint(&sub, chunk: chunk, cellSize: camera.cellSize, terrains: terrains)
             }
         }
     }
