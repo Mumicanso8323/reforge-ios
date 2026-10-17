@@ -42,6 +42,7 @@ final class RenderTests: XCTestCase {
         content.perception[stat] = SubjectDef(subject: stat, variants: [
             Variant(when: .always, name: "text.stat.air", display: .number(divisor: 1, unit: "text.unit.test", decimals: 0)),
         ])
+        content.textTables.tables = content.textTables.tables.filter { $0.key == .ja }
         content.textTables.tables[.ja]?["text.unit.test"] = "{value} hour"
         content.textTables.tables[.en, default: [:]]["text.unit.test"] = "{value, plural, one {# hour} other {# hours}}"
         XCTAssertEqual(Perceiver(content: content, known: [], language: .en).stat("stat.test.air", value: Milli(raw: 2)), "2 hours")
@@ -114,5 +115,41 @@ final class RenderTests: XCTestCase {
                 }
             }
         }
+    }
+
+    func testMissingUnitEntryInExistingTableIsError() throws {
+        var content = try TestContent.publicOnly()
+        let stat = Subject.stat("stat.test.air")
+        content.perception[stat] = SubjectDef(subject: stat, variants: [
+            Variant(when: .always, name: "text.stat.air", display: .number(divisor: 1, unit: "text.unit.test", decimals: 0)),
+        ])
+        content.textTables.tables[.ja]?["text.unit.test"] = "{value} hour"
+        func unitErrors() -> [ContentValidator.Issue] {
+            ContentValidator.validate(content).filter { $0.level == .error && $0.rule == "text.unit" }
+        }
+        // 日本語だけなら誤りにならない
+        content.textTables.tables = content.textTables.tables.filter { $0.key == .ja }
+        XCTAssertTrue(unitErrors().isEmpty)
+        // 別の言語の表があって、その ID が無ければ誤り
+        content.textTables.tables[.en, default: [:]]["test.other"] = "x"
+        XCTAssertFalse(unitErrors().isEmpty)
+        // 揃っていれば誤りにならない
+        content.textTables.tables[.en]?["text.unit.test"] = "{value} hours"
+        XCTAssertTrue(unitErrors().isEmpty)
+    }
+
+    func testMapMarkFallbackChainIsPartThenKindThenBlock() throws {
+        var content = try TestContent.publicOnly()
+        let kind = POIKindID("test_kind")
+        let part = Subject.part("test_part")
+        let p = { Perceiver(content: content, known: [], language: .ja) }
+        func chain(_ q: Perceiver) -> String {
+            q.glyph(part, fallback: q.glyph(Subject.poi(kind), fallback: "\u{2592}"))
+        }
+        XCTAssertEqual(chain(p()), MapGlyphFont.safe("\u{2592}"))
+        content.glyphs[Subject.poi(kind)] = "K"
+        XCTAssertEqual(chain(p()), "K")
+        content.glyphs[part] = "P"
+        XCTAssertEqual(chain(p()), "P")
     }
 }

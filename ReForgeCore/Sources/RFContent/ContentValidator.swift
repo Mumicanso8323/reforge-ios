@@ -258,7 +258,12 @@ public enum ContentValidator {
         for (id, source) in japanese.sorted(by: { $0.key < $1.key }) where id.rawValue.hasPrefix("text.unit") {
             let sourceHasValue = (try? MessageFormat.argumentNames(source))?.contains("value") == true
             for (language, table) in db.textTables.tables where language != .ja {
-                guard let translated = table[id] else { continue }
+                guard let translated = table[id] else {
+                    if sourceHasValue {
+                        out.append(Issue(level: .error, rule: "text.unit", message: "\(language.rawValue) に \(id) が無い(日本語は value を差し込む)"))
+                    }
+                    continue
+                }
                 let translatedHasValue = (try? MessageFormat.argumentNames(translated))?.contains("value") == true
                 if sourceHasValue != translatedHasValue {
                     out.append(Issue(level: .error, rule: "text.unit", message: "\(language.rawValue) の \(id) の value の形が日本語と違う"))

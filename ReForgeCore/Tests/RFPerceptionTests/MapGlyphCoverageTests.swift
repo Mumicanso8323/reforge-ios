@@ -86,7 +86,7 @@ final class MapGlyphCoverageTests: XCTestCase {
         }
         for (id, g) in db.glyphs.sorted(by: { $0.key.rawValue < $1.key.rawValue }) { check(g, id.rawValue) }
         let fixed = [("noahGlyph", TilePalette.noahGlyph), ("memberGlyph", TilePalette.memberGlyph),
-                     ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "晶")]
+                     ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "◆")]
         for (name, g) in fixed { check(g, name) }
         XCTAssertEqual(missing, [], "同梱フォントに無い地図の字(コードポイント 見出し)")
     }
@@ -101,7 +101,8 @@ final class MapGlyphCoverageTests: XCTestCase {
         }
         for (id, g) in db.glyphs.sorted(by: { $0.key.rawValue < $1.key.rawValue }) { entries.append((id.rawValue, g)) }
         entries += [("noahGlyph", TilePalette.noahGlyph), ("memberGlyph", TilePalette.memberGlyph),
-                    ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "晶")]
+                    ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒")]
+        // fallbackDeposit(◆)は既定の字で、遺跡の置き換え先と同じ字になるのは承知(内容が字を持たないときだけ出る)ので対象外。
         var byMapped: [String: [(owner: String, original: String)]] = [:]
         for e in entries where !e.glyph.allSatisfy(\.isWhitespace) { byMapped[MapGlyphFont.safe(e.glyph), default: []].append((e.owner, e.glyph)) }
         var merged: [String] = []
@@ -129,7 +130,7 @@ final class MapGlyphCoverageTests: XCTestCase {
         }
         for (id, g) in db.glyphs { add(g, id.rawValue) }
         for (name, g) in [("noahGlyph", TilePalette.noahGlyph), ("memberGlyph", TilePalette.memberGlyph),
-                          ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "晶")] {
+                          ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "◆")] {
             add(g, name)
         }
         // 意図して同じ字を共有する物(同じ字で良いと決めた組)。理由: 人は名乗る前は全員同じ字・晶は鉱の種類をまとめる・
@@ -164,7 +165,7 @@ final class MapGlyphCoverageTests: XCTestCase {
         }
         for (id, g) in db.glyphs.sorted(by: { $0.key.rawValue < $1.key.rawValue }) { check(g, id.rawValue) }
         for (name, g) in [("noahGlyph", TilePalette.noahGlyph), ("memberGlyph", TilePalette.memberGlyph),
-                          ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "晶")] {
+                          ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "◆")] {
             check(g, name)
         }
         XCTAssertEqual(bad, [], "半角カナ・箱に見える字を使っている地図の字(コードポイント 見出し)")

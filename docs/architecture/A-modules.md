@@ -29,7 +29,7 @@ L6  RFPresent                画面向けの射影(Frame・区画・工程表)�
 | RFWorld | RFKernel・RFMap・RFMatter |
 | RFContent | RFKernel・RFMap・RFMatter(RFWorld は見ない: コンテンツは世界の形に依存しない) |
 | RFRules | L0〜L2 |
-| RFPerception | RFKernel・RFMatter・RFWorld・RFContent |
+| RFPerception | RFKernel・RFMatter・RFWorld・RFContent・RFText |
 | L4 のシステム | RFKernel・RFMap・RFMatter・RFWorld・RFContent・RFRules |
 | RFSave | RFKernel・RFWorld |
 | RFFailure | RFKernel・RFWorld・RFContent・RFRules・RFSave |
