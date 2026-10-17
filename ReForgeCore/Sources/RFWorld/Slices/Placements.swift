@@ -155,6 +155,8 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
     public var batch: Int = 1
     /// 火床(炉の熱。定義に hearth があるモジュールだけ。U22 が W-03 で使う)。持ち主: U21
     public var hearth: HearthState?
+    /// 火床で燃える燃料(炉だけ。運搬が受け取れる物。燃料は入口に積まれ、火床がそこから燃やす。山の上限は capacity)。
+    public var hearthFuels: [ItemID] = []
 
     public init(design: EntityID?, step: ProcessStep?) {
         self.design = design
@@ -164,7 +166,7 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case design, step, stepIndex, ports, deposit, input, output, progress, operatorID, today, yesterday, paid
         case finite, finiteRecord, waitingFor, producedRecord, lifetimeProduced
-        case takesMatter, auxPerUnit, freeItems, capacity, batch, hearth
+        case takesMatter, auxPerUnit, freeItems, capacity, batch, hearth, hearthFuels
     }
 
     public init(from decoder: Decoder) throws {
@@ -192,6 +194,7 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
         capacity = try c.decodeIfPresent(Int.self, forKey: .capacity) ?? 12
         batch = try c.decodeIfPresent(Int.self, forKey: .batch) ?? 1
         hearth = try c.decodeIfPresent(HearthState.self, forKey: .hearth)
+        hearthFuels = try c.decodeIfPresent([ItemID].self, forKey: .hearthFuels) ?? []
     }
 
     // MARK: 受け取り・渡し(生産と運搬が同じ規則で使う)
@@ -202,6 +205,7 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
         case .matter:
             return takesMatter ? max(0, capacity - mainInputCount) : 0
         case .item(let i):
+            if hearthFuels.contains(i) { return max(0, capacity - inputCount(i)) }
             guard let per = auxPerUnit[i], !freeItems.contains(i) else { return 0 }
             return max(0, per * batch * 2 - inputCount(i))
         }

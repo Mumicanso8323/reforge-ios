@@ -143,6 +143,9 @@ enum Placing {
         for ing in def.consumes ?? [] { if let i = ing.item { aux[i, default: 0] += ing.quantity } }
         if let fuel = def.power?.fuel { aux[fuel, default: 0] += 1 }  // 発電機の燃料(U16)
         m.auxPerUnit = aux
+        m.hearthFuels = (def.hearth?.furnace).map { f in
+            Set(f.burn.keys).union(f.preheatCost.keys).union(f.maxTempByFuel?.keys.map { $0 } ?? []).sorted()
+        } ?? []
         if let layer = w.map[at.layer], PlacementCheck.touchesWater(at.point, layer: layer, content: content) {
             m.freeItems = [.water]
         } else {

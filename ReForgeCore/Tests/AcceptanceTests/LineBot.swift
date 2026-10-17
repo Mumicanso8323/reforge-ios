@@ -45,12 +45,9 @@ struct LineBot {
     var design: EntityID?
     var anvilIDs: [EntityID] = []
     var autoHeat = false
-    /// Body gap (reported, not fixed): HaulRoute only moves items a module lists in auxPerUnit, so a coal route
-    /// minehead -> furnace never carries (room(for:) == 0).  Path B emulates the hauler's daily capacity here.
+    /// Path B coal: a real minehead -> furnace route; the furnace hearth's fuel is accepted by the receiving module.
     var coalMine: EntityID?
     var coalRoute: EntityID?
-    var coalBudget = 0
-    var coalDailyCapacity = 0
     var heatFuel = LineBotKit.charcoal
 
     /// These are the smallest systems that make the assigned work real: crew
@@ -270,20 +267,6 @@ struct LineBot {
         w = context.world
     }
 
-    mutating func emulateCoalHaul() {
-        guard coalBudget > 0, let mine = coalMine, let furnace = furnaceIDs.first, let route = coalRoute,
-              w.people.members.contains(where: { w.people[$0]?.assignment == .haul(route: route) }),
-              let out = w.placements.items[mine]?.module?.output.first(where: { $0.stuff == .item(LineBotKit.coal) }) else { return }
-        let n = min(coalBudget, out.quantity, 2)
-        guard n > 0 else { return }
-        var context = StepContext(world: w, content: sim.content)
-        let taken = ModuleRuntime.take(n, from: &context.world.placements.items[mine]!.module!.output,
-                                       where: { $0.stuff == .item(LineBotKit.coal) })
-        for entry in taken { ModuleRuntime.put(entry, into: &context.world.placements.items[furnace]!.module!.input) }
-        w = context.world
-        coalBudget -= taken.reduce(0) { $0 + $1.quantity }
-    }
-
     /// Noah's morning errand in path B: bring preheat charcoal from the kiln stock into the furnace.
     mutating func fetchKilnCharcoal(_ quantity: Int) {
         guard let furnace = furnaceIDs.first else { return }
@@ -374,7 +357,6 @@ struct LineBot {
         var seconds = 0
         while isDay {
             tick(); seconds += 1
-            if seconds % 10 == 0 { emulateCoalHaul() }
             if autoHeat, seconds % 20 == 0, let furnace = furnaceIDs.first,
                let item = w.placements.items[furnace], !FurnaceHeat.isHot(item, sim.content) {
                 // Path B: preheat needs 2 charcoal from the kiln, and only pays off once coal is in the inlet.
@@ -505,9 +487,6 @@ struct LineBot {
                 coalRoute = bot.w.logistics.routes.values.first { $0.from == .placement(mine) && $0.to == .placement(furnace) }?.id
                 bot.coalMine = mine
                 bot.coalRoute = coalRoute
-                if let r = coalRoute, let distance = bot.w.logistics.routes[r]?.distance {
-                    bot.coalDailyCapacity = (HaulRules.perDay(crewMilli: 1000, distance: distance, bot.sim.content.hauling))
-                }
             }
             for kiln in bot.kilnIDs {
                 if let furnace = bot.furnaceIDs.first {
@@ -538,7 +517,6 @@ struct LineBot {
             bot.assignKilns(kilnWorkers)
             bot.assignHaulers([(ironRoute, 1), (fuelRoute, fuelHaulers)])
             bot.autoHeat = true
-            bot.coalBudget = path == .B && bot.day >= 5 ? bot.coalDailyCapacity : 0
             bot.heatFuel = path == .B && bot.day >= 5 ? LineBotKit.coal : LineBotKit.charcoal
             if let furnace = bot.furnaceIDs.first {
                 let fuel = path == .B && bot.day >= 5 ? LineBotKit.coal : LineBotKit.charcoal
