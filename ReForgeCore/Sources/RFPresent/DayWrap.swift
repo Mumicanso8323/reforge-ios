@@ -97,19 +97,15 @@ public enum DayWrapRules {
 }
 
 extension FrameBuilder {
-    // MARK: - 固定の文言(内容の文字列表に同じ ID があればそちらを使う)
-
-    private func label(_ id: TextID, _ fallback: String, _ args: [String: String] = [:]) -> String {
-        var s = content.texts[id] ?? fallback
-        for (k, v) in args.sorted(by: { $0.key < $1.key }) { s = s.replacingOccurrences(of: "{\(k)}", with: v) }
-        return s
+    private func label(_ p: Perceiver, _ id: TextID, _ args: [String: TextArg] = [:]) -> String {
+        p.render(TextRef(id, args))
     }
 
     // MARK: - 夜の締め
 
     /// 夜の締めの 3 行。日没でなくても作れる(出すかどうかは build が決める)。
     public func dayWrap(_ w: WorldState) -> DayWrapView {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let today = todaysRecords(w)
         return DayWrapView(made: made(today, p), running: runningLine(w, today, p), outlook: outlook(w, p))
     }
@@ -166,10 +162,10 @@ extension FrameBuilder {
             return w.ledger.first(.produced, r.subject) == r.id
         }
         var parts: [String] = []
-        if let f = first { parts.append(label("ui.daywrap.first", "初めて動いた: {name}", ["name": p.name(of: f.subject)])) }
-        if lines > 0 { parts.append(label("ui.daywrap.lines", "動いているライン {n}", ["n": "\(lines)"])) }
-        if crew > 0 { parts.append(label("ui.daywrap.crew", "仕事に就いた仲間 {n}", ["n": "\(crew)"])) }
-        return parts.isEmpty ? nil : parts.joined(separator: "。")
+        if let f = first { parts.append(label(p, "ui.daywrap.first", ["name": .subject(Perceiver.subject(of: f.subject))])) }
+        if lines > 0 { parts.append(label(p, "ui.daywrap.lines", ["n": .int(Int64(lines))])) }
+        if crew > 0 { parts.append(label(p, "ui.daywrap.crew", ["n": .int(Int64(crew))])) }
+        return parts.isEmpty ? nil : parts.joined(separator: label(p, "ui.daywrap.sep"))
     }
 
     // MARK: 3 行目: 明日の見込み
@@ -185,11 +181,11 @@ extension FrameBuilder {
             func days(_ id: StatID) -> Int? { w.survival.stats[id].map { Int($0.raw) } }
             if let d = days(def.waterDaysStat), d < DayWrapRules.stockHorizon {
                 out.append(.init(kind: .water, milliDays: d,
-                                 text: label("ui.daywrap.water", "水はあと {n} 日分", ["n": "\(Self.wholeDays(d))"])))
+                                 text: label(p, "ui.daywrap.water", ["n": .int(Int64(Self.wholeDays(d)))])))
             }
             if let d = days(def.foodDaysStat), d < DayWrapRules.stockHorizon {
                 out.append(.init(kind: .food, milliDays: d,
-                                 text: label("ui.daywrap.food", "食料はあと {n} 日分", ["n": "\(Self.wholeDays(d))"])))
+                                 text: label(p, "ui.daywrap.food", ["n": .int(Int64(Self.wholeDays(d)))])))
             }
         }
         // 火(PT-B1 の火の見込みと同じ 4 段。焚き火が無ければ見ない)
@@ -197,13 +193,13 @@ extension FrameBuilder {
             let lit = Hearths.campfireLevel(w, content) != .out
             if let d = DayWrapRules.fireMilliDays(outlook, lit: lit) {
                 let text: String = if !lit {
-                    label("ui.daywrap.fire_out", "火が消えている")
+                    label(p, "ui.daywrap.fire_out")
                 } else {
                     switch outlook {
-                    case .untilEvening: label("ui.daywrap.fire_until_evening", "火がもうすぐ消える")
-                    case .midnight: label("ui.daywrap.fire_midnight", "火は夜半に消える")
-                    case .beforeDawn: label("ui.daywrap.fire_before_dawn", "火は夜明けの前に消える")
-                    case .throughNight: label("ui.daywrap.fire_through_night", "火は夜明けまでもつ")
+                    case .untilEvening: label(p, "ui.daywrap.fire_until_evening")
+                    case .midnight: label(p, "ui.daywrap.fire_midnight")
+                    case .beforeDawn: label(p, "ui.daywrap.fire_before_dawn")
+                    case .throughNight: label(p, "ui.daywrap.fire_through_night")
                     }
                 }
                 out.append(.init(kind: .fire, milliDays: d, text: text))
@@ -214,10 +210,11 @@ extension FrameBuilder {
             guard let pl = w.placements.items[id], case .stopped(let reason) = pl.status else { continue }
             // 印で見せる止まり方は、理由の文を出さない(場面の印と同じ決め)
             let text: String = if StopKind.of(reason: reason) != nil {
-                label("ui.daywrap.line_marked", "{name}が止まっている", ["name": p.name(of: pl.kind)])
+                label(p, "ui.daywrap.line_marked", ["name": .subject(Perceiver.subject(of: pl.kind))])
             } else {
-                label("ui.daywrap.line", "{name}が止まっている: {reason}",
-                      ["name": p.name(of: pl.kind), "reason": p.stoppedText(reason, waitingFor: pl.module?.waitingFor)])
+                label(p, "ui.daywrap.line",
+                      ["name": .subject(Perceiver.subject(of: pl.kind)),
+                       "reason": .string(p.stoppedText(reason, waitingFor: pl.module?.waitingFor))])
             }
             out.append(.init(kind: .line, milliDays: DayWrapRules.stoppedLineMilliDays, text: text))
             break
@@ -234,7 +231,7 @@ extension FrameBuilder {
 
     /// 前回のノアの最後の目立つ行為と、今の目標。実時刻は持たない。
     public func resumeLine(_ w: WorldState) -> ResumeLine {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let last = w.ledger.records.last { $0.actor == .noah && Self.resumeActs.contains($0.act) }
             .flatMap { r in p.journalLine(r) ?? p.name(of: r.subject) }
         let next = unlocks(w).isOpen(UIElements.bandObjective) ? objective(w, p) : nil

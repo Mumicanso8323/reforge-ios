@@ -1,0 +1,25 @@
+{
+  "language": "ja",
+  "texts": {
+    "ui.daywrap.first": "初めて動いた: {name}",
+    "ui.daywrap.lines": "動いているライン {n}",
+    "ui.daywrap.crew": "仕事に就いた仲間 {n}",
+    "ui.daywrap.sep": "。",
+    "ui.daywrap.water": "水はあと {n} 日分",
+    "ui.daywrap.food": "食料はあと {n} 日分",
+    "ui.daywrap.fire_out": "火が消えている",
+    "ui.daywrap.fire_until_evening": "火がもうすぐ消える",
+    "ui.daywrap.fire_midnight": "火は夜半に消える",
+    "ui.daywrap.fire_before_dawn": "火は夜明けの前に消える",
+    "ui.daywrap.fire_through_night": "火は夜明けまでもつ",
+    "ui.daywrap.line_marked": "{name}が止まっている",
+    "ui.daywrap.line": "{name}が止まっている: {reason}",
+    "ui.roster.include": "含める",
+    "ui.roster.exclude": "含めない",
+    "ui.roster.confirm": "確定する",
+    "ui.roster.confirm_hint": "長押しで確定",
+    "ui.grant.title": "技能を付ける",
+    "ui.grant.skip": "付けない",
+    "ui.grant.refused": "本人が断った"
+  }
+}

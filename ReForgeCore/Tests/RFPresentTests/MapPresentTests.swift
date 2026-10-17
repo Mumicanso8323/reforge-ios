@@ -350,7 +350,7 @@ final class MapPresentTests: XCTestCase {
         XCTAssertEqual(b.inspect(w, at: GridPoint(0, 0)), TileInspection(point: GridPoint(0, 0), title: "？", lines: []),
                        "未踏は「？」だけ")
         XCTAssertNil(b.inspect(w, at: GridPoint(99, 99)))
-        XCTAssertEqual(b.tile(w, at: vein).glyph, "晶", "鉱脈の既定の文字")
+        XCTAssertEqual(b.tile(w, at: vein).glyph, "♦", "鉱脈の既定の文字")
     }
 
     func testFootCardListsApplicableActions() throws {

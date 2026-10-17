@@ -209,7 +209,7 @@ public struct BaseView: Equatable, Sendable {
 
 extension FrameBuilder {
     public func base(_ w: WorldState) -> BaseView {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         var stock: [String: Int] = [:]
         var order: [String] = []
         for e in w.inventory.entries(.base) {
@@ -337,7 +337,7 @@ public struct CrewView: Equatable, Sendable {
 extension FrameBuilder {
     /// 仲間の表(拠点の一員。ノアが先頭)と、割り当ての選択肢。
     public func crew(_ w: WorldState) -> CrewView {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let researchDesks = Set(w.placements.sortedIDs.filter { id in
             guard case .structure(let k)? = w.placements.items[id]?.kind else { return false }
             return (content.structures[k]?.provides["research"] ?? 0) > 0
@@ -480,7 +480,7 @@ public struct ResearchView: Equatable, Sendable {
 
 extension FrameBuilder {
     public func research(_ w: WorldState) -> ResearchView {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let entries = ResearchQueries.list(w, content).map {
             ResearchView.Entry(id: $0.id, name: p.name(Subject.research($0.id)), status: $0.status, points: $0.points,
                                totalPoints: $0.totalPoints)
@@ -526,6 +526,6 @@ extension FrameBuilder {
         let r = BaseQueries.siteRejection(kind, at: WorldPoint(layer, pt), facing: PlacementPreview.facing, world: w,
                                           content: content)
         return PlacementPreview(kind: kind, at: pt, cells: fp.map { pt + $0 }, placeable: r == nil,
-                                reason: r.map { Perceiver(content: content, world: w).rejectionText($0.reason, detail: $0.detail) })
+                                reason: r.map { perceiver(w).rejectionText($0.reason, detail: $0.detail) })
     }
 }
