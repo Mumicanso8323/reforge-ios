@@ -5,6 +5,8 @@ public enum LanguageID: String, Codable, CaseIterable, Sendable {
     case pseudo = "x-pseudo"
 
     public static let shipped: [LanguageID] = [.ja, .en, .zhHans, .zhHant, .ko]
+    /// 出す言語。別の決定があるまで日本語だけ。ここを増やすのは本人の決め(訳の手配・検収を含む)。
+    public static let released: [LanguageID] = [.ja]
     public static let source: LanguageID = .ja
 }
 

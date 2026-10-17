@@ -1,4 +1,5 @@
 import Foundation
+import RFKernel
 #if canImport(CryptoKit)
 import CryptoKit
 #else
@@ -21,6 +22,27 @@ public enum ContentSeal {
     public static let version = 1
     public static let keyBytes = 32
 
+    /// 言語ごとの文字列表の束の名前。
+    public static func textFileName(_ lang: LanguageID) -> String {
+        "text-\(lang.rawValue).sealed"
+    }
+
+    /// 出力先に残った古い言語の束を消す。封を作り直す前に `rf-seal` が使う。
+    public static func removeTextBundles(in directory: URL) {
+        guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else { return }
+        for name in names where name.hasPrefix("text-") && name.hasSuffix(".sealed") {
+            try? FileManager.default.removeItem(at: directory.appendingPathComponent(name))
+        }
+    }
+
+    /// 層の相対パスが言語の文字列表なら、その言語。知らない印と擬似言語は本文の束にしない。
+    public static func textLanguage(ofPath rel: String) -> LanguageID? {
+        let parts = rel.split(separator: "/", omittingEmptySubsequences: false)
+        guard parts.count >= 3, parts[0] == "text", let language = LanguageID(rawValue: String(parts[1])),
+              language != .pseudo else { return nil }
+        return language
+    }
+
     struct Payload: Codable {
         var version: Int
         var files: [String: String]
@@ -34,6 +56,20 @@ public enum ContentSeal {
             out[rel] = try Data(contentsOf: root.appendingPathComponent(rel))
         }
         return out
+    }
+
+    /// 読み込みと同じファイルを、言語に依らない分と言語ごとの文字列表に分ける。
+    public static func collectSplit(layer: URL) throws -> (base: [String: Data], text: [LanguageID: [String: Data]]) {
+        var base: [String: Data] = [:]
+        var text: [LanguageID: [String: Data]] = [:]
+        for (path, data) in try collect(layer: layer) {
+            if let language = textLanguage(ofPath: path) {
+                text[language, default: [:]][path] = data
+            } else {
+                base[path] = data
+            }
+        }
+        return (base, text)
     }
 
     /// 封をする。nonce は毎回乱数。
