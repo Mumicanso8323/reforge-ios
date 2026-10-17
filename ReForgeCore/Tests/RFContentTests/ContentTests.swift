@@ -126,7 +126,7 @@ final class ContentTests: XCTestCase {
         """#.utf8).write(to: priv.appendingPathComponent("a.json"))
         let db = try ContentLoader.load(layers: [TestContent.publicLayer, priv])
         XCTAssertEqual(db.layers.map(\.id), ["public", "private"])
-        XCTAssertEqual(db.texts["text.name.test_a"], "置き換えた名前")
+        XCTAssertEqual(db.texts["text.name.test_a"], "置き換えた名前") // ja-table
         XCTAssertNil(db.events["event.test.decision"])
         XCTAssertNotNil(db.events["event.test.chain"])
     }
@@ -206,7 +206,7 @@ final class ContentTests: XCTestCase {
         try FileManager.default.createSymbolicLink(at: link, withDestinationURL: real)
         let db = try ContentLoader.load(layers: [TestContent.publicLayer, link])
         XCTAssertEqual(db.layers.map(\.id), ["public", "private"])
-        XCTAssertEqual(db.texts["text.p"], "非公開")
+        XCTAssertEqual(db.texts["text.p"], "非公開") // ja-table
     }
 
     /// 環境変数が指す非公開の層が無いのはエラー(指定の誤記で黙って公開だけにしない)。指定が無ければ公開だけで動く。
@@ -223,9 +223,9 @@ final class ContentTests: XCTestCase {
     func testLoadBundled() throws {
         let dir = try makeTempDir()
         try write(#"{"texts": {"text.a": "公開"}}"#, "public/a.json", in: dir)
-        XCTAssertEqual(try ContentLoader.loadBundled(root: dir).texts["text.a"], "公開")
+        XCTAssertEqual(try ContentLoader.loadBundled(root: dir).texts["text.a"], "公開") // ja-table
         try write(#"{"texts": {"text.a": "非公開"}}"#, "private/a.json", in: dir)
-        XCTAssertEqual(try ContentLoader.loadBundled(root: dir).texts["text.a"], "非公開")
+        XCTAssertEqual(try ContentLoader.loadBundled(root: dir).texts["text.a"], "非公開") // ja-table
     }
 
     // MARK: 封をした非公開の層(E §4.5)
@@ -253,7 +253,7 @@ final class ContentTests: XCTestCase {
         let sealed = try ContentSeal.seal(files, key: key)
         XCTAssertEqual(sealed.prefix(4), Data("RFS1".utf8))
         XCTAssertNil(sealed.range(of: Data("zqcanary0123456789".utf8)), "見張りの文字列が平文で見えない")
-        XCTAssertNil(sealed.range(of: Data("封の中の名前".utf8)))
+        XCTAssertNil(sealed.range(of: Data("封の中の名前".utf8))) // ja-table
         XCTAssertEqual(try ContentSeal.open(sealed, key: key), files)
         XCTAssertNotEqual(try ContentSeal.seal(files, key: key), sealed, "nonce は毎回変わる")
     }
@@ -322,7 +322,7 @@ final class ContentTests: XCTestCase {
         let bundled = try ContentLoader.loadBundled(root: root, key: key)
         XCTAssertEqual(bundled, direct)
         XCTAssertEqual(bundled, fromDir)
-        XCTAssertEqual(bundled.texts["text.name.test_a"], "封の中の名前")
+        XCTAssertEqual(bundled.texts["text.name.test_a"], "封の中の名前") // ja-table
         XCTAssertEqual(bundled.layers.last?.canary, "zqcanary0123456789")
         XCTAssertEqual(try ContentLoader.loadBundled(root: root, key: nil), try TestContent.publicOnly())
         XCTAssertThrowsError(try ContentLoader.loadBundled(root: root, key: ContentSeal.newKey())) { e in

@@ -101,7 +101,7 @@ final class DepthHintPresentTests: XCTestCase {
         w.exploration.poi[EntityID(900), default: POIProgress()].repair["part.test.a"] = 1
         XCTAssertEqual(RepairStage.of(poiKind: Self.kind, part: "part.test.a", in: w), 1)
         let p1 = try XCTUnwrap(b.document("doc.test.staged", in: w))
-        XCTAssertEqual(p1.body, "読める■")
+        XCTAssertEqual(p1.body, "読める■") // ja-table
         XCTAssertEqual(p1.readablePermille, 350)
         // 条件からも引ける
         XCTAssertEqual(ConditionEvaluator.evaluatePure(
@@ -118,7 +118,7 @@ final class DepthHintPresentTests: XCTestCase {
         c.documents["doc.test.plain"] = DocumentDef(id: "doc.test.plain", title: "text.test.doc.title",
                                                     body: "text.test.doc.body0", when: .always)
         let p = try XCTUnwrap(FrameBuilder(content: c).document("doc.test.plain", in: world(c)))
-        XCTAssertEqual(p.body, "本文")
+        XCTAssertEqual(p.body, "本文") // ja-table
         XCTAssertNil(p.readablePermille)
     }
 }

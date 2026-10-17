@@ -21,7 +21,7 @@ final class RenderTests: XCTestCase {
             "person": .person(.noah),
             "number": .fixed(125, places: 2),
         ]))
-        XCTAssertEqual(rendered, "inner:inner:薪:ノア:1.25")
+        XCTAssertEqual(rendered, "inner:inner:薪:ノア:1.25") // ja-table
         XCTAssertEqual(p.render(TextRef("test.missing")), p.text(Perceiver.unknownText))
     }
 
@@ -32,7 +32,7 @@ final class RenderTests: XCTestCase {
         let auditor = PerceptionAuditor()
         let p = Perceiver(content: content, known: [], language: .pseudo, auditor: auditor)
         let text = p.render(TextRef("test.outer", ["inner": .ref(TextRef("test.inner"))]))
-        XCTAssertEqual(text, "⟦abcd・・・⟧")
+        XCTAssertEqual(text, "⟦abcd・・・⟧") // ja-table
         XCTAssertEqual(auditor.inspectedCount, 1)
     }
 

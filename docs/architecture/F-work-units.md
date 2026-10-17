@@ -57,6 +57,8 @@ R1 の段との対応(どの途中の版でも「マップの上で何かが動�
 - A §3 の約束(持ちディレクトリの外を触らない・他の切れ端はコマンドか出来事で・共通操作は StepContext・自分の乱数の流れ・文章を作らない・定義の項目は省略可能)。
 - 自分のテストターゲットで受け入れテストを先に書く。複数システムにまたがるボット走行は `Tests/AcceptanceTests` に置く(統合担当に知らせる)。
 - テストのコンテンツは `content/public`(ネタバレの無い試験用)に足す。本物のコンテンツが要るテストは `XCTSkipUnless(TestContent.hasPrivateLayer)`。
+- 決まりの試験は、表示の日本語ではなく `TextRef` または ID を比べる。文の期待値は `TestText.render` で表から組み、表そのものを確かめる試験だけ日本語を比べる。
+- 日本語の表を比べる期待値は言語を `.ja` に固定し、行か直前の行に `// ja-table` を付ける。試験用の内容として残すときは `// ja-ok: 理由` を付ける。
 - 他の担当のブランチを取り込んだ後(enum の case が増えた後など)に、増分ビルドのテストが signal 11 で落ちることがある。`swift package clean --package-path ReForgeCore` してから回し直す(clean build で通れば、コードの問題ではない)。
 - テストの置き場(リーダー。2026-10-02 オーナー許可): swift test は **note** で回すのが第一。`~/.local/bin/rf-note-test [-p 非公開の層] [-e KEY=VAL]... <リポジトリ> [swift test の引数]`(例 `rf-note-test -p content/private . --filter HearthTests`)。作業場を rsync で note に送り、swift:6.1-noble を `--cpus=6 -j 6` で回す。note は全員で同時 4 本まで(空きを待つ)。重いビルドとテストは全部 note で。docker に `--gpus` は付けない(note の GPU は画像生成が使う)。終了コードは swift test のもの。`.build` は作業場ごとに note に残る。**土台を替えた(統合を取り込んだ・別の枝に移った)ときは `rf-note-test -c …` で note の `.build` を消してから回す**(古い `.build` のままだと `ContentDB.init` などで signal 11 が出る)。1 人 1 本の決まりは無い(統合担当は公開と非公開の層を並べて回してよい)。
 - 非公開の層の書き出し(統合担当が置く。読むだけ。中身を公開に出さない): `/home/ashwell/src/reforge-ios/.claude/private-layers/<名前>`。`main`(reforge-content の main = 古い形)と、U14 の枝ごと(`u21-hearth`・`u20-opening`・`prologue` = 新しい形)。`rf-note-test -p /home/ashwell/src/reforge-ios/.claude/private-layers/main . --filter …` のように使う。枝が進んだら統合担当が置き直す。

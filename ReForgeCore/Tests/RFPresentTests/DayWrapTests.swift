@@ -151,8 +151,8 @@ final class DayWrapTests: XCTestCase {
         let b = FrameBuilder(content: rig.content)
         let p = Perceiver(content: rig.content, world: w)
         let line = try XCTUnwrap(b.dayWrap(w).running)
-        XCTAssertTrue(line.hasPrefix("初めて動いた: " + p.name(of: SubjectRef.module("furnace", nil))), line)
-        XCTAssertTrue(line.contains("動いているライン 1"), line)
+        XCTAssertTrue(line.hasPrefix("初めて動いた: " + p.name(of: SubjectRef.module("furnace", nil))), line) // ja-table
+        XCTAssertTrue(line.contains("動いているライン 1"), line) // ja-table
     }
 
     /// 前の日に動いていた物は「初めて」ではない。何も動いていなければ 2 行目は無い。
@@ -215,7 +215,7 @@ final class DayWrapTests: XCTestCase {
             let band = try XCTUnwrap(b.build(w, revision: 1, previous: nil, report: nil).status
                 .first { $0.key == "stat.water_days" }).value
             let wrap = try XCTUnwrap(b.dayWrap(w).outlook)
-            XCTAssertEqual(wrap, "水はあと \(band) 日分", "raw=\(raw): 帯 \(band) と締めが食い違う")
+            XCTAssertEqual(wrap, "水はあと \(band) 日分", "raw=\(raw): 帯 \(band) と締めが食い違う") // ja-table
             XCTAssertEqual(band == "0", raw == 0, "raw=\(raw): 0 日分は尽きた時だけ")
         }
     }
@@ -236,20 +236,20 @@ final class DayWrapTests: XCTestCase {
         w.placements.items[fire] = camp
         XCTAssertNil(b.dayWrap(w).outlook, "夜明けまでもつ火は急がない")
         w.placements.items[fire]?.structure?.hearth = HearthState(fuel: 3_600_000, lit: true)
-        XCTAssertEqual(b.dayWrap(w).outlook, "火がもうすぐ消える", "火の見込み(PT-B1)の段で言う")
+        XCTAssertEqual(b.dayWrap(w).outlook, "火がもうすぐ消える", "火の見込み(PT-B1)の段で言う") // ja-table
         w.placements.items[fire]?.structure?.hearth = HearthState()
-        XCTAssertEqual(b.dayWrap(w).outlook, "火が消えている")
+        XCTAssertEqual(b.dayWrap(w).outlook, "火が消えている") // ja-table
 
         let line = w.newEntityID()
         var m = Placement(id: line, kind: .module("furnace"), at: w.map.spawn, facing: .north,
                           origin: ProvenanceLedger.unknownOrigin, status: .stopped(reason: "reason.time.still_day"))
         m.module = ModuleRuntime(design: nil, step: nil)
         w.placements.items[line] = m
-        XCTAssertEqual(b.dayWrap(w).outlook, "火が消えている", "火の方が急ぐ")
+        XCTAssertEqual(b.dayWrap(w).outlook, "火が消えている", "火の方が急ぐ") // ja-table
         w.placements.items[fire]?.structure?.hearth = HearthState(fuel: 400_000_000, lit: true)  // 夜明けまでもつ
         let text = try XCTUnwrap(b.dayWrap(w).outlook)
         let p = Perceiver(content: rig.content, world: w)
-        XCTAssertEqual(text, "\(p.name(of: PlaceableKind.module("furnace")))が止まっている: \(p.text("reason.time.still_day"))")
+        XCTAssertEqual(text, "\(p.name(of: PlaceableKind.module("furnace")))が止まっている: \(p.text("reason.time.still_day"))") // ja-table
     }
 
     /// 鉱滓で止まった炉は、夜の締めにも画面の文字列にも理由の文を出さない(印で見せる)。
@@ -264,7 +264,7 @@ final class DayWrapTests: XCTestCase {
         let b = FrameBuilder(content: rig.content)
         let p = Perceiver(content: rig.content, world: w)
         let wrap = b.dayWrap(w)
-        XCTAssertEqual(wrap.outlook, "\(p.name(of: PlaceableKind.module("furnace")))が止まっている")
+        XCTAssertEqual(wrap.outlook, "\(p.name(of: PlaceableKind.module("furnace")))が止まっている") // ja-table
         let reasonText = p.stoppedText("reason.module.waste_full", waitingFor: nil)
         let strings = FrameText.allStrings(b.build(w, revision: 0, previous: nil, report: nil))
         for s in strings {

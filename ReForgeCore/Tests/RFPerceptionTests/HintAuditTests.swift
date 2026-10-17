@@ -28,7 +28,7 @@ final class HintAuditTests: XCTestCase {
         XCTAssertEqual(p.count, 1)
         guard case .forbidden(let v)? = p.first?.kind else { return XCTFail("\(p)") }
         XCTAssertEqual(v.rule, "rule.test.a")
-        XCTAssertFalse(p[0].description.contains("禁句A"), "語は伏せる")
+        XCTAssertFalse(p[0].description.contains("禁句A"), "語は伏せる") // ja-table
     }
 
     func testDetectsInvisibleMissingAndEmpty() throws {

@@ -34,7 +34,7 @@ final class TextTablesTests: XCTestCase {
     func testPseudoLanguageExtendsJapanesePatternWithoutBreakingIt() throws {
         var tables = TextTables()
         tables.tables[.ja] = ["short": "abcde", "plural": "{n, plural, other {# items}}"]
-        XCTAssertEqual(tables.lookup("short", .pseudo), .found("⟦abcde・・⟧"))
+        XCTAssertEqual(tables.lookup("short", .pseudo), .found("⟦abcde・・⟧")) // ja-table
         guard case .found(let pattern) = tables.lookup("plural", .pseudo) else { return XCTFail("missing pseudo pattern") }
         let rendered = try MessageFormat.render(pattern, args: ["n": .number(2, places: 0)], language: .pseudo)
         XCTAssertTrue(rendered.hasPrefix("⟦2 items"))

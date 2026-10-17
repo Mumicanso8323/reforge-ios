@@ -170,7 +170,7 @@ final class SpentTilesTests: XCTestCase {
     func testSpentTileNamesFollowTheSpentVariant() throws {
         var (w, cell, other) = forestWorld()
         let plain = builder.footCard(w, at: cell)?.title
-        XCTAssertEqual(plain, "森")
+        XCTAssertEqual(plain, "森") // ja-table
         pickAt(&w, cell)
         let spentTitle = try XCTUnwrap(builder.footCard(w, at: cell)?.title)
         XCTAssertNotEqual(spentTitle, plain)
@@ -189,8 +189,8 @@ final class SpentTilesTests: XCTestCase {
         let b = FrameBuilder(content: content)
         var (w, cell, _) = forestWorld()
         pickAt(&w, cell)
-        XCTAssertEqual(b.footCard(w, at: cell)?.title, "森")
-        XCTAssertEqual(b.inspect(w, at: cell)?.title, "森")
+        XCTAssertEqual(b.footCard(w, at: cell)?.title, "森") // ja-table
+        XCTAssertEqual(b.inspect(w, at: cell)?.title, "森") // ja-table
         XCTAssertEqual(b.tile(w, at: cell).glyph, TilePalette.spentGlyph, "見た目の字は名前と別")
     }
 

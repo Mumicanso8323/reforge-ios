@@ -41,33 +41,33 @@ final class NameAndRecipeTests: XCTestCase {
             }
         }
         let n = NameGenerator.name(for: .iron(5000, .plate))
-        XCTAssertEqual(n.rendered(by: OldWords()), "くろがねの板")
-        XCTAssertEqual(n.text, "鉄板")
+        XCTAssertEqual(n.rendered(by: OldWords()), "くろがねの板") // ja-table
+        XCTAssertEqual(n.text, "鉄板") // ja-table
     }
 
     func testShapeSuffixAndTemper() {
-        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .plate)).text, "鉄板")
-        XCTAssertEqual(NameGenerator.name(for: .iron(3000, .plate)).text, "粗鉄板")
-        XCTAssertEqual(NameGenerator.name(for: .iron(9000, .plate)).text, "精鉄板")
-        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .plate, temper: .hard)).text, "剛鉄板")
-        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .plate, temper: .soft)).text, "柔鉄板")
-        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .plate, temper: .cracked)).text, "割れた鉄板")
-        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .dust)).text, "鉄粉")
+        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .plate)).text, "鉄板") // ja-table
+        XCTAssertEqual(NameGenerator.name(for: .iron(3000, .plate)).text, "粗鉄板") // ja-table
+        XCTAssertEqual(NameGenerator.name(for: .iron(9000, .plate)).text, "精鉄板") // ja-table
+        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .plate, temper: .hard)).text, "剛鉄板") // ja-table
+        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .plate, temper: .soft)).text, "柔鉄板") // ja-table
+        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .plate, temper: .cracked)).text, "割れた鉄板") // ja-table
+        XCTAssertEqual(NameGenerator.name(for: .iron(5000, .dust)).text, "鉄粉") // ja-table
     }
 
     /// 原作 Layer 0・1 の固有名と慣用名。
     func testProperAndConventionalNames() {
-        XCTAssertEqual(NameGenerator.name(for: .iron(9990, .plate)).text, "純鉄板")
+        XCTAssertEqual(NameGenerator.name(for: .iron(9990, .plate)).text, "純鉄板") // ja-table
         XCTAssertEqual(NameGenerator.name(for: .iron(9990, .plate)).parts, [.proper(.pureIron), .shape(.plate)])
-        XCTAssertEqual(NameGenerator.name(for: .iron(6000, .rod)).text, "鉄棒")
+        XCTAssertEqual(NameGenerator.name(for: .iron(6000, .rod)).text, "鉄棒") // ja-table
         let steel = Matter(
             substance: .iron, purity: Purity(percent: 97), stage: .metal, shape: .plate,
             components: [Component(.carbon, Purity(basisPoints: 205))])
-        XCTAssertEqual(NameGenerator.name(for: steel).text, "鋼板")
-        XCTAssertEqual(NameGenerator.name(for: .ironOre(purity: Purity(percent: 30))).text, "赤鉄鉱塊")
-        XCTAssertEqual(NameGenerator.name(substance: .silica, purity: Purity(percent: 60), shape: .dust).text, "珪砂")
-        XCTAssertEqual(NameGenerator.name(substance: "Cu", purity: Purity(percent: 90), shape: .plate).text, "粗銅板")
-        XCTAssertEqual(NameGenerator.name(substance: "Cu", purity: Purity(basisPoints: 9992), shape: nil).text, "電気銅")
+        XCTAssertEqual(NameGenerator.name(for: steel).text, "鋼板") // ja-table
+        XCTAssertEqual(NameGenerator.name(for: .ironOre(purity: Purity(percent: 30))).text, "赤鉄鉱塊") // ja-table
+        XCTAssertEqual(NameGenerator.name(substance: .silica, purity: Purity(percent: 60), shape: .dust).text, "珪砂") // ja-table
+        XCTAssertEqual(NameGenerator.name(substance: "Cu", purity: Purity(percent: 90), shape: .plate).text, "粗銅板") // ja-table
+        XCTAssertEqual(NameGenerator.name(substance: "Cu", purity: Purity(basisPoints: 9992), shape: nil).text, "電気銅") // ja-table
     }
 
     func testCategoryPrefixes() {

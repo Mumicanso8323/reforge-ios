@@ -361,8 +361,8 @@ final class MapPresentTests: XCTestCase {
                                                   composition: [DepositComponent(.fe2o3, Purity(percent: 31))],
                                                   extractions: 7))
         let i = try XCTUnwrap(b.inspect(w, at: vein))
-        XCTAssertEqual(i.title, "草地")
-        XCTAssertEqual(i.lines, [.name("試験の岩脈"), .remaining(7)], "見つけるまでは手ざわりが無い")
+        XCTAssertEqual(i.title, "草地") // ja-table
+        XCTAssertEqual(i.lines, [.name("試験の岩脈"), .remaining(7)], "見つけるまでは手ざわりが無い") // ja-table
         w.map[.surface]!.deposits.update(DepositID("test.vein")) { $0.isDiscovered = true }
         XCTAssertEqual(b.inspect(w, at: vein)?.lines.last, .purityTenths(3), "三割くらい")
         XCTAssertEqual(b.inspect(w, at: GridPoint(0, 0)), TileInspection(point: GridPoint(0, 0), title: "？", lines: []),
@@ -381,8 +381,8 @@ final class MapPresentTests: XCTestCase {
                                                   extractions: 7))
         w.people[.noah]?.position = WorldPoint(.surface, GridPoint(vein.x - 1, vein.y))
         let card = try XCTUnwrap(b.footCard(w, at: vein))
-        XCTAssertEqual(card.title, "試験の岩脈")
-        XCTAssertEqual(card.actions.map(\.label), ["掘る", "拾う"], "昼だけ・条件の成り立たない行為は出さない")
+        XCTAssertEqual(card.title, "試験の岩脈") // ja-table
+        XCTAssertEqual(card.actions.map(\.label), ["掘る", "拾う"], "昼だけ・条件の成り立たない行為は出さない") // ja-table
         XCTAssertTrue(card.actions[0].hold)
         XCTAssertEqual(card.actions[0].start, .exploration(.interact(interaction: "interaction.test.present.dig",
                                                                      at: WorldPoint(.surface, vein), holding: true)))
@@ -560,7 +560,7 @@ final class MapPresentTests: XCTestCase {
     func testBandShowsObjectiveAndTimeChoicesWithoutSheets() {
         var w = world()
         let f = builder.build(w, revision: 1, previous: nil, report: nil)
-        XCTAssertEqual(f.objective, "試験の目標")
+        XCTAssertEqual(f.objective, "試験の目標") // ja-table
         XCTAssertEqual(f.clock.bandActions, [])
         XCTAssertGreaterThan(f.clock.dayRemainingPermille, 990)
         w.clock.phase = .dusk
@@ -596,6 +596,6 @@ final class MapPresentTests: XCTestCase {
     func testPerformReturnsReadableRejection() async throws {
         let host = GameHost(simulation: rig.simulation, world: world())
         let (_, reason) = await host.perform(.time(.sleep))
-        XCTAssertEqual(reason, "まだ昼だ")
+        XCTAssertEqual(reason, "まだ昼だ") // ja-table
     }
 }

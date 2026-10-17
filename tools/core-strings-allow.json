@@ -1,0 +1,19 @@
+{
+  "ReForgeCore/Sources/RFPerception/ForbiddenAudit.swift": [
+    "[\\(stage)] 「\\(word)」が「\\(text)」(\\(origin))",
+    "\\(prefix) 規則 \\(rule) が \\(origin) に当たった(語と文は伏せた。REFORGE_AUDIT_VERBOSE=1 で表示)",
+    "\\(s.rawValue) の地図の文字"
+  ],
+  "ReForgeCore/Sources/RFPerception/HintAudit.swift": [
+    " の \\($0)",
+    "\\(owner): 気配を置かない理由が空",
+    "\\(owner): 段 \\(st) が監査の段に無い",
+    "\\(owner): 主題も rule も pending も無い(置かないなら none に理由を書く)",
+    "\\(owner)\\(s): 主題が見つからない",
+    "\\(owner)\\(s): その段で見えない",
+    "\\(owner)\\(s): \\(v)"
+  ],
+  "ReForgeCore/Sources/RFPresent/GameBootstrap.swift": [
+    "日本語の本文の束を開けない"
+  ]
+}

@@ -24,8 +24,8 @@ final class RecordSheetTests: XCTestCase {
         XCTAssertEqual(s.rows[1].person, "person.test_a")
         // 記録の 1 件は試作と同じ形(行 = 工程の見出しと注、結果 = 名前)。工程の見出しはプレイヤーの炉と同じ名前
         let e = try XCTUnwrap(b.sheet(.recordEntry(ledger, slot: 2), in: w))
-        XCTAssertEqual(e.rows.map(\.title), ["元", "炉", "書き込み"])
-        XCTAssertEqual(e.rows[1], ProcessSheet.Row(title: "炉", note: "試験の行"))
+        XCTAssertEqual(e.rows.map(\.title), ["元", "炉", "書き込み"]) // ja-table
+        XCTAssertEqual(e.rows[1], ProcessSheet.Row(title: "炉", note: "試験の行")) // ja-table
         XCTAssertNotNil(e.result)
         // 空いた席を開くと、行も結果も無い
         let emptyEntry = try XCTUnwrap(b.sheet(.recordEntry(ledger, slot: 4), in: w))

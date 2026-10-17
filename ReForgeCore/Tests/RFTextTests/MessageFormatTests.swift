@@ -45,7 +45,7 @@ final class MessageFormatTests: XCTestCase {
     func testCap() throws {
         XCTAssertEqual(try MessageFormat.render("{subject, cap}", args: ["subject": .string("iron ore")], language: .en), "Iron ore")
         XCTAssertEqual(try MessageFormat.render("{subject, cap}", args: ["subject": .string("나무")], language: .en), "나무")
-        XCTAssertEqual(try MessageFormat.render("{subject, cap}", args: ["subject": .string("漢字")], language: .en), "漢字")
+        XCTAssertEqual(try MessageFormat.render("{subject, cap}", args: ["subject": .string("漢字")], language: .en), "漢字") // ja-table
         XCTAssertEqual(try MessageFormat.render("{subject, cap}", args: ["subject": .string("")], language: .en), "")
     }
 

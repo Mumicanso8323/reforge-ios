@@ -54,7 +54,7 @@ final class U18ScreenTests: XCTestCase {
                            units: [.init(glyph: "@", isAlly: true, position: 0, hpPermille: 1000, active: true),
                                    .init(glyph: "w", isAlly: false, position: 4, hpPermille: 500, active: true),
                                    .init(glyph: "w", isAlly: false, position: 2, hpPermille: 0, active: false)])
-        XCTAssertEqual(BattleBandView.lane(b), "@・・・w")
+        XCTAssertEqual(BattleBandView.lane(b), "@・・・w") // ja-table
     }
 
     func testPlacingShowsPreviewAndCancels() async throws {

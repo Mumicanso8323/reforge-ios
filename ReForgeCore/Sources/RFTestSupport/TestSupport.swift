@@ -1,6 +1,40 @@
 import Foundation
 import ReForgeEngine
 
+/// 文言表から期待値を組むための、テストだけの入口。
+public enum TestText {
+    /// 文言の参照を、その言語で組んだ文にする(期待値を表から作る。リテラルを書かない)。
+    public static func render(_ id: TextID, _ args: [String: TextArg] = [:],
+                              content: ContentDB, language: LanguageID = .ja) -> String {
+        Perceiver(content: content, known: [], language: language).render(TextRef(id, args))
+    }
+
+    /// 仕組みのテストを回す言語。表のある公開言語だけを追加する。
+    public static func languages(for content: ContentDB) -> [LanguageID] {
+        let released = LanguageID.released.filter { $0 != .ja && content.textTables.available.contains($0) }
+        return [.ja, .pseudo] + released
+    }
+}
+
+/// 擬似言語の Frame に、文言表を通らなかった文字列がないかを調べる。
+public enum PseudoCheck {
+    public static func unwrapped(_ strings: [String]) -> [String] {
+        strings.filter { string in
+            guard string.count > 1, containsLocalizedScript(string) else { return false }
+            return !(string.first == "⟦" && string.last == "⟧")
+        }
+    }
+
+    private static func containsLocalizedScript(_ string: String) -> Bool {
+        string.unicodeScalars.contains { scalar in
+            switch scalar.value {
+            case 0x3040...0x30ff, 0x3400...0x9fff, 0xf900...0xfaff, 0xac00...0xd7af: return true
+            default: return false
+            }
+        }
+    }
+}
+
 /// テストの道具。アプリには入れない。
 public enum TestContent {
     /// リポジトリの根(このファイルから 4 つ上)。

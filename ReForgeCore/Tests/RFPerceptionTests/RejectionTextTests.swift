@@ -97,8 +97,8 @@ final class RejectionTextTests: XCTestCase {
         content.texts["reason.explore.cooldown"] = "あと{days}日"
         content.texts["reason.explore.need_more_people"] = "{count}人"
         let p = Perceiver(content: content, known: [])
-        XCTAssertEqual(p.rejectionText("reason.explore.cooldown", detail: ["days": .int(4)]), "あと4日")
-        XCTAssertEqual(p.rejectionText("reason.explore.need_more_people", detail: ["count": .int(2)]), "2人")
+        XCTAssertEqual(p.rejectionText("reason.explore.cooldown", detail: ["days": .int(4)]), "あと4日") // ja-table
+        XCTAssertEqual(p.rejectionText("reason.explore.need_more_people", detail: ["count": .int(2)]), "2人") // ja-table
         XCTAssertTrue(noBraces(p.rejectionText("reason.explore.cooldown")))
     }
 
@@ -127,7 +127,7 @@ final class RejectionTextTests: XCTestCase {
         let detail: [String: Value] = ["days": .int(4), "item": .string("stick")]
         let ref = Perceiver.rejectionRef("reason.explore.cooldown", detail: detail)
         XCTAssertEqual(p.render(ref), p.rejectionText("reason.explore.cooldown", detail: detail))
-        XCTAssertEqual(p.render(ref), "あと4日 " + p.name(Subject.item("stick")))
+        XCTAssertEqual(p.render(ref), "あと4日 " + p.name(Subject.item("stick"))) // ja-table
         let pseudo = Perceiver(content: content, known: [], language: .pseudo)
         XCTAssertTrue(pseudo.render(ref).hasPrefix("⟦"))
         XCTAssertEqual(p.render(Perceiver.rejectionRef("reason.explore.cooldown")), p.text(Perceiver.unknownText))
@@ -138,7 +138,7 @@ final class RejectionTextTests: XCTestCase {
         var content = try TestContent.publicOnly()
         content.textTables.tables[.ja]?["test.note"] = "{0}と{1}"
         let p = Perceiver(content: content, known: [])
-        XCTAssertEqual(p.render(TextRef("test.note", ["0": .subject(Subject.item("stick")), "1": .int(7)])),
+        XCTAssertEqual(p.render(TextRef("test.note", ["0": .subject(Subject.item("stick")), "1": .int(7)])), // ja-table
                        p.name(Subject.item("stick")) + "と7")
     }
 }
