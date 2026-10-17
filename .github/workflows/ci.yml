@@ -126,6 +126,11 @@ jobs:
       - name: 公開語の検査器を確かめる
         if: always()
         run: python3 tools/test_check_public_spoilers.py
+      - name: 出す言語の一覧を確かめる
+        if: always()
+        run: python3 tools/test_released_languages.py
+      - name: 束を作るシェルの確かめ(bash 3.2・ストアの版だけ言語を削る)
+        run: python3 tools/test_stage_scripts.py
       # testflight ジョブは app-switches を needs に持つので、ここが落ちると TestFlight へ上げない(門)
       - name: Release の組みに debug の物が入らない
         if: always()
@@ -236,6 +241,12 @@ jobs:
           lipo -info "$APP/ReForge"
           # 平文の非公開の層が ipa に入っていないこと。見張りの文字列(値はログに出さない)が平文で現れないこと
           test ! -e "$APP/content/private" || { echo "平文の非公開の層が ipa に入っている"; exit 1; }
+          test ! -e "$APP/content/text" || { echo "平文の文字列表が ipa に入っている"; exit 1; }
+          if [ -f content/private/bundle.json ]; then
+            for language in $(python3 tools/released-languages.py); do
+              test -f "$APP/content/text-$language.sealed" || { echo "出す言語の本文の束が ipa に無い"; exit 1; }
+            done
+          fi
           # 非公開の絵(content/private/art)の中身そのものが ipa に入っていないこと(ハッシュで突き合わせる。名前は出さない)
           if [ -d content/private/art ]; then
             find content/private/art -type f -exec shasum -a 256 {} + | awk '{print $1}' | sort -u > private-art.sha
@@ -562,6 +573,8 @@ jobs:
           sudo xcode-select -s "$x"; xcodebuild -version
 
       - name: コンテンツの束を作る
+        env:
+          REFORGE_STORE_BUILD: "1"
         run: tools/content/stage.sh
 
       - name: XcodeGen
@@ -626,6 +639,12 @@ jobs:
 
           # 平文の非公開の層が入っていないこと。見張りの文字列(値はログに出さない)が平文で現れないこと
           test ! -e "$APP/content/private" || { echo "平文の非公開の層が .app に入っている"; exit 1; }
+          test ! -e "$APP/content/text" || { echo "平文の文字列表が .app に入っている"; exit 1; }
+          if [ -f content/private/bundle.json ]; then
+            for language in $(python3 tools/released-languages.py); do
+              test -f "$APP/content/text-$language.sealed" || { echo "出す言語の本文の束が .app に無い"; exit 1; }
+            done
+          fi
           if [ -d content/private/art ]; then
             find content/private/art -type f -exec shasum -a 256 {} + | awk '{print $1}' | sort -u > private-art.sha
             find "$APP" -type f \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \) -exec shasum -a 256 {} + \

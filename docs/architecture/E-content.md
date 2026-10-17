@@ -92,7 +92,7 @@ reforge-content/
 - 守れる: ipa を展開しただけ・ファイルを grep しただけで本文が読める状態。本文の断片が検索や一覧サイトに拾われること。
 - 守れない: アプリのバイナリを解析して鍵を取り出す人。鍵は同じ ipa の中にあるので、これは「見えにくくする」までで、秘密の保護ではない。方式もこの公開の文書に書いてある前提。
 
-**アプリの束の中**: `content/public/`(平文)+ `content/private.sealed`(1 ファイル)。`content/private/` のディレクトリは ipa に入れない。`tools/content/stage.sh` が `AppContent/content/`(公開の層の写しと `private.sealed`)と `ReForge/Generated/ContentKey.swift` を作り、project.yml はフォルダ参照 `AppContent/content` だけを同梱する(どちらも gitignore)。**Mac で手元ビルドする前にも `tools/content/stage.sh` を回す**(ContentKey.swift が無いとアプリがコンパイルできない)。
+**アプリの束の中**: `content/public/`(平文)+ 言語に依らない `content/private.sealed` + 言語ごとの `content/text-<言語>.sealed`。`private.sealed` には `text/<言語>/` を入れず、文字列表の束は層と同じ相対パスのままその言語の JSON(`_meta.json` を含む)だけを入れる。`content/private/` と平文の `content/text/` のディレクトリは ipa に入れない。`tools/content/stage.sh` が `AppContent/content/`(公開の層の写しと封の束)と `ReForge/Generated/ContentKey.swift` を作り、project.yml はフォルダ参照 `AppContent/content` だけを同梱する(どちらも gitignore)。**Mac で手元ビルドする前にも `tools/content/stage.sh` を回す**(ContentKey.swift が無いとアプリがコンパイルできない)。
 
 **`private.sealed` の形式**
 | 位置 | 長さ | 中身 |
@@ -102,16 +102,16 @@ reforge-content/
 | 16 | n | 暗号文(AES-256-GCM。追加認証データ = 合図の 4 バイト) |
 | 16+n | 16 | 認証タグ |
 
-- 平文 = 非公開の層の `*.json` を 1 つにまとめた JSON: `{"version": 1, "files": {"<層の中の相対パス>": "<ファイルの中身(UTF-8 の文字列)>", …}}`。`materials/`・`tools/` と JSON 以外は入れない。
+- 平文 = 束に入る `*.json` を 1 つにまとめた JSON: `{"version": 1, "files": {"<層の中の相対パス>": "<ファイルの中身(UTF-8 の文字列)>", …}}`。`materials/`・`tools/`・`l10n/` と JSON 以外は入れない。各束は同じ鍵で別の nonce を使う。
 - 暗号: Apple では CryptoKit、Linux(`swift test`)では swift-crypto(`import Crypto`。API は同じ)。Package.swift に swift-crypto の依存を足し、RFContent から Linux のときだけ `Crypto` の製品を使う(`#if canImport(CryptoKit)` で切り替え)。ReForgeCore の外部依存はこれ 1 つだけにする。
 
 **読み込み(RFContent、U3)**
-- `ContentLoader.loadBundled(root:key:)`: 公開の層を読む → `private/` があれば平文で重ねる(手元の開発)→ 無くて `private.sealed` と鍵があれば開封してメモリ上の層として重ねる。読み方・重ね方・知らないキーの検査は平文の層と同じ。
-- 鍵が違う・ファイルが壊れている(タグの不一致)ときはエラーを投げる(黙って公開だけにしない)。アプリ(U13)はそのエラーを受けて公開の層だけで起動し、画面の帯に 1 行出す(落とさない)。
+- `ContentLoader.loadBundled(root:key:)`: 公開の層を読む → `private/` があれば平文で重ねる(手元の開発)→ 無くて `private.sealed` と鍵があれば、開けた言語の `text-*.sealed` と合わせて 1 つのメモリ上の層として重ねる。読み方・重ね方・知らないキーの検査は平文の層と同じ。古い、文字列表まで入った `private.sealed` も読める。
+- 本文の束は名前の言語と中の `text/<言語>/` が一致しなければ使わない。壊れた・欠けた翻訳の束はその言語だけを日本語へフォールバックする。日本語の束が壊れた・欠けたときは、アプリ(U13)が公開の層だけで起動する。
 - 開いた本文はメモリにだけ置く(キャッシュをファイルに書かない)。
 
 **封をする側と鍵**
-- 実行ターゲット `rf-seal`(ReForgeCore の中。U3): `swift run --package-path ReForgeCore rf-seal content/private <出力の private.sealed> <出力の ContentKey.swift>`。Linux の core ジョブと macOS の ios ジョブで同じコードを使う。
+- 実行ターゲット `rf-seal`(ReForgeCore の中): `swift run --package-path ReForgeCore rf-seal content/private <出力の private.sealed> <出力の ContentKey.swift> [<出力の art.sealed>] --require-languages <コード,...>`。同じ出力先の古い `text-*.sealed` は消す。ストアの版では `tools/released-languages.py --csv` を要求し、それ以外では日本語を要求する。
 - 鍵はビルドごとに 32 バイトの乱数(`rf-seal` が作る)。ログにもアーティファクトにも出さない。
 - 鍵は生成ファイル `ReForge/Generated/ContentKey.swift`(gitignore)に埋める。そのまま書かず、別の乱数 32 バイトとの XOR の 2 つの配列に分けて書く(バイナリの文字列検索で鍵の並びがそのまま見えないように)。
 - 非公開が無いビルド(secret が無い・手元)では、鍵が `nil` の `ContentKey.swift` を生成し、`private.sealed` も入れない。アプリは公開の層だけで動く。

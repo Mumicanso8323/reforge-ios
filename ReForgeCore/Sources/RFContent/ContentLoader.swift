@@ -3,6 +3,19 @@ import RFKernel
 import RFMap
 import RFMatter
 
+/// 言語ごとの本文の束を開けた結果。本文の束が読めない言語は、ほかの言語を止めない。
+public struct BundleReport: Equatable, Sendable {
+    public var opened: Set<LanguageID>
+    public var failed: [LanguageID]
+    public var missing: [LanguageID]
+
+    public init(opened: Set<LanguageID> = [], failed: [LanguageID] = [], missing: [LanguageID] = []) {
+        self.opened = opened
+        self.failed = failed
+        self.missing = missing
+    }
+}
+
 /// コンテンツの層(ディレクトリ)を順に重ねて ContentDB を作る(E-content.md §3)。
 ///
 /// - 層 = ディレクトリ 1 つ。中の *.json を相対パスの昇順に全部読む(どのファイルにどの集まりを書いてもよい)。
@@ -58,15 +71,56 @@ public enum ContentLoader {
     /// 無くて <root>/private.sealed と鍵があれば、開封してメモリ上の層として重ねる(開いた本文はファイルに書かない)。
     /// 鍵違い・壊れた封はエラー(黙って公開だけにしない。アプリは受けて公開だけで起動し、帯に 1 行出す)。
     public static func loadBundled(root: URL, key: Data? = nil) throws -> ContentDB {
+        let result = try loadBundledReport(root: root, key: key, expecting: [.ja])
+        if result.report.failed.contains(.ja) || result.report.missing.contains(.ja) {
+            throw LoadError.sealed("日本語の本文の束を開けない")
+        }
+        return result.db
+    }
+
+    /// `loadBundled` と同じ内容を読み、言語ごとの本文の束の状態も返す。
+    public static func loadBundledReport(root: URL, key: Data? = nil, expecting: [LanguageID] = []) throws
+        -> (db: ContentDB, report: BundleReport)
+    {
         let pub = root.appendingPathComponent("public", isDirectory: true)
         let priv = root.appendingPathComponent("private", isDirectory: true)
         let sealed = root.appendingPathComponent(ContentSeal.fileName)
-        if isDirectory(priv) { return try load(layers: [pub, priv]) }
-        if let key, FileManager.default.fileExists(atPath: sealed.path) {
-            let files = try ContentSeal.open(Data(contentsOf: sealed), key: key)
-            return try load(sources: [.directory(pub), .memory(name: "private", files: files)])
+        if isDirectory(priv) {
+            let split = try ContentSeal.collectSplit(layer: priv)
+            return (try load(layers: [pub, priv]), BundleReport(opened: Set(split.text.keys)))
         }
-        return try load(layers: [pub])
+        if let key, FileManager.default.fileExists(atPath: sealed.path) {
+            let base = try ContentSeal.open(Data(contentsOf: sealed), key: key)
+            var files = base
+            var opened = Set<LanguageID>()
+            let legacyLanguages = Set(base.keys.compactMap { ContentSeal.textLanguage(ofPath: $0) })
+            opened.formUnion(legacyLanguages)
+            var failed: [LanguageID] = []
+            var missing: [LanguageID] = []
+
+            for language in LanguageID.allCases where language != .pseudo && !legacyLanguages.contains(language) {
+                let textURL = root.appendingPathComponent(ContentSeal.textFileName(language))
+                guard FileManager.default.fileExists(atPath: textURL.path) else {
+                    if expecting.contains(language) { missing.append(language) }
+                    continue
+                }
+                do {
+                    let text = try ContentSeal.open(Data(contentsOf: textURL), key: key)
+                    let prefix = "text/\(language.rawValue)/"
+                    guard text.keys.allSatisfy({ $0.hasPrefix(prefix) }) else {
+                        throw LoadError.sealed("言語の束の中身が違う")
+                    }
+                    for (path, data) in text { files[path] = data }
+                    opened.insert(language)
+                } catch {
+                    failed.append(language)
+                }
+            }
+            return (try load(sources: [.directory(pub), .memory(name: "private", files: files)]),
+                    BundleReport(opened: opened, failed: failed.sorted { $0.rawValue < $1.rawValue },
+                                 missing: missing.sorted { $0.rawValue < $1.rawValue }))
+        }
+        return (try load(layers: [pub]), BundleReport())
     }
 
     /// 層の出どころ: ディレクトリか、開封したメモリ上のファイル(層の中の相対パス → 中身)。
