@@ -9,6 +9,8 @@ public enum LanguageID: String, Codable, CaseIterable, Sendable {
 }
 
 public indirect enum TextArg: Codable, Equatable, Hashable, Sendable {
+    /// 既存の文字列引数との互換用。新しい画面向けの数は .int / .fixed を使う。
+    case string(String)
     case int(Int64)
     /// 整数を 10^places で割った固定小数。浮動小数は保存しない。
     case fixed(Int64, places: Int)

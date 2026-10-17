@@ -2,6 +2,7 @@ import Foundation
 import RFContent
 import RFKernel
 import RFMatter
+import RFText
 import RFWorld
 
 /// 認識の層。プレイヤーに見える名前・説明・数値の見せ方を、真実の ID と「いま知っている事実の集合」から引く
@@ -16,20 +17,27 @@ import RFWorld
 public struct Perceiver: Sendable {
     public let content: ContentDB
     public let known: Set<FactID>
+    public let language: LanguageID
+    public let markFallback: Bool
     /// 走行中の監査(nil なら調べない。アプリの通常の描画では nil)。
     public let auditor: PerceptionAuditor?
 
     /// 見え方の無い見出しに出す文字列のキー。
     public static let unknownText: TextID = "text.unknown"
 
-    public init(content: ContentDB, known: Set<FactID>, auditor: PerceptionAuditor? = nil) {
+    public init(content: ContentDB, known: Set<FactID>, language: LanguageID = .ja,
+                markFallback: Bool = false, auditor: PerceptionAuditor? = nil) {
         self.content = content
         self.known = known
+        self.language = language
+        self.markFallback = markFallback
         self.auditor = auditor
     }
 
-    public init(content: ContentDB, world: WorldState, auditor: PerceptionAuditor? = nil) {
-        self.init(content: content, known: world.knowledge.factSet, auditor: auditor)
+    public init(content: ContentDB, world: WorldState, language: LanguageID = .ja,
+                markFallback: Bool = false, auditor: PerceptionAuditor? = nil) {
+        self.init(content: content, known: world.knowledge.factSet, language: language,
+                  markFallback: markFallback, auditor: auditor)
     }
 
     // MARK: 見え方
@@ -63,7 +71,12 @@ public struct Perceiver: Sendable {
 
     /// 文字列表から引き、{名前} を埋める。キーが表に無ければ unknownText(英語のキーは出さない)。
     public func text(_ id: TextID, _ args: [String: String] = [:]) -> String {
-        audited(rawText(id, args), origin: id.rawValue)
+        render(TextRef(id, args.mapValues(TextArg.string)))
+    }
+
+    /// 画面に出す文を、言語と型付きの引数から組み立てる唯一の入口。
+    public func render(_ ref: TextRef) -> String {
+        audited(rawRender(ref), origin: ref.id.rawValue)
     }
 
     /// 断った理由の文。断りが持つ数・品・モジュールを {名前}(品・モジュールは {0} も)に差し込む。
@@ -144,8 +157,8 @@ public struct Perceiver: Sendable {
     public func journalLine(_ r: ProvenanceRecord) -> String? {
         let s = Subject.journal(r.act)
         guard let template = variant(s)?.name else { return nil }
-        let actor = r.actor.map { rawName(Subject.person($0)) } ?? ""
-        let line = rawText(template, ["actor": actor, "subject": rawName(of: r.subject), "count": "\(r.count)"])
+        let actor = r.actor.map { rawName(Subject.person($0), nested: true) } ?? ""
+        let line = rawText(template, ["actor": actor, "subject": rawName(of: r.subject, nested: true), "count": "\(r.count)"])
         return audited(line, origin: s.rawValue)
     }
 
@@ -165,8 +178,16 @@ public struct Perceiver: Sendable {
     /// 立ち絵(いまの見え方の art。無ければ nil = 枠ごと出さない)。場面の札・仲間のタブで共用。
     public func art(_ s: SubjectID) -> ArtID? { variant(s)?.art }
 
-    public func glyph(_ s: SubjectID) -> String {
-        MapGlyphFont.safe(audited(variant(s)?.glyph ?? content.glyphs[s] ?? "？", origin: "glyph \(s.rawValue)"))
+    public func glyph(_ s: SubjectID, fallback: String = "？") -> String {
+        let v = variant(s)
+        let glyphLanguage: LanguageID = language == .pseudo ? .ja : language
+        let textGlyph = v?.glyphText.flatMap { id -> String? in
+            guard let pattern = content.textTables.tables[glyphLanguage]?[id],
+                  let value = try? MessageFormat.render(pattern, args: [:], language: glyphLanguage),
+                  value.count == 1, !value.contains("⟦?") else { return nil }
+            return value
+        }
+        return MapGlyphFont.safe(audited(textGlyph ?? v?.glyph ?? content.glyphs[s] ?? fallback, origin: "glyph \(s.rawValue)"))
     }
 
     /// 地図のラベル(POI・地形・置いた物の名前を長押しで出すときなど)。
@@ -194,7 +215,20 @@ public struct Perceiver: Sendable {
             } else {
                 v = divisor > 0 ? value.raw / Int64(divisor) : value.raw
             }
-            out = Self.decimalString(v, places: decimals ?? 0) + (unit.map { rawText($0) } ?? "")
+            let places = decimals ?? 0
+            guard let unit else {
+                out = Self.decimalString(v, places: places)
+                break
+            }
+            let names = content.textTables.pattern(unit, language, marker: markFallback)
+                .flatMap { try? MessageFormat.argumentNames($0) }
+            if names?.contains("value") == true {
+                out = rawRender(TextRef(unit, ["value": .fixed(v, places: places)]))
+            } else if language == .ja {
+                out = Self.decimalString(v, places: places) + rawText(unit)
+            } else {
+                out = rawUnknown()
+            }
         }
         return audited(out, origin: "stat:\(id.rawValue)")
     }
@@ -214,7 +248,7 @@ public struct Perceiver: Sendable {
     /// 知っている事実が old から今に変わったとき、見え方が変わり、かつ知らせる(announce)見出し。
     /// 画面の「書き換わった」演出の対象(Frame.renamed)。
     public func renamed(since old: Set<FactID>) -> [SubjectID] {
-        let before = Perceiver(content: content, known: old)
+        let before = Perceiver(content: content, known: old, language: language, markFallback: markFallback)
         return content.perception.keys.sorted().filter { s in
             guard let now = variantIndex(s), now != before.variantIndex(s) else { return false }
             return content.perception[s]?.variants[now].announce == true
@@ -223,30 +257,40 @@ public struct Perceiver: Sendable {
 
     // MARK: 中身(監査を通さない。外へ返す関数が最後に 1 回だけ監査する)
 
-    func rawName(_ s: SubjectID) -> String {
-        rawText(variant(s)?.name ?? Self.unknownText)
+    func rawName(_ s: SubjectID, nested: Bool = false) -> String {
+        rawText(variant(s)?.name ?? Self.unknownText, nested: nested)
     }
 
-    func rawText(_ id: TextID, _ args: [String: String] = [:]) -> String {
-        var s = content.texts[id] ?? content.texts[Self.unknownText] ?? "？"
-        for (k, v) in args.sorted(by: { $0.key < $1.key }) { s = s.replacingOccurrences(of: "{\(k)}", with: v) }
-        return s
+    func rawText(_ id: TextID, _ args: [String: String] = [:], nested: Bool = false) -> String {
+        rawRender(TextRef(id, args.mapValues(TextArg.string)), nested: nested)
     }
 
-    func rawName(of name: MatterName) -> String {
-        name.parts.map { part -> String in
+    func rawName(of name: MatterName, nested: Bool = false) -> String {
+        let join = content.textTables.meta[language]?.nameJoin ?? content.textTables.meta[.ja]?.nameJoin
+        let order = join?.order ?? []
+        let parts = name.parts.enumerated().sorted { lhs, rhs in
+            let left = order.firstIndex(of: Self.namePartKey(lhs.element))
+            let right = order.firstIndex(of: Self.namePartKey(rhs.element))
+            switch (left, right) {
+            case let (l?, r?): return l == r ? lhs.offset < rhs.offset : l < r
+            case (.some, .none): return true
+            case (.none, .some): return false
+            case (.none, .none): return lhs.offset < rhs.offset
+            }
+        }
+        return parts.compactMap { _, part -> String? in
             // 無修飾・異常の段で語が空のときは、見え方の name を書かない(空文字列)
-            guard let v = variant(Subject.namePart(part)) else { return "" }
-            return v.name.map { rawText($0) } ?? ""
-        }.joined()
+            guard let v = variant(Subject.namePart(part)), let text = v.name.map({ rawText($0, nested: nested) }), !text.isEmpty else { return nil }
+            return text
+        }.joined(separator: join?.separator ?? "")
     }
 
-    func rawName(of ref: SubjectRef) -> String {
+    func rawName(of ref: SubjectRef, nested: Bool = false) -> String {
         switch ref {
-        case .matter(let n): rawName(of: n)
+        case .matter(let n): rawName(of: n, nested: nested)
         case .choice(let e, let c):
-            rawText(content.events[e]?.choices?.first { $0.id == c }?.label ?? Self.unknownText)
-        default: rawName(Self.subject(of: ref))
+            rawText(content.events[e]?.choices?.first { $0.id == c }?.label ?? Self.unknownText, nested: nested)
+        default: rawName(Self.subject(of: ref), nested: nested)
         }
     }
 
@@ -279,6 +323,49 @@ public struct Perceiver: Sendable {
     private func audited(_ s: String, origin: @autoclosure () -> String) -> String {
         if let a = auditor { a.inspect(s, content: content, known: known, origin: origin()) }
         return s
+    }
+
+    private func rawRender(_ ref: TextRef, nested: Bool = false) -> String {
+        let patternLanguage: LanguageID = language == .pseudo && nested ? .ja : language
+        guard let pattern = content.textTables.pattern(ref.id, patternLanguage, marker: markFallback),
+              let rendered = try? MessageFormat.render(pattern, args: renderedArgs(ref.args, nested: true), language: patternLanguage),
+              !rendered.contains("⟦?")
+        else { return rawUnknown(nested: nested) }
+        return rendered
+    }
+
+    private func rawUnknown(nested: Bool = false) -> String {
+        let patternLanguage: LanguageID = language == .pseudo && nested ? .ja : language
+        guard let pattern = content.textTables.pattern(Self.unknownText, patternLanguage, marker: markFallback),
+              let rendered = try? MessageFormat.render(pattern, args: [:], language: patternLanguage),
+              !rendered.contains("⟦?")
+        else { return "？" }
+        return rendered
+    }
+
+    private func renderedArgs(_ args: [String: TextArg], nested: Bool) -> [String: RenderedArg] {
+        args.mapValues { arg in
+            switch arg {
+            case .string(let value): return .string(value)
+            case .int(let n): return .number(n, places: 0)
+            case .fixed(let v, let places): return .number(v, places: places)
+            case .text(let id): return .string(rawText(id, nested: nested))
+            case .subject(let subject): return .string(rawName(subject, nested: nested))
+            case .person(let person): return .string(rawName(Subject.person(person), nested: nested))
+            case .ref(let ref): return .string(rawRender(ref, nested: nested))
+            }
+        }
+    }
+
+    private static func namePartKey(_ part: NamePart) -> String {
+        switch part {
+        case .extreme: return "extreme"
+        case .grade: return "grade"
+        case .temper: return "temper"
+        case .proper: return "proper"
+        case .substance: return "substance"
+        case .shape: return "shape"
+        }
     }
 }
 

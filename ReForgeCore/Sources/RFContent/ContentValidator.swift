@@ -249,6 +249,22 @@ public enum ContentValidator {
             }
         }
         glyphTextsAreOneCell(db, &out)
+        unitPatternsAgreeAcrossLanguages(db, &out)
+    }
+
+    /// 数値の単位は、日本語が差し込み形か連結形かを翻訳にも揃える。
+    static func unitPatternsAgreeAcrossLanguages(_ db: ContentDB, _ out: inout [Issue]) {
+        let japanese = db.textTables.tables[.ja] ?? [:]
+        for (id, source) in japanese.sorted(by: { $0.key < $1.key }) where id.rawValue.hasPrefix("text.unit") {
+            let sourceHasValue = (try? MessageFormat.argumentNames(source))?.contains("value") == true
+            for (language, table) in db.textTables.tables where language != .ja {
+                guard let translated = table[id] else { continue }
+                let translatedHasValue = (try? MessageFormat.argumentNames(translated))?.contains("value") == true
+                if sourceHasValue != translatedHasValue {
+                    out.append(Issue(level: .error, rule: "text.unit", message: "\(language.rawValue) の \(id) の value の形が日本語と違う"))
+                }
+            }
+        }
     }
 
     /// glyphText は日本語と、存在する各翻訳で 1 書記素だけにする。

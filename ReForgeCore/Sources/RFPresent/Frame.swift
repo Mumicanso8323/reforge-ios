@@ -17,6 +17,8 @@ import RFWorld
 ///    シミュレーションのステップ(実時間でおよそ 10 回/秒)と描画のフレーム(60 回/秒)を切り離す。
 ///  - 文字は事実が変わったとき(ChangeSet.perception)だけ引き直す。
 public struct Frame: Equatable, Sendable {
+    /// この Frame を組み立てた言語。
+    public var language: LanguageID
     /// 作るたびに増える番号。
     public var revision: Int
     public var clock: ClockView
@@ -74,12 +76,13 @@ public struct Frame: Equatable, Sendable {
     /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではないとき)。画面は自分で判断しない。
     public var canSteer: Bool = false
 
-    public init(revision: Int, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef(ClockDef())),
+    public init(revision: Int, language: LanguageID = .ja, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef(ClockDef())),
                 status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,
                 decision: DecisionView?, sceneLines: [String], notices: [String], renamed: [String],
                 runEnded: Bool = false, prologue: PrologueView? = nil, darkStart: DarkStartView? = nil) {
         self.revision = revision
+        self.language = language
         self.clock = clock
         self.timeMark = timeMark
         self.timeTint = timeTint

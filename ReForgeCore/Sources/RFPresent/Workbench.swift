@@ -135,7 +135,7 @@ extension FrameBuilder {
     // MARK: - 設計画面
 
     public func designBench(in w: WorldState) -> DesignBench {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let modules = w.research.unlocked.modules
             .filter { content.ruleBook.modules[$0] != nil }
             .sorted()
@@ -181,7 +181,7 @@ extension FrameBuilder {
     // MARK: - ノート
 
     public func notebook(in w: WorldState) -> NotebookPage {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let nb = w.notebook
         let trials = nb.trials.reversed().map { t in
             NotebookPage.Trial(record: t.record, day: w.ledger.record(t.record)?.day ?? w.clock.day,
@@ -261,7 +261,7 @@ extension FrameBuilder {
     public func document(_ id: DocumentID, in w: WorldState) -> DocumentPage? {
         guard let d = content.documents[id],
               ConditionEvaluator.evaluatePure(d.when, world: w, content: content) == true else { return nil }
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let r = Documents.reading(d, in: w)
         return DocumentPage(id: id, title: p.text(d.title), body: p.text(r.body), source: d.source.map { p.name($0) },
                             readablePermille: r.readablePermille, repairStage: r.repairStage)

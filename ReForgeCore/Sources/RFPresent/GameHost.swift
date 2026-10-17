@@ -82,7 +82,8 @@ public actor GameHost {
 
     /// 断った理由の 1 行(英語の ID は出さない)。
     public func describe(_ r: Rejection) -> String {
-        Perceiver(content: simulation.content, world: world).rejectionText(r.reason, detail: r.detail)
+        Perceiver(content: simulation.content, world: world, language: builder.language,
+                  markFallback: builder.markFallback).rejectionText(r.reason, detail: r.detail)
     }
 
     // MARK: - 画面からの引き出し(世界状態は渡さない)

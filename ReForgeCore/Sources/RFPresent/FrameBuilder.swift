@@ -12,6 +12,8 @@ import RFWorld
 /// 世界状態 → Frame(と、区画・調べる・足元カード・工程表などの引き出し)。持ち主: U13 画面。
 public struct FrameBuilder: Sendable {
     public let content: ContentDB
+    public var language: LanguageID = .ja
+    public var markFallback = false
     public var vision = VisionRadiusRule()
     /// 描く層(地下は R2)。
     public var layer: LayerID = .surface
@@ -24,7 +26,7 @@ public struct FrameBuilder: Sendable {
     /// - report: 進行の結果。知っている事実が変わった(perception)なら全区画、変わったマス(dirtyTiles)の区画を上げる。
     ///   それとは別に、区画の中身の指紋を前の Frame と比べ、変わった区画を上げる(他の担当が印を付け忘れても描き直す)。
     public func build(_ w: WorldState, revision: Int, previous: Frame?, report: StepReport?) -> Frame {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let clock = clockView(w)
         let definition = TimeOfDay.resolved(content.timeTint, clock: content.clock)
         let tint = TimeOfDay.tint(minutes: clock.minutesSinceDawn, definition, clock: content.clock)
@@ -55,6 +57,7 @@ public struct FrameBuilder: Sendable {
         let noahPos = noah?.position.flatMap { $0.layer == layer ? $0.point : nil }
         var frame = Frame(
             revision: revision,
+            language: language,
             clock: clock,
             timeMark: mark,
             timeTint: tint,
@@ -112,6 +115,10 @@ public struct FrameBuilder: Sendable {
             if frame.darkStart == nil { applySteering(&frame, w) }
         }
         return frame
+    }
+
+    func perceiver(_ w: WorldState) -> Perceiver {
+        Perceiver(content: content, world: w, language: language, markFallback: markFallback)
     }
 
     /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではない)と、歩ける範囲を Frame に書く。
@@ -279,7 +286,7 @@ public struct FrameBuilder: Sendable {
     func darkStart(_ w: WorldState) -> DarkStartView? {
         guard w.run.isActive, w.clock.held,
               !w.narrative.pending.contains(where: \.blocking),
-              prologue(w, Perceiver(content: content, world: w)) == nil,
+              prologue(w, perceiver(w)) == nil,
               let position = w.people[.noah]?.position, position.layer == layer,
               let card = footCard(w, at: position.point)
         else { return nil }
@@ -296,21 +303,21 @@ public struct FrameBuilder: Sendable {
 
     /// 区画の中身(画面が版の変わった区画だけ引く)。
     public func chunks(_ w: WorldState, _ indices: [Int], map: MapView) -> [MapChunk] {
-        if prologue(w, Perceiver(content: content, world: w)) != nil {
+        if prologue(w, perceiver(w)) != nil {
             return indices.filter { $0 >= 0 && $0 < map.chunkRevisions.count }.map { index in
                 let rect = map.chunkRect(index)
                 return MapChunk(index: index, revision: map.chunkRevisions[index], rect: rect,
                                 tiles: Array(repeating: .void, count: rect.size.count))
             }
         }
-        let proj = MapProjector(world: w, content: content, perceiver: Perceiver(content: content, world: w), layer: layer)
+        let proj = MapProjector(world: w, content: content, perceiver: perceiver(w), layer: layer)
         let n = map.chunkColumns * map.chunkRows
         return indices.filter { $0 >= 0 && $0 < n }.map { proj.chunk($0, map: map) }
     }
 
     /// 1 マスの見え方(視界も含めて)。
     public func tile(_ w: WorldState, at pt: GridPoint) -> TileView {
-        let proj = MapProjector(world: w, content: content, perceiver: Perceiver(content: content, world: w), layer: layer)
+        let proj = MapProjector(world: w, content: content, perceiver: perceiver(w), layer: layer)
         let visible = vision.areas(w, layer: layer).contains(where: { $0.contains(pt) })
         var t = proj.tile(pt, visible: visible)
         if proj.size.contains(pt), visible {
@@ -323,7 +330,7 @@ public struct FrameBuilder: Sendable {
     /// 長押しで調べる(ふきだし)。未踏のマスは「？」だけ。
     /// 調べたマスの地形と POI の種類(見えていないマスは nil。GameHost.inspect が世界に覚えさせる)。
     public func inspectedKinds(_ w: WorldState, at pt: GridPoint) -> (terrain: TerrainID?, poi: POIKindID?)? {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
         guard let l = proj.layer, proj.size.contains(pt),
               proj.isKnown(pt) || vision.areas(w, layer: layer).contains(where: { $0.contains(pt) }) else { return nil }
@@ -331,7 +338,7 @@ public struct FrameBuilder: Sendable {
     }
 
     public func inspect(_ w: WorldState, at pt: GridPoint) -> TileInspection? {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
         guard let l = proj.layer, proj.size.contains(pt) else { return nil }
         let seen = proj.isKnown(pt) || vision.areas(w, layer: layer).contains { $0.contains(pt) }
@@ -354,10 +361,10 @@ public struct FrameBuilder: Sendable {
     /// 足元カード: 注目しているマスの名前と、いまできる行為(1〜3 個)。
     /// 行為はコンテンツの InteractionDef(対象・昼夜・条件)から引く。距離・回数の上限は探索の担当が断る(理由は足元カードに 1 行)。
     public func footCard(_ w: WorldState, at pt: GridPoint, page: Int = 0) -> FootCard? {
-        if prologue(w, Perceiver(content: content, world: w)) != nil {
+        if prologue(w, perceiver(w)) != nil {
             return FootCard(point: pt, title: "", actions: [])
         }
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         let proj = MapProjector(world: w, content: content, perceiver: p, layer: layer)
         guard let l = proj.layer, proj.size.contains(pt), let terrain = l.terrain(at: pt) else { return nil }
         let seen = proj.isKnown(pt) || vision.areas(w, layer: layer).contains { $0.contains(pt) }
@@ -552,7 +559,7 @@ public struct FrameBuilder: Sendable {
 
     /// 工程表(ライン札・試作・コンテンツの記録)を同じ形にする。
     public func sheet(_ source: ProcessSheet.Source, in w: WorldState) -> ProcessSheet? {
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         switch source {
         case .design(let id):
             guard let m = Sheets.model(.design(id), world: w, content: content) else { return nil }
@@ -595,15 +602,14 @@ public struct FrameBuilder: Sendable {
                 }
             }
             var sheet = ProcessSheet(source: source, title: p.name(def.title), rows: out, result: nil, tally: tally)
-            func label(_ id: TextID, _ fallback: String) -> String { content.texts[id] ?? fallback }
             sheet.labels = .init(
-                rosterInclude: label("ui.roster.include", "含める"),
-                rosterExclude: label("ui.roster.exclude", "含めない"),
-                rosterConfirm: label("ui.roster.confirm", "確定する"),
-                rosterConfirmHint: label("ui.roster.confirm_hint", "長押しで確定"),
-                grantTitle: label("ui.grant.title", "技能を付ける"),
-                grantSkip: label("ui.grant.skip", "付けない"),
-                grantRefused: label("ui.grant.refused", "本人が断った")
+                rosterInclude: p.render(TextRef("ui.roster.include")),
+                rosterExclude: p.render(TextRef("ui.roster.exclude")),
+                rosterConfirm: p.render(TextRef("ui.roster.confirm")),
+                rosterConfirmHint: p.render(TextRef("ui.roster.confirm_hint")),
+                grantTitle: p.render(TextRef("ui.grant.title")),
+                grantSkip: p.render(TextRef("ui.grant.skip")),
+                grantRefused: p.render(TextRef("ui.grant.refused"))
             )
             if let im = def.grant, SheetRules.grantOpen(im, w, content) {
                 sheet.grant = ProcessSheet.SkillGrant(
@@ -647,7 +653,7 @@ public struct FrameBuilder: Sendable {
     /// 行に置ける答えの候補(自分の来歴から。新しい順)。
     public func answerCandidates(_ sid: SheetID, row: String, in w: WorldState) -> [AnswerCandidate] {
         guard let r = content.sheets[sid]?.rows.first(where: { $0.id == row }) else { return [] }
-        let p = Perceiver(content: content, world: w)
+        let p = perceiver(w)
         return SheetRules.answerCandidates(r, w).compactMap { rec in
             p.journalLine(rec).map { AnswerCandidate(record: rec.id, label: $0) }
         }

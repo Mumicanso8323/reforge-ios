@@ -39,7 +39,7 @@ var targets: [Target] = [
     ]),
     // L3
     .target(name: "RFRules", dependencies: ["RFKernel", "RFMap", "RFMatter", "RFWorld", "RFContent"]),
-    .target(name: "RFPerception", dependencies: ["RFKernel", "RFMatter", "RFWorld", "RFContent"]),
+    .target(name: "RFPerception", dependencies: ["RFKernel", "RFText", "RFMatter", "RFWorld", "RFContent"]),
     // L4(保存と失敗)
     .target(name: "RFSave", dependencies: ["RFKernel", "RFWorld"]),
     .target(name: "RFFailure", dependencies: ["RFKernel", "RFWorld", "RFContent", "RFRules", "RFSave"]),

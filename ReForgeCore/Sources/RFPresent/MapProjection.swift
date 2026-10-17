@@ -67,7 +67,7 @@ struct MapProjector {
         var tg: [Biome: String] = [:]
         for b in Biome.allCases {
             let t = b.terrainID
-            tg[b] = perceiver.variant(Subject.terrain(t))?.glyph ?? content.glyphs[Subject.terrain(t)] ?? "？"
+            tg[b] = perceiver.glyph(Subject.terrain(t))
         }
         self.terrainGlyphs = tg
         self.world = w
@@ -113,12 +113,12 @@ struct MapProjector {
         var glow = false
         if let poi = poiAt[p] {
             let v = partSubject(poi.poi, at: p).flatMap { perceiver.variant($0) }
-            glyph = v?.glyph ?? poiGlyph(poi.poi.kind)
+            glyph = partSubject(poi.poi, at: p).map { perceiver.glyph($0, fallback: poiGlyph(poi.poi.kind)) } ?? poiGlyph(poi.poi.kind)
             tint = TilePalette.poi
             glow = v?.glow ?? perceiver.variant(Subject.poi(poi.poi.kind))?.glow ?? false
         } else if let d = depositAt[p], d.deposit.remainingExtractions > 0 {
             let v = perceiver.variant(PresentSubject.deposit(d.deposit))
-            glyph = v?.glyph ?? content.glyphs[PresentSubject.deposit(d.deposit)] ?? "晶"
+            glyph = perceiver.glyph(PresentSubject.deposit(d.deposit), fallback: "◆")
             tint = TilePalette.deposit(d.deposit.category.rawValue)
             glow = v?.glow ?? false
         } else {
@@ -170,7 +170,7 @@ struct MapProjector {
     }
 
     func poiGlyph(_ kind: POIKindID) -> String {
-        perceiver.variant(Subject.poi(kind))?.glyph ?? content.glyphs[Subject.poi(kind)] ?? "▒"
+        perceiver.glyph(Subject.poi(kind), fallback: "▒")
     }
 
     /// 区画の中身の指紋(地形・既知・手がかり・目印・鉱脈)。見え方の文字は事実が変わったときに全区画を上げるので入れない。
