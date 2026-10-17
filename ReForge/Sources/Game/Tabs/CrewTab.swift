@@ -121,7 +121,7 @@ struct BodyGauges: View {
 
     private func gauge(_ label: Text, _ permille: Int) -> some View {
         HStack(spacing: 8) {
-            label.frame(width: 44, alignment: .leading).foregroundStyle(InkColor.textDim)
+            label.frame(minWidth: 44, alignment: .leading).fixedSize(horizontal: true, vertical: false).foregroundStyle(InkColor.textDim)
             Text(verbatim: TextBar.bar(permille, width: 10))
                 .foregroundStyle(permille < 300 ? InkColor.alert : InkColor.text)
         }

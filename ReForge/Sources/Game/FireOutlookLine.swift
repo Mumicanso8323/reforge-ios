@@ -16,7 +16,7 @@ struct FireOutlookLine: View {
         .font(InkFont.small)
         .foregroundStyle(InkColor.textDim)
         .lineLimit(1)
-        .minimumScaleFactor(0.8)
+        .minimumScaleFactor(InkMetric.minimumScale)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("fireOutlook")
     }

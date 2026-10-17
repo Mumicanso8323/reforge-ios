@@ -23,6 +23,7 @@ struct InkButtonStyle: ButtonStyle {
             .inkFitCheck(id: "InkButton.label")
             .font(InkFont.body)
             .lineLimit(1)
+            .minimumScaleFactor(InkMetric.minimumScale)
             .padding(.horizontal, 14)
             .frame(minWidth: InkMetric.buttonHeight, maxWidth: fill ? .infinity : nil, minHeight: InkMetric.buttonHeight)
             .foregroundStyle(foreground)
@@ -86,6 +87,7 @@ struct InkHoldButton: View {
                 .inkFitCheck(id: "InkHoldButton.label")
                 .font(InkFont.body)
                 .lineLimit(1)
+                .minimumScaleFactor(InkMetric.minimumScale)
                 .foregroundStyle(InkColor.alert)
                 .frame(maxWidth: .infinity, minHeight: InkMetric.buttonHeight)
                 .background(

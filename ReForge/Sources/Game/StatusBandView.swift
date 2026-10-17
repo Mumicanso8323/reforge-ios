@@ -44,7 +44,8 @@ struct StatusBandView: View {
                 ui("ui.band.sealed_failed")
                     .font(InkFont.caption)
                     .foregroundStyle(InkColor.textDim)
-                    .lineLimit(1)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("sealedContentNotice")
             }
             if let o = store.objective {
