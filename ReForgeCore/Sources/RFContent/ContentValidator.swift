@@ -15,7 +15,7 @@ public enum ContentValidator {
         public var description: String { "[\(level.rawValue)] \(rule): \(message)" }
     }
 
-    public static func validate(_ db: ContentDB) -> [Issue] {
+    public static func validate(_ db: ContentDB, released: [LanguageID] = LanguageID.released) -> [Issue] {
         var out: [Issue] = []
         // 認識の層(U3)
         perceptionHasDefault(db, &out)
@@ -26,7 +26,9 @@ public enum ContentValidator {
         referencedTextsExist(db, &out)
         unknownTextExists(db, &out)
         textTablesWellFormed(db, &out)
-        forbiddenRulesWellFormed(db, &out)
+        forbiddenRulesWellFormed(db, released: released, &out)
+        pronounRulesWellFormed(db, &out)
+        textAboutWellFormed(db, &out)
         auditStagesWellFormed(db, &out)
         textGatesWellFormed(db, &out)
         factsWellFormed(db, &out)
@@ -159,10 +161,21 @@ public enum ContentValidator {
         Set(nonPerceptionRefs(db).map(\.0))
     }
 
+    /// 場面の行と一言以外が指す文字列。声の範囲を決める側が、同じ ID の複数の使われ方を失わないために使う。
+    public static func otherTextRefs(_ db: ContentDB) -> Set<TextID> {
+        Set(otherRefs(db).map(\.0))
+    }
+
     static func nonPerceptionRefs(_ db: ContentDB) -> [(TextID, String)] {
         var refs: [(TextID, String)] = []
         for (id, sc) in db.scenes { for l in sc.lines { refs.append((l.text, "scene \(id)")) } }
         for (id, l) in db.lines { refs.append((l.text, "line \(id)")) }
+        refs += otherRefs(db)
+        return refs
+    }
+
+    private static func otherRefs(_ db: ContentDB) -> [(TextID, String)] {
+        var refs: [(TextID, String)] = []
         for (id, f) in db.findings { refs.append((f.text, "finding \(id)")) }
         for (id, h) in db.hints { refs.append((h.text, "hint \(id)")) }
         for (id, o) in db.objectives { refs.append((o.text, "objective \(id)")) }
@@ -296,12 +309,18 @@ public enum ContentValidator {
 
     // MARK: 禁止語・監査の段・門
 
-    static func forbiddenRulesWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+    static func forbiddenRulesWellFormed(_ db: ContentDB, released: [LanguageID], _ out: inout [Issue]) {
         var ids = Set<String>()
         for (i, r) in db.forbidden.enumerated() {
             let name = r.id ?? "#\(i)"
-            if r.words.isEmpty || r.words.contains(where: \.isEmpty) {
+            if r.languageWords.byLanguage.values.contains(where: { $0.isEmpty || $0.contains(where: \.isEmpty) }) {
                 out.append(Issue(level: .error, rule: "forbidden.words", message: "規則 \(name) に空の語がある"))
+            }
+            for language in released where r.languageWords[language].isEmpty {
+                out.append(Issue(level: .error, rule: "forbidden.languages", message: "規則 \(name) に出す言語の語が無い"))
+            }
+            for language in db.textTables.available where !released.contains(language) && r.languageWords[language].isEmpty {
+                out.append(Issue(level: .warning, rule: "forbidden.languages.partial", message: "規則 \(name) に \(language.rawValue) の語が無い"))
             }
             if let id = r.id, !ids.insert(id).inserted {
                 out.append(Issue(level: .error, rule: "forbidden.id", message: "規則の名札 \(id) が重なっている"))
@@ -310,6 +329,26 @@ public enum ContentValidator {
             for f in r.until.mentionedFacts.sorted() where db.facts[f] == nil {
                 out.append(Issue(level: .warning, rule: "forbidden.fact", message: "規則 \(name) が知らない事実 \(f) を待っている"))
             }
+            if let scope = r.scope {
+                if scope.speakers.isEmpty && !scope.narration && !scope.other {
+                    out.append(Issue(level: .error, rule: "forbidden.scope.empty", message: "規則 \(name) の範囲が空"))
+                }
+                for speaker in scope.speakers where db.people[speaker] == nil {
+                    out.append(Issue(level: .warning, rule: "forbidden.scope", message: "規則 \(name) の人が無い"))
+                }
+            }
+        }
+    }
+
+    static func pronounRulesWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        for rule in db.pronounRules where db.people[rule.about] == nil {
+            out.append(Issue(level: .warning, rule: "pronoun.about", message: "規則 \(rule.id) の人が無い"))
+        }
+    }
+
+    static func textAboutWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        for text in db.textAbout.keys where db.textTables.tables[.ja]?[text] == nil {
+            out.append(Issue(level: .warning, rule: "textAbout.text", message: "日本語の文言が無い"))
         }
     }
 
@@ -372,9 +411,9 @@ public enum ContentValidator {
     /// 許すラテン文字の語は固有名・題名だけ。ID らしい語(アンダーバー・小文字と記号だけ)を許すと、
     /// 英語の ID の漏れの検査がその語で素通りになる。
     static func latinAllowedIsNotAnID(_ db: ContentDB, _ out: inout [Issue]) {
-        for (i, w) in db.latinAllowed.enumerated() {
-            if w.isEmpty || w.contains("_") || w.range(of: #"^[a-z0-9.:\-]+$"#, options: .regularExpression) != nil {
-                out.append(Issue(level: .error, rule: "latinAllowed.id", message: "許す語 #\(i) が ID のように見える(大文字を含む固有名だけ許す)"))
+        for (language, words) in db.latinAllowedByLanguage.byLanguage {
+            for (i, w) in words.enumerated() where w.isEmpty || w.contains("_") || w.range(of: #"^[a-z0-9.:\-]+$"#, options: .regularExpression) != nil {
+                out.append(Issue(level: .error, rule: "latinAllowed.id", message: "許す語 \(language.rawValue) #\(i) が ID のように見える(大文字を含む固有名だけ許す)"))
             }
         }
     }

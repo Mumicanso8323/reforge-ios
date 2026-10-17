@@ -91,8 +91,11 @@ public struct ContentDB: Equatable, Sendable {
     // 認識の層
     public var perception: [SubjectID: SubjectDef] = [:]
     public var forbidden: [ForbiddenRule] = []
+    public var pronounRules: [PronounRule] = []
     public var auditStages: [AuditStage] = []
     public var textGates: [TextID: TextGate] = [:]
+    /// 文言が指す人。"*" は人を差し込む文の型。
+    public var textAbout: [TextID: Set<String>] = [:]
     /// 言語ごとの文字列表。本文の大半は非公開の層にある。
     public var textTables = TextTables()
     /// 日本語の文字列表。既存の本体・テストとの互換のために残す。
@@ -104,7 +107,11 @@ public struct ContentDB: Equatable, Sendable {
     public var glyphs: [SubjectID: String] = [:]
     /// 画面に出してよいラテン文字の語(固有名・題名など)。英語の ID の検査はこの語を除いてから判定する。
     /// 層をまたいで足し合わせる。語がネタバレなら非公開の層に置き、禁止語の規則で until まで伏せる。
-    public var latinAllowed: [String] = []
+    public var latinAllowed: [String] {
+        get { latinAllowedByLanguage.ja }
+        set { latinAllowedByLanguage.ja = newValue }
+    }
+    public var latinAllowedByLanguage = LanguageWords([])
 
     public init() {}
 
