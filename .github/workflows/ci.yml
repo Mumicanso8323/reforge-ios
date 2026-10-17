@@ -230,6 +230,9 @@ jobs:
                 # XCTAssert の失敗は「行:」だけで桁が無いので、ここには混ざらない
                 grep -E "^/[^ ]*/(ReForge|ReForgeTests|ReForgeUITests|ReForgeCore)/[^ ]*\.swift:[0-9]+:[0-9]+: error: |^xcodebuild: error: " test.log \
                   | grep -v "/Generated/" | sed -E 's|^/[^ ]*/reforge-ios/||' | sort -u | head -40 || true
+                # 落ちた確かめの場所(ファイル:行)だけ。文面と値(物語の文が入りうる)は切り落とす
+                grep -oE "^/[^ ]*/(ReForgeTests|ReForgeUITests)/[^ ]*\.swift:[0-9]+: error: " test.log \
+                  | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -40 || true
               else
                 grep -E "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
               fi
