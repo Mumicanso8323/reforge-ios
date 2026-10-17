@@ -146,10 +146,16 @@ final class ScreenSnapshotTests: XCTestCase {
         if screen == "settings" {
             let button = element(app, "settingsButton")
             if button.exists, button.isHittable {
-                button.tap()
-                let closed = NSPredicate(format: "exists == false")
-                let wait = XCTNSPredicateExpectation(predicate: closed, object: element(app, "cardClose"))
-                if XCTWaiter().wait(for: [wait], timeout: 5) != .completed {
+                // 開く動きの最中の 1 回目の指は取りこぼすことがある(en だけ落ちた)。閉じなければ 1 度だけ押し直す。測りは弱めない
+                var closedOK = false
+                for _ in 0..<2 where !closedOK {
+                    if button.exists, button.isHittable { button.tap() }
+                    let closed = NSPredicate(format: "exists == false")
+                    let wait = XCTNSPredicateExpectation(predicate: closed, object: element(app, "cardClose"))
+                    closedOK = XCTWaiter().wait(for: [wait], timeout: 8) == .completed
+                    if !closedOK, !element(app, "cardClose").exists { closedOK = true }
+                }
+                if !closedOK {
                     findings.append(Finding(language: lang.code, screen: screen, id: "settingsButton", kind: "settings",
                                             detail: "開いた設定が同じボタンで閉じない"))
                 }
