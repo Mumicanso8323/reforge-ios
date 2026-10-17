@@ -9,6 +9,7 @@ struct GameScreen: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var mapVisible = false
     @State private var mapBandHeight: CGFloat = 0
+    @State private var mapAreaHeight: CGFloat = 0
 #if DEBUG
     // 撮る起動(Debug/ScreenshotMode.swift)は、最初のタブを外から決める(設定は AppModel.settingsOpen)
     @State private var tab: GameTab = ScreenshotMode.firstTab
@@ -77,15 +78,27 @@ struct GameScreen: View {
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background {
+                GeometryReader { geo in
+                    Color.clear.onAppear { mapAreaHeight = geo.size.height }
+                        .onChange(of: geo.size.height) { _, h in mapAreaHeight = h }
+                }
+            }
             // 決断の帯・夜の帯・取り消しの帯は地図の下端に重ねる(出入りしても地図の枠は動かない。BandOverlayLayout)
             .overlay(alignment: .bottom) {
                 if tab == .map, app.activePrologue == nil {
-                    MapActionBand(store: store)
-                        .background {
-                            GeometryReader { geo in
-                                Color.clear.preference(key: MapBandHeightKey.self, value: geo.size.height)
-                            }
+                    // 帯が地図の半分(操作部品を持ち上げる上限。BandOverlayLayout.controlLift)を超えるときは、
+                    // 半分までに収めて中を縦に流す(大きい文字で火の行・見込み・申し出が増えても操作棒と重ならない。隠さない)
+                    ViewThatFits(in: .vertical) {
+                        MapActionBand(store: store)
+                        ScrollView(.vertical, showsIndicators: false) { MapActionBand(store: store) }
+                    }
+                    .frame(maxHeight: mapAreaHeight > 0 ? mapAreaHeight / 2 : nil)
+                    .background {
+                        GeometryReader { geo in
+                            Color.clear.preference(key: MapBandHeightKey.self, value: geo.size.height)
                         }
+                    }
                 }
             }
             // 読む順は上から下: 上の帯 → 地図(操作棒・帯) → 足元カード → タブの棒(A-04c)
