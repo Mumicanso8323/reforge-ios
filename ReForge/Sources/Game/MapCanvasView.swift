@@ -323,7 +323,17 @@ struct Bubble<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        content
+        // 日本語は従来のまま(幅の上限なし)。他の言語は幅 260pt を上限に全文を折り返す(行数は切らない)
+        if InkFont.language == LanguageID.source.rawValue {
+            styled(content)
+        } else {
+            styled(content.fixedSize(horizontal: false, vertical: true))
+                .frame(maxWidth: 260, alignment: .leading)
+        }
+    }
+
+    private func styled<V: View>(_ v: V) -> some View {
+        v
             .font(InkFont.body)
             .foregroundStyle(InkColor.text)
             .padding(.horizontal, 10)

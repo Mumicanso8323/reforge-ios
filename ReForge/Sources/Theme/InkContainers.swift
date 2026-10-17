@@ -72,7 +72,7 @@ struct InkRow: View {
                     .frame(width: 22)
             }
             VStack(alignment: .leading, spacing: 2) {
-                title.inkFitCheck(id: "InkRow.title").lineLimit(1)
+                title.inkFitCheck(id: "InkRow.title").lineLimit(2)  // 1 行で収まる日本語は今のまま。長い文は 2 行まで
                 if let detail {
                     detail
                         .font(InkFont.small)

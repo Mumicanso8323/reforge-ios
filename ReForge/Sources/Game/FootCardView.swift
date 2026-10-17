@@ -2,7 +2,7 @@ import SwiftUI
 import ReForgeEngine
 
 /// 足元カード: 注目しているマス(タップ・長押ししたマス、無ければノアの足元)の名前と、できること 1〜2 個(FootCard.maxActions。名前は 2 行まで折り返す)。
-/// 断られた理由はここに 1 行出す(ダイアログは出さない)。高さは固定して、地図が上下に揺れないようにする。
+/// 断られた理由はここに 1 行出す(ダイアログは出さない)。高さは 84pt を下限に内容に合わせて伸びる(日本語では 84pt のまま)。
 struct FootCardView: View {
     let store: GameStore
 
@@ -13,7 +13,9 @@ struct FootCardView: View {
                     Text(verbatim: store.footCard?.title ?? " ")
                         .font(InkFont.body)
                         .bold()
-                        .lineLimit(1)
+                        // 名前は 2 行まで(日本語は 1 行のまま。高さは minHeight 84 から内容に合わせて伸びる)
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
                     // 断りの文・「近くにもう無い」の類は出さない(説明で補わない)。押した事実への応えはボタンの揺れと触覚
                 }

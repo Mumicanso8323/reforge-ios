@@ -13,7 +13,7 @@ struct DarkStartScene: View {
                     VStack(spacing: 10) {
                         DarkStartActionButton(action: action, store: store)
                     }
-                    .frame(width: 240)
+                    .frame(minWidth: 240)
                     .padding(.bottom, geo.safeAreaInsets.bottom + 72)
                 }
         }
@@ -34,7 +34,10 @@ private struct DarkStartActionButton: View {
     var body: some View {
         VStack(spacing: 6) {
             button
-                .frame(width: 240, height: 56)
+                // 幅 240pt・高さ 56pt は最小(日本語はこの寸法のまま)。文が長ければ 343pt まで広がる
+                .frame(minWidth: 240, maxWidth: 343)
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(height: 56)
                 .background(RoundedRectangle(cornerRadius: InkMetric.corner)
                     .fill(pressing ? InkColor.accent : InkColor.panel))
                 .overlay(RoundedRectangle(cornerRadius: InkMetric.corner)
@@ -54,6 +57,8 @@ private struct DarkStartActionButton: View {
                 .background(InkColor.rule)
             }
         }
+        // 進みの線はボタンの幅に揃える(線の GeometryReader が画面の幅まで広がらないよう、幅は中身(ボタン)で決める)
+        .fixedSize(horizontal: true, vertical: false)
         .onAppear { pulse() }
         // 押している間、進みに合わせて軽い振動を少しずつ強める(離したら止める)
         .onChange(of: action.progressPermille) { _, new in
@@ -72,7 +77,7 @@ private struct DarkStartActionButton: View {
                 Text(verbatim: action.label)
                     .font(InkFont.body)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .minimumScaleFactor(InkMetric.minimumScale)
             }
                 .foregroundStyle(pressing ? InkColor.onAccent : InkColor.text)
                 .padding(.horizontal, 12)
@@ -87,6 +92,8 @@ private struct DarkStartActionButton: View {
             Button { store.act(action, pressing: true) } label: {
                 Text(verbatim: action.label)
                     .font(InkFont.body)
+                    .lineLimit(1)
+                    .minimumScaleFactor(InkMetric.minimumScale)
                     .foregroundStyle(InkColor.text)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())

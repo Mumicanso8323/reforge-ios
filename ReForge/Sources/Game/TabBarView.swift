@@ -49,6 +49,8 @@ struct TabBarView: View {
                             tab = t
                         } label: {
                             t.title
+                                // 1 行・縮めない(収まらない文は TextWidthTests が止める)。固定の幅は持たせない
+                                .lineLimit(1)
                                 .frame(maxWidth: .infinity, minHeight: 44)
                                 .contentShape(Rectangle())
                                 .foregroundStyle(tab == t ? InkColor.accent : InkColor.textDim)

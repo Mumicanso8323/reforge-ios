@@ -50,6 +50,8 @@ final class ScreenSnapshotTests: XCTestCase {
         let ignoredZeroSize: Int
         /// 研究の写真だけ: "ok" / "empty"(研究の節が出ない)。ほかの画面は nil
         let research: String?
+        /// 擬似言語の撮影だけ: 縮める・切る区分(button・band・tab・label)の切れ。失敗にせず報告に載せる。ほかの撮影では空
+        let reported: [Finding]
     }
 
     override func setUpWithError() throws {
@@ -61,6 +63,26 @@ final class ScreenSnapshotTests: XCTestCase {
     func testZhHans() throws { shootAll(Self.languages[2]) }
     func testZhHant() throws { shootAll(Self.languages[3]) }
     func testKo() throws { shootAll(Self.languages[4]) }
+    /// L-13: 擬似言語(日本語の文を 4 割伸ばした物)でも、全部の画面を 1 回ずつ撮る(pseudo_<画面>.png。5 言語の枚数には足さない別の組)。
+    func testPseudo() throws { shootAll(Self.pseudo) }
+
+    /// 擬似言語の撮影(L-13)。端末の言語は日本語のまま、アプリの言語だけ擬似言語に固定する。
+    private static let pseudo: (code: String, locale: String) = ("x-pseudo", "ja_JP")
+
+    /// 切れ検出(InkFitLog の id)→ 幅の区分(WidthClass の名前)。UI テストは本体を直接リンクしないので文字列で持つ。
+    /// 表に無い id が出たら失敗(区分を決め忘れない)。
+    private static let fitClasses: [String: String] = [
+        "InkButton.label": "button",
+        "InkHoldButton.label": "button",
+        "InkPanel.title": "body",
+        "InkCard.title": "body",
+        "InkPlate.title": "body",
+        "InkRow.title": "body",
+        "InkRow.detail": "body",
+        "InkRow.value": "label",
+    ]
+    /// 伸ばす区分(WidthClass.growsWithText)。擬似言語の撮影で、ここの id が切れていたら失敗。
+    private static let growingClasses: Set<String> = ["card", "bubble", "prologue", "body"]
 
     private func shootAll(_ lang: (code: String, locale: String)) {
         for screen in Self.screens {
@@ -75,6 +97,9 @@ final class ScreenSnapshotTests: XCTestCase {
         // アプリの書体は端末でなくアプリの言語に従う(L-12)。日本語(ja)は付けず、直す前と同じ起動にする
         app.launchArguments = ["-ReForgeScreenshot", screen, "-AppleLanguages", "(\(lang.code))", "-AppleLocale", lang.locale]
         if lang.code != "ja" { app.launchArguments += ["-ReForgeLanguage", lang.code] }
+        let isPseudo = lang.code == Self.pseudo.code
+        if isPseudo { app.launchArguments += ["-ReForgeOfferPseudo", "YES"] }
+        let tag = isPseudo ? "pseudo" : lang.code
         app.launch()
         defer { app.terminate() }
 
@@ -102,12 +127,18 @@ final class ScreenSnapshotTests: XCTestCase {
 
         let screenshot = XCUIScreen.main.screenshot()
         let shot = XCTAttachment(screenshot: screenshot)
-        shot.name = "\(lang.code)_\(screen)"
+        shot.name = "\(tag)_\(screen)"
         shot.lifetime = .keepAlways
         add(shot)
 
         let inspected = inspect(app, lang: lang.code, screen: screen)
         var findings = inspected.findings
+        var reported: [Finding] = []
+        if isPseudo {
+            // 初回は擬似言語の配置の所見(overflow・offscreen・overlap・区分の表に無い id)を全て報告だけにする。失敗にするのは写真が撮れない・落ちる時だけ
+            reported = findings
+            findings = []
+        }
         if screen == "prologue" || screen == "stage" {
             findings += prologueFindings(app, lang: lang.code, screen: screen, screenshot: screenshot)
         }
@@ -136,9 +167,9 @@ final class ScreenSnapshotTests: XCTestCase {
             }
         }
         if let data = try? JSONEncoder().encode(Report(language: lang.code, screen: screen, findings: findings,
-                                                       ignoredZeroSize: ignoredZeroSize, research: research)) {
+                                                       ignoredZeroSize: ignoredZeroSize, research: research, reported: reported)) {
             let a = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
-            a.name = "report_\(lang.code)_\(screen)"
+            a.name = "report_\(tag)_\(screen)"
             a.lifetime = .keepAlways
             add(a)
         }

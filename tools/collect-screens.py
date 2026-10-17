@@ -6,6 +6,7 @@
 
 出すもの(artifact に上げるのはこの 2 種だけ。ログは上げない):
   screens/<言語>_<画面>.png   … 60 枚(ja_map.png … ko_bootFailure.png)
+  screens/pseudo_<画面>.png   … 擬似言語の写真(L-13。上の 60 枚には足さない別の組)
   screens/report.json         … 検査に当たった要素(言語・画面・要素の識別子・種類・大きさ)と、撮れた枚数
   screens/time_<点>_<外観>.png … 時刻の色の写真 8 枚(4 点 × ダーク/ライト。W-19。--time-raw の添付から。上の 60 枚の数え方とは別)
   screens/time-report.json    … 添付 timehash_<点>_<外観>(JSON)を集めたもの。tools/check-time-tint-shots.py が判定する
@@ -83,6 +84,9 @@ def main() -> int:
     expected = [f"{lang}_{screen}" for lang in LANGS for screen in SCREENS]
     missing = [n for n in expected if n not in pngs]
     findings = [f for r in reports for f in r.get("findings", [])]
+    # 擬似言語の写真(L-13。pseudo_<画面>.png)は期待の枚数に足さない別の組。縮める・切る区分の切れは報告に載せるだけ
+    pseudo_shots = sorted(n for n in pngs if n.startswith("pseudo_"))
+    pseudo_reported = [f for r in reports for f in r.get("reported", [])]
     # 画面ごとの行(offscreen から外した幅か高さ 1pt 以下の要素の数と、研究の節の有無。後で増えたら気づくため)
     rows = sorted(
         ({"language": r.get("language", ""), "screen": r.get("screen", ""),
@@ -95,6 +99,8 @@ def main() -> int:
         "shots": len([n for n in expected if n in pngs]),
         "missing": missing,
         "screens": rows,
+        "pseudoShots": len(pseudo_shots),
+        "pseudoReported": sorted(pseudo_reported, key=lambda f: (f["screen"], f["id"])),
         "findings": sorted(findings, key=lambda f: (f["language"], f["screen"], f["kind"], f["id"])),
     }
     (out / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
@@ -102,6 +108,7 @@ def main() -> int:
     if empty:
         print("research: empty " + ", ".join(empty))
     print(f"撮れた {report['shots']}/{report['expected']} 枚・検査に当たった {len(findings)} 件")
+    print(f"擬似言語の写真 {len(pseudo_shots)} 枚・縮める/切る区分の切れの報告 {len(pseudo_reported)} 件(失敗にしない)")
     for f in report["findings"][:40]:
         print(f"  {f['language']}_{f['screen']}: {f['kind']} {f['id']} {f['detail']}")
     # 時刻の色の写真: time_*.png 8 枚(4 点 × 2 外観)。--time-raw を渡したときだけ見る(今の 60 枚の数え方は変えない)

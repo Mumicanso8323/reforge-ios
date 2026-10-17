@@ -75,4 +75,6 @@ enum InkMetric {
     static let buttonHeight: CGFloat = 44
     static let corner: CGFloat = 4
     static let rule: CGFloat = 1
+    /// 収まらないときの最後の手段の縮小(L-13。WidthClass.minimumScale の % を倍率に直す、アプリで 1 か所)。
+    static let minimumScale: CGFloat = CGFloat(WidthClass.minimumScale) / 100
 }

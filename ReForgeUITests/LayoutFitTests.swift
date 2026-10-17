@@ -9,9 +9,10 @@ final class LayoutFitTests: XCTestCase {
         continueAfterFailure = false
     }
 
-    private func launch(_ screen: String, category: String? = nil) -> XCUIApplication {
+    private func launch(_ screen: String, category: String? = nil, pseudo: Bool = false) -> XCUIApplication {
         let app = XCUIApplication()
         var args = ["-ReForgeScreenshot", screen, "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        if pseudo { args += ["-ReForgeLanguage", "x-pseudo", "-ReForgeOfferPseudo", "YES"] }
         if let category { args += ["-UIPreferredContentSizeCategoryName", category] }
         app.launchArguments = args
         app.launch()
@@ -112,6 +113,63 @@ final class LayoutFitTests: XCTestCase {
         let app = launch("foot", category: "UICTContentSizeCategoryAccessibilityL")
         defer { app.terminate() }
         checkFootActions(app, "大きい文字")
+    }
+
+    /// L-13: 足元カードは日本語で 84pt のまま(固定の高さにしない = min に替えても寸法は変わらない)。
+    func testFootCardKeepsItsHeightInJapanese() {
+        let app = launch("foot")
+        defer { app.terminate() }
+        let card = one(app, "footCard")
+        XCTAssertTrue(card.waitForExistence(timeout: 60), "足元カードが出ない")
+        XCTAssertEqual(card.frame.height, 84, accuracy: 1.5, "日本語の足元カードは 84pt のまま(帯の余白を含む高さの今の値)")
+    }
+
+    /// L-13: 擬似言語(4 割長い文)でも足元カードは画面の中に収まり、下の端を越えず、行為のボタンはカードの中にある。
+    func testFootCardGrowsInsideTheScreenInPseudo() throws {
+        let app = launch("foot", pseudo: true)
+        defer { app.terminate() }
+        let card = one(app, "footCard")
+        XCTAssertTrue(card.waitForExistence(timeout: 60), "足元カードが出ない")
+        let screen = app.windows.firstMatch.frame
+        XCTAssertGreaterThanOrEqual(card.frame.height, 83.5, "足元カードは下限(84pt)から伸びる")
+        // 撮影の世界の足元カードに長い名前がある時は、84pt を厳密に越えて伸びる。無ければ見ない(理由つきで飛ばす)
+        let longName = app.descendants(matching: .any).matching(identifier: "footAction").allElementsBoundByIndex
+            .contains { $0.label.count >= 14 }
+        if longName {
+            XCTAssertGreaterThan(card.frame.height, 84, "長い名前の足元カードは 84pt を越えて伸びる \(card.frame)")
+        }
+        XCTAssertLessThanOrEqual(card.frame.maxY, screen.maxY + 0.5, "足元カードが画面の下の端を越えた \(card.frame)")
+        XCTAssertGreaterThanOrEqual(card.frame.minX, screen.minX - 0.5)
+        XCTAssertLessThanOrEqual(card.frame.maxX, screen.maxX + 0.5)
+        checkStatusBand(app, "擬似言語")
+        if !longName { throw XCTSkip("撮影の世界の足元カードに長い名前(14 字以上)が無い。84pt 超の伸びは測れない") }
+    }
+
+    /// L-13: 擬似言語のふきだし(調べた結果)が幅の内側(画面の幅 343pt の中)に収まる。
+    func testInspectionBubbleStaysInsideInPseudo() throws {
+        let app = launch("map", pseudo: true)
+        defer { app.terminate() }
+        let bubble = one(app, "inspection")
+        guard bubble.waitForExistence(timeout: 20) else {
+            throw XCTSkip("撮影の世界の地図に調べた結果(inspection)が出ない。ふきだしは測れない")
+        }
+        let screen = app.windows.firstMatch.frame
+        XCTAssertLessThanOrEqual(bubble.frame.width, 343.5, "ふきだしが 343pt を越えた \(bubble.frame)")
+        XCTAssertGreaterThanOrEqual(bubble.frame.minX, screen.minX - 0.5)
+        XCTAssertLessThanOrEqual(bubble.frame.maxX, screen.maxX + 0.5)
+    }
+
+    /// L-13: 日本語のふきだしは従来のまま(幅の上限 260pt を掛けない)。調べた結果が出る画面なら、幅が画面の内側で、行数で切られない。
+    func testInspectionBubbleKeepsItsSizeInJapanese() throws {
+        let app = launch("map")
+        defer { app.terminate() }
+        let bubble = one(app, "inspection")
+        guard bubble.waitForExistence(timeout: 20) else {
+            throw XCTSkip("撮影の世界の地図に調べた結果(inspection)が出ない。日本語のふきだしは測れない")
+        }
+        let screen = app.windows.firstMatch.frame
+        XCTAssertGreaterThanOrEqual(bubble.frame.minX, screen.minX - 0.5)
+        XCTAssertLessThanOrEqual(bubble.frame.maxX, screen.maxX + 0.5)
     }
 
     /// 日没の締めの各行が画面の中に収まり(左へはみ出して切れない)、地図の操作棒・足元カードと重ならない。
