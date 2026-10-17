@@ -217,12 +217,13 @@ public struct FrameBuilder: Sendable {
     func placements(_ w: WorldState, _ p: Perceiver, proj: MapProjector, map: MapView) -> [PlacementSprite] {
         w.placements.sortedIDs.compactMap { id in
             guard let pl = w.placements.items[id], pl.at.layer == layer else { return nil }
-            if w.clock.isNight && !isInLight(pl.at.point, in: w) { return nil }
             let seenInDark: Bool = if case .structure(let kind) = pl.kind {
                 content.structures[kind]?.seenInDark ?? false
             } else {
                 false
             }
+            // 夜は灯りの円の外の物を載せない(W-18)。暗がりの印は、その外でも見えるための物なので載せる
+            if w.clock.isNight && !seenInDark && !isInLight(pl.at.point, in: w) { return nil }
             guard proj.isKnown(pl.at.point) || map.isVisible(pl.at.point) || seenInDark,
                   !(seenInDark && pl.destroyedBy != nil) else { return nil }
             let s: SubjectID = switch pl.kind {

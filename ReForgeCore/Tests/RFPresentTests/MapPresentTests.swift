@@ -183,6 +183,24 @@ final class MapPresentTests: XCTestCase {
                        "壊した次のフレームから印は出ない")
     }
 
+    /// 夜(灯りの円の外の物は載せない。W-18)でも、暗がりの印だけは円の外で Frame に残る。
+    func testDarkMarkStaysVisibleAtNightOutsideLight() throws {
+        let content = try darkMarkContent()
+        let localBuilder = FrameBuilder(content: content)
+        var w = world()
+        w.clock.phase = .nightWork
+        let darkPoint = try passableUnseenPoint(w)
+        let ordinaryPoint = try passableUnseenPoint(w, excluding: [darkPoint])
+        var ctx = StepContext(world: w, content: content)
+        EffectApplier.apply([.placeStructure(structure: "structure.test.dark_mark", at: .point(at: WorldPoint(.surface, darkPoint)), built: true),
+                             .placeStructure(structure: "structure.test.ordinary_mark", at: .point(at: WorldPoint(.surface, ordinaryPoint)), built: true)],
+                            &ctx, cause: nil)
+        XCTAssertTrue(ctx.world.clock.isNight)
+        let frame = localBuilder.build(ctx.world, revision: 1, previous: nil, report: nil)
+        XCTAssertTrue(frame.placements.contains { $0.at == darkPoint && $0.seenInDark }, "夜でも暗がりの印は見える")
+        XCTAssertFalse(frame.placements.contains { $0.at == ordinaryPoint }, "ふつうの物は夜の円の外では見えない")
+    }
+
     /// 暗がりの印を足元カードに出しても、定義していない行為のボタンは足さない。
     func testDarkMarkFootCardAddsNoAction() throws {
         var content = try darkMarkContent()

@@ -221,6 +221,14 @@ final class AppModel {
                     ProvenanceRecord(id: id, at: at, day: day, run: run, actor: .noah, act: .crafted, subject: subject, count: count)
                 }
             }
+            // 日没の帯の火のゲージ・寝る見込み(W-02d)が出るよう、足元に点いた焚き火を置く
+            let origin = world.map.spawn
+            var ctx = StepContext(world: world, content: content)
+            EffectApplier.apply([
+                .placeStructure(structure: "structure.campfire", at: .point(at: origin), built: true),
+                .hearth(at: .point(at: origin), op: .ignite()),
+            ], &ctx, cause: nil)
+            world = ctx.world
         }
         if foot {
             // 足元カードの写真: ノアの隣に、押すだけの行為(森で枝を拾う)と長押しの行為(鉱脈を手で掘る)が並ぶ形にする
