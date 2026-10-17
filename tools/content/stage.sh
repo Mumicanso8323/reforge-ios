@@ -16,20 +16,10 @@ cd "$(dirname "$0")/../.."
 rm -rf AppContent
 mkdir -p AppContent/content
 cp -R content/public AppContent/content/public
-mapfile -t released_languages < <(python3 tools/released-languages.py)
-if [ -d AppContent/content/public/text ]; then
-  for language_dir in AppContent/content/public/text/*; do
-    [ -d "$language_dir" ] || continue
-    language="$(basename "$language_dir")"
-    keep=false
-    for released in "${released_languages[@]}"; do
-      [ "$language" = "$released" ] && keep=true && break
-    done
-    $keep || rm -rf "$language_dir"
-  done
-fi
 if [ "${REFORGE_STORE_BUILD:-}" = "1" ]; then
   required_languages="$(python3 tools/released-languages.py --csv)"
+  # ストアの版だけ、出さない言語の公開の表を束から消す(開発の版と画面の写真は 5 言語のまま)
+  tools/content/trim-public-languages.sh AppContent/content/public/text "$required_languages"
 else
   required_languages="ja"
 fi

@@ -129,6 +129,8 @@ jobs:
       - name: 出す言語の一覧を確かめる
         if: always()
         run: python3 tools/test_released_languages.py
+      - name: 束を作るシェルの確かめ(bash 3.2・ストアの版だけ言語を削る)
+        run: python3 tools/test_stage_scripts.py
       # testflight ジョブは app-switches を needs に持つので、ここが落ちると TestFlight へ上げない(門)
       - name: Release の組みに debug の物が入らない
         if: always()
