@@ -44,7 +44,7 @@ struct StatusBandView: View {
                 ResumeBannerView(line: r)
             }
             if sealedContentFailed {
-                Text("物語のデータを読めなかったので、試遊用のデータで動いています")
+                ui("ui.band.sealed_failed")
                     .font(InkFont.caption)
                     .foregroundStyle(InkColor.textDim)
                     .lineLimit(1)

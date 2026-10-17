@@ -13,7 +13,6 @@ final class AppLanguage {
     /// 端末の言語の並び(起動時に決める)。
     @ObservationIgnored private let preferred: [String]
     @ObservationIgnored private let defaults: UserDefaults
-    @ObservationIgnored private let tables: TextTables
     /// その実行だけの固定(DEBUG の起動引数)。あれば effective は常にこれ。select も上書きしない。保存しない。
     @ObservationIgnored private let pinned: LanguageID?
 
@@ -29,7 +28,6 @@ final class AppLanguage {
          includePseudo: Bool = AppLanguage.includesPseudo,
          pinned: LanguageID? = AppLanguage.pinnedLanguage) {
         self.defaults = defaults
-        self.tables = tables
         self.preferred = preferred
         let offered = LanguageOffer.offered(tables: tables, includePseudo: includePseudo)
         self.offered = offered
@@ -75,7 +73,7 @@ final class AppLanguage {
 #endif
     }
 
-    /// 名前の表の 1 項目。訳す文ではないので Localizable.xcstrings に入れない(gen-xcstrings は verbatim: の引数を拾わない)。
+    /// 名前の表の 1 項目。訳す文ではないので文言の表に入れない(check-app-strings の許可の一覧に入れた名前の表)。
     private static func endonym(verbatim name: String) -> String { name }
 
     /// 言語の名前(その言語自身の書き方)。訳す文ではなく名前の表。
@@ -89,17 +87,4 @@ final class AppLanguage {
         case .pseudo: Self.endonym(verbatim: "Pseudo") // endonym
         }
     }
-
-    /// 文言の表から 1 文を引く(L-11 が入るまでの小さな口。入ったら ui(…) に置き換える)。
-    func text(_ id: TextID, args: [String: RenderedArg] = [:]) -> String {
-        guard let pattern = tables.pattern(id, effective, marker: false) else { return id.rawValue }
-        return (try? MessageFormat.render(pattern, args: args, language: effective)) ?? pattern
-    }
-
-    /// 「端末に合わせる({language})」の行の文。
-    var systemRowTitle: String {
-        text("ui.button.language_system", args: ["language": .string(Self.name(effective))])
-    }
-
-    var sectionTitle: String { text("ui.body.language") }
 }

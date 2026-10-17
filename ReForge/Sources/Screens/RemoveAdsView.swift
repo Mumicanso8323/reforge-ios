@@ -14,14 +14,14 @@ struct RemoveAdsView: View {
             Button {
                 back()
             } label: {
-                Text("‹ 設定にもどる")
+                ui("ui.button.back_to_settings")
             }
             .buttonStyle(.ink(.quiet, fill: false))
 
-            Text("広告を消す")
+            ui("ui.body.remove_ads")
                 .font(InkFont.heading)
                 .tracking(InkFont.headingTracking)
-            Text("広告を消します。ゲームの内容は変わりません。")
+            ui("ui.body.remove_ads_blurb")
                 .lineSpacing(InkFont.bodyLineSpacing / 2)
             if let price {
                 Text(verbatim: price)
@@ -29,7 +29,7 @@ struct RemoveAdsView: View {
                     .monospacedDigit()
             }
             if !app.storeService.isAvailable {
-                Text("いまは購入できません(準備中)")
+                ui("ui.body.purchase_unavailable")
                     .font(InkFont.caption)
                     .foregroundStyle(InkColor.textDim)
             }
@@ -42,7 +42,7 @@ struct RemoveAdsView: View {
                         if app.adsRemoved { back() }
                     }
                 } label: {
-                    Text("購入する")
+                    ui("ui.button.buy")
                 }
                 .buttonStyle(.ink(.primary))
                 Button {
@@ -53,7 +53,7 @@ struct RemoveAdsView: View {
                         if app.adsRemoved { back() }
                     }
                 } label: {
-                    Text("購入を復元")
+                    ui("ui.button.restore_purchases")
                 }
                 .buttonStyle(.ink(.secondary))
             }

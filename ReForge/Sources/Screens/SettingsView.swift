@@ -7,7 +7,7 @@ struct SettingsView: View {
     /// 札を閉じる(記録を消した後など)。
     var close: () -> Void
     @State private var showRemoveAds = false
-    @State private var restoreMessage: LocalizedStringKey?
+    @State private var restoreMessage: String?
 #if DEBUG
     /// 開発の設定(DEBUG のビルドだけ。配る dev の ipa は Release なので出ない。保存には入れない)。
     @AppStorage(GameStore.devHoldClockKey) private var devHoldClock = false
@@ -28,7 +28,12 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        if showRemoveAds {
+        if app.content == nil {
+            // 読み込みの失敗の画面(文言の表が無い)。表を要らない行だけ(BootText で出せる文と、バージョン)
+            Text(verbatim: version)
+                .font(InkFont.caption)
+                .foregroundStyle(InkColor.textDim)
+        } else if showRemoveAds {
             RemoveAdsView(app: app, back: { showRemoveAds = false })
         } else {
             VStack(alignment: .leading, spacing: 24) {
@@ -36,14 +41,14 @@ struct SettingsView: View {
                 LanguageSection(app: app)
 
                 if AdPolicy.shown {
-                    InkSection(title: Text("広告")) {
+                    InkSection(title: ui("ui.body.ads")) {
                         if app.adsRemoved {
-                            InkRow(title: Text("広告は非表示です"))
+                            InkRow(title: ui("ui.body.ads_hidden"))
                         } else {
                             Button {
                                 showRemoveAds = true
                             } label: {
-                                InkRow(title: Text("広告を消す"), value: Text(verbatim: "›"))
+                                InkRow(title: ui("ui.body.remove_ads"), value: Text(verbatim: "›"))
                             }
                             .buttonStyle(.inkRow)
                             .accessibilityIdentifier("removeAdsButton")
@@ -51,10 +56,10 @@ struct SettingsView: View {
                         Button {
                             Task {
                                 await app.restorePurchases()
-                                restoreMessage = app.adsRemoved ? "購入を復元しました" : "復元できる購入はありません"
+                                restoreMessage = app.adsRemoved ? UIText.shared.string("ui.body.restore_done") : UIText.shared.string("ui.body.restore_none")
                             }
                         } label: {
-                            InkRow(title: Text("購入を復元"), detail: restoreMessage.map { Text($0) })
+                            InkRow(title: ui("ui.body.restore_purchases"), detail: restoreMessage.map { Text(verbatim: $0) })
                         }
                         .buttonStyle(.inkRow)
                         .accessibilityIdentifier("restoreButton")
@@ -109,16 +114,16 @@ struct SettingsView: View {
 
 #endif
 
-                InkSection(title: Text("このアプリについて")) {
-                    InkRow(title: Text("バージョン"), value: Text(verbatim: version))
-                    InkRow(title: Text("ライセンス"), value: Text("すべての権利を留保"))
-                    InkRow(title: Text("フォント"), detail: Text("BIZ UDGothic(SIL Open Font License 1.1)"))
+                InkSection(title: ui("ui.body.about")) {
+                    InkRow(title: ui("ui.body.version"), value: Text(verbatim: version))
+                    InkRow(title: ui("ui.body.license"), value: ui("ui.body.license_value"))
+                    InkRow(title: ui("ui.body.font"), detail: Text(verbatim: "BIZ UDGothic(SIL Open Font License 1.1)"))
                 }
 
                 // 一番下(押し方は今のまま。確かめのダイアログは足さない)
-                InkSection(title: Text("記録")) {
-                    InkHoldButton(label: Text("記録を消す"),
-                                  hint: Text("長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。")) {
+                InkSection(title: ui("ui.body.records")) {
+                    InkHoldButton(label: ui("ui.button.delete_save"),
+                                  hint: ui("ui.body.delete_save_hint")) {
                         app.deleteSave()
                         close()
                     }

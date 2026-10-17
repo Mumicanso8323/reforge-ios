@@ -91,16 +91,6 @@
         }
       }
     },
-    "‹ 設定にもどる": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "‹ 設定にもどる"
-          }
-        }
-      }
-    },
     "← もどる": {
       "localizations": {
         "ja": {
@@ -117,16 +107,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "→ 1 本くべると:"
-          }
-        }
-      }
-    },
-    "いまは購入できません(準備中)": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "いまは購入できません(準備中)"
           }
         }
       }
@@ -161,32 +141,12 @@
         }
       }
     },
-    "このアプリについて": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "このアプリについて"
-          }
-        }
-      }
-    },
     "この先にまだ %lld 件": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "この先にまだ %lld 件"
-          }
-        }
-      }
-    },
-    "すべての権利を留保": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "すべての権利を留保"
           }
         }
       }
@@ -217,16 +177,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "つづき"
-          }
-        }
-      }
-    },
-    "つづきから": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "つづきから"
           }
         }
       }
@@ -357,36 +307,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "ノート"
-          }
-        }
-      }
-    },
-    "バージョン": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "バージョン"
-          }
-        }
-      }
-    },
-    "フォント": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "フォント"
-          }
-        }
-      }
-    },
-    "ライセンス": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ライセンス"
           }
         }
       }
@@ -871,46 +791,6 @@
         }
       }
     },
-    "広告": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "広告"
-          }
-        }
-      }
-    },
-    "広告は非表示です": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "広告は非表示です"
-          }
-        }
-      }
-    },
-    "広告を消します。ゲームの内容は変わりません。": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "広告を消します。ゲームの内容は変わりません。"
-          }
-        }
-      }
-    },
-    "広告を消す": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "広告を消す"
-          }
-        }
-      }
-    },
     "序の見せ方": {
       "localizations": {
         "ja": {
@@ -967,16 +847,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "待っている"
-          }
-        }
-      }
-    },
-    "復元できる購入はありません": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "復元できる購入はありません"
           }
         }
       }
@@ -1187,6 +1057,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "数"
+          }
+        }
+      }
+    },
+    "文言の表に無い ID: %lld": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "文言の表に無い ID: %lld"
           }
         }
       }
@@ -1441,16 +1321,6 @@
         }
       }
     },
-    "物語のデータを読めなかったので、試遊用のデータで動いています": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "物語のデータを読めなかったので、試遊用のデータで動いています"
-          }
-        }
-      }
-    },
     "盛んに燃えている": {
       "localizations": {
         "ja": {
@@ -1537,16 +1407,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "粘り %lld"
-          }
-        }
-      }
-    },
-    "素材から、作り直す": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "素材から、作り直す"
           }
         }
       }
@@ -1657,16 +1517,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "記録"
-          }
-        }
-      }
-    },
-    "記録を消す": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記録を消す"
           }
         }
       }
@@ -1791,36 +1641,6 @@
         }
       }
     },
-    "購入する": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "購入する"
-          }
-        }
-      }
-    },
-    "購入を復元": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "購入を復元"
-          }
-        }
-      }
-    },
-    "購入を復元しました": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "購入を復元しました"
-          }
-        }
-      }
-    },
     "距離を取る": {
       "localizations": {
         "ja": {
@@ -1887,36 +1707,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "重い歩み"
-          }
-        }
-      }
-    },
-    "長押し": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "長押し"
-          }
-        }
-      }
-    },
-    "長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。"
-          }
-        }
-      }
-    },
-    "長押しで、いまの記録を消してはじめる": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "長押しで、いまの記録を消してはじめる"
           }
         }
       }

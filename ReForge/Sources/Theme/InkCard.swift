@@ -6,7 +6,7 @@ import SwiftUI
 /// - 札の中で次の段へ進むとき(設定 → 広告を消す)は、札を重ねず中身を差し替える。
 /// 使い方:
 /// ```
-/// someView.inkCard(isPresented: $showSettings, title: Text("設定")) { SettingsView(app: app, close: { showSettings = false }) }
+/// someView.inkCard(isPresented: $showSettings, title: ui("ui.body.settings")) { SettingsView(app: app, close: { showSettings = false }) }
 /// ```
 struct InkCardModifier<CardContent: View>: ViewModifier {
     @Binding var isPresented: Bool
@@ -32,7 +32,7 @@ struct InkCardModifier<CardContent: View>: ViewModifier {
                                 Button {
                                     isPresented = false
                                 } label: {
-                                    Text("閉じる")
+                                    ui("ui.button.close")
                                 }
                                 .buttonStyle(.ink(.quiet, fill: false))
                                 .accessibilityIdentifier("cardClose")

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// タブの中身の土台(設計・ノート・拠点・仲間)。見出し 1 行と、縦に流れる中身。
-/// 使い方: `InkPanel(title: Text("拠点")) { InkSection(title: Text("蓄え")) { … } }`
+/// 使い方: `InkPanel(title: ui("ui.tab.base")) { InkSection(title: ui("ui.body.stock")) { … } }`
 /// 中身が長いときは自分でスクロールする(ScrollView を中に置かなくてよい)。
 struct InkPanel<Content: View>: View {
     var title: Text? = nil

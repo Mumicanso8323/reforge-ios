@@ -25,7 +25,7 @@ struct TitleView: View {
                     .font(InkFont.display)
                     .tracking(InkFont.displayTracking)
                     .foregroundStyle(InkColor.text)
-                Text("素材から、作り直す")
+                ui("ui.body.title_tagline")
                     .font(InkFont.small)
                     .foregroundStyle(InkColor.textDim)
                     .padding(.top, 8)
@@ -35,12 +35,12 @@ struct TitleView: View {
                         Button {
                             app.continueGame()
                         } label: {
-                            Text("つづきから")
+                            ui("ui.button.continue")
                         }
                         .buttonStyle(.ink(.primary))
                         .accessibilityIdentifier("continueButton")
                         // いまの記録を消すので、確かめのダイアログの代わりに長押しにする
-                        InkHoldButton(label: Text("はじめから"), hint: Text("長押しで、いまの記録を消してはじめる"), showsHint: false) {
+                        InkHoldButton(label: ui("ui.button.new_game"), hint: ui("ui.a11y.new_game_hint"), showsHint: false) {
                             app.startNewGame()
                         }
                         .accessibilityIdentifier("newGameButton")
@@ -48,7 +48,7 @@ struct TitleView: View {
                         Button {
                             app.startNewGame()
                         } label: {
-                            Text("はじめから")
+                            ui("ui.button.new_game")
                         }
                         .buttonStyle(.ink(.primary))
                         .accessibilityIdentifier("newGameButton")

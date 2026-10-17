@@ -9,8 +9,8 @@ struct LanguageSection: View {
 
     var body: some View {
         if app.language.showsSection {
-            InkSection(title: Text(verbatim: app.language.sectionTitle)) {
-                row(id: "system", title: Text(verbatim: app.language.systemRowTitle), selected: app.language.choice == .system) {
+            InkSection(title: ui("ui.body.language")) {
+                row(id: "system", title: ui("ui.button.language_system", ["language": .string(AppLanguage.name(app.language.effective))]), selected: app.language.choice == .system) {
                     app.selectLanguage(.system)
                 }
                 ForEach(app.language.offered, id: \.self) { language in

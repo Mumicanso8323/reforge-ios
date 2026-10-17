@@ -15,6 +15,8 @@ Localizable.xcstrings を作り直す。
 使い方:
   python3 tools/gen-xcstrings.py           カタログを作り直す(既存の訳は残す)
   python3 tools/gen-xcstrings.py --check   作り直すと変わるなら終了コード 1(CI 用)
+  python3 tools/gen-xcstrings.py --extract Text("…") と補間のリテラルを JSON で出す(L-11。表へ移す作業の一覧。
+                                          ファイル:行・リテラル・補間の型 %lld/%@。移し終えたらこの道具ごと消す)
 """
 import json
 import pathlib
@@ -90,7 +92,31 @@ def literals():
     return sorted(found)
 
 
+def extract():
+    """文字列リテラルを、ファイル:行つきで出す(literals() と同じ拾い方)。"""
+    out = []
+    for path in sorted(SOURCES.rglob("*.swift")):
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if line.strip().startswith("//"):
+                continue
+            m = TYPES.search(line)
+            types = [t.strip() for t in m.group(1).split(",")] if m else []
+            code = line.split("//")[0] if not m else line[:m.start()]
+            for lit in LITERAL.finditer(code):
+                text = lit.group(1)
+                if code[:lit.start()].rstrip().endswith("verbatim:"):
+                    continue
+                if any(is_word(ch) for ch in strip_interpolations(text)):
+                    spans = interpolations(text)
+                    kinds = [("%@" if (types[n] == "@") else "%lld") if types else "%lld" for n in range(len(spans))]
+                    out.append({"at": f"{path.relative_to(ROOT)}:{number}", "literal": text, "interpolations": kinds})
+    print(json.dumps(out, ensure_ascii=False, indent=2))
+    return 0
+
+
 def main():
+    if "--extract" in sys.argv[1:]:
+        return extract()
     old = {}
     if OUT.exists():
         old = json.loads(OUT.read_text(encoding="utf-8")).get("strings", {})

@@ -11,7 +11,7 @@ enum InkButtonKind {
 }
 
 /// 標準の .bordered / .borderedProminent の代わり。
-/// 使い方: `Button { … } label: { Text("寝る") }.buttonStyle(.ink(.primary))`
+/// 使い方: `Button { … } label: { ui("ui.button.sleep") }.buttonStyle(.ink(.primary))`
 struct InkButtonStyle: ButtonStyle {
     var kind: InkButtonKind = .secondary
     /// 横幅いっぱいに広げる(一覧・札の中のボタン)。
@@ -67,7 +67,7 @@ extension ButtonStyle where Self == InkButtonStyle {
 /// 確かめのダイアログの代わり(オーナーの決め: 確認のダイアログは出さない)。
 /// 押し続けると左から錆の帯が満ち、満ちきったときだけ action が走る。途中で離すと戻る。
 /// 取り返しのつかない行為(記録を消す・はじめから)にだけ使う。説明は hint に 1 行で書く。
-/// 使い方: `InkHoldButton(label: Text("記録を消す"), hint: Text("長押しで消す")) { app.deleteSave() }`
+/// 使い方: `InkHoldButton(label: ui("ui.button.delete_save"), hint: ui("ui.body.delete_save_hint")) { app.deleteSave() }`
 struct InkHoldButton: View {
     let label: Text
     var hint: Text? = nil

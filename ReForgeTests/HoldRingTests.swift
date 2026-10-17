@@ -1,6 +1,7 @@
 import XCTest
 @testable import ReForge
 
+@MainActor
 final class HoldRingTests: XCTestCase {
     func testTrimIsZeroWhenNotPressingOrNoValue() {
         XCTAssertEqual(HoldRing.trim(permille: nil, pressing: false), 0)
@@ -16,8 +17,11 @@ final class HoldRingTests: XCTestCase {
         XCTAssertEqual(HoldRing.trim(permille: -5, pressing: true), 0)
     }
 
-    func testSpokenValue() {
-        XCTAssertEqual(HoldRing.spokenValue(hold: true), String(localized: "長押し")) // ja-table
+    func testSpokenValue() throws {
+        let tables = try AppModel.loadBundledContent(bundle: .main).textTables
+        UIText.shared.configure(tables: tables, language: .ja, markFallback: false)
+        XCTAssertEqual(HoldRing.spokenValue(hold: true), UIText.shared.string("ui.a11y.hold"))
+        XCTAssertEqual(UIText.shared.string("ui.a11y.hold"), "長押し") // ja-table
         XCTAssertNil(HoldRing.spokenValue(hold: false))
     }
 }
