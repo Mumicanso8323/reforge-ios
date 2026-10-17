@@ -181,7 +181,7 @@ final class AppModel {
     /// failed なら走行が終わった形(ゲームオーバーの 4 択)にする。
     /// decision なら、公開の層の試験用の決断を 1 つ出した形にする(決断の帯)。
     func startScreenshotGame(failed: Bool, decision: Bool, darkStart: Bool = false, darkMark: Bool = false,
-                             foot: Bool = false, dusk: Bool = false) {
+                             foot: Bool = false, dusk: Bool = false, time: ScreenshotTime? = nil) {
         guard var content else { return }
         if darkMark, var mark = content.structures["structure.fence"] {
             mark.seenInDark = true
@@ -195,7 +195,12 @@ final class AppModel {
                                                        since: world.clock.now, origin: nil)]
         }
         if darkStart { world.clock.held = true }
-        if darkMark {
+        if let time {
+            // 時刻の色の写真(W-19): 時計は止めたまま、世界の時刻だけを置く(夜明けからの分)
+            world.clock.held = false
+            world.clock.now = world.clock.dayStartedAt + .minutes(time.minutesSinceDawn)
+        }
+        if darkMark || time == .night {
             world.clock.phase = .nightWork
             let origin = world.map.spawn
             let markPoint = GridPoint(origin.point.x + 7, origin.point.y + 7)

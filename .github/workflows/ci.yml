@@ -123,6 +123,9 @@ jobs:
       - name: 足元カード・拠点のタブに、できない理由の文が無い
         if: always()
         run: python3 tools/check-no-reason-text.py
+      - name: 部品が暗い地のまま固定(端末の外観・時刻に依らない)
+        if: always()
+        run: python3 tools/check-fixed-dark.py
       - name: 公開語の検査器を確かめる
         if: always()
         run: python3 tools/test_check_public_spoilers.py
@@ -352,6 +355,7 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build-screens \
             -resultBundlePath screens.xcresult \
             -skip-testing:ReForgeUITests/PrologueVideoTests \
+            -skip-testing:ReForgeUITests/TimeTintSnapshotTests \
             CODE_SIGNING_ALLOWED=NO > screens-test.log 2>&1 \
             || { grep -E "error:|failed|Undefined symbol" screens-test.log | sort -u | head -80; tail -40 screens-test.log; exit 1; }
           grep -E "Test Case .*(passed|failed)|Executed|\*\* TEST" screens-test.log | tail -20
@@ -387,6 +391,40 @@ jobs:
             fi
           done
 
+      # 時刻の色の写真(W-19・TEST-O24)。4 点(夜明け・昼・夕方・夜)をダーク → ライトの順に撮る。外観は simctl で替える
+      # (XCUIDevice.appearance に頼らない)。部品は暗い地のまま固定なので、地図の外の画素は外観によらず同じになるはず。
+      # 判定は「添付を取り出す」の後の check-time-tint-shots.py。ここでは撮れなかった(テストが落ちた)ことだけを赤にする。
+      - name: 時刻の色の写真を撮る(ダーク)
+        if: always()
+        run: |
+          set -o pipefail
+          rm -rf time-dark.xcresult
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
+          TEST_RUNNER_REFORGE_APPEARANCE=dark xcodebuild test-without-building -project ReForge.xcodeproj -scheme ReForgeScreens \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build-screens \
+            -resultBundlePath time-dark.xcresult \
+            -only-testing:ReForgeUITests/TimeTintSnapshotTests \
+            CODE_SIGNING_ALLOWED=NO > time-dark.log 2>&1 \
+            || { grep -E "error:|failed" time-dark.log | sort -u | head -40; exit 1; }
+
+      - name: 時刻の色の写真を撮る(ライト)
+        if: always()
+        run: |
+          set -o pipefail
+          rm -rf time-light.xcresult
+          xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance light
+          TEST_RUNNER_REFORGE_APPEARANCE=light xcodebuild test-without-building -project ReForge.xcodeproj -scheme ReForgeScreens \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build-screens \
+            -resultBundlePath time-light.xcresult \
+            -only-testing:ReForgeUITests/TimeTintSnapshotTests \
+            CODE_SIGNING_ALLOWED=NO > time-light.log 2>&1 \
+            || { grep -E "error:|failed" time-light.log | sort -u | head -40; exit 1; }
+
+      # 後の step に外観を持ち越さない(シミュレータはダークへ戻す)
+      - name: シミュレータの外観をダークへ戻す
+        if: always()
+        run: xcrun simctl ui "${{ steps.sim.outputs.udid }}" appearance dark
+
       # xcresult の添付を PNG と report.json に出す(Xcode 16 以降の xcresulttool export attachments)。失敗しても出す。
       - name: 添付を取り出す
         if: always()
@@ -396,7 +434,22 @@ jobs:
             xcrun xcresulttool export attachments --path screens.xcresult --output-path screens-raw
           fi
           mkdir -p screens-raw screens
-          python3 tools/collect-screens.py screens-raw screens --device "${{ steps.sim.outputs.name }}"
+          rm -rf screens-raw-time-dark screens-raw-time-light
+          for look in dark light; do
+            if [ -d "time-$look.xcresult" ]; then
+              xcrun xcresulttool export attachments --path "time-$look.xcresult" --output-path "screens-raw-time-$look"
+            fi
+            mkdir -p "screens-raw-time-$look"
+          done
+          python3 tools/collect-screens.py screens-raw screens --device "${{ steps.sim.outputs.name }}" \
+            --time-raw screens-raw-time-dark --time-raw screens-raw-time-light
+
+      # 時刻の色の写真の判定(部品は外観・時刻に依らない・地図だけが時刻で替わる・予約の赤・dayBar)
+      # 地図の外のハッシュは OS が描く帯(ホームインジケータなど)を含み、シミュレータの更新で揺れうるので、当面は知らせるだけ(赤にしない)
+      - name: 時刻の色の写真の判定
+        if: always()
+        continue-on-error: true
+        run: python3 tools/check-time-tint-shots.py screens/time-report.json
 
       - uses: actions/upload-artifact@v5
         if: always()
@@ -404,7 +457,9 @@ jobs:
           name: screens
           path: |
             screens/*.png
+            screens/time_*.png
             screens/report.json
+            screens/time-report.json
             screens-video/*.mp4
           if-no-files-found: warn
           retention-days: 14

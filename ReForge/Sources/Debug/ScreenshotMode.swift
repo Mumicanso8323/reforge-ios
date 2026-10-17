@@ -38,7 +38,30 @@ enum ScreenshotScreen: String, CaseIterable {
     }
 }
 
+/// 時刻の色の写真の 4 点(`-ReForgeScreenshotTime`。`-ReForgeScreenshot map` のときだけ)。
+enum ScreenshotTime: String, CaseIterable {
+    case dawn, noon, evening, night
+
+    /// 夜明けからの分。夜は夜の作業の段(`darkMark` の世界と同じ、燃える焚き火とその外の柵)。
+    var minutesSinceDawn: Int {
+        switch self {
+        case .dawn: 20
+        case .noon: 240
+        case .evening: 420
+        case .night: 780
+        }
+    }
+}
+
 enum ScreenshotMode {
+    /// 時刻の指定(地図の写真だけ。無ければ nil)。
+    static let time: ScreenshotTime? = {
+        guard screen == .map else { return nil }
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-ReForgeScreenshotTime"), args.indices.contains(i + 1) else { return nil }
+        return ScreenshotTime(rawValue: args[i + 1])
+    }()
+
     /// 撮る起動の画面(起動引数が無ければ nil)。
     static let screen: ScreenshotScreen? = {
         let args = ProcessInfo.processInfo.arguments
@@ -71,7 +94,8 @@ enum ScreenshotMode {
             let model = AppModel(saves: saves)
             model.startScreenshotGame(failed: screen == .gameOver, decision: screen == .decisionBand,
                                       darkStart: screen == .darkStart, darkMark: screen == .darkMark,
-                                      foot: screen == .foot, dusk: screen == .dayWrap)
+                                      foot: screen == .foot, dusk: screen == .dayWrap,
+                                      time: time)
             // 設定は、角のボタンで開いた形で撮る(札は RootView。L-10a)
             if screen == .settings { model.settingsOpen = true }
             // 序は、見本の場面を画面全体で出した形(送りは UI テストのタップ)

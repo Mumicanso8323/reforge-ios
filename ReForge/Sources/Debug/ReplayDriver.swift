@@ -41,6 +41,9 @@ enum ReplayStats {
     static var fallbackDraws = 0
     static var replaces = 0
     static var blankRenders = 0
+    /// 地形の絵を作った回数と、作り直しの予算で古い絵のままにした回数(W-19。4.1 の上限を実機で測る)。
+    static var terrainRenders = 0
+    static var terrainDeferred = 0
     /// replaceWorld を呼んだ実時刻(systemUptime)。黒の区間と並べて見る。
     static var replaceTimes: [TimeInterval] = []
 }
@@ -184,7 +187,7 @@ enum ReplayDriver {
         let head = skipped.first.map { "skipped \(skipped.count)/\(script.commands.count) first \($0)" } ?? "ok \(script.commands.count)"
         let total = script.checkpoints?.count ?? 0
         let bySection = skippedBySection.keys.sorted().map { "\($0):\(skippedBySection[$0] ?? 0)" }.joined(separator: " ")
-        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)\nmap render-failures \(ReplayStats.renderFailures) fallbacks \(ReplayStats.fallbackDraws) replaces \(ReplayStats.replaces) blank-renders \(ReplayStats.blankRenders) chunks-min \(chunksMin == Int.max ? 0 : chunksMin) chunks-zero \(chunksZero) scene-open \(sceneOpen) all-unknown \(allUnknown) all-unknown-day2 \(allUnknownLate) black-passes \(blackPasses) black-spans \(blackSpans.isEmpty ? "-" : blackSpans.joined(separator: ",")) replace-at \(ReplayStats.replaceTimes.prefix(16).map { String(Int($0 - runStart)) }.joined(separator: ","))", to: donePath)
+        writeMark("\(head)\ncheckpoints \(restored)/\(total) jumps \(jumps)\nby-section \(bySection.isEmpty ? "-" : bySection)\nmap render-failures \(ReplayStats.renderFailures) fallbacks \(ReplayStats.fallbackDraws) replaces \(ReplayStats.replaces) blank-renders \(ReplayStats.blankRenders) terrain-renders \(ReplayStats.terrainRenders) terrain-deferred \(ReplayStats.terrainDeferred) chunks-min \(chunksMin == Int.max ? 0 : chunksMin) chunks-zero \(chunksZero) scene-open \(sceneOpen) all-unknown \(allUnknown) all-unknown-day2 \(allUnknownLate) black-passes \(blackPasses) black-spans \(blackSpans.isEmpty ? "-" : blackSpans.joined(separator: ",")) replace-at \(ReplayStats.replaceTimes.prefix(16).map { String(Int($0 - runStart)) }.joined(separator: ","))", to: donePath)
     }
 
     /// 画面の中ほど(地図の所)の、明るい画素の割合(0...1)。画面の写しを小さく取って数える。取れなければ nil。

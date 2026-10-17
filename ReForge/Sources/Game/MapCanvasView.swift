@@ -18,6 +18,8 @@ struct MapCanvasView: View {
     @State private var pinchStartZoom: Int?
     @State private var longPressTask: Task<Void, Never>?
     @State private var terrainCache = MapTerrainCache()
+    /// 作り直しを予算で分けている間、続きを描くための印(body が読む。60fps の TimelineView は地形に使わない)。
+    @State private var terrainTick = 0
     @State private var walkEdgeCache = WalkEdgeCache()
     @State private var autoReturnTask: Task<Void, Never>?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -37,10 +39,14 @@ struct MapCanvasView: View {
             // 地形は Frame または視点が変わったときだけ、動く層だけは歩いている間に補間する。
             let camera = liveCamera()
             let terrain = currentScene(camera: camera, elapsed: 0)
+            let tick = terrainTick
             let controlLift = BandOverlayLayout.controlLift(band: bandHeight, mapHeight: geo.size.height)
             ZStack {
                 Canvas(opaque: true, rendersAsynchronously: false) { ctx, size in
+                    _ = tick
                     terrain.drawTerrain(&ctx, size: size, cache: terrainCache)
+                    // すでにある絵の作り直しが予算で残っていれば、次の描きで続ける。残りが無くなれば止まる
+                    if terrainCache.hasPending { DispatchQueue.main.async { terrainTick &+= 1 } }
                 }
                 TimelineView(.animation(minimumInterval: nil,
                                         paused: !store.actors.contains(where: \.isMoving)
