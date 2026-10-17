@@ -37,7 +37,17 @@ public enum FurnaceHeat {
     /// 燃料として火床で燃える物(RuleBook の燃料の条件を、入口の 1 単位ごとの数ではなく火床で満たす物)。
     public static func fuels(_ p: Placement, _ c: ContentDB) -> Set<ItemID> {
         guard let f = def(p, c) else { return [] }
-        return Set(f.burn.keys).union(f.preheatCost.keys).union(f.maxTempByFuel?.keys.map { $0 } ?? [])
+        return fuels(f)
+    }
+
+    /// 燃料の一覧の正本: 燃やす物 ∪ 予熱に払う物(maxTempByFuel は温度の上限だけで、燃料の数に入れない)。運搬も同じ関数で引く。
+    public static func fuels(_ f: FurnaceHeatDef) -> Set<ItemID> {
+        Set(f.burn.keys).union(f.preheatCost.keys)
+    }
+
+    /// 置き場 id の炉の燃料(炉でなければ空)。保存せず内容から引く。
+    public static func fuels(of id: EntityID, _ w: WorldState, _ c: ContentDB) -> Set<ItemID> {
+        w.placements.items[id].map { fuels($0, c) } ?? []
     }
 
     /// 熱い炉の灯りの半径(炉でなければ nil)。

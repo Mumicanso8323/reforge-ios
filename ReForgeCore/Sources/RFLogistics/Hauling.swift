@@ -56,7 +56,7 @@ enum Hauling {
                 continue
             }
             let crewMilli = carriers(id, ctx.world).reduce(0) { $0 + workSpeed($1, ctx.world) }
-            let waiting = pending(r, ctx.world, limit: 1) > 0
+            let waiting = pending(r, ctx.world, ctx.content, limit: 1) > 0
             r.waiting = waiting
             if crewMilli == 0 {
                 r.blocked = waiting ? HaulRules.noHaulers : nil
@@ -81,26 +81,31 @@ enum Hauling {
     }
 
     /// いま運べる数(limit で打ち切る)。
-    static func pending(_ r: HaulRoute, _ w: WorldState, limit: Int) -> Int {
+    static func pending(_ r: HaulRoute, _ w: WorldState, _ c: ContentDB, limit: Int) -> Int {
         switch (r.from, r.to) {
         case (.placement(let a), .placement(let b)) where w.placements.items[a]?.module == nil:
             // 建造物の中に溜めた物(P-12)
             guard let bm = w.placements.items[b]?.module else { return 0 }
+            let fuels = FurnaceHeat.fuels(of: b, w, c)
             var n = 0
-            for e in w.inventory.entries(.placement(a)) where n < limit { n += min(e.quantity, bm.room(for: e.stuff)) }
+            for e in w.inventory.entries(.placement(a)) where n < limit { n += min(e.quantity, bm.room(for: e.stuff, fuels: fuels)) }
             return n
         case (.placement(let a), .base) where w.placements.items[a]?.module == nil:
             return w.inventory.entries(.placement(a)).reduce(0) { $0 + $1.quantity }
         case (.placement(let a), .placement(let b)):
             guard let am = w.placements.items[a]?.module, let bm = w.placements.items[b]?.module else { return 0 }
+            let fuels = FurnaceHeat.fuels(of: b, w, c)
             var n = 0
-            for e in am.output where n < limit { n += min(e.quantity, bm.room(for: e.stuff)) }
+            for e in am.output where n < limit { n += min(e.quantity, bm.room(for: e.stuff, fuels: fuels)) }
             return n
         case (.placement(let a), .base):
             return w.placements.items[a]?.module?.outputCount ?? 0
         case (.base, .placement(let b)):
             guard let bm = w.placements.items[b]?.module else { return 0 }
-            return bm.auxShortfall.reduce(0) { $0 + min($1.missing, w.inventory.quantity($1.item, in: .base)) }
+            let aux = bm.auxShortfall.reduce(0) { $0 + min($1.missing, w.inventory.quantity($1.item, in: .base)) }
+            let fuels = FurnaceHeat.fuels(of: b, w, c).subtracting(bm.auxPerUnit.keys)
+            let have = fuels.reduce(0) { $0 + w.inventory.quantity($1, in: .base) }
+            return aux + min(bm.fuelRoom(fuels), have)
         case (.base, .base):
             return 0
         }
@@ -110,11 +115,13 @@ enum Hauling {
     static func move(_ id: EntityID, upTo n: Int, _ ctx: inout StepContext) -> Int {
         guard let r = ctx.world.logistics.routes[id] else { return 0 }
         var moved = 0
+        var toFuels: Set<ItemID> = []
+        if case .placement(let b) = r.to { toFuels = FurnaceHeat.fuels(of: b, ctx.world, ctx.content) }
         switch (r.from, r.to) {
         case (.placement(let a), .placement(let b)) where ctx.world.placements.items[a]?.module == nil:
             // 建造物の中に溜めた物を、モジュールの入口へ(空きの分だけ。P-12)
             for e in ctx.world.inventory.entries(.placement(a)) where moved < n {
-                guard let room = ctx.world.placements.items[b]?.module?.room(for: e.stuff), room > 0 else { continue }
+                guard let room = ctx.world.placements.items[b]?.module?.room(for: e.stuff, fuels: toFuels), room > 0 else { continue }
                 let k = min(room, n - moved, e.quantity)
                 guard let origins = ctx.takeStock(k, from: .placement(a), where: { $0.stuff == e.stuff && $0.unique == e.unique })
                 else { continue }
@@ -134,7 +141,7 @@ enum Hauling {
         case (.placement(let a), .placement(let b)):
             guard let am = ctx.world.placements.items[a]?.module else { return 0 }
             for e in am.output where moved < n {
-                guard let room = ctx.world.placements.items[b]?.module?.room(for: e.stuff), room > 0 else { continue }
+                guard let room = ctx.world.placements.items[b]?.module?.room(for: e.stuff, fuels: toFuels), room > 0 else { continue }
                 for piece in ModuleRuntime.take(min(room, n - moved), from: &ctx.world.placements.items[a]!.module!.output,
                                                 where: { $0.stuff == e.stuff && $0.unique == e.unique }) {
                     ModuleRuntime.put(piece, into: &ctx.world.placements.items[b]!.module!.input)
@@ -154,6 +161,16 @@ enum Hauling {
             guard let bm = ctx.world.placements.items[b]?.module else { return 0 }
             for (item, missing) in bm.auxShortfall where moved < n {
                 let k = min(missing, n - moved, ctx.world.inventory.quantity(item, in: .base))
+                guard k > 0, let origins = ctx.takeStock(k, from: .base, where: { $0.unique == nil && $0.stuff == .item(item) })
+                else { continue }
+                ModuleRuntime.put(StockEntry(stuff: .item(item), quantity: k, origins: origins),
+                                  into: &ctx.world.placements.items[b]!.module!.input)
+                moved += k
+            }
+            // 火床の燃料(段の物に無い物)。燃料の山の上限は燃料の種類をまとめて数える
+            for item in toFuels.subtracting(bm.auxPerUnit.keys).sorted() where moved < n {
+                let room = ctx.world.placements.items[b]!.module!.fuelRoom(toFuels.subtracting(bm.auxPerUnit.keys))
+                let k = min(room, n - moved, ctx.world.inventory.quantity(item, in: .base))
                 guard k > 0, let origins = ctx.takeStock(k, from: .base, where: { $0.unique == nil && $0.stuff == .item(item) })
                 else { continue }
                 ModuleRuntime.put(StockEntry(stuff: .item(item), quantity: k, origins: origins),

@@ -197,11 +197,20 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
     // MARK: 受け取り・渡し(生産と運搬が同じ規則で使う)
 
     /// この物をあと何個受け取れるか。物質は主の材料として、物は段に入れる物として(2 回の処理ぶんまで)。
-    public func room(for stuff: Stuff) -> Int {
+    public func room(for stuff: Stuff) -> Int { room(for: stuff, fuels: []) }
+
+    /// 燃料の山(入口の燃料の合計)にあと入る数。山の上限は capacity で、燃料の種類をまとめて数える。
+    public func fuelRoom(_ fuels: Set<ItemID>) -> Int {
+        max(0, capacity - fuels.reduce(0) { $0 + inputCount($1) })
+    }
+
+    /// fuels は受け側の炉の火床の燃料(内容から引く。保存しない)。段の物(auxPerUnit)は今までどおりで、それに無い燃料だけ山の上限まで受け取る。
+    public func room(for stuff: Stuff, fuels: Set<ItemID>) -> Int {
         switch stuff {
         case .matter:
             return takesMatter ? max(0, capacity - mainInputCount) : 0
         case .item(let i):
+            if auxPerUnit[i] == nil, fuels.contains(i) { return fuelRoom(fuels) }
             guard let per = auxPerUnit[i], !freeItems.contains(i) else { return 0 }
             return max(0, per * batch * 2 - inputCount(i))
         }

@@ -96,10 +96,11 @@ enum Modules {
         guard let m = ctx.world.placements.items[id]?.module, !m.output.isEmpty else { return }
         let waste = Set(ctx.content.byproductItems.values)
         if let down {
+            let downFuels = FurnaceHeat.fuels(of: down, ctx.world, ctx.content)
             var moved = 0
             for e in m.output {
                 if case .item(let item) = e.stuff, waste.contains(item) { continue }
-                guard let room = ctx.world.placements.items[down]?.module?.room(for: e.stuff), room > 0 else { continue }
+                guard let room = ctx.world.placements.items[down]?.module?.room(for: e.stuff, fuels: downFuels), room > 0 else { continue }
                 let pieces = ModuleRuntime.take(room, from: &ctx.world.placements.items[id]!.module!.output,
                                                 where: { $0.stuff == e.stuff && $0.unique == e.unique })
                 for piece in pieces {
