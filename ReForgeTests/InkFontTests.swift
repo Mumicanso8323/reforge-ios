@@ -5,9 +5,9 @@ import UIKit
 /// L-12: 書体の入口(InkFont)。macOS の CI で回す。
 @MainActor
 final class InkFontTests: XCTestCase {
-    override func tearDown() {
+    override func tearDown() async throws {
         InkFont.setLanguage("ja")
-        super.tearDown()
+        try await super.tearDown()
     }
 
     private let biz = "BIZUDGothic-Regular"
