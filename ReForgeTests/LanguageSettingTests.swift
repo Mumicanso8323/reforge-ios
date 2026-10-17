@@ -40,7 +40,9 @@ final class LanguageSettingTests: XCTestCase {
     }
 
     private func shownText(_ store: GameStore) -> String {
-        (store.status.map(\.label) + [store.objective ?? ""]).joined(separator: "\n")
+        // 始まり方(非公開の層は暗い始まり・序で、状態の帯も目標もまだ無い)によらず、画面に出ている文を全部集める
+        (store.status.map(\.label) + [store.objective ?? "", store.darkStart?.action.label ?? ""]
+            + (store.prologue?.lines ?? []) + store.sceneLines).joined(separator: "\n")
     }
 
     func testDefaultIsSystemAndSectionHiddenWhileOnlyJapaneseIsOffered() throws {
@@ -66,6 +68,7 @@ final class LanguageSettingTests: XCTestCase {
         await store.load()
         let before = try await store.host.saveData(slot: .resume, stamps: [])
         let japanese = shownText(store)
+        XCTAssertFalse(japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "比べる文が画面に無い")
         XCTAssertFalse(japanese.contains("⟦"))
 
         app.selectLanguage(.language(.pseudo))
