@@ -3,7 +3,8 @@ import Observation
 
 /// 今の言語を入れる観察できる小さな箱(L-10b)。InkFont.font がここを読むので、setLanguage で書くと
 /// InkFont を使っている View が作り直されずに描き直される(.id で全体を作り直さない)。
-/// 書くのは主スレッド(AppLanguage.select)だけ。InkFont.font が分離の外からも呼ばれるので、型は主スレッドに縛らない。
+/// 書く側は主スレッドの 1 か所だけ(AppLanguage.select と AppModel.init)。読む側の InkFont.font が
+/// MainActor の外(非分離の文脈)からも呼ばれるので、@MainActor にはせず @unchecked Sendable で通す。
 @Observable
 final class InkFontState: @unchecked Sendable {
     static let shared = InkFontState()

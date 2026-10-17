@@ -14,6 +14,8 @@ final class AppLanguage {
     @ObservationIgnored private let preferred: [String]
     @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let tables: TextTables
+    /// その実行だけの固定(DEBUG の起動引数)。あれば effective は常にこれ。select も上書きしない。保存しない。
+    @ObservationIgnored private let pinned: LanguageID?
 
     /// 実際に使う言語。
     private(set) var effective: LanguageID
@@ -21,23 +23,25 @@ final class AppLanguage {
     /// 選べる言語が 2 つ以上のときだけ言語の節を置く(1 つしか選べない節は置かない)。
     var showsSection: Bool { offered.count >= 2 }
 
-    /// pinned が nil でなければ、その実行だけ choice を固定する(保存しない。開発の版の起動引数)。
+    /// pinned が nil でなければ、その実行だけ effective をその言語に固定する(offered に無くてもよい。保存しない。開発の版の起動引数)。
     init(defaults: UserDefaults = .standard, tables: TextTables,
          preferred: [String] = AppLanguage.devicePreferred(),
          includePseudo: Bool = AppLanguage.includesPseudo,
-         pinned: LanguageChoice? = AppLanguage.pinnedChoice) {
+         pinned: LanguageID? = AppLanguage.pinnedLanguage) {
         self.defaults = defaults
         self.tables = tables
         self.preferred = preferred
         let offered = LanguageOffer.offered(tables: tables, includePseudo: includePseudo)
         self.offered = offered
-        let choice = pinned ?? LanguageChoice(stored: defaults.string(forKey: LanguageChoice.defaultsKey))
+        self.pinned = pinned
+        let choice = LanguageChoice(stored: defaults.string(forKey: LanguageChoice.defaultsKey))
         self.choice = choice
-        self.effective = LanguageResolver.resolve(choice, preferred: preferred, offered: offered)
+        self.effective = LanguageResolver.effective(choice, pinned: pinned, preferred: preferred, offered: offered)
     }
 
     /// 選びを保存し、字体を替える。ゲーム中の文の引き直しは AppModel が続けて呼ぶ。
     func select(_ choice: LanguageChoice) {
+        guard pinned == nil else { return } // 固定の実行では選びを変えず、保存もしない
         defaults.set(choice.stored, forKey: LanguageChoice.defaultsKey)
         self.choice = choice
         effective = LanguageResolver.resolve(choice, preferred: preferred, offered: offered)
@@ -62,10 +66,10 @@ final class AppLanguage {
 #endif
     }
 
-    /// その実行だけ固定する選び(開発の版の起動引数だけ。無ければ nil)。
-    static var pinnedChoice: LanguageChoice? {
+    /// その実行だけ固定する言語(開発の版の起動引数だけ。無ければ nil)。
+    static var pinnedLanguage: LanguageID? {
 #if DEBUG
-        ScreenshotMode.pinnedLanguage.map { LanguageChoice.language($0) }
+        ScreenshotMode.pinnedLanguage
 #else
         nil
 #endif

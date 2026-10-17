@@ -50,6 +50,13 @@ final class LanguageChoiceTests: XCTestCase {
         XCTAssertEqual(LanguageResolver.resolve(.language(.pseudo), preferred: [], offered: [.ja, .pseudo]), .pseudo)
     }
 
+    func testPinnedWinsEvenWhenNotOffered() {
+        let onlyJa: [LanguageID] = [.ja]
+        XCTAssertEqual(LanguageResolver.effective(.system, pinned: .ko, preferred: ["en-US"], offered: onlyJa), .ko)
+        XCTAssertEqual(LanguageResolver.effective(.language(.ja), pinned: .zhHant, preferred: [], offered: onlyJa), .zhHant)
+        XCTAssertEqual(LanguageResolver.effective(.language(.en), pinned: nil, preferred: [], offered: onlyJa), .ja)
+    }
+
     func testOfferedRequiresCompleteTables() {
         let good = tables(english: [a: "A", b: "{name}"])
         XCTAssertEqual(LanguageOffer.problems(.en, in: good), [])

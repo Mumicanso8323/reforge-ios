@@ -22,8 +22,21 @@ final class LanguageSettingTests: XCTestCase {
         try AppModel.loadBundledContent(bundle: .main).textTables
     }
 
-    private func makeLanguage(_ defaults: UserDefaults, pseudo: Bool, preferred: [String] = ["en-US"]) throws -> AppLanguage {
-        AppLanguage(defaults: defaults, tables: try tables(), preferred: preferred, includePseudo: pseudo, pinned: nil)
+    private func makeLanguage(_ defaults: UserDefaults, pseudo: Bool, preferred: [String] = ["en-US"], pinned: LanguageID? = nil) throws -> AppLanguage {
+        addTeardownBlock { InkFont.setLanguage("ja") }
+        AppLanguage(defaults: defaults, tables: try tables(), preferred: preferred, includePseudo: pseudo, pinned: pinned)
+    }
+
+    func testPinnedLanguageWinsEvenWhenNotOfferedAndSelectDoesNotOverride() throws {
+        let defaults = isolatedDefaults()
+        let language = AppLanguage(defaults: defaults, tables: try tables(), preferred: ["en-US"],
+                                   includePseudo: false, pinned: .ko)
+        addTeardownBlock { InkFont.setLanguage("ja") }
+        XCTAssertFalse(language.offered.contains(.ko))
+        XCTAssertEqual(language.effective, .ko, "offered に無くても固定が勝つ")
+        language.select(.language(.ja))
+        XCTAssertEqual(language.effective, .ko, "固定の実行では select が上書きしない")
+        XCTAssertNil(defaults.string(forKey: LanguageChoice.defaultsKey), "固定は保存しない")
     }
 
     private func shownText(_ store: GameStore) -> String {

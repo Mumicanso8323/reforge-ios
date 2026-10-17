@@ -107,4 +107,12 @@ public enum LanguageResolver {
         if offered.contains(.en) { return .en }
         return .ja
     }
+
+    /// その実行だけの固定(開発の版の起動引数)。pinned があれば offered に無くてもそれを返す(字体・配置の確認用)。保存しない。
+    public static func effective(_ choice: LanguageChoice, pinned: LanguageID?, preferred: [String],
+                                 offered: [LanguageID]) -> LanguageID
+    {
+        if let pinned { return pinned }
+        return resolve(choice, preferred: preferred, offered: offered)
+    }
 }
