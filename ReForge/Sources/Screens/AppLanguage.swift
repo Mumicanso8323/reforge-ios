@@ -23,6 +23,7 @@ final class AppLanguage {
     var showsSection: Bool { offered.count >= 2 }
 
     /// pinned が nil でなければ、その実行だけ effective をその言語に固定する(offered に無くてもよい。保存しない。開発の版の起動引数)。
+    /// 既定の引数は分離の外で評価されるので、引く static は nonisolated にしてある。
     init(defaults: UserDefaults = .standard, tables: TextTables,
          preferred: [String] = AppLanguage.devicePreferred(),
          includePseudo: Bool = AppLanguage.includesPseudo,
@@ -47,7 +48,7 @@ final class AppLanguage {
     }
 
     /// `Bundle.main.preferredLocalizations` の後ろに `Locale.preferredLanguages` を重複なしで足した並び。
-    static func devicePreferred() -> [String] {
+    nonisolated static func devicePreferred() -> [String] {
         var out: [String] = []
         for identifier in Bundle.main.preferredLocalizations + Locale.preferredLanguages where !out.contains(identifier) {
             out.append(identifier)
@@ -56,7 +57,7 @@ final class AppLanguage {
     }
 
     /// 擬似言語を節に出すか(開発の版の起動引数だけ。製品では常に false)。
-    static var includesPseudo: Bool {
+    nonisolated static var includesPseudo: Bool {
 #if DEBUG
         ScreenshotMode.offersPseudo
 #else
@@ -65,7 +66,7 @@ final class AppLanguage {
     }
 
     /// その実行だけ固定する言語(開発の版の起動引数だけ。無ければ nil)。
-    static var pinnedLanguage: LanguageID? {
+    nonisolated static var pinnedLanguage: LanguageID? {
 #if DEBUG
         ScreenshotMode.pinnedLanguage
 #else
