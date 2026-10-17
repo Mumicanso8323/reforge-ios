@@ -257,11 +257,95 @@ final class LogisticsSystemTests: XCTestCase {
         XCTAssertGreaterThan(movedTotal, 0, "石炭が運ばれる")
         let inFurnace = w.placements.items[furnace]!.module!.inputCount("coal")
         let left = w.placements.items[source]!.module!.output.filter { $0.stuff == .item("coal") }.reduce(0) { $0 + $1.quantity }
-        let burned = 32 - left - inFurnace
-        XCTAssertTrue((7...9).contains(burned), "26 時間 × 0.3/時 ≒ 7.8 個が火床で燃えた(\(burned))")
+        // 数は全部の持ち主(置き場の出口・炉の入口・蓄え)で数える。最初の合計との差が火床で燃えた数
+        let base = w.inventory.quantity("coal", in: .base)
+        let burned = 32 - left - inFurnace - base
+        XCTAssertEqual(base, 0)
+        XCTAssertTrue((7...8).contains(burned), "26 時間 × 0.3/時 ≒ 7.8 個が火床で燃えた(\(burned))")
+        XCTAssertEqual(inFurnace, 2 + movedTotal - burned, "炉に入った数 = 最初 + 運ばれた数 - 燃えた数")
         XCTAssertLessThanOrEqual(inFurnace, w.placements.items[furnace]!.module!.capacity, "山の上限を超えない")
         XCTAssertGreaterThanOrEqual(FurnaceHeat.temperature(w.placements.items[furnace]!, rig.content) ?? 0, 1100, "熱いまま")
         XCTAssertEqual(w.placements.items[furnace]!.module!.hearth?.fuelItem, "coal")
+    }
+
+    /// 受け側の炉の燃料は内容から引く: 薪は燃やす物に無ければ受けない(maxTempByFuel は温度の上限で燃料に数えない)。
+    func testAcceptedFuelsAreBurnAndPreheatOnly() throws {
+        let f = FurnaceHeatDef(burnPerHour: ["coal": 300], maxTempByFuel: ["wood": 900])
+        XCTAssertEqual(FurnaceHeat.fuels(f), ["coal", "charcoal"])
+        var m = try JSONDecoder().decode(ModuleRuntime.self, from: Data("{}".utf8))
+        m.capacity = 12
+        let accepted = FurnaceHeat.fuels(f)
+        let wood = m.room(for: .item("wood"), fuels: accepted), coal = m.room(for: .item("coal"), fuels: accepted)
+        XCTAssertEqual(wood, 0)
+        XCTAssertEqual(coal, 12)
+    }
+
+    /// 燃料の山の上限は種類をまとめて数える。段の物(auxPerUnit)にある物は今までの room のまま。
+    func testFuelCapacityIsTotalAndAuxUnchanged() throws {
+        let fuels: Set<ItemID> = ["coal", "charcoal"]
+        var m = try JSONDecoder().decode(ModuleRuntime.self, from: Data("{}".utf8))
+        m.capacity = 12
+        ModuleRuntime.put(StockEntry(stuff: .item("coal"), quantity: 8), into: &m.input)
+        let r1 = m.room(for: .item("charcoal"), fuels: fuels)
+        XCTAssertEqual(r1, 4)
+        ModuleRuntime.put(StockEntry(stuff: .item("charcoal"), quantity: 4), into: &m.input)
+        let r2 = m.room(for: .item("coal"), fuels: fuels), r3 = m.room(for: .item("charcoal"), fuels: fuels)
+        XCTAssertEqual(r2, 0)
+        XCTAssertEqual(r3, 0)
+        // 木炭が段の物にもある炉: 木炭は今までの規則(1 回の処理ぶん × 2 - 持っている数)、石炭だけが燃料の規則
+        var a = try JSONDecoder().decode(ModuleRuntime.self, from: Data("{}".utf8))
+        a.capacity = 12
+        a.batch = 2
+        a.auxPerUnit = ["charcoal": 3]
+        ModuleRuntime.put(StockEntry(stuff: .item("charcoal"), quantity: 5), into: &a.input)
+        let withFuels = a.room(for: .item("charcoal"), fuels: fuels), without = a.room(for: .item("charcoal"))
+        let coalRoom = a.room(for: .item("coal"), fuels: fuels)
+        XCTAssertEqual(withFuels, without)
+        XCTAssertEqual(withFuels, 3 * 2 * 2 - 5)
+        XCTAssertEqual(coalRoom, 12 - 5, "燃料の合計に段の物の木炭も入る")
+    }
+
+    /// 古い保存(新しい欄が無い)の炉も、運ばれた石炭を受け取る。
+    func testLegacyFurnaceJSONReceivesHauledCoal() throws {
+        var (rig, w, furnace, source) = try fuelLine(10)
+        let data = try JSONEncoder().encode(w.placements.items[furnace]!.module!)
+        var obj = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        obj.removeValue(forKey: "hearthFuels")
+        XCTAssertNil(obj["hearthFuels"])
+        let legacy = try JSONDecoder().decode(ModuleRuntime.self, from: JSONSerialization.data(withJSONObject: obj))
+        w.placements.items[furnace]!.module = legacy
+        XCTAssertNil(rig.simulation.apply(.logistics(.link(from: .placement(source), to: .placement(furnace))), to: &w).rejection)
+        _ = rig.simulation.runSteps(1, &w)
+        let route = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .placement(source) })
+        restAll(&w)
+        w.people["person.test_a"]?.assignment = .haul(route: route.id)
+        let moved = haulHours(rig, &w, route.id, hours: 26)
+        XCTAssertGreaterThan(moved, 0, "古い保存の炉にも石炭が運ばれる")
+    }
+
+    /// 蓄え → 炉の経路も燃料を運ぶ。山の上限を超えず、数は全部の持ち主で合う。
+    func testBaseToFurnaceRouteCarriesFuel() throws {
+        var (rig, w, furnace, _) = try fuelLine(0)
+        var ctx = StepContext(world: w, content: rig.content)
+        ctx.addStock(.item("coal"), 20, to: .base)
+        w = ctx.world
+        let total0 = w.inventory.quantity("coal", in: .base) + w.placements.items[furnace]!.module!.inputCount("coal")
+        XCTAssertNil(rig.simulation.apply(.logistics(.link(from: .base, to: .placement(furnace))), to: &w).rejection)
+        _ = rig.simulation.runSteps(1, &w)
+        let route = try XCTUnwrap(w.logistics.routes.values.first { $0.from == .base })
+        restAll(&w)
+        w.people["person.test_a"]?.assignment = .haul(route: route.id)
+        _ = rig.simulation.runSteps(2, &w)
+        XCTAssertTrue(w.logistics.routes[route.id]!.waiting, "蓄えの石炭が炉の燃料の不足として待たれる")
+        let moved = haulHours(rig, &w, route.id, hours: 26)
+        XCTAssertGreaterThan(moved, 0)
+        let m = w.placements.items[furnace]!.module!
+        XCTAssertLessThanOrEqual(m.inputCount("coal") + m.inputCount("charcoal"), m.capacity)
+        // 全部の持ち主(蓄え・炉の入口)に残った数 + 運ばれてから燃えた数 = 最初の数
+        let left = w.inventory.quantity("coal", in: .base) + m.inputCount("coal")
+        let burned = total0 - left
+        XCTAssertTrue((6...9).contains(burned), "26 時間 × 0.3/時 ≒ 7.8 個が火床で燃えた(\(burned))")
+        XCTAssertLessThan(w.inventory.quantity("coal", in: .base), 20, "蓄えから炉へ運ばれた")
     }
 
     /// 燃料でない物・炉でないモジュールへは、これまでどおり運ばない。
@@ -270,8 +354,9 @@ final class LogisticsSystemTests: XCTestCase {
         XCTAssertNil(rig.simulation.apply(.production(.place(module: .anvil, at: wp(10, 16), facing: .east)), to: &w).rejection)
         let anvil = w.placements.at(wp(10, 16))[0]
         XCTAssertEqual(w.placements.items[anvil]!.module!.room(for: .item("coal")), 0)
-        XCTAssertGreaterThan(w.placements.items[furnace]!.module!.room(for: .item("coal")), 0)
-        XCTAssertEqual(w.placements.items[furnace]!.module!.room(for: .item("stone")), 0)
+        let fuels = FurnaceHeat.fuels(of: furnace, w, rig.content)
+        XCTAssertGreaterThan(w.placements.items[furnace]!.module!.room(for: .item("coal"), fuels: fuels), 0)
+        XCTAssertEqual(w.placements.items[furnace]!.module!.room(for: .item("stone"), fuels: fuels), 0)
         XCTAssertNil(rig.simulation.apply(.logistics(.link(from: .placement(source), to: .placement(anvil))), to: &w).rejection)
         _ = rig.simulation.runSteps(1, &w)
         let route = try XCTUnwrap(w.logistics.routes.values.first { $0.to == .placement(anvil) })
@@ -292,6 +377,18 @@ final class LogisticsSystemTests: XCTestCase {
         ctx.addStock(.item(.charcoal), 20, to: .base)
         w = ctx.world
         return w
+    }
+
+    /// 1 時間ごとに進めて、経路が運んだ数を足す(movedToday は日が変わると戻る)。
+    func haulHours(_ rig: TestRig, _ w: inout WorldState, _ route: EntityID, hours: Int) -> Int {
+        var total = 0
+        for _ in 0..<hours {
+            let before = w.logistics.routes[route]!.movedToday
+            _ = rig.simulation.runSteps(Int(3600 / SimStep.gameSeconds), &w)
+            let after = w.logistics.routes[route]!.movedToday
+            total += after >= before ? after - before : after
+        }
+        return total
     }
 
     /// ノア以外の一員を休ませる(.rest は眠るので運ばない。配属の無い仲間は RFCrew が昼に共同の手として経路へ回す)。

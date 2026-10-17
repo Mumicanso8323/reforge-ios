@@ -155,8 +155,6 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
     public var batch: Int = 1
     /// 火床(炉の熱。定義に hearth があるモジュールだけ。U22 が W-03 で使う)。持ち主: U21
     public var hearth: HearthState?
-    /// 火床で燃える燃料(炉だけ。運搬が受け取れる物。燃料は入口に積まれ、火床がそこから燃やす。山の上限は capacity)。
-    public var hearthFuels: [ItemID] = []
 
     public init(design: EntityID?, step: ProcessStep?) {
         self.design = design
@@ -166,7 +164,7 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case design, step, stepIndex, ports, deposit, input, output, progress, operatorID, today, yesterday, paid
         case finite, finiteRecord, waitingFor, producedRecord, lifetimeProduced
-        case takesMatter, auxPerUnit, freeItems, capacity, batch, hearth, hearthFuels
+        case takesMatter, auxPerUnit, freeItems, capacity, batch, hearth
     }
 
     public init(from decoder: Decoder) throws {
@@ -194,18 +192,25 @@ public struct ModuleRuntime: Codable, Equatable, Sendable {
         capacity = try c.decodeIfPresent(Int.self, forKey: .capacity) ?? 12
         batch = try c.decodeIfPresent(Int.self, forKey: .batch) ?? 1
         hearth = try c.decodeIfPresent(HearthState.self, forKey: .hearth)
-        hearthFuels = try c.decodeIfPresent([ItemID].self, forKey: .hearthFuels) ?? []
     }
 
     // MARK: 受け取り・渡し(生産と運搬が同じ規則で使う)
 
     /// この物をあと何個受け取れるか。物質は主の材料として、物は段に入れる物として(2 回の処理ぶんまで)。
-    public func room(for stuff: Stuff) -> Int {
+    public func room(for stuff: Stuff) -> Int { room(for: stuff, fuels: []) }
+
+    /// 燃料の山(入口の燃料の合計)にあと入る数。山の上限は capacity で、燃料の種類をまとめて数える。
+    public func fuelRoom(_ fuels: Set<ItemID>) -> Int {
+        max(0, capacity - fuels.reduce(0) { $0 + inputCount($1) })
+    }
+
+    /// fuels は受け側の炉の火床の燃料(内容から引く。保存しない)。段の物(auxPerUnit)は今までどおりで、それに無い燃料だけ山の上限まで受け取る。
+    public func room(for stuff: Stuff, fuels: Set<ItemID>) -> Int {
         switch stuff {
         case .matter:
             return takesMatter ? max(0, capacity - mainInputCount) : 0
         case .item(let i):
-            if hearthFuels.contains(i) { return max(0, capacity - inputCount(i)) }
+            if auxPerUnit[i] == nil, fuels.contains(i) { return fuelRoom(fuels) }
             guard let per = auxPerUnit[i], !freeItems.contains(i) else { return 0 }
             return max(0, per * batch * 2 - inputCount(i))
         }
