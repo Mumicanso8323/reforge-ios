@@ -243,21 +243,14 @@ public enum ContentValidator {
         let japanese = db.textTables.tables[.ja] ?? [:]
         for (language, table) in db.textTables.tables.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
             for (id, pattern) in table.sorted(by: { $0.key < $1.key }) {
-                guard (try? MessageFormat.validate(pattern)) != nil else {
+                switch TextTables.entryFault(pattern, source: language == .ja ? pattern : japanese[id]) {
+                case nil: break
+                case .format?:
                     out.append(Issue(level: .error, rule: "text.format", message: "\(language.rawValue) の \(id) が読めない"))
-                    continue
-                }
-                guard language != .ja else { continue }
-                guard let source = japanese[id] else {
+                case .orphan?:
                     out.append(Issue(level: .warning, rule: "text.orphan", message: "\(language.rawValue) の \(id) に日本語が無い"))
-                    continue
-                }
-                guard let sourceNames = try? MessageFormat.argumentNames(source),
-                      let translatedNames = try? MessageFormat.argumentNames(pattern),
-                      sourceNames == translatedNames else
-                {
+                case .arguments?:
                     out.append(Issue(level: .error, rule: "text.args", message: "\(language.rawValue) の \(id) の引数が日本語と違う"))
-                    continue
                 }
             }
         }

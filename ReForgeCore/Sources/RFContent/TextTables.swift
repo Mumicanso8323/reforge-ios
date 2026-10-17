@@ -1,4 +1,5 @@
 import RFKernel
+import RFText
 
 public enum TextLookup: Equatable, Sendable {
     case found(String)
@@ -29,6 +30,19 @@ public struct TextTables: Equatable, Sendable {
     public var meta: [LanguageID: TextMeta] = [:]
 
     public init() {}
+
+    public enum EntryFault: Equatable, Sendable { case format, orphan, arguments }
+
+    /// 1 つの文の検査。読める書式で、日本語と同じ引数の名前を持つ(検証器と設定の言語の候補が同じ規則を使う)。
+    /// 日本語自身は source に自分を渡す。source が nil は日本語に対応する文が無い。
+    public static func entryFault(_ pattern: String, source: String?) -> EntryFault? {
+        guard (try? MessageFormat.validate(pattern)) != nil else { return .format }
+        guard let source else { return .orphan }
+        guard let sourceNames = try? MessageFormat.argumentNames(source),
+              let translatedNames = try? MessageFormat.argumentNames(pattern),
+              sourceNames == translatedNames else { return .arguments }
+        return nil
+    }
 
     /// 表を持つ言語(擬似言語は含めない)。
     public var available: Set<LanguageID> { Set(tables.keys).subtracting([.pseudo]) }

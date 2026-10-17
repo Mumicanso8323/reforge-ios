@@ -63,7 +63,8 @@ public enum GameBootstrap {
         WorldFactory(content: content, mapGenerator: mapGenerator).newWorld(seed: seed)
     }
 
-    public static func host(content: ContentDB, world: WorldState) -> GameHost {
-        GameHost(simulation: Simulation(content: content), world: world)
+    public static func host(content: ContentDB, world: WorldState,
+                            language: LanguageID = .ja, markFallback: Bool = false) -> GameHost {
+        GameHost(simulation: Simulation(content: content), world: world, language: language, markFallback: markFallback)
     }
 }
