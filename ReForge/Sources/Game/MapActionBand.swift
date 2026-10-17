@@ -4,6 +4,8 @@ import ReForgeEngine
 /// 親指の届く、地図の下端に重ねて置く時間と選びの帯(GameScreen の overlay。地図の枠は動かさない)。
 struct MapActionBand: View {
     let store: GameStore
+    /// 寝た夜明けの見込み(日没・夜作業の間だけ。世界の版が変わるたびに引き直す)。
+    @State private var forecast: SleepForecast?
 
     var body: some View {
         if let pending = store.decisionUndo {
@@ -34,6 +36,10 @@ struct MapActionBand: View {
         } else if !store.clock.bandActions.isEmpty {
             VStack(spacing: 6) {
                 if let wrap = store.dayWrap, !wrap.isEmpty { DayWrapLinesView(wrap: wrap) }
+                if let f = forecast, !f.isEmpty { forecastLine(f) }
+                ForEach(Array(store.offers.enumerated()), id: \.offset) { _, offer in
+                    offerRow(offer)
+                }
                 HStack(spacing: 8) {
                     ForEach(store.clock.bandActions, id: \.self) { action in
                         Button { store.choose(action) } label: { label(action).frame(maxWidth: .infinity) }
@@ -44,7 +50,45 @@ struct MapActionBand: View {
             .padding(8)
             .frame(maxWidth: .infinity)  // 重ねの幅は地図の領域の幅(中身の理想の幅で広がって左へはみ出さない)
             .background(InkColor.panel.opacity(0.96))
+            .task(id: store.revision) {
+                forecast = await store.host.sleepForecast()
+            }
         }
+    }
+
+    /// 寝た結果の見込みの 1 行(固定の言葉。ボタンは見込みで押せなくしない)。
+    private func forecastLine(_ f: SleepForecast) -> some View {
+        HStack(spacing: 10) {
+            if let fire = f.fire {
+                (fire == .holds ? Text("火は夜明けまで持つ") : Text("火は夜明けまでに消える"))
+                    .foregroundStyle(fire == .dies ? InkColor.notice : InkColor.textDim)
+            }
+            if let furnace = f.furnace {
+                (furnace == .stays ? Text("炉は朝まで熱い") : Text("炉は朝までに冷える"))
+                    .foregroundStyle(furnace == .cools ? InkColor.notice : InkColor.textDim)
+            }
+        }
+        .font(InkFont.small)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("sleepForecast")
+    }
+
+    /// 申し出の 1 行: 名前 + 一言(あれば。データの文)+ 「頼む」。押したら命令を送るだけ。
+    private func offerRow(_ offer: PendingOffer) -> some View {
+        HStack(spacing: 8) {
+            Text(verbatim: offer.name).foregroundStyle(InkColor.text)
+            if let line = offer.line {
+                Text(verbatim: line).foregroundStyle(InkColor.textDim)
+            }
+            Spacer(minLength: 8)
+            Button { store.send(offer.command) } label: { Text("頼む") }
+                .buttonStyle(.ink(.secondary))
+                .frame(minHeight: InkMetric.buttonHeight)
+                .accessibilityIdentifier("offer-tendFire")
+        }
+        .font(InkFont.small)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder private func label(_ action: BandAction) -> some View {

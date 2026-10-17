@@ -6,7 +6,8 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FILES = ["ReForge/Sources/Game/FootCardView.swift", "ReForge/Sources/Game/DarkStartScene.swift", "ReForge/Sources/Game/Tabs/BaseTab.swift"]
+FILES = ["ReForge/Sources/Game/FootCardView.swift", "ReForge/Sources/Game/DarkStartScene.swift", "ReForge/Sources/Game/Tabs/BaseTab.swift",
+         "ReForge/Sources/Game/StatusBandView.swift", "ReForge/Sources/Game/MapActionBand.swift"]
 FORBIDDEN = ["あと ", "あと\\(", "足りない", "がない", "できない", "遠すぎる", "届かない", "待つ"]
 LITERAL = re.compile(r'Text\((?:verbatim: )?"([^"]*)"')
 

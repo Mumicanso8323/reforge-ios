@@ -83,6 +83,10 @@ final class GameStore {
     private(set) var notice: String?
     /// 夜の締めの 3 行(Frame.dayWrap。日没の間だけ。PT-B2)。
     private(set) var dayWrap: DayWrapView?
+    /// 帯の火のゲージ(Frame.fireGauge。最初の火が点いてから)。
+    private(set) var fireGauge: FireGaugeView?
+    /// 日没の帯の申し出(Frame.offers。状態は持たず、毎回世界から導かれる)。
+    private(set) var offers: [PendingOffer] = []
     /// 再開の 1 行(前回の操作から実時間で resumeAfterMinutes 分以上たって戻ったとき。最初の命令かその日の終わりで消える。PT-B2)。
     var resumeBanner: ResumeLine?
 
@@ -162,6 +166,8 @@ final class GameStore {
         lastPhase = f.clock.phase
         lastDay = f.clock.day
         dayWrap = f.dayWrap
+        fireGauge = f.fireGauge
+        offers = f.offers
         logPlay(kind: "build", fields: [
             "hand": MapTouchSettings.hand(defaults).rawValue,
             "directions": "\(MapTouchSettings.directions(defaults))",
@@ -432,6 +438,8 @@ final class GameStore {
         if battles != f.battles { battles = f.battles }
         if defaultStance != f.defaultStance { defaultStance = f.defaultStance }
         if dayWrap != f.dayWrap { dayWrap = f.dayWrap }
+        if fireGauge != f.fireGauge { fireGauge = f.fireGauge }
+        if offers != f.offers { offers = f.offers }
         if canSteer != f.canSteer { canSteer = f.canSteer }
         if walkable != f.walkable { walkable = f.walkable }
         // その日が終わる(日没・夜明け)と再開の 1 行は消える
