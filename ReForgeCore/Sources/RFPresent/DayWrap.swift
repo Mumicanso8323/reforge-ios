@@ -212,9 +212,14 @@ extension FrameBuilder {
         // 止まっているライン(理由つき。ID の小さい物)
         for id in w.placements.moduleIDs {
             guard let pl = w.placements.items[id], case .stopped(let reason) = pl.status else { continue }
-            out.append(.init(kind: .line, milliDays: DayWrapRules.stoppedLineMilliDays,
-                             text: label("ui.daywrap.line", "{name}が止まっている: {reason}",
-                                         ["name": p.name(of: pl.kind), "reason": p.stoppedText(reason, waitingFor: pl.module?.waitingFor)])))
+            // 印で見せる止まり方は、理由の文を出さない(場面の印と同じ決め)
+            let text: String = if StopKind.of(reason: reason) != nil {
+                label("ui.daywrap.line_marked", "{name}が止まっている", ["name": p.name(of: pl.kind)])
+            } else {
+                label("ui.daywrap.line", "{name}が止まっている: {reason}",
+                      ["name": p.name(of: pl.kind), "reason": p.stoppedText(reason, waitingFor: pl.module?.waitingFor)])
+            }
+            out.append(.init(kind: .line, milliDays: DayWrapRules.stoppedLineMilliDays, text: text))
             break
         }
         return out

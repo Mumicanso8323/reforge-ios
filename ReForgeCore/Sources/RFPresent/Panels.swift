@@ -145,6 +145,7 @@ public struct BaseView: Equatable, Sendable {
             /// 建造中(進み 0...1000)。
             case building(permille: Int)
             case stopped(reason: String)
+            case blocked(StopKind)
             case broken
         }
 
@@ -223,7 +224,8 @@ extension FrameBuilder {
             let state: BaseView.Built.State = switch pl.status {
             case .running: .running
             case .underConstruction(let pr): .building(permille: buildPermille(pl, pr))
-            case .stopped(let r): .stopped(reason: p.stoppedText(r, waitingFor: pl.module?.waitingFor))
+            case .stopped(let r): StopKind.of(reason: r).map { .blocked($0) }
+                ?? .stopped(reason: p.stoppedText(r, waitingFor: pl.module?.waitingFor))
             case .broken: .broken
             }
             var research = false

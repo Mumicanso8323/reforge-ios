@@ -211,6 +211,27 @@ final class DayWrapTests: XCTestCase {
         XCTAssertEqual(text, "\(p.name(of: PlaceableKind.module("furnace")))が止まっている: \(p.text("reason.time.still_day"))")
     }
 
+    /// 鉱滓で止まった炉は、夜の締めにも画面の文字列にも理由の文を出さない(印で見せる)。
+    func testWasteFullStopShowsNoReasonInDayWrap() throws {
+        let rig = try TestRig.publicOnly()
+        var w = dusk(rig)
+        let id = w.newEntityID()
+        var pl = Placement(id: id, kind: .module("furnace"), at: w.map.spawn, facing: .north,
+                           origin: ProvenanceLedger.unknownOrigin, status: .stopped(reason: "reason.module.waste_full"))
+        pl.module = ModuleRuntime(design: nil, step: nil)
+        w.placements.items[id] = pl
+        let b = FrameBuilder(content: rig.content)
+        let p = Perceiver(content: rig.content, world: w)
+        let wrap = b.dayWrap(w)
+        XCTAssertEqual(wrap.outlook, "\(p.name(of: PlaceableKind.module("furnace")))が止まっている")
+        let reasonText = p.stoppedText("reason.module.waste_full", waitingFor: nil)
+        let strings = FrameText.allStrings(b.build(w, revision: 0, previous: nil, report: nil))
+        for s in strings {
+            XCTAssertFalse(s.contains("reason.module.waste_full"), s)
+            if !reasonText.isEmpty { XCTAssertFalse(s.contains(reasonText), s) }
+        }
+    }
+
     // MARK: TEST-B2-6
 
     /// last は、ノアの最後の目立つ行為の来歴から作る。無ければ nil。

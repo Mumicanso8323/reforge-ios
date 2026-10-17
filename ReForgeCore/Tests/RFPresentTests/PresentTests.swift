@@ -19,6 +19,26 @@ final class PresentTests: XCTestCase {
         XCTAssertEqual(f.status.first?.label, "空気")
     }
 
+    func testWasteStopUsesMarkWithoutReasonText() throws {
+        var content = try TestContent.publicOnly()
+        try ContentLoader.apply(json: Data(#"{"texts":{"reason.module.waste_full":"not shown"}}"#.utf8), to: &content)
+        var world = TestRig(content: content).factory.newWorld(seed: 1)
+        let id = world.newEntityID()
+        var placement = Placement(id: id, kind: .module(.furnace), at: world.map.spawn, facing: .north,
+                                  origin: ProvenanceID(0), status: .stopped(reason: "reason.module.waste_full"))
+        placement.module = ModuleRuntime(design: nil, step: nil)
+        world.placements.items[id] = placement
+        let builder = FrameBuilder(content: content)
+        let frame = builder.build(world, revision: 1, previous: nil, report: nil)
+        let sprite = try XCTUnwrap(frame.placements.first { $0.id == id })
+        XCTAssertEqual(sprite.stopKind, .wasteFull)
+        XCTAssertNil(sprite.stoppedReason)
+        XCTAssertFalse(FrameText.allStrings(frame).contains("not shown"))
+        XCTAssertEqual(builder.base(world).built.first { $0.id == id }?.state, .blocked(.wasteFull))
+        world.placements.items[id]?.status = .running
+        XCTAssertNil(builder.build(world, revision: 2, previous: frame, report: nil).placements.first { $0.id == id }?.stopKind)
+    }
+
     /// 工程表は記録(SheetDef)も同じ形で開ける。条件が成り立つまで開けない。
     func testProcessSheetFromRecord() throws {
         let rig = try TestRig.publicOnly()

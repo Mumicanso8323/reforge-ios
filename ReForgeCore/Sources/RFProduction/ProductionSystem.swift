@@ -91,6 +91,7 @@ public enum ProductionText {
     /// 人が付いていない(人の手で回す発電機。U16)。
     public static let noWorker: TextID = "reason.module.no_worker"
     public static let outputFull: TextID = "reason.module.output_full"
+    public static let wasteFull: TextID = "reason.module.waste_full"
     public static let depleted: TextID = "reason.module.depleted"
     public static let noDeposit: TextID = "reason.module.no_deposit"
     // 手作業

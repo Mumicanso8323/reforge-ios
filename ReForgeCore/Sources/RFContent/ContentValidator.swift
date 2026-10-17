@@ -31,6 +31,7 @@ public enum ContentValidator {
         textGatesWellFormed(db, &out)
         factsWellFormed(db, &out)
         latinAllowedIsNotAnID(db, &out)
+        byproductItemsWellFormed(db, &out)
         // 出来事・始まり
         startMembersExist(db, &out)
         startClockWellFormed(db, &out)
@@ -45,6 +46,13 @@ public enum ContentValidator {
         uiGatesWellFormed(db, &out)  // 画面の要素の解放(U18。Schema/UIGates.swift)
         artIDsAreNeutral(db, &out)  // 立ち絵の ID の形(U18)
         return out
+    }
+
+    /// 副産物の行き先が空の品 ID だと、出口の中身を一意に決められない。
+    static func byproductItemsWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        for (byproduct, item) in db.byproductItems.sorted(by: { $0.key < $1.key }) where item.rawValue.isEmpty {
+            out.append(Issue(level: .error, rule: "byproductItems.item", message: "\(byproduct) の品 ID が空"))
+        }
     }
 
     // MARK: 認識の表
