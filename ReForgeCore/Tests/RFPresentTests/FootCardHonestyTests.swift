@@ -135,7 +135,7 @@ final class FootCardHonestyTests: XCTestCase {
         let here = spawn + GridPoint(3, 0)
         var (wf, _) = world(noahAt: here, forest: [here, here + GridPoint(1, 0), here + GridPoint(-1, 1), here + GridPoint(0, -1)])
         wf.clock.held = false
-        XCTAssertGreaterThan(assertEveryCardActionIsAccepted(wf, "森"), 0, "試験が空振りでない")
+        XCTAssertGreaterThan(assertEveryCardActionIsAccepted(wf, "森"), 0, "試験が空振りでない") // ja-table
         pickNow(&wf, at: here)
         total += assertEveryCardActionIsAccepted(wf, "森(1 回採った後)")
         pickNow(&wf, at: here + GridPoint(1, 0))
@@ -163,7 +163,7 @@ final class FootCardHonestyTests: XCTestCase {
         var (ww, wHere) = world(noahAt: here, forest: [])
         ww.clock.held = false
         ww.map[.surface]?.setTerrain("shore", at: wHere + GridPoint(1, 1))
-        XCTAssertGreaterThan(assertEveryCardActionIsAccepted(ww, "水"), 0)
+        XCTAssertGreaterThan(assertEveryCardActionIsAccepted(ww, "水"), 0) // ja-table
         XCTAssertGreaterThan(total, 0, "試験が空振りでない")
     }
 }

@@ -14,6 +14,6 @@ final class DocumentsTests: XCTestCase {
         ctx.learn("fact.test.alpha")
         XCTAssertEqual(Documents.available(in: ctx.world, content: rig.content).map(\.id),
                        ["doc.test.first", "doc.test.later"])
-        XCTAssertEqual(rig.content.texts[rig.content.documents["doc.test.first"]!.body], "試験の書き付けの全文。")
+        XCTAssertEqual(rig.content.texts[rig.content.documents["doc.test.first"]!.body], "試験の書き付けの全文。") // ja-table
     }
 }

@@ -163,7 +163,7 @@ final class LayoutFitTests: XCTestCase {
             expectation(for: gone, evaluatedWith: one(app, "offer-tendFire"))
             waitForExpectations(timeout: 30)
         }
-        let sleep = app.buttons["寝る"]
+        let sleep = one(app, "bandAction-sleep")
         XCTAssertTrue(sleep.exists && sleep.isHittable, "寝るが押せない")
     }
 }

@@ -25,7 +25,7 @@ final class DecisionPromptTests: XCTestCase {
     }
 
     func testPromptIsShownWhenEventHasOne() throws {
-        XCTAssertEqual(try decisionView(prompt: "text.test.prompt").prompt, "テスト用の文")
+        XCTAssertEqual(try decisionView(prompt: "text.test.prompt").prompt, "テスト用の文") // ja-table
     }
 
     func testPromptIsNilWhenEventHasNone() throws {

@@ -16,8 +16,8 @@ final class PresentTests: XCTestCase {
         XCTAssertEqual(f.clock.day, 1)
         XCTAssertTrue(f.clock.running)
         XCTAssertEqual(f.map.chunkRevisions.count, 4)
-        XCTAssertEqual(f.actors.first?.label, "ノア")
-        XCTAssertEqual(f.status.first?.label, "空気")
+        XCTAssertEqual(f.actors.first?.label, TestText.render("text.name.noah", content: rig.content))
+        XCTAssertEqual(f.status.first?.label, TestText.render("text.stat.air", content: rig.content))
     }
 
     func testWasteStopUsesMarkWithoutReasonText() throws {
@@ -50,8 +50,9 @@ final class PresentTests: XCTestCase {
         ctx.learn("fact.test.alpha")
         w = ctx.world
         let s = try XCTUnwrap(b.sheet(.record("sheet.test.record"), in: w))
-        XCTAssertEqual(s.title, "試験の記録")
-        XCTAssertEqual(s.rows, [ProcessSheet.Row(title: "炉", note: "試験の行")])
+        XCTAssertEqual(s.title, TestText.render("text.sheet.record", content: rig.content))
+        XCTAssertEqual(s.rows, [ProcessSheet.Row(title: TestText.render("text.module.furnace", content: rig.content),
+                                                  note: TestText.render("text.test.row", content: rig.content))])
     }
 
     func testHostTicksAndSends() async throws {

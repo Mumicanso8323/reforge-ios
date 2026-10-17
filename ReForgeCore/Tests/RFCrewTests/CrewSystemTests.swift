@@ -514,7 +514,7 @@ final class CrewSystemTests: XCTestCase {
         // 死んだ人は戻らない
         r = rig.simulation.apply(.crew(.joinFromEffect(person: "person.test_c", cause: nil)), to: &w)
         XCTAssertFalse(w.people["person.test_c"]!.presence.isAlive)
-        XCTAssertEqual(r.warnings.filter { !$0.contains("断られた") }, [])
+        XCTAssertEqual(r.warnings.filter { !$0.contains("断られた") }, []) // ja-table
     }
 
     /// 生存の規則があれば、効果・戦いからの傷は RFSurvival(survival.injure)が体に付け、引き金(cause)を来歴に残す。

@@ -10,10 +10,10 @@ final class ForbiddenLanguageTests: XCTestCase {
         XCTAssertTrue(WordMatcher.contains("Ore.", word: "ore", language: .en))
         XCTAssertTrue(WordMatcher.contains("ore's", word: "ore", language: .en))
         XCTAssertTrue(WordMatcher.contains("iron  ore", word: "iron ore", language: .en))
-        XCTAssertTrue(WordMatcher.contains("か\u{3099}", word: "が", language: .ja))
+        XCTAssertTrue(WordMatcher.contains("か\u{3099}", word: "が", language: .ja)) // ja-table
         XCTAssertTrue(WordMatcher.contains("zorb을", word: "zorb", language: .ko))
-        XCTAssertTrue(WordMatcher.contains("zorb文", word: "zorb", language: .zhHans))
-        XCTAssertTrue(WordMatcher.contains("⟦zorb・⟧", word: "zorb", language: .pseudo))
+        XCTAssertTrue(WordMatcher.contains("zorb文", word: "zorb", language: .zhHans)) // ja-table
+        XCTAssertTrue(WordMatcher.contains("⟦zorb・⟧", word: "zorb", language: .pseudo)) // ja-table
     }
 
     func testEnglishInternalIDRecognitionIsNarrow() {

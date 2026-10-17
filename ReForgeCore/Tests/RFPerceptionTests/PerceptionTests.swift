@@ -49,24 +49,24 @@ final class PerceptionTests: XCTestCase {
             return out
         }
         let before = render(world)
-        XCTAssertTrue(before.values.contains("見慣れない石"), "\(before)")
-        XCTAssertEqual(before["placed"], "炉")
-        XCTAssertEqual(before["source"], "手の覚え")
-        XCTAssertEqual(before["map"], "試験の残骸")
-        XCTAssertEqual(before["journal\(placed.raw)"], "ノアが炉を置いた")
-        XCTAssertTrue(before.values.contains("試験の仲間Aが試験の残骸を漁った"), "\(before)")
+        XCTAssertTrue(before.values.contains("見慣れない石"), "\(before)") // ja-table
+        XCTAssertEqual(before["placed"], "炉") // ja-table
+        XCTAssertEqual(before["source"], "手の覚え") // ja-table
+        XCTAssertEqual(before["map"], "試験の残骸") // ja-table
+        XCTAssertEqual(before["journal\(placed.raw)"], "ノアが炉を置いた") // ja-table
+        XCTAssertTrue(before.values.contains("試験の仲間Aが試験の残骸を漁った"), "\(before)") // ja-table
 
         var learn = StepContext(world: world, content: rig.content)
         learn.learn("fact.test.revealed")
         XCTAssertTrue(learn.changes.areas.contains(.perception), "見え方を引き直す印が付く")
         let after = render(learn.world)
-        XCTAssertTrue(after.values.contains("禁句Aの石"), "\(after)")
-        XCTAssertEqual(after["placed"], "試験の名前B")
-        XCTAssertTrue(after["codex"]!.contains("試験の材料B") && !before["codex"]!.contains("試験の材料B"), "\(after)")
-        XCTAssertEqual(after["source"], "試験の出典")
-        XCTAssertEqual(after["map"], "試験の場所B")
-        XCTAssertEqual(after["journal\(placed.raw)"], "ノアが試験の名前Bを置いた")
-        XCTAssertTrue(after.values.contains("試験の仲間Aが試験の場所Bを漁った"), "\(after)")
+        XCTAssertTrue(after.values.contains("禁句Aの石"), "\(after)") // ja-table
+        XCTAssertEqual(after["placed"], "試験の名前B") // ja-table
+        XCTAssertTrue(after["codex"]!.contains("試験の材料B") && !before["codex"]!.contains("試験の材料B"), "\(after)") // ja-table
+        XCTAssertEqual(after["source"], "試験の出典") // ja-table
+        XCTAssertEqual(after["map"], "試験の場所B") // ja-table
+        XCTAssertEqual(after["journal\(placed.raw)"], "ノアが試験の名前Bを置いた") // ja-table
+        XCTAssertTrue(after.values.contains("試験の仲間Aが試験の場所Bを漁った"), "\(after)") // ja-table
 
         // 保存されている物・置いた物・ノート・地図は同じ ID のまま。保存データに名前は入っていない
         XCTAssertEqual(learn.world.inventory, world.inventory)
@@ -84,8 +84,8 @@ final class PerceptionTests: XCTestCase {
     /// 数値の見せ方も事実で切り替わる(段階の言葉 → 数)。隠れた値は出さない。
     func testStatDisplaySwitchesAndHiddenStaysHidden() throws {
         let db = try TestContent.publicOnly()
-        XCTAssertEqual(Perceiver(content: db, known: []).stat("stat.test.air", value: Milli(raw: 950)), "濁っている")
-        XCTAssertEqual(Perceiver(content: db, known: []).stat("stat.test.air", value: Milli(raw: 100)), "澄んでいる")
+        XCTAssertEqual(Perceiver(content: db, known: []).stat("stat.test.air", value: Milli(raw: 950)), "濁っている") // ja-table
+        XCTAssertEqual(Perceiver(content: db, known: []).stat("stat.test.air", value: Milli(raw: 100)), "澄んでいる") // ja-table
         XCTAssertEqual(Perceiver(content: db, known: ["fact.test.revealed"]).stat("stat.test.air", value: Milli(raw: 950)), "95")
         XCTAssertNil(Perceiver(content: db, known: []).stat("stat.test.hidden", value: Milli(raw: 5)))
         XCTAssertNil(Perceiver(content: db, known: []).stat("stat.no_such", value: Milli(raw: 5)))
@@ -114,7 +114,7 @@ final class PerceptionTests: XCTestCase {
         let db = try TestContent.publicOnly()
         let m = Matter(substance: .iron, purity: Purity(percent: 90), stage: .metal, shape: .plate, temper: .hard)
         let name = Perceiver(content: db, known: []).name(of: .matter(m))
-        XCTAssertTrue(name.contains("鉄") && name.contains("板") && name.contains("精"), name)
+        XCTAssertTrue(name.contains("鉄") && name.contains("板") && name.contains("精"), name) // ja-table
     }
 
     /// 見え方の無い見出し・文字列表に無いキー・日誌の型の無い行為は、英語の ID を出さない。
@@ -136,7 +136,7 @@ final class PerceptionTests: XCTestCase {
         let db = try TestContent.publicOnly()
         let a = PerceptionAuditor()
         let p = Perceiver(content: db, known: [], auditor: a)
-        XCTAssertEqual(p.name(Subject.item("test_ore")), "見慣れない石")
+        XCTAssertEqual(p.name(Subject.item("test_ore")), "見慣れない石") // ja-table
         _ = p.name(of: .item("wood"))
         _ = p.glyph(Subject.terrain("grass"))
         XCTAssertEqual(a.violations, [])
@@ -215,23 +215,23 @@ final class PerceptionTests: XCTestCase {
     /// 監査は、まだ知らない事実の語と英語の ID を捕まえる(走行中の検査の関数)。
     func testRuntimeCheckCatchesForbiddenWordAndEnglishID() throws {
         let db = try TestContent.publicOnly()
-        XCTAssertEqual(ForbiddenAudit.check("禁句Aの石", content: db, known: []).count, 1)
-        XCTAssertEqual(ForbiddenAudit.check("禁句Aの石", content: db, known: ["fact.test.revealed"]).count, 0)
+        XCTAssertEqual(ForbiddenAudit.check("禁句Aの石", content: db, known: []).count, 1) // ja-table
+        XCTAssertEqual(ForbiddenAudit.check("禁句Aの石", content: db, known: ["fact.test.revealed"]).count, 0) // ja-table
         XCTAssertEqual(ForbiddenAudit.check("iron_ore", content: db, known: []).map(\.rule), [ForbiddenAudit.latinRule])
         XCTAssertEqual(ForbiddenAudit.check("fact.test", content: db, known: []).count, 1)
         XCTAssertEqual(ForbiddenAudit.check("A_B", content: db, known: []).count, 1, "アンダーバー付きの識別子")
         // 文の型の埋め込み {名前} は ID ではない
-        XCTAssertEqual(ForbiddenAudit.check("{actor}が{subject}を置いた", content: db, known: []), [])
+        XCTAssertEqual(ForbiddenAudit.check("{actor}が{subject}を置いた", content: db, known: []), []) // ja-table
     }
 
     /// 許すラテン文字の語(固有名・題名)は英語の ID とみなさない。それ以外の ID は引き続き捕まえる。
     func testLatinAllowedWordsAreNotInternalIDs() throws {
         var db = try TestContent.publicOnly()
-        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeの朝", content: db, known: []).map(\.rule), [ForbiddenAudit.latinRule])
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeの朝", content: db, known: []).map(\.rule), [ForbiddenAudit.latinRule]) // ja-table
         try ContentLoader.apply(json: Data(#"{"latinAllowed": ["Re:Forge"]}"#.utf8), to: &db)
-        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeの朝", content: db, known: []), [])
-        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeとiron_ore", content: db, known: []).count, 1)
-        XCTAssertEqual(ForbiddenAudit.check("Re:Forgexの朝", content: db, known: []).count, 1, "許した語の続きは別の語")
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeの朝", content: db, known: []), []) // ja-table
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgeとiron_ore", content: db, known: []).count, 1) // ja-table
+        XCTAssertEqual(ForbiddenAudit.check("Re:Forgexの朝", content: db, known: []).count, 1, "許した語の続きは別の語") // ja-table
         XCTAssertEqual(ContentValidator.validate(db).filter { $0.rule == "latinAllowed.id" }, [])
         db.latinAllowed += ["iron_ore", "fact.x"]
         XCTAssertEqual(ContentValidator.validate(db).filter { $0.rule == "latinAllowed.id" }.count, 2)
@@ -285,14 +285,14 @@ final class PerceptionTests: XCTestCase {
         try XCTSkipIf(ProcessInfo.processInfo.environment[ForbiddenAudit.verboseEnv] == "1")
         let db = try TestContent.publicOnly()
         let v = try XCTUnwrap(ForbiddenAudit.check("禁句Aの石", content: db, known: [], origin: "x").first)
-        XCTAssertFalse(v.description.contains("禁句A"), v.description)
+        XCTAssertFalse(v.description.contains("禁句A"), v.description) // ja-table
         XCTAssertTrue(v.description.contains("rule.test.a"), v.description)
     }
 
     /// 文字列カタログのキーの書式の指定(%lld・%@・%%)は、英字の ID の漏れの検査に当たらない。指定の外の ID は今までどおり当たる。
     func testFixedStringFormatSpecifiersAreNotIDs() throws {
         let db = try TestContent.publicOnly()
-        XCTAssertEqual(ForbiddenAudit.auditFixedStrings(["建造中 %lld%%", "「%@」", "%1$@・%2$lld日目"], content: db, origin: "x"), [])
+        XCTAssertEqual(ForbiddenAudit.auditFixedStrings(["建造中 %lld%%", "「%@」", "%1$@・%2$lld日目"], content: db, origin: "x"), []) // ja-table
         XCTAssertFalse(ForbiddenAudit.auditFixedStrings(["%lld iron_ore"], content: db, origin: "x").isEmpty)
     }
 

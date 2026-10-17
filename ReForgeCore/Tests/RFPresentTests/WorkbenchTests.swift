@@ -38,7 +38,7 @@ final class WorkbenchTests: XCTestCase {
         let b = FrameBuilder(content: rig.content)
         let bench = b.designBench(in: world(rig, furnace: false))
         let furnace = try XCTUnwrap(bench.modules.first { $0.module == .furnace })
-        XCTAssertEqual(furnace.name, "炉")
+        XCTAssertEqual(furnace.name, "炉") // ja-table
         XCTAssertNotNil(furnace.missing, "炉を置いていなければ、試せない理由の 1 行が付く")
         XCTAssertFalse(bench.modules.contains { $0.module == .anvil }, "解禁していない段は出さない")
         XCTAssertEqual(bench.materials.count, 1)
@@ -60,7 +60,7 @@ final class WorkbenchTests: XCTestCase {
 
         // 試す前の下書き: 段はあるが見込みは「？」
         let before = try XCTUnwrap(b.sheet(.draft(steps: steps, input: sel), in: w))
-        XCTAssertEqual(before.rows.map(\.title), ["炉"])
+        XCTAssertEqual(before.rows.map(\.title), ["炉"]) // ja-table
         XCTAssertEqual(before.rows[0].step, 0)
         XCTAssertEqual(before.rows[0].inputs.count, 1, "段に入れた物は名前の並びで渡す(区切りは画面)")
         XCTAssertNil(before.rows[0].note)
@@ -90,7 +90,7 @@ final class WorkbenchTests: XCTestCase {
         rig.simulation.apply(.invention(.makeDesign(steps: steps)), to: &w)
         let plates = b.designBench(in: w).plates
         XCTAssertEqual(plates.count, 1)
-        XCTAssertEqual(plates[0].steps, ["炉"])
+        XCTAssertEqual(plates[0].steps, ["炉"]) // ja-table
         XCTAssertNotNil(b.sheet(.design(plates[0].design), in: w))
     }
 
@@ -99,13 +99,13 @@ final class WorkbenchTests: XCTestCase {
         let rig = try TestRig.publicOnly()
         let b = FrameBuilder(content: rig.content)
         var ctx = StepContext(world: rig.factory.newWorld(seed: 1), content: rig.content)
-        XCTAssertEqual(b.notebook(in: ctx.world).documents.map(\.title), ["試験の書き付け"])
+        XCTAssertEqual(b.notebook(in: ctx.world).documents.map(\.title), ["試験の書き付け"]) // ja-table
         XCTAssertNil(b.document("doc.test.later", in: ctx.world))
         ctx.learn("fact.test.alpha")
         let w = ctx.world
         XCTAssertEqual(b.notebook(in: w).documents.count, 2)
         let d = try XCTUnwrap(b.document("doc.test.later", in: w))
-        XCTAssertEqual(d.body, "試験の事実を知ると読める全文。")
+        XCTAssertEqual(d.body, "試験の事実を知ると読める全文。") // ja-table
         XCTAssertNil(d.source)
         XCTAssertNotNil(b.document("doc.test.first", in: w)?.source)
         XCTAssertTrue(b.notebook(in: w).records.contains { $0.sheet == "sheet.test.record" }, "開ける記録はノートに並ぶ")
@@ -157,14 +157,14 @@ final class WorkbenchTests: XCTestCase {
         var ctx = StepContext(world: rig.factory.newWorld(seed: 1), content: rig.content)
         var codex = b.notebook(in: ctx.world).codex
         let ore = try XCTUnwrap(codex.first { $0.item })
-        XCTAssertEqual(ore.name, "見慣れない石")
+        XCTAssertEqual(ore.name, "見慣れない石") // ja-table
         XCTAssertFalse(ore.made)
-        XCTAssertTrue(codex.contains { $0.name == "試験の造語の欄" && !$0.made })
-        XCTAssertFalse(codex.contains { $0.name == "あとで出る試験の欄" })
+        XCTAssertTrue(codex.contains { $0.name == "試験の造語の欄" && !$0.made }) // ja-table
+        XCTAssertFalse(codex.contains { $0.name == "あとで出る試験の欄" }) // ja-table
         ctx.learn("fact.test.alpha")
         ctx.learn("fact.test.revealed")
         codex = b.notebook(in: ctx.world).codex
-        XCTAssertTrue(codex.contains { $0.name == "あとで出る試験の欄" })
+        XCTAssertTrue(codex.contains { $0.name == "あとで出る試験の欄" }) // ja-table
         XCTAssertEqual(codex.first { $0.item }?.made, true)
     }
 
@@ -184,7 +184,7 @@ final class WorkbenchTests: XCTestCase {
         let before = b.notebook(in: w).codex.filter { $0.name == "試験の造語の欄" }.count
         XCTAssertEqual(before, 2, "試験の欄と、作れば埋まる欄")
         rig.simulation.apply(.invention(.trial(input: sel, quantity: 1, steps: steps)), to: &w)
-        XCTAssertEqual(b.notebook(in: w).codex.filter { $0.name == "試験の造語の欄" }.count, 1)
+        XCTAssertEqual(b.notebook(in: w).codex.filter { $0.name == "試験の造語の欄" }.count, 1) // ja-table
 
         let bench = b.designBench(in: w)
         XCTAssertEqual(bench.unknownModules, c.ruleBook.modules.keys.count - bench.modules.count)

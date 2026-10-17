@@ -63,7 +63,7 @@ final class HintScreenPresentTests: XCTestCase {
         let b = FrameBuilder(content: c)
         let card = try XCTUnwrap(b.footCard(w, at: GridPoint(3, 3)))
         XCTAssertEqual(card.documents.map(\.id), ["doc.test.panel"], "段のある資料だけ、その残骸から開ける")
-        XCTAssertEqual(card.documents.first?.title, "試験の端末")
+        XCTAssertEqual(card.documents.first?.title, "試験の端末") // ja-table
         XCTAssertEqual(b.document("doc.test.panel", in: w)?.readablePermille, 40)
         XCTAssertEqual(b.footCard(w, at: GridPoint(10, 10))?.documents ?? [], [])
     }

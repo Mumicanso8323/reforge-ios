@@ -19,12 +19,12 @@ final class ProcessChainTests: XCTestCase {
         XCTAssertEqual(r.product.stage, .metal)
         XCTAssertEqual(r.product.purity, Purity(basisPoints: 4750))
         XCTAssertTrue((Purity(percent: 45)...Purity(percent: 55)).contains(r.product.purity))
-        XCTAssertEqual(r.name.text, "鉄塊")
+        XCTAssertEqual(r.name.text, "鉄塊") // ja-table
         XCTAssertEqual(r.consumed, [ItemAmount(.charcoal, 1)])
         XCTAssertEqual(r.byproducts, [.exhaust])
         XCTAssertTrue(r.findings.isEmpty)
         // §5.2 の場面の並び〔鉱石〕→〔炉〕→〔叩き台〕は、急冷しないので柔らかい板
-        XCTAssertEqual(run([.minehead, .charcoalFurnace, .anvil]).name.text, "柔鉄板")
+        XCTAssertEqual(run([.minehead, .charcoalFurnace, .anvil]).name.text, "柔鉄板") // ja-table
     }
 
     /// 露頭の鉱石 20〜35%(`R1Ore.outcrop`)では、連結を通して粗鉄塊と鉄塊の両方が出て、粗鉄板も作れる。
@@ -37,7 +37,7 @@ final class ProcessChainTests: XCTestCase {
             let plate = run([.minehead, .charcoalFurnace, .anvil], ore: ore)
             if plate.product.shape == .plate && plate.name.grade == .crude { crudePlate = true }
         }
-        XCTAssertEqual(lumps, ["粗鉄塊", "鉄塊"])
+        XCTAssertEqual(lumps, ["粗鉄塊", "鉄塊"]) // ja-table
         XCTAssertTrue(crudePlate)
         let r20 = run([.minehead, .charcoalFurnace], ore: .ironOre(purity: Purity(percent: 20)))
         XCTAssertEqual(r20.product.purity, Purity(basisPoints: 4450))
@@ -102,7 +102,7 @@ final class ProcessChainTests: XCTestCase {
     func testHammerAndQuenchOrder() {
         let hard = run([.minehead, .charcoalFurnace, .anvil, .quench])
         XCTAssertEqual(hard.product.temper, .hard)
-        XCTAssertEqual(hard.name.text, "剛鉄板")
+        XCTAssertEqual(hard.name.text, "剛鉄板") // ja-table
         XCTAssertEqual(hard.hardness, 85)
         XCTAssertEqual(hard.toughness, 30)
 
@@ -116,7 +116,7 @@ final class ProcessChainTests: XCTestCase {
         XCTAssertEqual(cracked.product.temper, .cracked)
         XCTAssertEqual(cracked.toughness, 0)
         XCTAssertEqual(cracked.findings.map(\.id), [.quenchUnworkedNotHardened, .hammerCrackedAfterQuench])
-        XCTAssertEqual(cracked.name.text, "割れた鉄塊")
+        XCTAssertEqual(cracked.name.text, "割れた鉄塊") // ja-table
 
         // 熱し直すと急冷の硬さが抜け、叩いて板にできる(焼きなまし)
         let annealed = run([.minehead, .charcoalFurnace, .quench, .charcoalFurnace, .anvil, .quench])
@@ -131,7 +131,7 @@ final class ProcessChainTests: XCTestCase {
         XCTAssertEqual(r.product.thermal, .quenched)
         XCTAssertEqual(r.findings.map(\.id), [.quenchUnworkedNotHardened])
         XCTAssertEqual(r.findings.first?.args, [.shape(.lump)])
-        XCTAssertEqual(r.name.text, "鉄塊")
+        XCTAssertEqual(r.name.text, "鉄塊") // ja-table
     }
 
     /// 叩き重ね: 熱し直してから叩くと純度が上がる。熱し直さずに叩いても伸びない。3 回目は変わらない。
@@ -224,7 +224,7 @@ final class ProcessChainTests: XCTestCase {
     func testFineHardPlate() {
         let r = run([.minehead, .millstone, .sluice, .lime, .charcoalFurnace, .anvil, .quench])
         XCTAssertEqual(r.product.purity, Purity(basisPoints: 8621))
-        XCTAssertEqual(r.name.text, "精剛鉄板")
+        XCTAssertEqual(r.name.text, "精剛鉄板") // ja-table
         XCTAssertTrue(r.isFinePlate)
         XCTAssertTrue(r.isHardPlate)
         XCTAssertEqual(r.byproducts, [.crushedStone, .sand, .exhaust, .slag])

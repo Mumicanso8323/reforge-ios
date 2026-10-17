@@ -24,6 +24,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         let content: ContentDB
         let sim: Simulation
         let fb: FrameBuilder
+        let language: LanguageID
         var w: WorldState
         var real: Double = 0
         var log: [(EventID, Double)] = []
@@ -71,11 +72,16 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var bandTick = 0
         /// 食料の物を持っているのを見た(帯の数値より前に)
         var foodHeldSeen = false
+        /// 擬似言語の Frame で、表を通らなかった文。
+        var unwrapped: [String] = []
 
-        init(content: ContentDB, seed: UInt64) {
+        init(content: ContentDB, seed: UInt64, language: LanguageID = .ja) {
             self.content = content
             sim = Simulation(content: content)
-            fb = FrameBuilder(content: content)
+            var builder = FrameBuilder(content: content)
+            builder.language = language
+            fb = builder
+            self.language = language
             w = WorldFactory(content: content, mapGenerator: RFMapGenerator()).newWorld(seed: seed)
         }
 
@@ -157,8 +163,15 @@ final class FirstTenMinutesBotTests: XCTestCase {
             record(r)
             auditNames()
             hear()
+            auditPseudoFrame()
             if case .crew(.assign(let p, _)) = c, p != .noah, r.rejection == nil { awaiting.insert(p) }
             return r
+        }
+
+        /// 非公開の 10 分ボットでも、各操作・各歩みの Frame を擬似言語で調べる。
+        mutating func auditPseudoFrame() {
+            guard language == .pseudo else { return }
+            unwrapped += PseudoCheck.unwrapped(FrameText.allStrings(fb.build(w, revision: 0, previous: nil, report: nil)))
         }
 
         mutating func record(_ r: StepReport) {
@@ -265,6 +278,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
                 record(r)
                 noteWork()
                 hear()
+                auditPseudoFrame()
             }
         }
 
@@ -1058,6 +1072,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         var bandFoodRaw: Int64?
         var askStoke: (Int, Int)?
         var leaks: [String] = []
+        var unwrapped: [String] = []
         /// SL-23〜27 の段と時刻(実時間の目安)
         var milestones: [(String, Double)] = []
         var stoppedAt: String?
@@ -1068,10 +1083,11 @@ final class FirstTenMinutesBotTests: XCTestCase {
     }
 
     func run(seed: UInt64, content: ContentDB, picks: Picks, stack: Bool,
-             nameAudit: [(PersonID, String, FactID)] = [], snapshots: Bool = false) -> Run {
-        var b = Bot(content: content, seed: seed)
+             nameAudit: [(PersonID, String, FactID)] = [], snapshots: Bool = false,
+             language: LanguageID = .ja, recordScript: Bool = true) -> Run {
+        var b = Bot(content: content, seed: seed, language: language)
         b.nameAudit = nameAudit
-        if !snapshots, Self.scriptPath != nil { b.script = [] }
+        if !snapshots, recordScript, Self.scriptPath != nil { b.script = [] }
         var out = Run()
         let fireTag = content.base.constructionFireTag
         func fireLit() -> Bool { fireTag.map { BaseRules.total($0, b.w, content) > 0 } ?? true }
@@ -1657,6 +1673,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         out.bandAtDusk0 = b.bandAtDusk0
         out.bandFirst = b.bandFirst
         out.bandFoodRaw = b.bandFoodRaw
+        out.unwrapped = b.unwrapped
         // INV-S3 の F: 材料がそろった時の一言(ID は内容から引かない)から、
         // その人が建てはじめる(作業の字)まで(20 秒以内)
         // 材料がそろった一言は、焚き火の段で行が分かれる(行の条件に hearthAtLeast がある)。材料集めの間に出た、そういう行だけを見る
@@ -1695,7 +1712,7 @@ final class FirstTenMinutesBotTests: XCTestCase {
         if b.cooldownHits > 0 { out.diag.append("間を置くマスで断られた \(b.cooldownHits) 回") }
         if !b.noSource.isEmpty { out.diag.append("産む行為が無い物 \(b.noSource.sorted())") }
         if !b.gatherMiss.isEmpty { out.diag.append("採れなかった: \(b.gatherMiss.sorted { $0.key < $1.key })") }
-        Self.writeScript(b, seed: seed)
+        if recordScript { Self.writeScript(b, seed: seed) }
         return out
     }
 
@@ -1714,6 +1731,21 @@ final class FirstTenMinutesBotTests: XCTestCase {
         let seconds = Double(last) * Bot.realPerStep + entries.reduce(0) { $0 + ($1.after ?? 0) } + Double(scenes) * 1.5
         let script = ReplayScript(seed: Int(seed), seconds: seconds, commands: entries, checkpoints: b.checkpoints)
         do { try script.write(to: URL(fileURLWithPath: path)) } catch { XCTFail("台本を書けない: \(error)") }
+    }
+
+    /// 非公開の 10 分ボットも、擬似言語では表を通らない文を出さない。
+    func testFirstTenMinutesPseudoLanguage() throws {
+        try XCTSkipUnless(TestContent.hasPrivateLayer, "非公開の層が無い")
+        try XCTSkipUnless(ProcessInfo.processInfo.environment["REFORGE_TENMIN_BOT"] == "1",
+                          "REFORGE_TENMIN_BOT=1 の時だけ回す(10 分の内容が入った層で)")
+        var content = try TestContent.full()
+        content.failureRules = [:]
+        let picks = try Picks(content)
+        let seed = UInt64(ProcessInfo.processInfo.environment["REFORGE_TENMIN_SEED_FROM"] ?? "") ?? 0
+        let run = run(seed: seed, content: content, picks: picks,
+                      stack: ProcessInfo.processInfo.environment["REFORGE_TENMIN_STACK"] == "1",
+                      language: .pseudo, recordScript: false)
+        XCTAssertEqual(run.unwrapped, [], "private pseudo run has unwrapped localized text")
     }
 
     func testFirstTenMinutesTimeline() throws {

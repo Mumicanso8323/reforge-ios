@@ -47,7 +47,7 @@ final class MapPixelsTests: XCTestCase {
         let before = litFraction()
         XCTAssertGreaterThan(before, 0.01, "日没の地図に地形の画素が無い(この試験の前提が成り立たない): \(before)")
 
-        let sleep = app.buttons["寝る"].firstMatch
+        let sleep = one(app, "bandAction-sleep")
         XCTAssertTrue(sleep.waitForExistence(timeout: 30), "「寝る」が無い")
         sleep.tap()
         // 朝になる(日没の締めが消える)のを待ってから、2 秒後・以後 8 秒の間、毎秒測る

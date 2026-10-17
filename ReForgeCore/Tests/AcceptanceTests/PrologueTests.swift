@@ -48,7 +48,7 @@ final class PrologueTests: XCTestCase {
         let rig = try rig()
         let world = rig.factory.newWorld(seed: 1)
         let view = try XCTUnwrap(frame(rig, world).prologue)
-        XCTAssertEqual(view.lines, ["試験の一行目"])
+        XCTAssertEqual(view.lines, ["試験の一行目"]) // ja-table
         XCTAssertTrue(view.waiting)
         XCTAssertNil(view.art)
         let result = frame(rig, world)
@@ -65,7 +65,7 @@ final class PrologueTests: XCTestCase {
         let before = try fingerprint(world)
         for _ in 0..<600 { _ = rig.simulation.advance(&world, realSeconds: 1) }
         XCTAssertEqual(try fingerprint(world), before)
-        XCTAssertEqual(frame(rig, world).prologue?.lines, ["試験の一行目"])
+        XCTAssertEqual(frame(rig, world).prologue?.lines, ["試験の一行目"]) // ja-table
     }
 
     func testAdvancePagesThenReturnsTheFirstAction() throws {
@@ -73,9 +73,9 @@ final class PrologueTests: XCTestCase {
         var world = rig.factory.newWorld(seed: 3)
         let start = world.clock.now
         _ = rig.simulation.apply(.narrative(.advanceScene), to: &world)
-        XCTAssertEqual(frame(rig, world).prologue?.lines, ["試験の一行目", "試験の二行目"])
+        XCTAssertEqual(frame(rig, world).prologue?.lines, ["試験の一行目", "試験の二行目"]) // ja-table
         _ = rig.simulation.apply(.narrative(.advanceScene), to: &world)
-        XCTAssertEqual(frame(rig, world).prologue?.lines, ["試験の三行目"])
+        XCTAssertEqual(frame(rig, world).prologue?.lines, ["試験の三行目"]) // ja-table
         _ = rig.simulation.apply(.narrative(.advanceScene), to: &world)
         XCTAssertNil(frame(rig, world).prologue)
         XCTAssertTrue(world.clock.held)
@@ -108,7 +108,7 @@ final class PrologueTests: XCTestCase {
         _ = rig.simulation.apply(.narrative(.advanceScene), to: &world)
         let restored = try SaveCodec.decode(SaveCodec.encode(SaveEnvelope(slot: .resume, world: world, content: []))).world
         XCTAssertEqual(restored.narrative.scene, world.narrative.scene)
-        XCTAssertEqual(frame(rig, restored).prologue?.lines, ["試験の一行目", "試験の二行目"])
+        XCTAssertEqual(frame(rig, restored).prologue?.lines, ["試験の一行目", "試験の二行目"]) // ja-table
     }
 
     func testTicksBetweenAdvancesRemainDeterministic() throws {
