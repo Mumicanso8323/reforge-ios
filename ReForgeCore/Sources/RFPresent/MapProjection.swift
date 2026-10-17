@@ -118,7 +118,7 @@ struct MapProjector {
             glow = v?.glow ?? perceiver.variant(Subject.poi(poi.poi.kind))?.glow ?? false
         } else if let d = depositAt[p], d.deposit.remainingExtractions > 0 {
             let v = perceiver.variant(PresentSubject.deposit(d.deposit))
-            glyph = perceiver.glyph(PresentSubject.deposit(d.deposit), fallback: "◆")
+            glyph = perceiver.glyph(PresentSubject.deposit(d.deposit), fallback: "♦")
             tint = TilePalette.deposit(d.deposit.category.rawValue)
             glow = v?.glow ?? false
         } else {
