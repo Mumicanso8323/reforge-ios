@@ -369,6 +369,8 @@ public struct PlacementSprite: Equatable, Sendable {
     public var at: GridPoint
     public var facing: Direction
     public var running: Bool
+    /// 文ではなく印と色で示す止まり方。
+    public var stopKind: StopKind?
     /// 止まっている理由(ふきだし)。
     public var stoppedReason: String?
     /// 1 日あたりの入/出。
@@ -377,12 +379,13 @@ public struct PlacementSprite: Equatable, Sendable {
     public var seenInDark: Bool = false
 
     public init(id: EntityID, glyph: String, at: GridPoint, facing: Direction, running: Bool, stoppedReason: String?,
-                throughput: String?, seenInDark: Bool = false) {
+                throughput: String?, seenInDark: Bool = false, stopKind: StopKind? = nil) {
         self.id = id
         self.glyph = glyph
         self.at = at
         self.facing = facing
         self.running = running
+        self.stopKind = stopKind
         self.stoppedReason = stoppedReason
         self.throughput = throughput
         self.seenInDark = seenInDark

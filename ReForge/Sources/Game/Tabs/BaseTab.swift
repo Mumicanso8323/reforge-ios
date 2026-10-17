@@ -58,7 +58,12 @@ struct BaseTabView: View {
     private func built(_ v: BaseView) -> some View {
         InkSection(title: Text("建てた物")) {
             ForEach(v.built, id: \.id) { b in
-                InkRow(glyph: b.glyph, title: Text(verbatim: b.name), detail: detail(b), value: state(b.state))
+                let row = InkRow(glyph: b.glyph, title: Text(verbatim: b.name), detail: detail(b), value: state(b.state))
+                if case .blocked = b.state {
+                    row.accessibilityLabel(Text("止まっている"))
+                } else {
+                    row
+                }
             }
         }
     }
@@ -72,6 +77,8 @@ struct BaseTabView: View {
         case .running: Text("動いている")
         case .building(let p): Text("建造中 \(p / 10)%")
         case .stopped(let r): Text(verbatim: r)
+        case .blocked:
+            Text("■").foregroundStyle(InkColor.alert)
         case .broken: Text("壊れている")
         }
     }

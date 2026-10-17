@@ -21,9 +21,9 @@ struct ProductionFixture {
     /// 拠点の中のマス。
     static let base = GridPoint(16, 16)
 
-    init(_ edit: (inout ContentDB) -> Void = { _ in }) throws {
+    init(_ edit: (inout ContentDB) throws -> Void = { _ in }) throws {
         var c = try TestContent.publicOnly()
-        edit(&c)
+        try edit(&c)
         rig = TestRig(content: c)
     }
 

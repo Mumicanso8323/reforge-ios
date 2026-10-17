@@ -24,6 +24,16 @@ final class ContentTests: XCTestCase {
         XCTAssertNil(try TestContent.publicOnly().structures["structure.shelter"]?.seenInDark)
     }
 
+    func testByproductItemsOverlayAndRejectsEmptyItemID() throws {
+        var db = ContentDB()
+        try ContentLoader.apply(json: Data(#"{"byproductItems":{"slag":"item.test.slag"}}"#.utf8), to: &db)
+        XCTAssertEqual(db.byproductItems["slag"], "item.test.slag")
+        try ContentLoader.apply(json: Data(#"{"byproductItems":{"slag":"item.test.other"}}"#.utf8), to: &db)
+        XCTAssertEqual(db.byproductItems["slag"], "item.test.other")
+        db.byproductItems = ["slag": ""]
+        XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.rule == "byproductItems.item" })
+    }
+
     func testPreMigrationContentNamesLoadAsCurrentContent() throws {
         let current = Data(#"""
         {"sheets":[{"id":"sheet.test.compat","title":"misc:test","rows":[],"when":{"always":{}},

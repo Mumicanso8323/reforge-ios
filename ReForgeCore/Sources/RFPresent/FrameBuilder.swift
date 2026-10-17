@@ -219,10 +219,14 @@ public struct FrameBuilder: Sendable {
             case .structure(let k): Subject.structure(k)
             }
             var reason: String?
-            if case .stopped(let r) = pl.status { reason = p.stoppedText(r, waitingFor: pl.module?.waitingFor) }
+            var stopKind: StopKind?
+            if case .stopped(let r) = pl.status {
+                stopKind = StopKind.of(reason: r)
+                if stopKind == nil { reason = p.stoppedText(r, waitingFor: pl.module?.waitingFor) }
+            }
             return PlacementSprite(id: id, glyph: p.glyph(s), at: pl.at.point, facing: pl.facing,
                                    running: pl.status == .running, stoppedReason: reason, throughput: nil,
-                                   seenInDark: seenInDark)
+                                   seenInDark: seenInDark, stopKind: stopKind)
         }
     }
 

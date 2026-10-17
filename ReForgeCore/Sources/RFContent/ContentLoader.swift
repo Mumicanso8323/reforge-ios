@@ -218,7 +218,7 @@ struct LayerKeys {
 /// JSON 1 ファイルの形。どの集まりも省略できる。
 struct ContentFile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case bundle, clock, timeTint, mapGen, start, rewind, ruleBook, survival, combat, hauling
+        case bundle, clock, timeTint, mapGen, start, rewind, ruleBook, byproductItems, survival, combat, hauling
         // 人の自動化(U22)
         case crewWork
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
@@ -250,6 +250,7 @@ struct ContentFile: Codable {
     var hauling: HaulingDef?
     var crewWork: CrewWorkDef?
     var ruleBook: RuleBook?
+    var byproductItems: [ByproductID: ItemID]?
     var terrains: [TerrainDef]?
     var biomes: [BiomeDef]?
     var pois: [POIDef]?
@@ -321,6 +322,7 @@ struct ContentFile: Codable {
         one("start", start != nil)
         one("rewind", rewind != nil)
         one("ruleBook", ruleBook != nil)
+        one("byproductItems", byproductItems != nil)
         if let b = bundle { db.layers.append(b) }
         if let v = clock { db.clock = v }
         if let v = timeTint { db.timeTint = v }
@@ -332,6 +334,7 @@ struct ContentFile: Codable {
         if let v = hauling { db.hauling = v }
         if let v = crewWork { db.crewWork = v }
         if let v = ruleBook { db.ruleBook = v }
+        if let v = byproductItems { db.byproductItems = v }
         func upsert<D: ContentDef>(_ name: String, _ dict: inout [D.Key: D], _ items: [D]?) {
             for d in items ?? [] {
                 seen.insert(name, "\(d.id)", dups: &dups)

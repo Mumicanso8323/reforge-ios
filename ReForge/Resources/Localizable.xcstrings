@@ -1261,6 +1261,16 @@
         }
       }
     },
+    "止まっている": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "止まっている"
+          }
+        }
+      }
+    },
     "歩いている": {
       "localizations": {
         "ja": {

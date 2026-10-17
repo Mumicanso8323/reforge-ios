@@ -26,6 +26,8 @@ public struct ContentDB: Equatable, Sendable {
     public var crewWork: CrewWorkDef?
     /// 発明の規則の表(RFMatter)。コンテンツに無ければ R1 の表。
     public var ruleBook: RuleBook = .r1
+    /// 副産物を出口に残す品への対応。表に無い副産物は従来どおり捨てる。
+    public var byproductItems: [ByproductID: ItemID] = [:]
 
     // ID で引く定義
     public var terrains: [TerrainID: TerrainDef] = [:]

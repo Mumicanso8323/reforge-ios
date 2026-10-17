@@ -91,12 +91,14 @@ enum Modules {
         }
     }
 
-    /// 出口の物を隣の直結へ渡す。直結も運搬の経路も無く、拠点の中なら蓄えへ入れる。
+    /// 出口の製品を隣の直結へ渡す。副産物は運搬か捨て場だけが外へ出せる。
     static func pushOut(_ id: EntityID, down: EntityID?, inBase: Bool, _ ctx: inout StepContext) {
         guard let m = ctx.world.placements.items[id]?.module, !m.output.isEmpty else { return }
+        let waste = Set(ctx.content.byproductItems.values)
         if let down {
             var moved = 0
             for e in m.output {
+                if case .item(let item) = e.stuff, waste.contains(item) { continue }
                 guard let room = ctx.world.placements.items[down]?.module?.room(for: e.stuff), room > 0 else { continue }
                 let pieces = ModuleRuntime.take(room, from: &ctx.world.placements.items[id]!.module!.output,
                                                 where: { $0.stuff == e.stuff && $0.unique == e.unique })
@@ -110,19 +112,30 @@ enum Modules {
                 ctx.world.placements.items[down]?.module?.today.received += moved
                 ctx.changes.mark(.placements)
             }
-            return
+        } else {
+            let routed = !ctx.world.logistics.routes(from: .placement(id)).isEmpty
+            if !routed, inBase {
+                let all = ctx.world.placements.items[id]!.module!.output
+                ctx.world.placements.items[id]?.module?.output = []
+                var n = 0
+                for e in all {
+                    if case .item(let item) = e.stuff, waste.contains(item) {
+                        ModuleRuntime.put(e, into: &ctx.world.placements.items[id]!.module!.output)
+                        continue
+                    }
+                    Placing.toBase(e, cool: true, &ctx)
+                    n += e.quantity
+                }
+                ctx.world.placements.items[id]?.module?.today.sent += n
+                if n > 0 { ctx.changes.mark(.placements) }
+            }
         }
-        let routed = !ctx.world.logistics.routes(from: .placement(id)).isEmpty
-        guard !routed, inBase else { return }
-        let all = ctx.world.placements.items[id]!.module!.output
-        ctx.world.placements.items[id]?.module?.output = []
-        var n = 0
-        for e in all {
-            Placing.toBase(e, cool: true, &ctx)
-            n += e.quantity
+        if ctx.world.placements.items[id]?.module?.output.contains(where: { entry in
+            if case .item(let item) = entry.stuff { return waste.contains(item) }
+            return false
+        }) == true {
+            _ = Dumps.accept(from: id, &ctx)
         }
-        ctx.world.placements.items[id]?.module?.today.sent += n
-        ctx.changes.mark(.placements)
     }
 
     // MARK: 1 回の処理
@@ -154,19 +167,51 @@ enum Modules {
         case .extract:
             guard let dep = m.deposit, let d = w.map[p.at.layer]?.deposits[dep] else { return (ProductionText.noDeposit, nil) }
             if d.isDepleted { return (ProductionText.depleted, nil) }
-            if m.outputCount + 3 * m.batch > m.capacity { return (ProductionText.outputFull, nil) }
+            if productCount(m, content) + 3 * m.batch > m.capacity { return (ProductionText.outputFull, nil) }
             return auxBlocker(m, skip: fuels)
         case .produce:
             let most = (def.produces ?? []).reduce(0) { $0 + $1.max } * m.batch
-            if m.outputCount + most > m.capacity { return (ProductionText.outputFull, nil) }
+            if productCount(m, content) + most > m.capacity { return (ProductionText.outputFull, nil) }
             return auxBlocker(m, skip: fuels)
         case .process:
             if m.mainInputCount < 1 { return (ProductionText.noInput, nil) }
-            if m.outputCount + 1 > m.capacity { return (ProductionText.outputFull, nil) }
+            if wasteCount(m, content) + nextWasteKinds(m, content).count > m.capacity {
+                return (ProductionText.wasteFull, nil)
+            }
+            if productCount(m, content) + 1 > m.capacity { return (ProductionText.outputFull, nil) }
             return auxBlocker(m, skip: fuels)
         case .idle:
             return (ProductionText.noInput, nil)
         }
+    }
+
+    /// 出口に残る、対応表に載った副産物の数。
+    static func wasteCount(_ m: ModuleRuntime, _ content: ContentDB) -> Int {
+        let waste = Set(content.byproductItems.values)
+        return m.output.reduce(0) { total, entry in
+            guard case .item(let item) = entry.stuff, waste.contains(item) else { return total }
+            return total + entry.quantity
+        }
+    }
+
+    /// 副産物の置き場を除いた、製品の出口の数。
+    static func productCount(_ m: ModuleRuntime, _ content: ContentDB) -> Int {
+        m.outputCount - wasteCount(m, content)
+    }
+
+    /// 次の 1 回の処理で出口に足す副産物の品の種類。batch の中では同じ品を 1 つにまとめる。
+    static func nextWasteKinds(_ m: ModuleRuntime, _ content: ContentDB) -> Set<ItemID> {
+        guard let step = m.step else { return [] }
+        var left = m.batch
+        var byproducts = Set<ByproductID>()
+        for entry in m.input where left > 0 {
+            guard case .matter(let matter) = entry.stuff else { continue }
+            let count = min(left, entry.quantity)
+            byproducts.formUnion(ProcessChain.advance(matter, through: step, at: m.stepIndex ?? 0,
+                                                      rules: content.ruleBook).byproducts)
+            left -= count
+        }
+        return Set(byproducts.compactMap { content.byproductItems[$0] })
     }
 
     /// 1 単位ぶんの段の物が揃っているか。
@@ -225,9 +270,18 @@ enum Modules {
         case .extract: made = extract(id, &ctx)
         case .produce: made = produce(id, def, &ctx)
         case .process:
+            var byproducts = Set<ByproductID>()
             for _ in 0..<m.batch {
-                guard blocker(id, ctx.world, ctx.content) == nil, processOne(id, &ctx) else { break }
+                guard blocker(id, ctx.world, ctx.content) == nil, let outcome = processOne(id, &ctx) else { break }
+                byproducts.formUnion(outcome)
                 made += 1
+            }
+            guard made > 0 else { break }
+            let rec = ctx.world.placements.items[id]?.module?.producedRecord
+            for byproduct in byproducts.sorted() {
+                guard let item = ctx.content.byproductItems[byproduct], let rec else { continue }
+                ModuleRuntime.put(StockEntry(stuff: .item(item), quantity: 1, origins: [rec: 1]),
+                                  into: &ctx.world.placements.items[id]!.module!.output)
             }
         case .idle, .generate: break
         }
@@ -240,10 +294,10 @@ enum Modules {
     }
 
     /// 主の材料を 1 つ取り、段を当てて出口へ。燃料・混ぜ物・水は規則が使う分だけ(水に接していれば水は只)。
-    static func processOne(_ id: EntityID, _ ctx: inout StepContext) -> Bool {
+    static func processOne(_ id: EntityID, _ ctx: inout StepContext) -> [ByproductID]? {
         guard let m = ctx.world.placements.items[id]?.module, let step = m.step,
               let first = m.input.first(where: { if case .matter = $0.stuff { true } else { false } }),
-              case .matter(let matter) = first.stuff else { return false }
+              case .matter(let matter) = first.stuff else { return nil }
         let o = ProcessChain.advance(matter, through: step, at: m.stepIndex ?? 0, rules: ctx.content.ruleBook)
         // 規則が使う物が揃っているか(先に確かめてから取る)
         var need: [ItemID: Int] = [:]
@@ -254,7 +308,7 @@ enum Modules {
         }
         for (i, n) in need where m.inputCount(i) < n {
             setStatus(id, .stopped(reason: ProductionText.noAux), waiting: i, &ctx)
-            return false
+            return nil
         }
         var inputs: [ProvenanceID] = []
         let main = ModuleRuntime.take(1, from: &ctx.world.placements.items[id]!.module!.input,
@@ -270,7 +324,7 @@ enum Modules {
                           into: &ctx.world.placements.items[id]!.module!.output)
         ctx.world.placements.items[id]?.module?.today.consumed += 1
         noteFirstMatter(o.matter, module: rec, &ctx)
-        return true
+        return o.byproducts
     }
 
     /// 採掘口: 鉱脈を batch 回掘る。鉄鉱石は鉱脈の純度の物質(塊)、ほかは物。
