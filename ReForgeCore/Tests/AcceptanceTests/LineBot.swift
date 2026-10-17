@@ -21,6 +21,11 @@ struct LineBotResult: Equatable {
     var provisioned: [Int: [ItemID: Int]] = [:]
     var labor: [Int: LaborDay] = [:]
     var laborShortfall: [Int: Int] = [:]
+    var stalls = 0
+    var mineRejection: String?
+    var holdRejections: [String: String] = [:]
+    var clamped = false
+    var stallDay: Int?
 }
 
 enum LineBotPath: String, Hashable { case A, B }
@@ -33,6 +38,7 @@ struct LineBot {
     let ironOutcropExtractions: Int
     let ironVein: GridPoint
     let coalVein: GridPoint
+    let clamped: Bool
     var result = LineBotResult()
     var furnaceIDs: [EntityID] = []
     var kilnIDs: [EntityID] = []
@@ -63,13 +69,31 @@ struct LineBot {
         sim = Simulation(content: content, systems: Self.systems)
         let factory = WorldFactory(content: content, mapGenerator: FlatMapGenerator())
         w = factory.newWorld(seed: seed)
+        // The bot starts after the opening: a generated start may hold the clock behind a prologue scene or a
+        // blocking decision, which would stall every day loop.  Release them (nothing here reads story text).
+        w.clock.held = false
+        w.narrative.scene = nil
+        w.narrative.pending.removeAll { $0.blocking }
         home = w.map.spawn.point
         var rng = SeededRandom(state: seed &* 0x9E37_79B9_7F4A_7C15 &+ 1)
         let area = w.base.area!
         let outcropDistance = rng.int(in: 8...20)
-        ironOutcrop = GridPoint(area.origin.x - outcropDistance, home.y + rng.int(in: -6...6))
-        ironVein = GridPoint(ironOutcrop.x - rng.int(in: 6...12), ironOutcrop.y)
-        coalVein = GridPoint(home.x + rng.int(in: 12...20), home.y + rng.int(in: -4...4))
+        // The generated start is a 32x32 surface, too small for 8..20 + 6..12 tiles west of the base.  Clamp every
+        // site into the map (and keep them apart); nothing changes on the larger public map.  Reported as `clamped`.
+        let size = w.map[.surface]?.size ?? GridSize(width: 64, height: 64)
+        func fit(_ p: GridPoint) -> GridPoint { GridPoint(min(max(2, p.x), size.width - 3), min(max(2, p.y), size.height - 3)) }
+        let rawOutcrop = GridPoint(area.origin.x - outcropDistance, home.y + rng.int(in: -6...6))
+        let rawVein = GridPoint(rawOutcrop.x - rng.int(in: 6...12), rawOutcrop.y)
+        let rawCoal = GridPoint(home.x + rng.int(in: 12...20), home.y + rng.int(in: -4...4))
+        var outcrop = fit(rawOutcrop)
+        var vein = fit(rawVein)
+        var coalPoint = fit(rawCoal)
+        if vein.chebyshev(to: outcrop) < 4 { vein = fit(GridPoint(outcrop.x, outcrop.y + (outcrop.y < size.height / 2 ? 8 : -8))) }
+        if coalPoint.chebyshev(to: home) < 4 || coalPoint.chebyshev(to: outcrop) < 2 { coalPoint = fit(GridPoint(home.x + 10, home.y)) }
+        clamped = outcrop != rawOutcrop || vein != rawVein || coalPoint != rawCoal
+        ironOutcrop = outcrop
+        ironVein = vein
+        coalVein = coalPoint
         let iron = DepositGenerator.make(id: "deposit.outcrop", at: ironOutcrop, category: .iron, rng: &rng,
                                          primaryPercent: 20...35)
         ironOutcropExtractions = iron.remainingExtractions
@@ -78,17 +102,40 @@ struct LineBot {
         w.map[.surface]?.deposits.add(iron)
         w.map[.surface]?.deposits.add(secondIron)
         w.map[.surface]?.deposits.add(coal)
+        result.clamped = clamped
+        grantOpening()
+    }
+
+    /// Stand-in for the opening (W-13 replaces it): unlock what the bot uses and hand Noah the stone hammer that
+    /// hand mining asks for in the generated layer.  Idempotent; the hammer is reported in `provisioned` (day 0).
+    mutating func grantOpening() {
+        for module in [LineBotKit.minehead, LineBotKit.furnace, LineBotKit.anvil] { w.research.unlocked.modules.insert(module) }
+        w.research.unlocked.structures.insert(LineBotKit.kiln)
+        for handwork in [LineBotKit.mine, LineBotKit.smelt, LineBotKit.hammer] { w.research.unlocked.handwork.insert(handwork) }
+        for interaction in [LineBotKit.mineByHand, LineBotKit.burnCharcoal, LineBotKit.chopWood] {
+            w.research.unlocked.interactions.insert(interaction)
+        }
+        if minesByInteraction {
+            var context = StepContext(world: w, content: sim.content)
+            context.addStock(.item(LineBotKit.stoneHammer), 1, to: .person(.noah))
+            w = context.world
+            result.provisioned[0, default: [:]][LineBotKit.stoneHammer, default: 0] += 1
+        }
     }
 
     var day: Int { w.clock.day }
-    var isDay: Bool { w.clock.phase == .day && w.run.isActive }
+    /// A stall (the clock does not move, e.g. a pending decision holds it) ends the day loops instead of spinning.
+    var stalled = false
+    var isDay: Bool { w.clock.phase == .day && w.run.isActive && !stalled }
     var crew: [PersonID] { w.people.members.filter { $0 != .noah }.sorted() }
 
     mutating func tick(_ seconds: Int = 1) {
         for _ in 0..<seconds where isDay {
             let before = furnaceFuelCount()
             let hot = hotFurnaces()
+            let started = w.clock.now
             _ = sim.advance(&w, realSeconds: 1.0)
+            if w.clock.now == started { stalled = true; result.stalls += 1 }
             let after = furnaceFuelCount()
             if hot > 0 { result.furnaceHotSeconds[day, default: 0] += Int(SimStep.gameSeconds) }
             if after.charcoal < before.charcoal { result.charcoalUsed[day, default: 0] += before.charcoal - after.charcoal }
@@ -120,21 +167,53 @@ struct LineBot {
 
     mutating func hold(_ id: HandworkID, _ stuff: Stuff?, until done: (WorldState) -> Bool = { _ in false }) {
         let selector = stuff.map { StockSelector(holder: .person(.noah), stuff: $0) }
-        guard sim.apply(.production(.handwork(id: id, input: selector, holding: true)), to: &w).rejection == nil else { return }
+        let started = sim.apply(.production(.handwork(id: id, input: selector, holding: true)), to: &w)
+        if let rejection = started.rejection { result.holdRejections[id.rawValue] = rejection.reason.rawValue; return }
         while isDay && w.placements.handwork[.noah]?.holding == true && !done(w) { tick() }
         _ = sim.apply(.production(.handwork(id: id, input: selector, holding: false)), to: &w)
     }
 
+    /// The generated layer digs by hand with an interaction (ore lands in the base stock); the public mirror uses a
+    /// handwork.  Either way the ore ends up in Noah's pockets and is counted as hand-mined.
+    var minesByInteraction: Bool { sim.content.handwork[LineBotKit.mine] == nil && sim.content.interactions[LineBotKit.mineByHand] != nil }
+
     mutating func mine(at deposit: GridPoint, until target: Int) {
         guard pocket(Self.isOre).0 < target else { return }
         walk(to: GridPoint(deposit.x + 1, deposit.y))
-        hold(LineBotKit.mine, nil) { world in
-            world.inventory.entries(.person(.noah)).reduce(0) { total, entry in
-                if case .matter(let matter) = entry.stuff, Self.isOre(matter) { return total + entry.quantity }
-                return total
-            } >= target
+        if minesByInteraction {
+            var rounds = 0
+            while isDay, pocket(Self.isOre).0 < target, rounds < 64 {
+                rounds += 1
+                let response = sim.apply(.exploration(.interact(interaction: LineBotKit.mineByHand,
+                                                                at: WorldPoint(.surface, deposit), holding: false)), to: &w)
+                if let rejection = response.rejection { result.mineRejection = rejection.reason.rawValue; break }
+                var guardTicks = 0
+                while isDay, w.exploration.active[.noah] != nil, guardTicks < 2000 { tick(); guardTicks += 1 }
+                result.handOre[day, default: 0] += carryOreFromBase()
+            }
+        } else {
+            hold(LineBotKit.mine, nil) { world in
+                world.inventory.entries(.person(.noah)).reduce(0) { total, entry in
+                    if case .matter(let matter) = entry.stuff, Self.isOre(matter) { return total + entry.quantity }
+                    return total
+                } >= target
+            }
         }
         walk(to: home)
+    }
+
+    /// Move hand-mined ore from the base stock into Noah's pockets; returns how many were moved.
+    mutating func carryOreFromBase() -> Int {
+        var moved = 0
+        for entry in w.inventory.entries(.base) {
+            guard case .matter(let matter) = entry.stuff, Self.isOre(matter), entry.unique == nil else { continue }
+            var context = StepContext(world: w, content: sim.content)
+            guard context.takeStock(entry.quantity, from: .base, where: { $0.stuff == entry.stuff && $0.unique == nil }) != nil else { continue }
+            context.addStock(entry.stuff, entry.quantity, to: .person(.noah))
+            w = context.world
+            moved += entry.quantity
+        }
+        return moved
     }
 
     mutating func craft(maxPlates: Int = .max) {
@@ -236,17 +315,28 @@ struct LineBot {
         return w.placements.at(WorldPoint(.surface, point)).first
     }
 
-    mutating func buildKiln(at point: GridPoint) -> EntityID? {
-        provisionStructure(LineBotKit.kiln)
+    mutating func buildStructure(_ kind: StructureKindID, at point: GridPoint) -> EntityID? {
+        provisionStructure(kind)
         // Research/unlock is outside W-05 (W-13 replaces this); grant the structure, like the materials.
-        w.research.unlocked.structures.insert(LineBotKit.kiln)
-        guard sim.apply(.base(.build(structure: LineBotKit.kiln, at: WorldPoint(.surface, point), facing: .east)), to: &w).rejection == nil,
+        w.research.unlocked.structures.insert(kind)
+        guard sim.apply(.base(.build(structure: kind, at: WorldPoint(.surface, point), facing: .east)), to: &w).rejection == nil,
               let id = w.placements.at(WorldPoint(.surface, point)).first else { return nil }
         for person in crew { w.people[person]?.assignment = .build(placement: id) }
-        tick(68)
+        let seconds = Int(sim.content.structures[kind]?.buildSeconds ?? 0)
+        tick((seconds + Int(SimStep.gameSeconds) - 1) / Int(SimStep.gameSeconds) + 1)
         for person in crew { w.people[person]?.assignment = .idle }
+        return id
+    }
+
+    mutating func buildKiln(at point: GridPoint) -> EntityID? {
+        guard let id = buildStructure(LineBotKit.kiln, at: point) else { return nil }
         kilnIDs.append(id)
         return id
+    }
+
+    /// Generated hand hammering needs a campfire within one tile of the worker; day 1 for both bots.
+    mutating func buildCampfire() {
+        _ = buildStructure(LineBotKit.campfire, at: GridPoint(home.x - 1, home.y + 1))
     }
 
     mutating func assignKilns(_ count: Int) {
@@ -282,7 +372,7 @@ struct LineBot {
 
     mutating func sleepAndRecord() {
         var seconds = 0
-        while w.clock.phase == .day && w.run.isActive {
+        while isDay {
             tick(); seconds += 1
             if seconds % 10 == 0 { emulateCoalHaul() }
             if autoHeat, seconds % 20 == 0, let furnace = furnaceIDs.first,
@@ -295,6 +385,7 @@ struct LineBot {
             }
         }
         let completedDay = day
+        if stalled { result.stallDay = completedDay; return }
         _ = sim.apply(.time(.sleep), to: &w)
         record(day: completedDay)
     }
@@ -306,7 +397,7 @@ struct LineBot {
                 if record.detail["module"] == .string(LineBotKit.anvil.rawValue) { result.plates[day, default: 0] += record.count }
             case (.produced, .module(let module, _)) where module == LineBotKit.anvil:
                 result.plates[day, default: 0] += record.count
-            case (.mined, _): result.handOre[day, default: 0] += record.count
+            case (.mined, _): if !minesByInteraction { result.handOre[day, default: 0] += record.count }
             case (.produced, .module(let module, _)) where module == LineBotKit.minehead:
                 result.lineOre[day, default: 0] += record.count
             default: break
@@ -337,7 +428,8 @@ struct LineBot {
 
     static func handOnly(content: ContentDB, seed: UInt64, days: Int) -> LineBotResult {
         var bot = LineBot(content: content, seed: seed)
-        while bot.day <= days && bot.w.run.isActive {
+        while bot.day <= days && bot.w.run.isActive && !bot.stalled {
+            if bot.day == 1 { bot.buildCampfire() }
             if bot.day == 2 {
                 bot.provisionModule(LineBotKit.furnace)
                 if let furnace = bot.place(LineBotKit.furnace, at: bot.home) { bot.furnaceIDs = [furnace] }
@@ -358,7 +450,8 @@ struct LineBot {
         var bot = LineBot(content: content, seed: seed)
         var ironRoute: EntityID?
         var coalRoute: EntityID?
-        while bot.day <= days && bot.w.run.isActive {
+        while bot.day <= days && bot.w.run.isActive && !bot.stalled {
+            if bot.day == 1 { bot.buildCampfire() }
             if bot.day == 2 {
                 bot.provisionModule(LineBotKit.furnace)
                 _ = bot.sim.apply(.invention(.makeDesign(steps: [.minehead, .charcoalFurnace, .anvil])), to: &bot.w)

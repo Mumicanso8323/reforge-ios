@@ -43,7 +43,7 @@ final class LineBotTests: XCTestCase {
                 content.modules[LineBotKit.furnace] == nil ? LineBotKit.furnace.rawValue : nil,
                 content.modules[LineBotKit.anvil] == nil ? LineBotKit.anvil.rawValue : nil,
                 content.structures[LineBotKit.kiln] == nil ? LineBotKit.kiln.rawValue : nil,
-                content.handwork[LineBotKit.mine] == nil ? LineBotKit.mine.rawValue : nil,
+                content.handwork[LineBotKit.mine] == nil && content.interactions[LineBotKit.mineByHand] == nil ? LineBotKit.mine.rawValue : nil,
                 content.handwork[LineBotKit.smelt] == nil ? LineBotKit.smelt.rawValue : nil,
                 content.handwork[LineBotKit.hammer] == nil ? LineBotKit.hammer.rawValue : nil,
                 content.interactions[LineBotKit.chopWood] == nil ? LineBotKit.chopWood.rawValue : nil,

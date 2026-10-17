@@ -23,6 +23,8 @@ final class ProductionBotTests: XCTestCase {
                 let ratio = handBest == 0 ? 0 : lineBest * 1000 / handBest
                 if minima[path] == nil || ratio < minima[path]!.ratio { minima[path] = (ratio, seed) }
 
+                XCTAssertEqual(hand.stalls + line.stalls, 0,
+                               "W05|seed=\(seed)|path=\(path.rawValue)|clockStalled handDay=\(String(describing: hand.stallDay)) lineDay=\(String(describing: line.stallDay))")
                 XCTAssertGreaterThan(handBest, 0, "W05|seed=\(seed)|path=\(path.rawValue)|handBest=0")
                 XCTAssertGreaterThanOrEqual(lineBest * 2, handBest * 9,
                                             "W05|seed=\(seed)|path=\(path.rawValue)|lineBest=\(lineBest)|handBest=\(handBest)|ratioPermille=\(ratio)")
@@ -44,7 +46,7 @@ final class ProductionBotTests: XCTestCase {
                     let provisionTotal = line.provisioned.values.reduce(into: [ItemID: Int]()) { total, day in
                         for (item, quantity) in day { total[item, default: 0] += quantity }
                     }
-                    print("W05|source=\(loaded.source.rawValue)|seed=0|path=\(path.rawValue)|table=\(table)|provisionTotal=\(provisionTotal)|shortfall=\(line.laborShortfall)|handFavorable=woodYieldMin")
+                    print("W05|source=\(loaded.source.rawValue)|seed=0|path=\(path.rawValue)|table=\(table)|provisionTotal=\(provisionTotal)|shortfall=\(line.laborShortfall)|clamped=\(line.clamped)|holdRejections=\(line.holdRejections)/\(hand.holdRejections)|mineRejection=\(String(describing: line.mineRejection))/\(String(describing: hand.mineRejection))|handFavorable=woodYieldMin")
                 }
             }
         }
