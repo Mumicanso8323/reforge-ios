@@ -309,7 +309,7 @@ final class AppTests: XCTestCase {
         try await startDarkStartAction(store)
         store.choose(.sleep)
         for _ in 0..<100 where store.noticeRef == nil { try await Task.sleep(nanoseconds: 20_000_000) }
-        XCTAssertEqual(store.noticeRef?.id, "reason.time.still_day")
+        XCTAssertEqual(store.noticeRef, TextRef("reason.time.still_day"))
     }
 
     func testHeldStartUsesAndClearsDarkStartAction() async throws {

@@ -44,6 +44,7 @@ struct MapActionBand: View {
                     ForEach(store.clock.bandActions, id: \.self) { action in
                         Button { store.choose(action) } label: { label(action).frame(maxWidth: .infinity) }
                             .buttonStyle(.ink(action == .sleep ? .primary : .secondary))
+                            .accessibilityIdentifier("bandAction-\(action.rawValue)")
                     }
                 }
             }
