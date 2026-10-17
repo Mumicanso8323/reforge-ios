@@ -79,8 +79,8 @@ final class GameStore {
     private(set) var lastSteerBlocked = false
     /// 長押しで調べたマス(ふきだし)。
     private(set) var inspection: TileInspection?
-    /// 断られた理由(足元カードに 1 行。数秒で消える)。
-    private(set) var notice: String?
+    /// 断られた理由の参照。画面には出さず、数秒で捨てる。
+    private(set) var noticeRef: TextRef?
     /// 夜の締めの 3 行(Frame.dayWrap。日没の間だけ。PT-B2)。
     private(set) var dayWrap: DayWrapView?
     /// 帯の火のゲージ(Frame.fireGauge。最初の火が点いてから)。
@@ -236,9 +236,21 @@ final class GameStore {
         await refresh(await host.frame)
     }
 
+    /// 世界を進めずに、今持っている画面向けの文を指定した言語で引き直す。
+    func setLanguage(_ lang: LanguageID) async {
+        let f = await host.setLanguage(lang)
+        await refresh(f)
+        if let point = inspection?.point { inspection = await host.peek(at: point) }
+        if let id = panel?.id { panel = await host.document(id) }
+        if let undo = decisionUndo, let label = decision?.choices.first(where: { $0.id == undo.choice })?.label {
+            decisionUndo?.label = label
+        }
+        if resumeBanner != nil { resumeBanner = await host.resumeLine() }
+    }
+
     /// 世界を丸ごと差し替える唯一の入口(つづきから・巻き戻し・ロード・台本の合わせ直し)。
     /// 本体の世界を替えたら、画面が持つ前の世界の写し(区画の中身・注目したマスと足元カード・調べた吹き出し・置くモードの照準・
-    /// 断りの一行)を捨て、差し替え後の Frame を必ず取り込む(前の世界の区画や足元カードが居残らない)。
+    /// 断りの参照)を捨て、差し替え後の Frame を必ず取り込む(前の世界の区画や足元カードが居残らない)。
     @discardableResult
     func replaceWorld(_ world: WorldState) async -> Frame {
         let f = await host.replace(world: world)
@@ -256,7 +268,7 @@ final class GameStore {
         placing = nil
         panel = nil
         noticeTask?.cancel()
-        notice = nil
+        noticeRef = nil
         cardGeneration += 1
         // 取り込み中だった前の世界の Frame は、ここから先で捨てられる(refresh の門)。差し替えの Frame は必ず通す。
         lastRevision = min(lastRevision, f.revision - 1)
@@ -353,12 +365,12 @@ final class GameStore {
         }
     }
 
-    /// 意図を送り、断られた理由(認識の層を通した 1 行)を返す。地図以外のタブが自分の場所に出す(U17)。
+    /// 意図を送り、断られた理由(認識の層を通した 1 行)を診断用に返す。
     @discardableResult
     func perform(_ command: Command) async -> String? {
         noteOperation()
-        let (f, rejection) = await perform(throughHost: command)
-        show(notice: rejection)
+        let (f, rejection, rejectionRef) = await perform(throughHost: command)
+        show(notice: rejectionRef)
         await refresh(f)
         return rejection
     }
@@ -367,10 +379,10 @@ final class GameStore {
         noteOperation()
         Task {
             let start = performanceNow()
-            let (f, rejection) = await perform(throughHost: command)
+            let (f, _, rejectionRef) = await perform(throughHost: command)
             let milliseconds = Self.milliseconds(from: start.duration(to: performanceNow()))
             if milliseconds > 100 { perfSink.recordApply(milliseconds: milliseconds) }
-            show(notice: rejection)
+            show(notice: rejectionRef)
             await refresh(f)
         }
     }
@@ -389,13 +401,13 @@ final class GameStore {
     }
 
     /// host.perform と同じ(Frame と断った理由)。出来事も見て、振動を鳴らす。
-    private func perform(throughHost command: Command) async -> (frame: Frame, rejection: String?) {
+    private func perform(throughHost command: Command) async -> (frame: Frame, rejection: String?, rejectionRef: TextRef?) {
         let (f, report) = await host.send(command)
         consume(report)
         fireHaptics(for: report.events)
-        let rejection: String?
-        if let r = report.rejection { rejection = await host.describe(r) } else { rejection = nil }
-        return (f, rejection)
+        guard let r = report.rejection else { return (f, nil, nil) }
+        let ref = await host.rejectionRef(r)
+        return (f, await host.describe(r), ref)
     }
 
     /// 本体の出来事から振動の合図を決めて鳴らす(画面の推測では鳴らさない)。
@@ -487,21 +499,21 @@ final class GameStore {
     }
 
     /// 断りの理由を持つ(画面には出さない。診断と試験用)。同じ文がまだ出ている間の繰り返しは、出す長さを延ばさない(押し続けても居残らない)。
-    func show(notice text: String?) {
-        guard let text else { clearNotice(); return }
+    func show(notice ref: TextRef?) {
+        guard let ref else { clearNotice(); return }
         // 断りの理由は画面に出さない(押せるボタンは必ず受け付けられる決め)。押した事実への応えと、端末内の記録だけ。
         refusals += 1
         haptics.nudge()
-        logPlay(kind: "refused", fields: ["reason": text])
+        logPlay(kind: "refused", fields: ["reason": ref.id.rawValue])
         let t = ProcessInfo.processInfo.systemUptime
-        if notice == text, t - noticeShownAt < noticeLifetime { return }
+        if noticeRef == ref, t - noticeShownAt < noticeLifetime { return }
         noticeTask?.cancel()
-        notice = text
+        noticeRef = ref
         noticeShownAt = t
         let lifetime = noticeLifetime
         noticeTask = Task {
             try? await Task.sleep(nanoseconds: UInt64(lifetime * 1_000_000_000))
-            if !Task.isCancelled { notice = nil }
+            if !Task.isCancelled { noticeRef = nil }
         }
     }
 
@@ -509,12 +521,12 @@ final class GameStore {
     func clearNotice() {
         noticeTask?.cancel()
         noticeTask = nil
-        if notice != nil { notice = nil }
+        if noticeRef != nil { noticeRef = nil }
     }
 
     /// 出してから noticeLifetime 秒たっていたら消す(Task が遅れた時の保険。実時間で見る)。
     private func expireNoticeIfStale() {
-        if notice != nil, ProcessInfo.processInfo.systemUptime - noticeShownAt >= noticeLifetime { clearNotice() }
+        if noticeRef != nil, ProcessInfo.processInfo.systemUptime - noticeShownAt >= noticeLifetime { clearNotice() }
     }
 
     // MARK: - 保存

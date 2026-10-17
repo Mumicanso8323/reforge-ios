@@ -15,9 +15,12 @@ import RFWorld
 /// - 走行の再現のため、受けたコマンドを (ステップ番号, コマンド) で記録できる(replayLog)。
 public actor GameHost {
     public let simulation: Simulation
-    public let builder: FrameBuilder
+    public private(set) var builder: FrameBuilder
+    public private(set) var language: LanguageID
     public private(set) var world: WorldState
     public private(set) var frame: Frame
+    /// 最後に断った理由の、組み立てる前の参照。画面には出さない。
+    public private(set) var lastRejection: TextRef?
     public private(set) var replayLog: [(step: Int64, command: Command)] = []
     /// いまの歩みの通し番号(世界の clock.now の秒 / SimStep.gameSeconds。台本の流し込みが読む)。
     public var step: Int64 { world.clock.now.seconds / SimStep.gameSeconds }
@@ -25,18 +28,35 @@ public actor GameHost {
     /// 保留中の最初の行為だけに使う実時間の端数。保存しない。
     private var heldCarry: Int64 = 0
 
-    public init(simulation: Simulation, world: WorldState) {
+    public init(simulation: Simulation, world: WorldState, language: LanguageID = .ja, markFallback: Bool = false) {
         self.simulation = simulation
-        self.builder = FrameBuilder(content: simulation.content)
+        self.language = language
+        var builder = FrameBuilder(content: simulation.content)
+        builder.language = language
+        builder.markFallback = markFallback
+        self.builder = builder
         self.world = world
         self.frame = builder.build(world, revision: 0, previous: nil, report: nil)
     }
 
-    /// 意図を送る。断られたら理由を返す(画面は足元カードに 1 行出す。ダイアログは出さない)。
+    /// 世界を進めずに、同じ世界から指定した言語の Frame を作り直す。
+    @discardableResult
+    public func setLanguage(_ lang: LanguageID) -> Frame {
+        language = lang
+        builder.language = lang
+        revision += 1
+        var report = StepReport()
+        report.changes.mark(.perception)
+        frame = builder.build(world, revision: revision, previous: frame, report: report)
+        return frame
+    }
+
+    /// 意図を送る。断られた理由は画面に出さず、参照だけを残す。
     @discardableResult
     public func send(_ command: Command) -> (frame: Frame, report: StepReport) {
         replayLog.append((world.clock.now.seconds / SimStep.gameSeconds, command))
         let r = simulation.apply(command, to: &world)
+        lastRejection = r.rejection.map(rejectionRef)
         if !world.clock.held { heldCarry = 0 }
         return (rebuild(r), r)
     }
@@ -74,7 +94,7 @@ public actor GameHost {
         return frame
     }
 
-    /// 意図を送り、断られたらその理由(認識の層を通した 1 行)も返す。画面は足元カードに出す。
+    /// 意図を送り、断られたらその理由(認識の層を通した 1 行)も返す。診断用。
     public func perform(_ command: Command) -> (frame: Frame, rejection: String?) {
         let (f, r) = send(command)
         return (f, r.rejection.map { describe($0) })
@@ -108,6 +128,9 @@ public actor GameHost {
         }
         return r
     }
+
+    /// 世界に何も記録せず、現在の見え方だけを調べる。
+    public func peek(at p: GridPoint) -> TileInspection? { builder.inspect(world, at: p) }
 
     /// 足元カード。
     public func footCard(at p: GridPoint, page: Int = 0) -> FootCard? { builder.footCard(world, at: p, page: page) }
