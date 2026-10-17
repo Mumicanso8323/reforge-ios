@@ -83,6 +83,8 @@ public struct FrameBuilder: Sendable {
         frame.battles = battles(w, p)
         frame.defaultStance = w.combat.defaultStance
         if w.clock.phase == .dusk { frame.dayWrap = dayWrap(w) }
+        frame.fireGauge = fireGaugeView(w)
+        frame.offers = offers(w, p)
         frame.benchRevision = Self.benchRevision(previous: previous, report: report, revision: revision, day: w.clock.day)
         if let prologue = prologue(w, p) {
             frame.prologue = prologue
@@ -103,6 +105,8 @@ public struct FrameBuilder: Sendable {
             frame.newlyOpened = []
             frame.shadows = []
             frame.dayWrap = nil
+            frame.fireGauge = nil
+            frame.offers = []
         } else {
             frame.darkStart = darkStart(w)
             if frame.darkStart == nil { applySteering(&frame, w) }
@@ -486,40 +490,58 @@ public struct FrameBuilder: Sendable {
         return Int(max(0, min(1000, a.progress * 1000 / Int64(def.seconds))))
     }
 
+    /// 火床のゲージと見込みの唯一の入口(INV-D1)。足元カードの今 → 1 本くべると・日没の帯・夜の締めの火・Frame のゲージは
+    /// すべてここから取る。建て終えた火床でなければ nil。番がいる火は、拠点の蓄えの山の品の数も数える。
+    public func fireGauge(of placement: Placement, _ w: WorldState) -> FireGauge? {
+        guard let d = Hearths.def(placement, content), let s = Hearths.state(placement, content),
+              Hearths.isCompleteForOutlook(placement) else { return nil }
+        return HearthRule.gauge(s, d, now: w.clock.now, clock: content.clock,
+                                structuresInLight: Hearths.structuresInLight(placement.id, in: w, content: content),
+                                tended: Hearths.isTended(placement.id, in: w), stock: Hearths.pileStock(d, in: w),
+                                modifiers: Hearths.modifiers(placement.id, in: w, content: content),
+                                light: Hearths.light(placement.id, d, in: w, content: content))
+    }
+
+    /// 拠点の焚き火(建て終えた火床の建造物のうち ID が最初のもの)。
+    func primaryHearth(_ w: WorldState) -> Placement? {
+        Hearths.structureHearths(w, content).lazy.compactMap { w.placements.items[$0] }
+            .first { Hearths.isCompleteForOutlook($0) }
+    }
+
     /// 焚き火(火床のある建造物)の足元カードの火の見込み。くべる行為(効果 hearth addFuel)の品で 1 本くべた後を出す。
     /// くべる行為が無ければ、定義の燃料のうち ID が最初の品を使う。
     func fireView(_ pl: Placement, _ w: WorldState) -> FireOutlookView? {
         guard case .structure = pl.kind, let d = Hearths.def(pl, content), let s = Hearths.state(pl, content),
-              Hearths.isCompleteForOutlook(pl) else { return nil }
-        let n = Hearths.structuresInLight(pl.id, in: w, content: content)
-        let modifiers = Hearths.modifiers(pl.id, in: w, content: content)
+              let gauge = fireGauge(of: pl, w) else { return nil }
         let item: ItemID? = content.interactions.keys.sorted().compactMap { id -> ItemID? in
             for e in content.interactions[id]?.effects ?? [] {
                 if case .hearth(_, .addFuel(let item, _)) = e { return item }
             }
             return nil
         }.first ?? d.fuels.keys.sorted().first
-        let now = HearthRule.outlook(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n,
-                                     modifiers: modifiers)
         let after = item.map {
-            HearthRule.outlookAfterOneMore(s, d, item: $0, now: w.clock.now, clock: content.clock,
-                                            structuresInLight: n, modifiers: modifiers)
-        } ?? now
-        return FireOutlookView(now: now, afterOneMore: after)
+            HearthRule.outlookAfterOneMore(
+                s, d, item: $0, now: w.clock.now, clock: content.clock,
+                structuresInLight: Hearths.structuresInLight(pl.id, in: w, content: content),
+                modifiers: Hearths.modifiers(pl.id, in: w, content: content),
+                tended: Hearths.isTended(pl.id, in: w), stock: Hearths.pileStock(d, in: w),
+                light: Hearths.light(pl.id, d, in: w, content: content))
+        } ?? gauge.outlook
+        return FireOutlookView(now: gauge.outlook, afterOneMore: after)
     }
 
-    /// 日没の帯の火の見込み(番が火を見ていれば薪の置き場の本数も入れた 4 段)。拠点の焚き火のうち ID が最初のもの。
+    /// 日没の帯の火の見込み(4 段)。拠点の焚き火から。昼は nil。
     func duskFireOutlook(_ w: WorldState) -> FireOutlook? {
-        guard w.clock.phase != .day else { return nil }
-        for id in Hearths.structureHearths(w, content) {
-            guard let pl = w.placements.items[id], Hearths.isCompleteForOutlook(pl), let d = Hearths.def(pl, content),
-                  let s = Hearths.state(pl, content) else { continue }
-            let n = Hearths.structuresInLight(id, in: w, content: content)
-            let modifiers = Hearths.modifiers(id, in: w, content: content)
-            return HearthRule.outlookWithPile(s, d, now: w.clock.now, clock: content.clock, structuresInLight: n,
-                                              tended: Hearths.isTended(id, in: w), modifiers: modifiers)
-        }
-        return nil
+        guard w.clock.phase != .day, let pl = primaryHearth(w) else { return nil }
+        return fireGauge(of: pl, w)?.outlook
+    }
+
+    /// 帯の火のゲージ(UI-04)。拠点の焚き火が建て終わっていて、火を一度でも持ったときだけ。
+    func fireGaugeView(_ w: WorldState) -> FireGaugeView? {
+        guard let pl = primaryHearth(w), let g = fireGauge(of: pl, w) else { return nil }
+        let hadFire = g.level != .out || pl.structure?.hearth != nil || pl.module?.hearth != nil
+        guard hadFire else { return nil }
+        return FireGaugeView(level: g.level, outlook: g.outlook)
     }
 
     // MARK: - 工程表

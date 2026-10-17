@@ -401,3 +401,21 @@ final class ContentTests: XCTestCase {
         XCTAssertTrue(issues.contains { $0.rule == "condition.near-placement.kind" })
     }
 }
+
+/// W-02d 火の番の申し出(CrewWorkDef.tendOffer)の検証と読み込み。
+final class TendOfferContentTests: XCTestCase {
+    func testTendOfferLoadsAndIsValidated() throws {
+        var db = try TestContent.publicOnly()
+        XCTAssertNil(db.crewWork?.tendOffer, "無ければ従来どおり")
+        let json = #"{ "texts": { "text.test.offer.x": "x" }, "crewWork": { "tendOffer": { "order": ["person.test_a"], "lines": { "person.test_a": "text.test.offer.x" } } } }"#
+        try ContentLoader.apply(json: Data(json.utf8), to: &db)
+        XCTAssertEqual(db.crewWork?.tendOffer?.order, ["person.test_a"])
+        XCTAssertEqual(db.crewWork?.tendOffer?.lines?["person.test_a"], "text.test.offer.x")
+        XCTAssertFalse(ContentValidator.validate(db).contains { $0.level == .error && ($0.rule.hasPrefix("tendOffer") || $0.rule == "text.exists") })
+        let bad = #"{ "crewWork": { "tendOffer": { "order": ["person.test_none"], "lines": { "person.test_a": "text.test.offer.none" } } } }"#
+        try ContentLoader.apply(json: Data(bad.utf8), to: &db)
+        let rules = Set(ContentValidator.validate(db).filter { $0.level == .error }.map(\.rule))
+        XCTAssertTrue(rules.contains("tendOffer.person"))
+        XCTAssertTrue(rules.contains("text.exists"))
+    }
+}

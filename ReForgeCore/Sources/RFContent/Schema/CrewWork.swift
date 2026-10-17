@@ -23,10 +23,12 @@ public struct CrewWorkDef: Codable, Equatable, Sendable {
     /// 火の番を頼むのに、ノアが手で 1 度やっている必要がある行為の種類(くべる。InteractionDef.handFamily)。
     /// nil なら縛らない。
     public var tendFamily: HandFamilyID?
+    /// 仲間が火の番を自分から申し出る(W-02d・BEAT-19)。無ければ申し出は出ない(従来どおり)。
+    public var tendOffer: TendOfferDef?
 
     public init(gatherWorkPermille: Int? = nil, requireHandFirst: Bool? = nil, fireSlots: [Int]? = nil,
                 bedTag: String? = nil, noahBeds: Int? = nil, keeperNextDayHours: Int? = nil,
-                tendFamily: HandFamilyID? = nil) {
+                tendFamily: HandFamilyID? = nil, tendOffer: TendOfferDef? = nil) {
         self.gatherWorkPermille = gatherWorkPermille
         self.requireHandFirst = requireHandFirst
         self.fireSlots = fireSlots
@@ -34,6 +36,7 @@ public struct CrewWorkDef: Codable, Equatable, Sendable {
         self.noahBeds = noahBeds
         self.keeperNextDayHours = keeperNextDayHours
         self.tendFamily = tendFamily
+        self.tendOffer = tendOffer
     }
 
     public var gatherPermille: Int { gatherWorkPermille ?? 600 }
@@ -42,4 +45,17 @@ public struct CrewWorkDef: Codable, Equatable, Sendable {
     public var beds: String { bedTag ?? "housing" }
     public var noahBedCount: Int { noahBeds ?? 1 }
     public var keeperHours: Int { keeperNextDayHours ?? 4 }
+}
+
+/// 火の番の申し出の定義(W-02d)。名前も一言もデータの側。
+public struct TendOfferDef: Codable, Equatable, Sendable {
+    /// 申し出る人の順(先頭から、出せる人が 1 人出る)。無ければ仲間の並びの順。
+    public var order: [PersonID]?
+    /// 人ごとの申し出の一言(文字列表の鍵)。無い人は一言なし。
+    public var lines: [PersonID: TextID]?
+
+    public init(order: [PersonID]? = nil, lines: [PersonID: TextID]? = nil) {
+        self.order = order
+        self.lines = lines
+    }
 }
