@@ -147,6 +147,49 @@ final class ScreenSnapshotTests: XCTestCase {
 
     // MARK: - 画面を開く
 
+    /// L-10b: 既定の起動の設定には言語の節が無い(出す言語が日本語だけの間、選べない選択肢を置かない)。
+    func testSettingsHasNoLanguageSectionByDefault() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ReForgeScreenshot", "settings", "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(element(app, "screenshotGuard").waitForExistence(timeout: 60))
+        XCTAssertTrue(element(app, "deleteSaveButton").waitForExistence(timeout: 10), "設定が開いている")
+        XCTAssertFalse(element(app, "languageSection").exists)
+        XCTAssertFalse(element(app, "languageRow.system").exists)
+    }
+
+    /// L-10b / TEST-L16: 擬似言語を出す起動。節と行があり、押すと再起動なしに切り替わり、角のボタンも札も残る。
+    func testLanguageSectionSwitchesWithoutRestart() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-ReForgeScreenshot", "settings", "-ReForgeOfferPseudo", "YES",
+                               "-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
+        app.launch()
+        defer { app.terminate() }
+        XCTAssertTrue(element(app, "screenshotGuard").waitForExistence(timeout: 60))
+        XCTAssertTrue(element(app, "languageSection").waitForExistence(timeout: 10))
+        for id in ["languageRow.system", "languageRow.ja", "languageRow.x-pseudo"] {
+            XCTAssertTrue(element(app, id).exists, id)
+        }
+        element(app, "languageRow.x-pseudo").tap()
+        let enclosed = NSPredicate(format: "label CONTAINS %@", "⟦")
+        let wait = XCTNSPredicateExpectation(predicate: enclosed, object: element(app, "languageRow.system"))
+        XCTAssertEqual(XCTWaiter().wait(for: [wait], timeout: 5), .completed, "再起動なしに文が囲み付きになる")
+        let button = element(app, "settingsButton")
+        XCTAssertTrue(button.exists && button.isHittable, "切り替えた後も角のボタンが見える")
+        let window = app.windows.firstMatch.frame
+        XCTAssertEqual(button.frame.width, 44, accuracy: 1)
+        XCTAssertLessThanOrEqual(button.frame.maxX, window.maxX)
+        XCTAssertLessThanOrEqual(button.frame.minX, window.maxX)
+        XCTAssertGreaterThanOrEqual(button.frame.minX, window.maxX - 52)
+        XCTAssertLessThanOrEqual(button.frame.maxY, 52 + window.minY + 60)
+        XCTAssertTrue(element(app, "languageSection").exists, "設定の札は開いたまま")
+        element(app, "languageRow.ja").tap()
+        let japanese = NSPredicate(format: "NOT (label CONTAINS %@)", "⟦")
+        let back = XCTNSPredicateExpectation(predicate: japanese, object: element(app, "languageRow.system"))
+        XCTAssertEqual(XCTWaiter().wait(for: [back], timeout: 5), .completed, "日本語の行で戻る")
+    }
+
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
     }

@@ -1,0 +1,7 @@
+{
+  "language": "ja",
+  "texts": {
+    "ui.body.language": "言語",
+    "ui.button.language_system": "端末に合わせる({language})"
+  }
+}

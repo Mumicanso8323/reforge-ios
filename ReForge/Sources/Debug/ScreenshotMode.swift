@@ -54,6 +54,20 @@ enum ScreenshotTime: String, CaseIterable {
 }
 
 enum ScreenshotMode {
+    /// `-ReForgeOfferPseudo YES`: 擬似言語を設定の言語の節に出す(L-10b。表を持たない言語の確かめと節の UI テスト用)。無ければ false。
+    static let offersPseudo: Bool = {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-ReForgeOfferPseudo"), args.indices.contains(i + 1) else { return false }
+        return args[i + 1].uppercased() == "YES"
+    }()
+
+    /// `-ReForgeLanguage <言語の識別子>`: その実行だけ言語の選びを固定する(保存しない。offered に無い言語でも固定する。L-12・L-13 が使う)。
+    static let pinnedLanguage: LanguageID? = {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-ReForgeLanguage"), args.indices.contains(i + 1) else { return nil }
+        return LanguageID(rawValue: args[i + 1])
+    }()
+
     /// 時刻の指定(地図の写真だけ。無ければ nil)。
     static let time: ScreenshotTime? = {
         guard screen == .map else { return nil }

@@ -140,7 +140,8 @@ final class GameStore {
          defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
          performanceNow: @escaping () -> ContinuousClock.Instant = { ContinuousClock().now },
          perfSink: any PerfSink = LoggerPerfSink(), saveWriter: (any SaveWriting)? = nil,
-         haptics: (any HapticFiring)? = nil) {
+         haptics: (any HapticFiring)? = nil,
+         language: LanguageID = .ja, markFallback: Bool = false) {
         self.haptics = haptics ?? SystemHaptics()
         self.content = content
         self.saves = saves
@@ -149,9 +150,12 @@ final class GameStore {
         self.now = now
         self.performanceNow = performanceNow
         self.perfSink = perfSink
-        let host = GameBootstrap.host(content: content, world: world)
+        let host = GameBootstrap.host(content: content, world: world, language: language, markFallback: markFallback)
         self.host = host
-        let f = FrameBuilder(content: content).build(world, revision: 0, previous: nil, report: nil)
+        var builder = FrameBuilder(content: content)
+        builder.language = language
+        builder.markFallback = markFallback
+        let f = builder.build(world, revision: 0, previous: nil, report: nil)
         clock = f.clock
         timeMark = f.timeMark
         timeWord = f.timeWord
