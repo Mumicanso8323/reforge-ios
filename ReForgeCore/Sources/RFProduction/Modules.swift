@@ -175,7 +175,7 @@ enum Modules {
             return auxBlocker(m, skip: fuels)
         case .process:
             if m.mainInputCount < 1 { return (ProductionText.noInput, nil) }
-            if wasteCount(m, content) + nextWasteKinds(m, content).count > m.capacity {
+            if !content.byproductItems.isEmpty, wasteCount(m, content) >= m.capacity {
                 return (ProductionText.wasteFull, nil)
             }
             if productCount(m, content) + 1 > m.capacity { return (ProductionText.outputFull, nil) }
@@ -197,21 +197,6 @@ enum Modules {
     /// 副産物の置き場を除いた、製品の出口の数。
     static func productCount(_ m: ModuleRuntime, _ content: ContentDB) -> Int {
         m.outputCount - wasteCount(m, content)
-    }
-
-    /// 次の 1 回の処理で出口に足す副産物の品の種類。batch の中では同じ品を 1 つにまとめる。
-    static func nextWasteKinds(_ m: ModuleRuntime, _ content: ContentDB) -> Set<ItemID> {
-        guard let step = m.step else { return [] }
-        var left = m.batch
-        var byproducts = Set<ByproductID>()
-        for entry in m.input where left > 0 {
-            guard case .matter(let matter) = entry.stuff else { continue }
-            let count = min(left, entry.quantity)
-            byproducts.formUnion(ProcessChain.advance(matter, through: step, at: m.stepIndex ?? 0,
-                                                      rules: content.ruleBook).byproducts)
-            left -= count
-        }
-        return Set(byproducts.compactMap { content.byproductItems[$0] })
     }
 
     /// 1 単位ぶんの段の物が揃っているか。

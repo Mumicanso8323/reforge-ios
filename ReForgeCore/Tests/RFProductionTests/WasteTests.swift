@@ -1,6 +1,7 @@
 import RFContent
 import RFKernel
 import RFMatter
+import RFPresent
 import RFProduction
 import RFRules
 import RFSave
@@ -67,6 +68,7 @@ final class WasteTests: XCTestCase {
         feed(withoutLimestone, limestone: false, count: 4, &w)
         _ = fx.run(seconds: F.cycle * 2, &w)
         XCTAssertEqual(waste(w, furnace: withoutLimestone), 0)
+        XCTAssertGreaterThan(w.placements.items[withoutLimestone]?.module?.lifetimeProduced ?? 0, 0, "実際に処理した")
 
         let reheating = furnace(fx, &w, at: GridPoint(20, 16))
         let metal = Matter(substance: .iron, purity: Purity(percent: 80), stage: .metal, shape: .lump)
@@ -75,6 +77,7 @@ final class WasteTests: XCTestCase {
         w = ctx.world
         _ = fx.run(seconds: F.cycle, &w)
         XCTAssertEqual(waste(w, furnace: reheating), 0)
+        XCTAssertGreaterThan(w.placements.items[reheating]?.module?.lifetimeProduced ?? 0, 0, "実際に処理した")
     }
 
     func testWasteStopsSeparatelyWhileProductsStillLeave() throws {
@@ -109,7 +112,7 @@ final class WasteTests: XCTestCase {
         XCTAssertNotNil(w.placements.items[unfinished])
         XCTAssertNotNil(w.placements.items[broken])
 
-        // 建造中の物は建て終える前の判定だけ確かめ、走らせる間は受けない状態(壊れた)にしておく。
+        // 建造中の物の拒みは別のテストで本物の経路を通す。ここでは走らせる間、受けない状態(壊れた)にしておく。
         w.placements.items[unfinished]?.status = .broken
         let accepted = dump(&w, at: GridPoint(17, 16))
         _ = fx.run(seconds: F.cycle * 72, &w)
@@ -117,17 +120,34 @@ final class WasteTests: XCTestCase {
         for other in [diagonal, unfinished, broken] { XCTAssertNil(w.placements.items[other]?.structure?.parameters["dump.held"]) }
         XCTAssertEqual(waste(w, furnace: id), 12)
         XCTAssertEqual(w.placements.items[id]?.status, .stopped(reason: ProductionText.wasteFull))
+        XCTAssertGreaterThan(w.placements.items[accepted]?.structure?.parameters["dump.held"] ?? 0, 0)
+        let saved = try SaveCodec.encode(SaveEnvelope(slot: .resume, world: w, content: []))
+        XCTAssertEqual(try SaveCodec.decode(saved).world, w)
     }
 
-    func testEmptyMapKeepsCompatibilityAndWorldRemainsDeterministicAndSavable() throws {
+    /// 副産物の表が空でも、どの副産物にも当たらない表でも、世界は同じに進む(W-06 より前の動きと同じ)。
+    func testEmptyTableMatchesTableThatNeverMatches() throws {
         let empty = try F { $0.modules[.furnace]?.cycleSeconds = Int(F.cycle) }
-        var old = empty.world(seed: 9)
-        let oldFurnace = furnace(empty, &old)
-        feed(oldFurnace, limestone: true, count: 50, &old)
-        _ = empty.run(seconds: F.cycle * 50, &old)
-        XCTAssertEqual(old.inventory.quantity(slag), 0)
-        XCTAssertNotEqual(old.placements.items[oldFurnace]?.status, .stopped(reason: ProductionText.wasteFull))
+        let never = try F { content in
+            try ContentLoader.apply(json: Data(#"{"byproductItems":{"unused":"item.test.unused"}}"#.utf8), to: &content)
+            content.modules[.furnace]?.cycleSeconds = Int(F.cycle)
+        }
+        func play(_ fx: F) -> WorldState {
+            var world = fx.world(seed: 9)
+            let id = furnace(fx, &world)
+            feed(id, limestone: true, count: 50, &world)
+            _ = fx.run(seconds: F.cycle * 50, &world)
+            return world
+        }
+        let a = play(empty), b = play(never)
+        XCTAssertEqual(a, b)
+        let id = try XCTUnwrap(a.placements.moduleIDs.first)
+        XCTAssertGreaterThan(a.placements.items[id]?.module?.lifetimeProduced ?? 0, 10)
+        XCTAssertEqual(a.inventory.quantity(slag), 0)
+        XCTAssertNotEqual(a.placements.items[id]?.status, .stopped(reason: ProductionText.wasteFull))
+    }
 
+    func testWorldRemainsDeterministicAndSavable() throws {
         let fx = try fixture()
         func play() -> WorldState {
             var world = fx.world(seed: 9)
@@ -140,6 +160,66 @@ final class WasteTests: XCTestCase {
         XCTAssertEqual(world, play())
         let saved = try SaveCodec.encode(SaveEnvelope(slot: .resume, world: world, content: []))
         XCTAssertEqual(try SaveCodec.decode(saved).world, world)
+    }
+
+    func testDumpBuiltLaterResumesStoppedFurnace() throws {
+        let fx = try fixture()
+        var w = fx.world(charcoal: 200)
+        let id = furnace(fx, &w)
+        feed(id, limestone: true, count: 40, &w)
+        _ = fx.run(seconds: F.cycle * 13, &w)
+        XCTAssertEqual(w.placements.items[id]?.status, .stopped(reason: ProductionText.wasteFull))
+        let late = dump(&w, at: GridPoint(17, 16))
+        let report = fx.run(seconds: F.cycle * 3, &w)
+        XCTAssertTrue(report.events.contains { $0 == .moduleResumed(placement: id) })
+        XCTAssertGreaterThan(w.placements.items[late]?.structure?.parameters["dump.held"] ?? 0, 0)
+    }
+
+    func testMadeEqualsDumpPlusBuffer() throws {
+        let fx = try fixture()
+        var w = fx.world(charcoal: 200)
+        let id = furnace(fx, &w)
+        let d = dump(&w, at: GridPoint(17, 16))
+        feed(id, limestone: true, count: 30, &w)
+        _ = fx.run(seconds: F.cycle * 20, &w)
+        let made = w.placements.items[id]?.module?.lifetimeProduced ?? 0
+        let held = w.placements.items[d]?.structure?.parameters["dump.held"] ?? 0
+        XCTAssertGreaterThan(made, 5)
+        XCTAssertEqual(made, held + waste(w, furnace: id) + w.inventory.quantity(slag))
+    }
+
+    func testProductBufferIsSeparateFromWasteCount() throws {
+        let fx = try fixture()
+        var w = fx.world(charcoal: 200)
+        let id = furnace(fx, &w)
+        feed(id, limestone: true, count: 4, &w)
+        var ctx = StepContext(world: w, content: fx.content)
+        let product = Matter(substance: .iron, purity: Purity(percent: 80), stage: .metal, shape: .lump)
+        ModuleRuntime.put(StockEntry(stuff: .item(slag), quantity: 11), into: &ctx.world.placements.items[id]!.module!.output)
+        ModuleRuntime.put(StockEntry(stuff: .matter(product), quantity: 11), into: &ctx.world.placements.items[id]!.module!.output)
+        w = ctx.world
+        _ = fx.run(seconds: F.cycle, &w)
+        XCTAssertGreaterThan(w.placements.items[id]?.module?.lifetimeProduced ?? 0, 0, "製品が 11 あっても鉱滓の数には入らない")
+        XCTAssertEqual(waste(w, furnace: id), 12)
+    }
+
+    func testUnderConstructionDumpIsRejectedByRealAcceptPath() throws {
+        let fx = try fixture()
+        var w = fx.world(charcoal: 200)
+        let id = furnace(fx, &w)
+        let unfinished = dump(&w, at: GridPoint(17, 16), status: .underConstruction(progress: 0))
+        feed(id, limestone: true, count: 30, &w)
+        for p in w.people.members { w.people[p]?.assignment = .rest }   // 誰も建てない
+        _ = fx.run(seconds: F.cycle * 20, &w)
+        guard case .underConstruction = w.placements.items[unfinished]?.status else { return XCTFail("建造中のまま") }
+        XCTAssertEqual(w.placements.items[unfinished]?.structure?.parameters["dump.held"] ?? 0, 0)
+        XCTAssertEqual(waste(w, furnace: id), 12)
+        XCTAssertEqual(w.placements.items[id]?.status, .stopped(reason: ProductionText.wasteFull))
+    }
+
+    func testStopKindKeyMatchesProductionText() {
+        XCTAssertEqual(StopKind.of(reason: ProductionText.wasteFull), .wasteFull)
+        XCTAssertNil(StopKind.of(reason: ProductionText.outputFull))
     }
 
     func testHaulerCarriesWasteAwayAndFurnaceResumes() throws {
