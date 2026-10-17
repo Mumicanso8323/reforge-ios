@@ -233,6 +233,10 @@ jobs:
                 # 落ちた確かめの場所(ファイル:行)だけ。文面と値(物語の文が入りうる)は切り落とす
                 grep -oE "^/[^ ]*/(ReForgeTests|ReForgeUITests)/[^ ]*\.swift:[0-9]+: error: " test.log \
                   | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -40 || true
+                # 落ち方の要約(件数・落ちた/時間切れ・どのテストで再起動したか)。決まった形の語だけを抜き出す
+                grep -oE "Executed [0-9]+ tests?, with [0-9]+ failures? \([0-9]+ unexpected\)|\*\* TEST [A-Z]+ \*\*|Restarting after unexpected exit, crash, or test timeout in [A-Za-z0-9_]+\.[A-Za-z0-9_]+\(\)|encountered an error \((Crash|Early unexpected exit|Test crashed)|Test crashed with signal [a-z]+|exceeded execution time allowance|Testing failed:|Test runner exited|\[MT\] [A-Za-z]+Error" test.log \
+                  | sort | uniq -c | head -30 || true
+                grep -oE "^/[^ ]*/(ReForgeCore|ReForge)/[^ ]*\.swift:[0-9]+: error: " test.log | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -20 || true
               else
                 grep -E "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
               fi
