@@ -11,7 +11,7 @@ struct CrewTabView: View {
     @State private var selected: PersonID?
 
     var body: some View {
-        InkPanel(title: Text("仲間")) {
+        InkPanel(title: ui("ui.tab.crew")) {
             if let crew {
                 InkSection {
                     ForEach(crew.members, id: \.id) { m in
@@ -36,7 +36,7 @@ struct CrewTabView: View {
                     }
                 }
                 if store.ui.isOpen(UIElements.combatStance) {
-                    InkSection(title: Text("戦いの構え(寝ている間も)")) {
+                    InkSection(title: ui("ui.body.stance_section")) {
                         StancePicker(current: store.defaultStance) { store.setDefaultStance($0) }
                     }
                 }
@@ -50,12 +50,17 @@ struct CrewTabView: View {
         .accessibilityIdentifier("crewTab")
     }
 
+    /// 「種類 対象 ・ 動作 ・ 状態」の 1 行。つなぎ(空白・「・」)は表の 1 つの文が持つ。
     private func summary(_ m: CrewMemberView) -> Text {
-        var t = AssignText.kind(m.assignment)
-        if let target = m.target { t = t + Text(verbatim: " ") + Text(verbatim: target) }
-        t = t + Text(verbatim: " ・ ") + AssignText.doing(m.doing)
-        if !m.body.conditions.isEmpty { t = t + Text(verbatim: " ・ " + m.body.conditions.joined(separator: "・")) }
-        return t
+        let conditions = m.body.conditions.joined(separator: UIText.shared.string("ui.body.list_sep"))
+        return ui("ui.body.crew_summary", [
+            "kind": .string(AssignText.kindString(m.assignment)),
+            "hasTarget": .string(m.target == nil ? "no" : "yes"),
+            "target": .string(m.target ?? ""),
+            "doing": .string(AssignText.doingString(m.doing)),
+            "hasConditions": .string(m.body.conditions.isEmpty ? "no" : "yes"),
+            "conditions": .string(conditions),
+        ])
     }
 
     private func relation(_ m: CrewMemberView) -> Text? {
@@ -75,7 +80,11 @@ struct AssignChips: View {
             HStack(spacing: InkMetric.gap) {
                 ForEach(Array(visible.enumerated()), id: \.offset) { _, c in
                     Button { store.send(c.command(for: member.id)) } label: {
-                        Text(verbatim: "") + AssignText.kind(c.kind) + Text(verbatim: c.target.map { " " + $0 } ?? "")
+                        ui("ui.button.assign_chip", [
+                            "kind": .string(AssignText.kindString(c.kind)),
+                            "hasTarget": .string(c.target == nil ? "no" : "yes"),
+                            "target": .string(c.target ?? ""),
+                        ])
                     }
                     .buttonStyle(.ink(isCurrent(c) ? .primary : .secondary, fill: false))
                 }
@@ -100,11 +109,11 @@ struct BodyGauges: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            gauge(Text("体力"), vitals.health)
-            gauge(Text("気力"), vitals.stamina)
-            gauge(Text("満腹"), vitals.satiety)
-            gauge(Text("水分"), vitals.hydration)
-            gauge(Text("心"), vitals.mind)
+            gauge(ui("ui.body.vital_health"), vitals.health)
+            gauge(ui("ui.body.vital_stamina"), vitals.stamina)
+            gauge(ui("ui.body.vital_satiety"), vitals.satiety)
+            gauge(ui("ui.body.vital_hydration"), vitals.hydration)
+            gauge(ui("ui.body.vital_mind"), vitals.mind)
         }
         .font(InkFont.small)
         .padding(.vertical, 6)
@@ -143,40 +152,45 @@ struct StancePicker: View {
     }
 }
 
-/// 割り当て・動作・構えの固定文言。
+/// 割り当て・動作・構えの固定文言(文言の表から。ID は列挙型ごとに静的に書く)。
+@MainActor
 enum AssignText {
-    static func kind(_ k: CrewMemberView.AssignKind) -> Text {
+    static func kindString(_ k: CrewMemberView.AssignKind) -> String {
         switch k {
-        case .idle: Text("空き")
-        case .gather: Text("採取")
-        case .haul: Text("運搬")
-        case .operate: Text("持ち場")
-        case .research: Text("研究")
-        case .guardArea: Text("見張り")
-        case .build: Text("建造")
-        case .rest: Text("休む")
-        case .follow: Text("ついて行く")
+        case .idle: UIText.shared.string("ui.button.assign_idle")
+        case .gather: UIText.shared.string("ui.button.assign_gather")
+        case .haul: UIText.shared.string("ui.button.assign_haul")
+        case .operate: UIText.shared.string("ui.button.assign_operate")
+        case .research: UIText.shared.string("ui.button.assign_research")
+        case .guardArea: UIText.shared.string("ui.button.assign_guard")
+        case .build: UIText.shared.string("ui.button.assign_build")
+        case .rest: UIText.shared.string("ui.button.assign_rest")
+        case .follow: UIText.shared.string("ui.button.assign_follow")
         }
     }
 
-    static func doing(_ d: CrewMemberView.Doing) -> Text {
+    static func kind(_ k: CrewMemberView.AssignKind) -> Text { Text(verbatim: kindString(k)) }
+
+    static func doingString(_ d: CrewMemberView.Doing) -> String {
         switch d {
-        case .idle: Text("待っている")
-        case .walking: Text("歩いている")
-        case .working: Text("働いている")
-        case .carrying: Text("運んでいる")
-        case .gathering: Text("採っている")
-        case .fighting: Text("戦っている")
-        case .sleeping: Text("眠っている")
-        case .talking: Text("話している")
-        case .guarding: Text("見張っている")
+        case .idle: UIText.shared.string("ui.body.doing_idle")
+        case .walking: UIText.shared.string("ui.body.doing_walking")
+        case .working: UIText.shared.string("ui.body.doing_working")
+        case .carrying: UIText.shared.string("ui.body.doing_carrying")
+        case .gathering: UIText.shared.string("ui.body.doing_gathering")
+        case .fighting: UIText.shared.string("ui.body.doing_fighting")
+        case .sleeping: UIText.shared.string("ui.body.doing_sleeping")
+        case .talking: UIText.shared.string("ui.body.doing_talking")
+        case .guarding: UIText.shared.string("ui.body.doing_guarding")
         }
     }
+
+    static func doing(_ d: CrewMemberView.Doing) -> Text { Text(verbatim: doingString(d)) }
 
     static func stance(_ s: BattleState.Stance) -> Text {
         switch s {
-        case .advance: Text("前に出る")
-        case .keepDistance: Text("距離を取る")
+        case .advance: ui("ui.button.stance_advance")
+        case .keepDistance: ui("ui.button.stance_keep_distance")
         }
     }
 }

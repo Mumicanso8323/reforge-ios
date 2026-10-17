@@ -90,7 +90,7 @@
 
 - 行間は本文の 1.5 倍を目安にする(`bodyLineSpacing` = 7pt)。
 - 数字は `monospacedDigit()` で桁をそろえる。
-- 文言は補間しないリテラルで書く。数や名前が入る文は本体で組み、`Text(verbatim:)` で出す(`tools/gen-xcstrings.py`)。
+- 文言はアプリに直接書かず、文言の表(`content/public/text/ja/app*.json` の `ui.*`)に置いて `ui("ui.…")` で出す。数や名前は名前つきの差し込み(`{n}`)にする(`tools/check-app-strings.py`)。
 
 ## 3. 画面の部品の決まり(`ReForge/Sources/Theme/`)
 

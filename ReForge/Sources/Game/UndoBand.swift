@@ -10,10 +10,10 @@ struct UndoBand: View {
         HStack(spacing: 8) {
             Text(verbatim: label).lineLimit(1)
             Spacer(minLength: 4)
-            Text("残り \(seconds) 秒")
+            ui("ui.band.undo_remaining", ["seconds": .int(seconds)])
                 .font(InkFont.small)
                 .foregroundStyle(InkColor.textDim)
-            Button(action: undo) { Text("取り消す") }
+            Button(action: undo) { ui("ui.button.undo") }
                 .buttonStyle(.ink(.secondary, fill: false))
         }
         .padding(8)

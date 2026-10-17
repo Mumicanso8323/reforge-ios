@@ -25,9 +25,9 @@ struct BattleBandView: View {
                             }
                             if store.ui.isOpen(UIElements.combatRetreat) {
                                 if b.retreating {
-                                    Text("退いている").foregroundStyle(InkColor.textDim)
+                                    ui("ui.band.retreating").foregroundStyle(InkColor.textDim)
                                 } else {
-                                    Button { store.retreat(b) } label: { Text("退く") }
+                                    Button { store.retreat(b) } label: { ui("ui.button.retreat") }
                                         .buttonStyle(.ink(.quiet, fill: false))
                                 }
                             }

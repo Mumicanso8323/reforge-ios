@@ -154,11 +154,13 @@ final class AppModel {
         let language = language ?? AppLanguage(defaults: defaults, tables: content?.textTables ?? TextTables())
         self.language = language
         InkFont.setLanguage(language.effective.rawValue)
+        UIText.shared.configure(tables: content?.textTables ?? TextTables(), language: language.effective, markFallback: Self.markFallbackInDev)
     }
 
     /// ゲームに渡す言語と、開発の版だけの [ja] 印(表に無くて日本語に落ちた文の印)。
     private var gameLanguage: LanguageID { language.effective }
-    private var markFallback: Bool {
+    private var markFallback: Bool { Self.markFallbackInDev }
+    private static var markFallbackInDev: Bool {
 #if DEBUG
         true
 #else
@@ -169,6 +171,7 @@ final class AppModel {
     /// 言語を選ぶ。字体を替え(AppLanguage.select)、ゲーム中なら世界を進めずに文だけ引き直す。
     func selectLanguage(_ choice: LanguageChoice) {
         language.select(choice)
+        UIText.shared.configure(tables: content?.textTables ?? TextTables(), language: language.effective, markFallback: markFallback)
         guard let g = game else { return }
         let effective = language.effective
         Task { await g.setLanguage(effective) }
@@ -422,7 +425,7 @@ struct RootView: View {
             }
         }
         // 設定は地図の下半分に出す札。ボタンは別の窓(SettingsCorner)にあるので、どの画面・札・シートの上でも見える
-        .inkCard(isPresented: $app.settingsOpen, title: Text("設定"), maxHeightRatio: 0.5) {
+        .inkCard(isPresented: $app.settingsOpen, title: ui("ui.body.settings"), maxHeightRatio: 0.5) {
             SettingsView(app: app, close: { app.settingsOpen = false })
         }
     }
@@ -434,11 +437,14 @@ struct ContentErrorView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("データを読み込めませんでした")
+            ui("ui.body.load_failed")
                 .font(InkFont.heading)
+#if DEBUG || REFORGE_DEV
+            // 開発者向けのエラーの文は開発の版(DEBUG・dev の ipa)だけ、下に小さく出す(製品には出さない)
             Text(verbatim: message)
                 .font(InkFont.caption)
                 .foregroundStyle(InkColor.textDim)
+#endif
         }
         .foregroundStyle(InkColor.text)
         .padding(24)

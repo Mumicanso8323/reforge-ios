@@ -1,0 +1,38 @@
+{
+  "ReForge/Sources/Game/BattleBandView.swift": [
+    "・"
+  ],
+  "ReForge/Sources/Game/Design/ProcessSheetView.swift": [
+    "・"
+  ],
+  "ReForge/Sources/Game/GameStore.swift": [
+    "\\(slowSteps.count) 件・最長 \\(slowSteps.map(\\.milliseconds).max() ?? 0)ms"
+  ],
+  "ReForge/Sources/Game/MapScene.swift": [
+    "・"
+  ],
+  "ReForge/Sources/Game/PrologueScene.swift": [
+    "、。，．,.!?！？…"
+  ],
+  "ReForge/Sources/Game/Tabs/BaseTab.swift": [
+    "・"
+  ],
+  "ReForge/Sources/Screens/AppLanguage.swift": [
+    "日本語",
+    "简体中文",
+    "繁體中文",
+    "한국어"
+  ],
+  "ReForge/Sources/Screens/BootText.swift": [
+    "データを読み込めませんでした",
+    "設定を開く",
+    "設定を閉じる",
+    "設定",
+    "記録",
+    "記録を消す",
+    "長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。"
+  ],
+  "ReForge/Sources/Theme/UIText.swift": [
+    "？"
+  ]
+}

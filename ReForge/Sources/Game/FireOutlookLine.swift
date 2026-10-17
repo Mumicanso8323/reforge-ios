@@ -8,9 +8,9 @@ struct FireOutlookLine: View {
 
     var body: some View {
         HStack(spacing: 4) {
-            Text("今:")
+            ui("ui.card.fire_now")
             Self.word(fire.now)
-            Text("→ 1 本くべると:")
+            ui("ui.card.fire_after")
             Self.word(fire.afterOneMore)
         }
         .font(InkFont.small)
@@ -24,10 +24,10 @@ struct FireOutlookLine: View {
     /// 4 段の言葉。
     @ViewBuilder static func word(_ o: FireOutlook) -> some View {
         switch o {
-        case .untilEvening: Text("夕方に消える")
-        case .midnight: Text("夜半に消える")
-        case .beforeDawn: Text("夜明けの前に消える")
-        case .throughNight: Text("夜明けまでもつ")
+        case .untilEvening: ui("ui.card.fire_until_evening")
+        case .midnight: ui("ui.card.fire_midnight")
+        case .beforeDawn: ui("ui.card.fire_before_dawn")
+        case .throughNight: ui("ui.card.fire_through_night")
         }
     }
 }

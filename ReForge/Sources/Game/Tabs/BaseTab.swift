@@ -12,7 +12,7 @@ struct BaseTabView: View {
     @State private var points: [SavePoint] = []
 
     var body: some View {
-        InkPanel(title: Text("拠点")) {
+        InkPanel(title: ui("ui.tab.base")) {
             if let base {
                 if store.ui.isOpen(UIElements.baseStock) { stock(base) }
                 built(base)
@@ -25,7 +25,7 @@ struct BaseTabView: View {
             }
             if store.ui.isOpen(UIElements.saveManual) { saves }
             InkSection {
-                Button { Task { await app.backToTitle() } } label: { Text("タイトルへ") }
+                Button { Task { await app.backToTitle() } } label: { ui("ui.button.to_title") }
                     .buttonStyle(.ink(.quiet))
             }
             #if DEBUG
@@ -45,9 +45,9 @@ struct BaseTabView: View {
     }
 
     private func stock(_ v: BaseView) -> some View {
-        InkSection(title: Text("蓄え")) {
+        InkSection(title: ui("ui.body.stock")) {
             if v.stock.isEmpty {
-                InkRow(title: Text("なにもない")).foregroundStyle(InkColor.textDim)
+                InkRow(title: ui("ui.body.stock_empty")).foregroundStyle(InkColor.textDim)
             }
             ForEach(v.stock, id: \.name) { s in
                 InkRow(title: Text(verbatim: s.name), value: Text(verbatim: "\(s.quantity)"))
@@ -56,11 +56,11 @@ struct BaseTabView: View {
     }
 
     private func built(_ v: BaseView) -> some View {
-        InkSection(title: Text("建てた物")) {
+        InkSection(title: ui("ui.body.built")) {
             ForEach(v.built, id: \.id) { b in
                 let row = InkRow(glyph: b.glyph, title: Text(verbatim: b.name), detail: detail(b), value: state(b.state))
                 if case .blocked = b.state {
-                    row.accessibilityLabel(Text("止まっている"))
+                    row.accessibilityLabel(ui("ui.a11y.blocked"))
                 } else {
                     row
                 }
@@ -69,23 +69,23 @@ struct BaseTabView: View {
     }
 
     private func detail(_ b: BaseView.Built) -> Text? {
-        b.workers.isEmpty ? nil : Text(verbatim: b.workers.joined(separator: "・"))
+        b.workers.isEmpty ? nil : Text(verbatim: b.workers.joined(separator: UIText.shared.string("ui.body.list_sep")))
     }
 
     private func state(_ s: BaseView.Built.State) -> Text {
         switch s {
-        case .running: Text("動いている")
-        case .building(let p): Text("建造中 \(p / 10)%")
+        case .running: ui("ui.body.state_running")
+        case .building(let p): ui("ui.body.state_building", ["percent": .int(p / 10)])
         case .stopped(let r): Text(verbatim: r)
         case .blocked:
             Text("■").foregroundStyle(InkColor.alert)
-        case .broken: Text("壊れている")
+        case .broken: ui("ui.body.state_broken")
         }
     }
 
     /// 建てる: 選ぶと地図に戻り、次にタップしたマスに建てる(確認は出さない。片付ければ材料は戻る)。
     private func build(_ v: BaseView) -> some View {
-        InkSection(title: Text("建てる")) {
+        InkSection(title: ui("ui.body.build")) {
             ForEach(v.buildable, id: \.kind) { o in
                 switch BuildRowKind.of(o) {
                 case .button:
@@ -101,12 +101,12 @@ struct BaseTabView: View {
                 case .plain:
                     InkRow(glyph: o.glyph, title: Text(verbatim: o.name), detail: Text(verbatim: Self.price(o)))
                         .foregroundStyle(InkColor.textDim)
-                        .accessibilityValue("選べない")
+                        .accessibilityValue(ui("ui.a11y.unavailable"))
                 }
             }
             let unknownCount = v.unknownStructures + v.shadows.count
             if unknownCount > 0 {
-                InkRow(title: Text("まだ作り方を知らない物 \(unknownCount) 件"))
+                InkRow(title: ui("ui.body.unknown_structures", ["n": .int(unknownCount)]))
                     .foregroundStyle(InkColor.textDim)
                     .accessibilityIdentifier("buildUnknown")
             }
@@ -114,35 +114,38 @@ struct BaseTabView: View {
     }
 
     /// 必要な材料の値札(足りているかで文を変えない。押せない物は押せない形にするだけ)。
-    private static func price(_ option: BaseView.BuildOption) -> String {
-        "必要: " + option.cost.map { "\($0.name)×\($0.quantity)" }.joined(separator: " ")
+    @MainActor private static func price(_ option: BaseView.BuildOption) -> String {
+        let cost = option.cost.map {
+            UIText.shared.string("ui.body.cost_item", ["name": .string($0.name), "quantity": .int($0.quantity)])
+        }.joined(separator: UIText.shared.string("ui.body.cost_sep"))
+        return UIText.shared.string("ui.body.price", ["cost": .string(cost)])
     }
 
     private func lines(_ v: BaseView) -> some View {
-        InkSection(title: Text("運搬")) {
+        InkSection(title: ui("ui.body.lines")) {
             ForEach(v.lines, id: \.id) { l in
                 InkRow(glyph: "→", title: Text(verbatim: "\(l.from) → \(l.to)"),
                        detail: l.blocked.map { Text(verbatim: $0) }
-                           ?? (l.haulers.isEmpty ? nil : Text(verbatim: l.haulers.joined(separator: "・"))),
-                       value: Text("昨日 \(l.movedYesterday)"))
+                           ?? (l.haulers.isEmpty ? nil : Text(verbatim: l.haulers.joined(separator: UIText.shared.string("ui.body.list_sep")))),
+                       value: ui("ui.body.moved_yesterday", ["n": .int(l.movedYesterday)]))
             }
         }
     }
 
     /// 手動セーブ(3 枠。確認なしで上書き)とロード(夜明け・手動)。
     private var saves: some View {
-        InkSection(title: Text("記録")) {
+        InkSection(title: ui("ui.body.records")) {
             ForEach(0..<SavePolicy.manualSlots, id: \.self) { i in
                 let existing = points.first { $0.slot == .manual(index: i) }?.summary
                 HStack(spacing: InkMetric.gap) {
                     InkRow(title: slotText(.manual(index: i)),
-                           value: existing.map { Text("\($0.day) 日目") } ?? Text("空き"))
+                           value: existing.map { ui("ui.body.slot_day", ["day": .int($0.day)]) } ?? ui("ui.body.slot_empty"))
                     Button {
                         Task {
                             await store.saveManual(i)
                             points = store.savePoints()
                         }
-                    } label: { Text("書く") }
+                    } label: { ui("ui.button.save_write") }
                         .buttonStyle(.ink(.secondary, fill: false))
                         .accessibilityIdentifier("save-\(i)")
                 }
@@ -151,7 +154,7 @@ struct BaseTabView: View {
                 Button {
                     Task { await store.load(p.slot) }
                 } label: {
-                    InkRow(title: slotText(p.slot), value: Text("読む"))
+                    InkRow(title: slotText(p.slot), value: ui("ui.button.save_read"))
                 }
                 .buttonStyle(.inkRow)
             }
@@ -186,12 +189,12 @@ struct ResearchSection: View {
     let store: GameStore
 
     var body: some View {
-        InkSection(title: Text("研究")) {
+        InkSection(title: ui("ui.body.research")) {
             ForEach(view.entries, id: \.id) { e in
                 Button { store.send(e.selectCommand) } label: {
                     InkRow(glyph: mark(e.status), title: Text(verbatim: e.name),
                            detail: e.status == .active && !view.studying.isEmpty
-                               ? Text(verbatim: view.studying.joined(separator: "・")) : nil,
+                               ? Text(verbatim: view.studying.joined(separator: UIText.shared.string("ui.body.list_sep"))) : nil,
                            value: Text(verbatim: "\(e.points)/\(e.totalPoints)"), selected: e.status == .active)
                 }
                 .buttonStyle(.inkRow)
@@ -200,7 +203,7 @@ struct ResearchSection: View {
             }
             if view.hiddenCount > 0 {
                 // 深さの気配: 名前は出さず、数だけ(§10 HNT-16)
-                InkRow(title: Text("この先にまだ \(view.hiddenCount) 件"))
+                InkRow(title: ui("ui.body.research_hidden", ["n": .int(view.hiddenCount)]))
                     .foregroundStyle(InkColor.textDim)
                     .accessibilityIdentifier("researchHidden")
             }

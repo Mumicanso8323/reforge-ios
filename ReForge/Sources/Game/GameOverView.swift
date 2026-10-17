@@ -14,7 +14,7 @@ struct GameOverView: View {
     @State private var reasons: [RecoveryOption: String] = [:]
 
     var body: some View {
-        InkPlate(title: Text("ここまで")) {
+        InkPlate(title: ui("ui.body.game_over_title")) {
             ForEach(choices, id: \.option) { c in
                 VStack(alignment: .leading, spacing: 4) {
                     row(c)
@@ -55,7 +55,7 @@ struct GameOverView: View {
     @ViewBuilder private func row(_ c: RecoveryChoice) -> some View {
         switch c.option {
         case .restart:
-            InkHoldButton(label: Text("はじめから"), hint: Text("長押しで、いまの走行を捨てて始める")) {
+            InkHoldButton(label: ui("ui.button.new_game"), hint: ui("ui.body.restart_hint")) {
                 run(.restart, nil)
             }
             .accessibilityIdentifier("recovery-restart")
@@ -82,10 +82,10 @@ struct RecoveryLabel: View {
 
     var body: some View {
         switch option {
-        case .restart: Text("はじめから")
-        case .rewindWithMemory: Text("記憶を持って巻き戻す")
-        case .continueWithLoss: Text("失って続ける")
-        case .loadSavePoint: Text("セーブ地点からロード")
+        case .restart: ui("ui.button.new_game")
+        case .rewindWithMemory: ui("ui.button.recovery_rewind")
+        case .continueWithLoss: ui("ui.button.recovery_continue")
+        case .loadSavePoint: ui("ui.button.recovery_load")
         }
     }
 }
@@ -98,10 +98,10 @@ struct SlotLabel: View {
 }
 
 /// 保存の枠の名前(画面の固定文言)。
-func slotText(_ slot: SaveSlot) -> Text {
+@MainActor func slotText(_ slot: SaveSlot) -> Text {
     switch slot {
-    case .dawn(let d): Text("\(d) 日目の夜明け")
-    case .manual(let i): Text("手動 \(i + 1)")
-    case .resume, .screen: Text("つづき")
+    case .dawn(let d): ui("ui.body.slot_dawn", ["day": .int(d)])
+    case .manual(let i): ui("ui.body.slot_manual", ["number": .int(i + 1)])
+    case .resume, .screen: ui("ui.body.slot_resume")
     }
 }

@@ -36,7 +36,7 @@ struct ProcessSheetView: View {
                 HStack(spacing: 6) {
                     Text(verbatim: h.name)
                     Text(verbatim: "──")
-                    Text("手:")
+                    ui("ui.body.sense_label")
                     SenseWords.phrase(h.percent)
                 }
                 .foregroundStyle(InkColor.accent)
@@ -89,10 +89,10 @@ struct ProcessSheetView: View {
                 }
                 .foregroundStyle(InkColor.textDim)
             } else if row.step != nil {
-                Text(verbatim: "  │ → ？").foregroundStyle(InkColor.textDim)
+                ui("ui.body.sheet_unknown").foregroundStyle(InkColor.textDim)
             }
             ForEach(row.findings, id: \.self) { t in
-                Text(verbatim: "  │ ・\(t)").font(InkFont.small).foregroundStyle(InkColor.textDim)
+                ui("ui.body.sheet_finding", ["text": .string(t)]).font(InkFont.small).foregroundStyle(InkColor.textDim)
             }
             if let a = row.answer {
                 Text(verbatim: "  └ \(a)").foregroundStyle(InkColor.accent)
@@ -116,12 +116,12 @@ struct ProcessSheetView: View {
             if let remove = actions.removeStep { glyphButton(Text(verbatim: "✕"), id: "remove\(s)") { remove(s) } }
         }
         if let id = row.answerRow, let place = actions.placeAnswer {
-            glyphButton(row.answer == nil ? Text("置く") : Text("置き直す"), id: "answer.\(id)") { place(id) }
+            glyphButton(row.answer == nil ? ui("ui.button.place") : ui("ui.button.replace"), id: "answer.\(id)") { place(id) }
         }
         if let p = row.person, row.included != nil || row.declared != nil, let set = actions.setRosterPick {
-            if row.declared != nil { Text("言").font(InkFont.small).foregroundStyle(InkColor.textDim) }
-            let included = labels?.rosterInclude ?? "含める"
-            let excluded = labels?.rosterExclude ?? "含めない"
+            if row.declared != nil { ui("ui.body.declared").font(InkFont.small).foregroundStyle(InkColor.textDim) }
+            let included = labels?.rosterInclude ?? UIText.shared.string("ui.roster.include")
+            let excluded = labels?.rosterExclude ?? UIText.shared.string("ui.roster.exclude")
             glyphButton(Text(verbatim: row.included == true ? "[\(included)]" : included), id: "pick.in.\(p.rawValue)") { set(p, true) }
             glyphButton(Text(verbatim: row.included == false ? "[\(excluded)]" : excluded), id: "pick.out.\(p.rawValue)") { set(p, false) }
         }
@@ -146,23 +146,23 @@ struct TrialCardView: View {
             Text(verbatim: "┌ \(card.product.name) ×\(card.quantity)\(card.unique ? " ★" : "")").bold()
             HStack(spacing: 8) {
                 Text(verbatim: "│")
-                Text("手:")
+                ui("ui.body.sense_label")
                 SenseWords.phrase(card.product.percent)
-                Text("硬さ \(card.hardness)")
-                Text("粘り \(card.toughness)")
+                ui("ui.body.hardness", ["n": .int(card.hardness)])
+                ui("ui.body.toughness", ["n": .int(card.toughness)])
             }
             if !card.byproducts.isEmpty {
                 HStack(spacing: 4) {
                     Text(verbatim: "│")
-                    Text("ほかに:")
+                    ui("ui.body.byproducts")
                     Text(verbatim: card.byproducts.formatted(.list(type: .and)))
                 }
             }
-            ForEach(card.findings, id: \.self) { f in Text(verbatim: "│ ・\(f)") }
+            ForEach(card.findings, id: \.self) { f in ui("ui.body.card_finding", ["text": .string(f)]) }
             if !card.used.isEmpty {
                 HStack(spacing: 4) {
                     Text(verbatim: "└")
-                    Text("使った:")
+                    ui("ui.body.used")
                     Text(verbatim: card.used.map { "\($0.name) ×\($0.quantity)" }.formatted(.list(type: .and)))
                 }
                 .foregroundStyle(InkColor.textDim)

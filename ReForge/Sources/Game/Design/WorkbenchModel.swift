@@ -200,11 +200,11 @@ enum SenseWords {
     /// 見当の十分率(0〜10。四捨五入)。
     static func tenths(_ percent: Int) -> Int { min(10, max(0, (percent + 5) / 10)) }
 
-    /// 見当の言い回し(文言のカタログのキー)。
-    static func phrase(_ percent: Int) -> Text {
+    /// 見当の言い回し(文言の表から)。
+    @MainActor static func phrase(_ percent: Int) -> Text {
         let k = tenths(percent)
-        if k == 0 { return Text("ほとんど無い") }
-        if k == 10 { return Text("混じり気がほぼ無い") }
-        return Text("\(k)割くらい")
+        if k == 0 { return ui("ui.body.sense_none") }
+        if k == 10 { return ui("ui.body.sense_pure") }
+        return ui("ui.body.sense_tenths", ["k": .int(k)])
     }
 }

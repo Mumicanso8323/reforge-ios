@@ -94,6 +94,40 @@ final class TextTablesTests: XCTestCase {
         }
     }
 
+    /// アプリの固定文言の表(content/public/text/ja/app*.json。L-11): ContentDB にそのまま載り、検証器の error が 0 で、
+    /// ID が `ui.<区分>.<名前>` の形で、日本語の文が書式として読める。本体が使う ui.daywrap.* などは形の対象にしない。
+    func testAppUITextTableLoadsAndIsWellFormed() throws {
+        let db = try TestContent.publicOnly()
+        XCTAssertEqual(ContentValidator.validate(db).filter { $0.level == .error }, [])
+        let kinds: Set<String> = ["button", "band", "tab", "card", "bubble", "prologue", "label", "body", "a11y"]
+        let core = ["ui.daywrap.", "ui.roster.", "ui.grant.", "ui.finding.", "ui.foot.", "ui.time."]
+        let japanese = try XCTUnwrap(db.textTables.tables[.ja])
+        let appIDs = try appTableIDs()
+        XCTAssertFalse(appIDs.isEmpty, "app*.json が無い")
+        for id in appIDs {
+            let parts = id.rawValue.split(separator: ".", omittingEmptySubsequences: false)
+            XCTAssertTrue(parts.count == 3 && parts[0] == "ui" && kinds.contains(String(parts[1])) && !parts[2].isEmpty,
+                          "\(id.rawValue) が ui.<区分>.<名前> の形でない")
+            let sentence = try XCTUnwrap(japanese[id], "\(id.rawValue) が ContentDB に載っていない")
+            XCTAssertNoThrow(try MessageFormat.validate(sentence), "\(id.rawValue) の日本語が書式として読めない")
+            XCTAssertNil(TextTables.entryFault(sentence, source: sentence), "\(id.rawValue)")
+        }
+        for (id, _) in japanese where id.rawValue.hasPrefix("ui.") && !core.contains(where: { id.rawValue.hasPrefix($0) }) {
+            XCTAssertTrue(appIDs.contains(id), "\(id.rawValue) は app*.json にある ui.* の形(本体が使う ID は接頭辞で除く)")
+        }
+    }
+
+    private func appTableIDs() throws -> [TextID] {
+        let directory = TestContent.publicLayer.appendingPathComponent("text/ja", isDirectory: true)
+        var ids: [TextID] = []
+        for name in try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted() where name.hasPrefix("app") && name.hasSuffix(".json") {
+            let object = try JSONSerialization.jsonObject(with: Data(contentsOf: directory.appendingPathComponent(name)))
+            let texts = try XCTUnwrap((object as? [String: Any])?["texts"] as? [String: String])
+            ids += texts.keys.sorted().map { TextID($0) }
+        }
+        return ids
+    }
+
     private func temporaryLayer() throws -> URL {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("rf-text-tables-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

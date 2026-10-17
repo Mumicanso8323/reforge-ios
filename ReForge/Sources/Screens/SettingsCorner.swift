@@ -29,7 +29,7 @@ struct SettingsCornerButton: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(app.settingsOpen ? Text("設定を閉じる") : Text("設定を開く"))
+        .accessibilityLabel(app.settingsOpen ? ui("ui.a11y.settings_close") : ui("ui.a11y.settings_open"))
         .accessibilityIdentifier("settingsButton")
         .padding(SettingsCorner.margin)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

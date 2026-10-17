@@ -12,11 +12,8 @@ struct StatusBandView: View {
         VStack(alignment: .leading, spacing: 5) {
             // 日・昼の残り・数値の項目は、帯の幅(右は設定の角の分を空けた幅)で折り返す。横に流して切らない。
             StatusFlowLayout(spacing: 10, lineSpacing: 4) {
-                HStack(spacing: 0) {
-                    Text(verbatim: "\(store.clock.day)")
-                    Text("日目")
-                }
-                .bold()
+                ui("ui.band.day", ["day": .int(store.clock.day)])
+                    .bold()
                 phase
                 if let g = store.fireGauge, store.ui.isOpen(UIElements.bandFire) {
                     fireGauge(g)
@@ -44,7 +41,7 @@ struct StatusBandView: View {
                 ResumeBannerView(line: r)
             }
             if sealedContentFailed {
-                Text("物語のデータを読めなかったので、試遊用のデータで動いています")
+                ui("ui.band.sealed_failed")
                     .font(InkFont.caption)
                     .foregroundStyle(InkColor.textDim)
                     .lineLimit(1)
@@ -52,7 +49,7 @@ struct StatusBandView: View {
             }
             if let o = store.objective {
                 HStack(spacing: 6) {
-                    Text("目標").foregroundStyle(InkColor.textDim)
+                    ui("ui.band.objective").foregroundStyle(InkColor.textDim)
                     Text(verbatim: o)
                 }
                 .accessibilityIdentifier("statusObjective")
@@ -78,7 +75,7 @@ struct StatusBandView: View {
     private func fireGauge(_ g: FireGaugeView) -> some View {
         let word = Self.fireWord(g.level)
         return HStack(spacing: 3) {
-            Text("火").foregroundStyle(InkColor.textDim)
+            ui("ui.band.fire").foregroundStyle(InkColor.textDim)
             Text(verbatim: word).foregroundStyle(Self.fireColor(g))
         }
         .fixedSize(horizontal: false, vertical: true)
@@ -88,13 +85,13 @@ struct StatusBandView: View {
     }
 
     /// 5 段の固定の言葉(日本語は画面の側)。
-    private static func fireWord(_ l: HearthLevel) -> String {
+    @MainActor private static func fireWord(_ l: HearthLevel) -> String {
         switch l {
-        case .out: String(localized: "消えている")
-        case .smoldering: String(localized: "くすぶっている")
-        case .flickering: String(localized: "ちらついている")
-        case .burning: String(localized: "燃えている")
-        case .roaring: String(localized: "盛んに燃えている")
+        case .out: UIText.shared.string("ui.band.fire_out")
+        case .smoldering: UIText.shared.string("ui.band.fire_smoldering")
+        case .flickering: UIText.shared.string("ui.band.fire_flickering")
+        case .burning: UIText.shared.string("ui.band.fire_burning")
+        case .roaring: UIText.shared.string("ui.band.fire_roaring")
         }
     }
 
@@ -115,9 +112,9 @@ struct StatusBandView: View {
                 DayBarView(elapsedPermille: 1000 - store.clock.dayRemainingPermille, dots: store.dayBarDots, word: store.timeWord)
             }
         case .dusk:
-            Text("日没").foregroundStyle(InkColor.dusk)
+            ui("ui.band.dusk").foregroundStyle(InkColor.dusk)
         case .nightWork:
-            Text("夜").foregroundStyle(InkColor.night)
+            ui("ui.band.night").foregroundStyle(InkColor.night)
         }
     }
 

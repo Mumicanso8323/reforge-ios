@@ -49,7 +49,7 @@ struct AdSlot: View {
         ZStack {
             Rectangle()
                 .fill(Color.gray.opacity(0.25))
-            Text("広告")
+            ui("ui.band.ad_slot")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -57,7 +57,7 @@ struct AdSlot: View {
         .frame(height: AdLayout.bannerHeight)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("広告"))
+        .accessibilityLabel(ui("ui.a11y.ad_slot"))
         .accessibilityIdentifier("adSlotBottom")
     }
 }

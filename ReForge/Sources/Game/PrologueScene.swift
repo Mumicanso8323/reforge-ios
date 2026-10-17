@@ -33,7 +33,7 @@ struct PrologueSkipButton: View {
     var body: some View {
         GeometryReader { geo in
             Button(action: skip) {
-                Text("飛ばす")
+                ui("ui.button.skip")
                     .font(InkFont.small)
                     .foregroundStyle(InkColor.textDim)
                     .padding(.horizontal, 14)
