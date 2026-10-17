@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import ReForgeEngine
 
 /// 今の言語を入れる観察できる小さな箱(L-10b)。InkFont.font がここを読むので、setLanguage で書くと
 /// InkFont を使っている View が作り直されずに描き直される(.id で全体を作り直さない)。
@@ -8,7 +9,7 @@ import Observation
 @Observable
 final class InkFontState: @unchecked Sendable {
     static let shared = InkFontState()
-    var language: String = Locale.preferredLanguages.first ?? "ja"
+    var language: String = InkFont.defaultLanguage
 }
 
 /// 文字組み(docs/art/README.md §2)。書体は言語ごとに 1 つ(日本語・英語は同梱の BIZ UDGothic、
@@ -19,21 +20,27 @@ enum InkFont {
     /// 今の言語(入口はここ 1 か所)。アプリの言語の設定が変わったら setLanguage で入れ、画面を描き直す。
     static var language: String { InkFontState.shared.language }
 
+    /// 呼ぶのは AppModel.init と AppLanguage.select だけ。
     static func setLanguage(_ identifier: String) {
         InkFontState.shared.language = identifier
     }
 
-    /// 言語の識別子(ja・en・zh-Hans・zh-Hant・ko など)から書体の名前を選ぶ。
+    /// 既定の言語。アプリの言語が決まる前に描かれても端末の言語の書体にならない(端末の第 1 言語は見ない)。
+    static let defaultLanguage = LanguageID.source.rawValue
+
+    /// 言語の識別子(ja・en・zh-Hans・zh_TW・x-pseudo など)から書体の名前を選ぶ。
+    /// 識別子の読み替えは LanguageResolver に任せる(規則を 2 か所に書かない)。知らない言語・擬似言語は BIZ UD ゴシック。
     static func family(for identifier: String) -> String {
-        let id = identifier.lowercased()
-        if id.hasPrefix("ko") { return "AppleSDGothicNeo-Regular" }
-        if id.hasPrefix("zh") {
-            // 繁体字(zh-Hant・台湾・香港・マカオ)と簡体字を分ける
-            if id.contains("hant") || id.contains("-tw") || id.contains("-hk") || id.contains("-mo") { return "PingFangTC-Regular" }
-            return "PingFangSC-Regular"
+        switch LanguageResolver.language(forPreferred: identifier) {
+        case .ko?: return "AppleSDGothicNeo-Regular"
+        case .zhHant?: return "PingFangTC-Regular"
+        case .zhHans?: return "PingFangSC-Regular"
+        default: return FontBook.mapFont
         }
-        return FontBook.mapFont
     }
+
+    /// 出す言語ごとの書体の名前(実在の確かめ用。GlyphCoverageTests)。
+    static func family(for language: LanguageID) -> String { family(for: language.rawValue) }
 
     static func font(_ size: CGFloat, relativeTo style: Font.TextStyle) -> Font {
         Font.custom(family(for: language), size: size, relativeTo: style)
