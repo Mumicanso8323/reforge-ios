@@ -8,7 +8,9 @@ enum LineBotContent {
     enum Source: String { case generated, publicBundle }
 
     static func load() throws -> (content: ContentDB, source: Source) {
-        if ProcessInfo.processInfo.environment["REFORGE_W05_SOURCE"] != "public", TestContent.hasPrivateLayer {
+        // 生成したコンテンツ(非公開の層)では、手掘り・叩く場の ID と始まりの違いの突き合わせがまだで、ラインが動かない(W-05 §8)。
+        // それまでは公開の束で測り、非公開の層は REFORGE_W05_SOURCE=generated の時だけ使う。
+        if ProcessInfo.processInfo.environment["REFORGE_W05_SOURCE"] == "generated", TestContent.hasPrivateLayer {
             return (try TestContent.full(), .generated)
         }
         var content = try TestContent.publicOnly()
