@@ -124,21 +124,29 @@ public enum HearthRule {
         var elapsed: Int64 = 0
         let tendAt = (def.tendBelowSeconds ?? defaultTendBelowSeconds) * 1000
         let pileValue = def.pileItem.flatMap { fuelValue($0, def) }
+        // 灯りの周りは実際の歩み(advanceStructures)と同じに、15 秒の歩みの頭だけで引き直す(歩みの途中で段が変わっても次の歩みまで使う)。
+        let stepSeconds = Int64(SimStep.gameSeconds)
+        var snapStep: Int64 = -1
+        var around: (structures: Int, modifiers: HearthModifiers)?
         while (left ?? 1) > 0, o.lit, o.fuel > 0 {
+            if let light, elapsed / stepSeconds != snapStep {
+                snapStep = elapsed / stepSeconds
+                around = light.at(o, level(o, def))
+            }
             if tended, let pv = pileValue, o.pile > 0, o.fuel <= tendAt {
                 o.pile -= 1
                 o.fuel = min(def.capSeconds * 1000, o.fuel + pv)
                 continue
             }
             let l = level(o, def)
-            let around = light?.at(o, l)
             let r = rate(o, def, structuresInLight: around?.structures ?? structuresInLight, nightWork: nightWork,
                          modifiers: around?.modifiers ?? modifiers)
             var bound = l.rawValue >= 1 && def.thresholds.indices.contains(l.rawValue - 1)
                 ? def.thresholds[l.rawValue - 1] * 1000 : 0
             if tended, pileValue != nil, o.pile > 0, tendAt < o.fuel { bound = max(bound, tendAt) }
             let need = (o.fuel - bound + r - 1) / r
-            let k = max(1, min(need, left ?? need))
+            var k = max(1, min(need, left ?? need))
+            if light != nil { k = min(k, Int(stepSeconds - elapsed % stepSeconds)) }
             o.fuel -= k * r
             if left != nil { left! -= k }
             elapsed += Int64(k)
@@ -187,9 +195,9 @@ extension HearthRule {
         let tod = ((now.seconds % dayLength) + dayLength) % dayLength
         let end = Int64(tod) + simulate(s, def, seconds: nil, structuresInLight: structuresInLight,
                                          nightWork: false, tended: tended, modifiers: modifiers, light: light).elapsed
-        if end < clock.dayGameSeconds { return .untilEvening }
-        if end < clock.dayGameSeconds + clock.nightGameSeconds / 2 { return .midnight }
-        // 夜明けの時刻ちょうどに尽きる火は、夜明けに消えている(実際の歩みと同じ)ので夜明けまでもたない
+        // 日没・夜半・夜明けの時刻ちょうどに尽きる火は、その境目の歩みで消えている(実際の歩みと同じ)ので次の段ではない
+        if end <= clock.dayGameSeconds { return .untilEvening }
+        if end <= clock.dayGameSeconds + clock.nightGameSeconds / 2 { return .midnight }
         if end <= dayLength { return .beforeDawn }
         return .throughNight
     }
