@@ -52,7 +52,7 @@ jobs:
     name: ReForgeCore (Linux・${{ matrix.layer }})
     runs-on: ubuntu-latest
     container: swift:6.1-noble
-    timeout-minutes: 45  # 150 日の受け入れテストがある
+    timeout-minutes: 60  # 150 日の受け入れテストがある(10/17 で 41 分。TEST-O11 の夜の分を見込んで 60)
     strategy:
       fail-fast: false
       matrix:
@@ -66,6 +66,8 @@ jobs:
       # TEST-O12 地図の保証の種の数(手元の既定は 50。CI は全部の 1000)
       REFORGE_O12_SEEDS: "1000"
       REFORGE_FIRSTFIRE_SEEDS: "200"
+      # TEST-O11 寝る見込みと実際の一致(1 晩約 3.7 秒。手元の既定は 100、CI は 20。1000 は手で)
+      REFORGE_O11_NIGHTS: "20"
     steps:
       - uses: actions/checkout@v5
       # main への push で鍵が無いと非公開の層が丸ごと飛ばされて緑になる。それは失敗にする(手動起動・PR は fork などで鍵が無いことがあるので今のまま)。
