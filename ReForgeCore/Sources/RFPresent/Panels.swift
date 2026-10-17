@@ -1,6 +1,7 @@
 import RFBase
 import RFContent
 import RFKernel
+import RFMatter
 import RFMap
 import RFPerception
 import RFResearch
@@ -210,12 +211,17 @@ public struct BaseView: Equatable, Sendable {
 extension FrameBuilder {
     public func base(_ w: WorldState) -> BaseView {
         let p = perceiver(w)
-        var stock: [String: Int] = [:]
-        var order: [String] = []
+        // 同じ名前の別の物を混ぜないよう、表示名でなく物の鍵(品は ID、物質は名前の部品)で数える
+        enum StockKey: Hashable { case item(ItemID), matter(MatterName) }
+        var stock: [StockKey: Int] = [:]
+        var order: [(key: StockKey, name: String)] = []
         for e in w.inventory.entries(.base) {
-            let n = p.name(of: e.stuff)
-            if stock[n] == nil { order.append(n) }
-            stock[n, default: 0] += e.quantity
+            let key: StockKey = switch e.stuff {
+            case .item(let i): .item(i)
+            case .matter(let m): .matter(NameGenerator.name(for: m))
+            }
+            if stock[key] == nil { order.append((key, p.name(of: e.stuff))) }
+            stock[key, default: 0] += e.quantity
         }
         let names = { (ids: [PersonID]) in ids.map { p.name(Subject.person($0)) } }
         let built = w.placements.sortedIDs.compactMap { id -> BaseView.Built? in
@@ -252,7 +258,7 @@ extension FrameBuilder {
         }
         let shadowRows = shadows(w, p).filter { if case .structure = $0.kind { true } else { false } }
         let locked = content.structures.keys.filter { !w.research.unlocked.structures.contains($0) }.count
-        return BaseView(stock: order.map { BaseView.StockLine(name: $0, quantity: stock[$0] ?? 0) }, built: built,
+        return BaseView(stock: order.map { BaseView.StockLine(name: $0.name, quantity: stock[$0.key] ?? 0) }, built: built,
                         buildable: buildable, lines: lines, shadows: shadowRows,
                         unknownStructures: max(0, locked - shadowRows.count))
     }

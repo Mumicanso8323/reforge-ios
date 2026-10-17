@@ -189,12 +189,15 @@ extension FrameBuilder {
                                result: sensed(t.outcome.name, HandSense.estimate(t.outcome.product), p),
                                steps: t.steps.count, quantity: t.quantity)
         }
-        var seen: Set<String> = []
+        // 同じ所見かどうかは描いた文でなく (FindingID, 引数) で決める
+        struct FindingKey: Hashable { var id: FindingID; var args: [FindingArg] }
+        var seen: Set<FindingKey> = []
         var findings: [NotebookPage.Finding] = []
         for t in nb.trials.reversed() {
             for f in t.outcome.findings {
-                let s = findingText(f.id, f.args, p)
-                if seen.insert(s).inserted { findings.append(NotebookPage.Finding(text: s, trial: t.record)) }
+                if seen.insert(FindingKey(id: f.id, args: f.args)).inserted {
+                    findings.append(NotebookPage.Finding(text: findingText(f.id, f.args, p), trial: t.record))
+                }
             }
         }
         let clueText: (NoteEntry) -> String = { self.noteText($0, p) }

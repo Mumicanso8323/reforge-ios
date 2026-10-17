@@ -66,7 +66,6 @@ final class DayWrapTests: XCTestCase {
         XCTAssertEqual(made[0].count, w.ledger.records.filter { $0.day == 3 && $0.subject == .item("wood") && $0.act == .mined }.reduce(0) { $0 + $1.count })
     }
 
-    /// 日没の間だけ Frame に入る(昼・夜作業では入らない)。
     /// 同数の 2 つの並びは、表の名前を差し替えても変わらない(INV-L4: 表示の文で並べない)。
     func testMadeTieOrderDoesNotDependOnNames() throws {
         let rig = try TestRig.publicOnly()
@@ -89,6 +88,26 @@ final class DayWrapTests: XCTestCase {
         XCTAssertEqual(after.map(\.name), [Perceiver(content: swapped, world: w).name(b), Perceiver(content: swapped, world: w).name(a)])
     }
 
+    /// 名前が同じ別の対象は 1 行にまとめない(数は対象の鍵で数える)。
+    func testMadeKeepsDifferentSubjectsWithSameName() throws {
+        let rig = try TestRig.publicOnly()
+        var w = dusk(rig)
+        record(&w, .crafted, .item("wood"))
+        record(&w, .crafted, .item("test_ore"))
+        record(&w, .crafted, .item("test_ore"))
+        var content = rig.content
+        for it in ["wood", "test_ore"] {
+            for v in try XCTUnwrap(content.perception[Subject.item(ItemID(it))]).variants {
+                guard let name = v.name else { continue }
+                content.textTables.tables[.ja]?[name] = "same"
+                content.texts[name] = "same"
+            }
+        }
+        let made = FrameBuilder(content: content).dayWrap(w).made
+        XCTAssertEqual(made, [CountedName(name: "same", count: 2), CountedName(name: "same", count: 1)])
+    }
+
+    /// 日没の間だけ Frame に入る(昼・夜作業では入らない)。
     func testDayWrapOnlyAtDusk() throws {
         let rig = try TestRig.publicOnly()
         var w = dusk(rig)

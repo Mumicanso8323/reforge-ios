@@ -108,6 +108,10 @@ final class RejectionTextTests: XCTestCase {
                                             "module": .string("hearth"), "cause": .string("x")])
         XCTAssertEqual(args["days"], .int(4))
         XCTAssertEqual(args["n"], .int(2))
+        // .uint は Int64 に収まる範囲に丸める
+        XCTAssertEqual(Perceiver.rejectionArgs(["n": .uint(UInt64(Int64.max))])["n"], .int(Int64.max))
+        XCTAssertEqual(Perceiver.rejectionArgs(["n": .uint(UInt64.max)])["n"], .int(Int64.max))
+        XCTAssertEqual(Perceiver.rejectionArgs(["n": .uint(0)])["n"], .int(0))
         XCTAssertEqual(args["item"], .subject(Subject.item("stick")))
         XCTAssertEqual(args["module"], .subject(Subject.module("hearth")))
         XCTAssertNil(args["cause"])

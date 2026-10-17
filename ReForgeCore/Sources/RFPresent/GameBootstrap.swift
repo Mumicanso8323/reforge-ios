@@ -36,7 +36,7 @@ public enum GameBootstrap {
                                                              expecting: LanguageID.released)
             if result.report.failed.contains(.ja) || result.report.missing.contains(.ja) {
                 guard key != nil else {
-                    throw ContentLoader.LoadError.sealed("cannot open the ja text bundle")
+                    throw ContentLoader.LoadError.sealed("日本語の本文の束を開けない")
                 }
                 let fallback = try ContentLoader.loadBundledReport(root: contentDirectory, key: nil,
                                                                    expecting: LanguageID.released)
