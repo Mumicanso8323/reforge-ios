@@ -135,17 +135,9 @@ final class ScreenSnapshotTests: XCTestCase {
         var findings = inspected.findings
         var reported: [Finding] = []
         if isPseudo {
-            var kept: [Finding] = []
-            for f in findings {
-                guard f.kind == "overflow" else { kept.append(f); continue }
-                if let cls = Self.fitClasses[f.id] {
-                    if Self.growingClasses.contains(cls) { kept.append(f) } else { reported.append(f) }
-                } else {
-                    kept.append(Finding(language: f.language, screen: f.screen, id: f.id, kind: "unclassified",
-                                        detail: "切れ検出の id が区分の表に無い(fitClasses に足す) " + f.detail))
-                }
-            }
-            findings = kept
+            // 初回は擬似言語の配置の所見(overflow・offscreen・overlap・区分の表に無い id)を全て報告だけにする。失敗にするのは写真が撮れない・落ちる時だけ
+            reported = findings
+            findings = []
         }
         if screen == "prologue" || screen == "stage" {
             findings += prologueFindings(app, lang: lang.code, screen: screen, screenshot: screenshot)

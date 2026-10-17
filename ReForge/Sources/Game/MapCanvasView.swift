@@ -323,15 +323,21 @@ struct Bubble<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        content
+        // 日本語は従来のまま(幅の上限なし)。他の言語は幅 260pt を上限に全文を折り返す(行数は切らない)
+        if InkFont.language == LanguageID.source.rawValue {
+            styled(content)
+        } else {
+            styled(content.fixedSize(horizontal: false, vertical: true))
+                .frame(maxWidth: 260, alignment: .leading)
+        }
+    }
+
+    private func styled<V: View>(_ v: V) -> some View {
+        v
             .font(InkFont.body)
             .foregroundStyle(InkColor.text)
-            // 幅は 260pt を上限に、1 つの文は 4 行まで。高さは内容に合わせる(bubble 区分)
-            .lineLimit(4)
-            .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .frame(maxWidth: 260, alignment: .leading)
             .background(RoundedRectangle(cornerRadius: InkMetric.corner).fill(InkColor.panel.opacity(0.94)))
             .overlay(RoundedRectangle(cornerRadius: InkMetric.corner).stroke(InkColor.rule, lineWidth: InkMetric.rule))
     }
