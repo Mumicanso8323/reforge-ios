@@ -17,6 +17,17 @@ enum GameTab: String, CaseIterable, Identifiable {
         }
     }
 
+    /// タブの名前(文言の表から。ID は静的に書く)。
+    var title: Text {
+        switch self {
+        case .map: ui("ui.tab.map")
+        case .design: ui("ui.tab.design")
+        case .notes: ui("ui.tab.notes")
+        case .base: ui("ui.tab.base")
+        case .crew: ui("ui.tab.crew")
+        }
+    }
+
     /// いま出すタブ(A Dark Room 式: 最初は地図だけ。条件が成り立ったタブから増える)。
     static func visible(_ ui: UIUnlocks) -> [GameTab] {
         allCases.filter { $0.element.map(ui.isOpen) ?? true }
@@ -37,7 +48,7 @@ struct TabBarView: View {
                         Button {
                             tab = t
                         } label: {
-                            title(t)
+                            t.title
                                 .frame(maxWidth: .infinity, minHeight: 44)
                                 .contentShape(Rectangle())
                                 .foregroundStyle(tab == t ? InkColor.accent : InkColor.textDim)
@@ -48,16 +59,6 @@ struct TabBarView: View {
                 }
                 .font(InkFont.body)
             }
-        }
-    }
-
-    @ViewBuilder private func title(_ t: GameTab) -> some View {
-        switch t {
-        case .map: Text("地図")
-        case .design: Text("設計")
-        case .notes: Text("ノート")
-        case .base: Text("拠点")
-        case .crew: Text("仲間")
         }
     }
 }

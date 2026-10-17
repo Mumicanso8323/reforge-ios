@@ -61,11 +61,11 @@ struct MapActionBand: View {
     private func forecastLine(_ f: SleepForecast) -> some View {
         HStack(spacing: 10) {
             if let fire = f.fire {
-                (fire == .holds ? Text("火は夜明けまで持つ") : Text("火は夜明けまでに消える"))
+                (fire == .holds ? ui("ui.band.forecast_fire_holds") : ui("ui.band.forecast_fire_dies"))
                     .foregroundStyle(fire == .dies ? InkColor.notice : InkColor.textDim)
             }
             if let furnace = f.furnace {
-                (furnace == .stays ? Text("炉は朝まで熱い") : Text("炉は朝までに冷える"))
+                (furnace == .stays ? ui("ui.band.forecast_furnace_stays") : ui("ui.band.forecast_furnace_cools"))
                     .foregroundStyle(furnace == .cools ? InkColor.notice : InkColor.textDim)
             }
         }
@@ -83,7 +83,7 @@ struct MapActionBand: View {
                 Text(verbatim: line).foregroundStyle(InkColor.textDim)
             }
             Spacer(minLength: 8)
-            Button { store.send(offer.command) } label: { Text("頼む") }
+            Button { store.send(offer.command) } label: { ui("ui.button.ask") }
                 .buttonStyle(.ink(.secondary))
                 .frame(minHeight: InkMetric.buttonHeight)
                 .accessibilityIdentifier("offer-tendFire")
@@ -94,8 +94,8 @@ struct MapActionBand: View {
 
     @ViewBuilder private func label(_ action: BandAction) -> some View {
         switch action {
-        case .startNightWork: Text("夜作業をする")
-        case .sleep: Text("寝る")
+        case .startNightWork: ui("ui.button.night_work")
+        case .sleep: ui("ui.button.sleep")
         }
     }
 }

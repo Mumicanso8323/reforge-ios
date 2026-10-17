@@ -181,7 +181,7 @@ struct MapCanvasView: View {
                 VStack(spacing: 0) {
                     Text(verbatim: TilePalette.noahGlyph)
                         .font(.custom(FontBook.mapFont, fixedSize: 22))
-                    Text("戻る").font(InkFont.caption)
+                    ui("ui.label.recenter").font(InkFont.caption)
                 }
                 .foregroundStyle(Color(red: 1, green: 1, blue: 0.4))
                 .frame(width: 48, height: 48)
@@ -189,7 +189,7 @@ struct MapCanvasView: View {
                 .overlay(Circle().stroke(Color.white.opacity(0.35), lineWidth: 1))
             }
             .padding(12)
-            .accessibilityLabel(Text("ノアに戻る"))
+            .accessibilityLabel(ui("ui.a11y.recenter"))
             .accessibilityIdentifier("recenterButton")
         }
     }
@@ -245,12 +245,12 @@ struct MapCanvasView: View {
                 HStack {
                     Text(verbatim: page.title).font(InkFont.heading)
                     Spacer()
-                    Button { store.closePanel() } label: { Text("閉じる") }
+                    Button { store.closePanel() } label: { ui("ui.button.close") }
                         .buttonStyle(.ink(.quiet, fill: false))
                         .accessibilityIdentifier("panelClose")
                 }
                 if let r = page.readablePermille {
-                    Text("読める割合 \(r / 10)%")
+                    ui("ui.body.readable_percent", ["percent": .int(r / 10)])
                     .font(InkFont.small)
                     .foregroundStyle(InkColor.textDim)
                 }
@@ -276,15 +276,15 @@ struct MapCanvasView: View {
                 if let r = store.preview?.reason {
                     Text(verbatim: r).font(InkFont.small).foregroundStyle(InkColor.alert).lineLimit(1)
                 } else {
-                    Text("置く場所をタップ").font(InkFont.small).foregroundStyle(InkColor.textDim)
+                    ui("ui.band.place_prompt").font(InkFont.small).foregroundStyle(InkColor.textDim)
                 }
                 Spacer(minLength: 4)
                 if store.preview?.placeable == true {
-                    Button { store.confirmPlacing() } label: { Text("ここに建てる") }
+                    Button { store.confirmPlacing() } label: { ui("ui.button.place_confirm") }
                         .buttonStyle(.ink(.primary, fill: false))
                         .accessibilityIdentifier("placeConfirm")
                 }
-                Button { store.cancelPlacing() } label: { Text("やめる") }
+                Button { store.cancelPlacing() } label: { ui("ui.button.cancel") }
                     .buttonStyle(.ink(.quiet, fill: false))
             }
             .padding(8)
@@ -333,11 +333,9 @@ struct Bubble<Content: View>: View {
     }
 }
 
-/// 調べた結果の行。数の言い回しは画面の固定文言(補間しないリテラル)と数を並べて組む。
+/// 調べた結果の行。数の言い回し(残り何回・手ざわり何割)は、表の 1 つの差し込みの文で組む(断片を連結しない)。
 struct InspectionText: View {
     let inspection: TileInspection
-
-    static let tenths = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十"]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -347,17 +345,9 @@ struct InspectionText: View {
                 case .name(let s):
                     Text(verbatim: s)
                 case .remaining(let n):
-                    HStack(spacing: 0) {
-                        Text("残り")
-                        Text(verbatim: " \(n) ")
-                        Text("回")
-                    }
+                    ui("ui.bubble.remaining", ["n": .int(n)])
                 case .purityTenths(let n):
-                    HStack(spacing: 0) {
-                        Text("手ざわり: ")
-                        Text(verbatim: Self.tenths[min(max(n, 1), 10) - 1])
-                        Text("割くらい")
-                    }
+                    ui("ui.bubble.purity", ["tenths": .string(String(min(max(n, 1), 10)))])
                 }
             }
         }

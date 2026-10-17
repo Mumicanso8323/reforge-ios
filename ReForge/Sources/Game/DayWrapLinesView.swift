@@ -11,10 +11,10 @@ struct DayWrapLinesView: View {
         VStack(alignment: .leading, spacing: 2) {
             if !wrap.made.isEmpty {
                 HStack(spacing: 6) {
-                    Text("今日できた物").foregroundStyle(InkColor.textDim)
+                    ui("ui.band.made_label").foregroundStyle(InkColor.textDim)
                         .lineLimit(1).fixedSize().layoutPriority(1)  // 見出しは縮めない(縮めるのは物の名前の並びだけ)
                         .accessibilityIdentifier("dayWrapMadeLabel")
-                    Text(verbatim: wrap.made.map { "\($0.name) \($0.count)" }.joined(separator: "\u{30FB}"))
+                    Text(verbatim: wrap.made.map { UIText.shared.string("ui.band.made_item", ["name": .string($0.name), "count": .int($0.count)]) }.joined(separator: UIText.shared.string("ui.band.made_sep")))
                         .lineLimit(1).truncationMode(.tail)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("dayWrapMade")
@@ -27,7 +27,7 @@ struct DayWrapLinesView: View {
             }
             if let outlook = wrap.outlook {
                 HStack(spacing: 6) {
-                    Text("明日").foregroundStyle(InkColor.textDim)
+                    ui("ui.band.tomorrow_label").foregroundStyle(InkColor.textDim)
                         .lineLimit(1).fixedSize().layoutPriority(1)
                         .accessibilityIdentifier("dayWrapOutlookLabel")
                     Text(verbatim: outlook).lineLimit(1).truncationMode(.tail)
@@ -48,11 +48,11 @@ struct ResumeBannerView: View {
     var body: some View {
         Group {
             if let last = line.last, let next = line.next {
-                Text("前回: \(last)。次: \(next)")  // xcstrings: @,@
+                ui("ui.band.resume_both", ["last": .string(last), "next": .string(next)])
             } else if let last = line.last {
-                Text("前回: \(last)")  // xcstrings: @
+                ui("ui.band.resume_last", ["last": .string(last)])
             } else if let next = line.next {
-                Text("次: \(next)")  // xcstrings: @
+                ui("ui.band.resume_next", ["next": .string(next)])
             }
         }
         .lineLimit(2)

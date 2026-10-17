@@ -1,19 +1,8 @@
 {
-  "ReForge/Sources/Game/BattleBandView.swift": 2,
-  "ReForge/Sources/Game/DayWrapLinesView.swift": 5,
   "ReForge/Sources/Game/Design/ProcessSheetView.swift": 14,
   "ReForge/Sources/Game/Design/WorkbenchModel.swift": 3,
-  "ReForge/Sources/Game/FireOutlookLine.swift": 6,
-  "ReForge/Sources/Game/GameOverView.swift": 10,
-  "ReForge/Sources/Game/MapActionBand.swift": 7,
-  "ReForge/Sources/Game/MapCanvasView.swift": 21,
-  "ReForge/Sources/Game/PrologueScene.swift": 1,
-  "ReForge/Sources/Game/StatusBandView.swift": 10,
-  "ReForge/Sources/Game/StickControl.swift": 1,
-  "ReForge/Sources/Game/TabBarView.swift": 5,
   "ReForge/Sources/Game/Tabs/BaseTab.swift": 22,
   "ReForge/Sources/Game/Tabs/CrewTab.swift": 30,
   "ReForge/Sources/Game/Tabs/DesignTab.swift": 19,
-  "ReForge/Sources/Game/Tabs/NotesTab.swift": 20,
-  "ReForge/Sources/Game/UndoBand.swift": 2
+  "ReForge/Sources/Game/Tabs/NotesTab.swift": 20
 }

@@ -31,16 +31,6 @@
         }
       }
     },
-    "%lld 日目の夜明け": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld 日目の夜明け"
-          }
-        }
-      }
-    },
     "%lld 段目に入れる": {
       "localizations": {
         "ja": {
@@ -101,62 +91,12 @@
         }
       }
     },
-    "→ 1 本くべると:": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "→ 1 本くべると:"
-          }
-        }
-      }
-    },
-    "くすぶっている": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "くすぶっている"
-          }
-        }
-      }
-    },
-    "ここに建てる": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ここに建てる"
-          }
-        }
-      }
-    },
-    "ここまで": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ここまで"
-          }
-        }
-      }
-    },
     "この先にまだ %lld 件": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "この先にまだ %lld 件"
-          }
-        }
-      }
-    },
-    "ちらついている": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ちらついている"
           }
         }
       }
@@ -171,32 +111,12 @@
         }
       }
     },
-    "つづき": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "つづき"
-          }
-        }
-      }
-    },
     "なにもない": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "なにもない"
-          }
-        }
-      }
-    },
-    "はじめから": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "はじめから"
           }
         }
       }
@@ -251,26 +171,6 @@
         }
       }
     },
-    "やめる": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "やめる"
-          }
-        }
-      }
-    },
-    "セーブ地点からロード": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "セーブ地点からロード"
-          }
-        }
-      }
-    },
     "タイトルへ": {
       "localizations": {
         "ja": {
@@ -287,16 +187,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "データを読み込めませんでした"
-          }
-        }
-      }
-    },
-    "ノアに戻る": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ノアに戻る"
           }
         }
       }
@@ -321,36 +211,6 @@
         }
       }
     },
-    "一": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "一"
-          }
-        }
-      }
-    },
-    "七": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "七"
-          }
-        }
-      }
-    },
-    "三": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "三"
-          }
-        }
-      }
-    },
     "下の段を選んで積む": {
       "localizations": {
         "ja": {
@@ -367,56 +227,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "中立の幅"
-          }
-        }
-      }
-    },
-    "九": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "九"
-          }
-        }
-      }
-    },
-    "二": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "二"
-          }
-        }
-      }
-    },
-    "五": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "五"
-          }
-        }
-      }
-    },
-    "今:": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今:"
-          }
-        }
-      }
-    },
-    "今日できた物": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "今日できた物"
           }
         }
       }
@@ -481,26 +291,6 @@
         }
       }
     },
-    "八": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "八"
-          }
-        }
-      }
-    },
-    "六": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "六"
-          }
-        }
-      }
-    },
     "写す": {
       "localizations": {
         "ja": {
@@ -521,62 +311,12 @@
         }
       }
     },
-    "前回: %@": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "前回: %@"
-          }
-        }
-      }
-    },
-    "前回: %@。次: %@": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "前回: %@。次: %@"
-          }
-        }
-      }
-    },
-    "割くらい": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "割くらい"
-          }
-        }
-      }
-    },
     "動いている": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "動いている"
-          }
-        }
-      }
-    },
-    "十": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "十"
-          }
-        }
-      }
-    },
-    "取り消す": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "取り消す"
           }
         }
       }
@@ -621,42 +361,12 @@
         }
       }
     },
-    "四": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "四"
-          }
-        }
-      }
-    },
-    "回": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "回"
-          }
-        }
-      }
-    },
     "図鑑": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "図鑑"
-          }
-        }
-      }
-    },
-    "地図": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "地図"
           }
         }
       }
@@ -687,86 +397,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "壊れている"
-          }
-        }
-      }
-    },
-    "夕方に消える": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "夕方に消える"
-          }
-        }
-      }
-    },
-    "夜": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "夜"
-          }
-        }
-      }
-    },
-    "夜作業をする": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "夜作業をする"
-          }
-        }
-      }
-    },
-    "夜半に消える": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "夜半に消える"
-          }
-        }
-      }
-    },
-    "夜明けの前に消える": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "夜明けの前に消える"
-          }
-        }
-      }
-    },
-    "夜明けまでもつ": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "夜明けまでもつ"
-          }
-        }
-      }
-    },
-    "失って続ける": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "失って続ける"
-          }
-        }
-      }
-    },
-    "寝る": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "寝る"
           }
         }
       }
@@ -891,16 +521,6 @@
         }
       }
     },
-    "戻る": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "戻る"
-          }
-        }
-      }
-    },
     "所見": {
       "localizations": {
         "ja": {
@@ -937,26 +557,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "手がかり %lld・所見 %lld"
-          }
-        }
-      }
-    },
-    "手ざわり: ": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "手ざわり: "
-          }
-        }
-      }
-    },
-    "手動 %lld": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "手動 %lld"
           }
         }
       }
@@ -1071,36 +671,6 @@
         }
       }
     },
-    "日没": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日没"
-          }
-        }
-      }
-    },
-    "日目": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "日目"
-          }
-        }
-      }
-    },
-    "明日": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "明日"
-          }
-        }
-      }
-    },
     "昨日 %lld": {
       "localizations": {
         "ja": {
@@ -1151,16 +721,6 @@
         }
       }
     },
-    "次: %@": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "次: %@"
-          }
-        }
-      }
-    },
     "止まっている": {
       "localizations": {
         "ja": {
@@ -1177,26 +737,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "歩いている"
-          }
-        }
-      }
-    },
-    "残り": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "残り"
-          }
-        }
-      }
-    },
-    "残り %lld 秒": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "残り %lld 秒"
           }
         }
       }
@@ -1231,16 +771,6 @@
         }
       }
     },
-    "消えている": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "消えている"
-          }
-        }
-      }
-    },
     "混じり気がほぼ無い": {
       "localizations": {
         "ja": {
@@ -1257,86 +787,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "満腹"
-          }
-        }
-      }
-    },
-    "火": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "火"
-          }
-        }
-      }
-    },
-    "火は夜明けまでに消える": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "火は夜明けまでに消える"
-          }
-        }
-      }
-    },
-    "火は夜明けまで持つ": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "火は夜明けまで持つ"
-          }
-        }
-      }
-    },
-    "炉は朝までに冷える": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "炉は朝までに冷える"
-          }
-        }
-      }
-    },
-    "炉は朝まで熱い": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "炉は朝まで熱い"
-          }
-        }
-      }
-    },
-    "燃えている": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "燃えている"
-          }
-        }
-      }
-    },
-    "盛んに燃えている": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "盛んに燃えている"
-          }
-        }
-      }
-    },
-    "目標": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "目標"
           }
         }
       }
@@ -1381,16 +831,6 @@
         }
       }
     },
-    "移動の操作棒": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "移動の操作棒"
-          }
-        }
-      }
-    },
     "空き": {
       "localizations": {
         "ja": {
@@ -1427,16 +867,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "置く"
-          }
-        }
-      }
-    },
-    "置く場所をタップ": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "置く場所をタップ"
           }
         }
       }
@@ -1497,16 +927,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "言"
-          }
-        }
-      }
-    },
-    "記憶を持って巻き戻す": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "記憶を持って巻き戻す"
           }
         }
       }
@@ -1621,16 +1041,6 @@
         }
       }
     },
-    "読める割合 %lld%%": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "読める割合 %lld%%"
-          }
-        }
-      }
-    },
     "資料": {
       "localizations": {
         "ja": {
@@ -1647,26 +1057,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "距離を取る"
-          }
-        }
-      }
-    },
-    "退いている": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "退いている"
-          }
-        }
-      }
-    },
-    "退く": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "退く"
           }
         }
       }
@@ -1711,16 +1101,6 @@
         }
       }
     },
-    "長押しで、いまの走行を捨てて始める": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "長押しで、いまの走行を捨てて始める"
-          }
-        }
-      }
-    },
     "長押しで確定": {
       "localizations": {
         "ja": {
@@ -1731,42 +1111,12 @@
         }
       }
     },
-    "閉じる": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "閉じる"
-          }
-        }
-      }
-    },
     "開発": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
             "value": "開発"
-          }
-        }
-      }
-    },
-    "頼む": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "頼む"
-          }
-        }
-      }
-    },
-    "飛ばす": {
-      "localizations": {
-        "ja": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "飛ばす"
           }
         }
       }
