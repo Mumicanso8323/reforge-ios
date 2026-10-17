@@ -29,8 +29,39 @@ def private_layer() -> pathlib.Path | None:
     return p if p.is_dir() else None
 
 
-def load_rules(layer: pathlib.Path) -> tuple[list[str], list[str], list[str], list[str]]:
+LANGUAGES = ("ja", "en", "zh-Hans", "zh-Hant", "ko")
+
+
+def load_words(value: object, words: set[str], word_languages: dict[str, str]) -> None:
+    """Add either legacy words or language-keyed words without exposing them."""
+    if isinstance(value, list):
+        entries = (("ja", value),)
+    elif isinstance(value, dict):
+        if any(language not in LANGUAGES for language in value):
+            raise SystemExit("tools/check-public-spoilers.py の形が違う(言語の鍵)")
+        entries = value.items()
+    else:
+        raise SystemExit("tools/check-public-spoilers.py の形が違う(words)")
+
+    for language, language_words in entries:
+        if not isinstance(language_words, list):
+            raise SystemExit("tools/check-public-spoilers.py の形が違う(words)")
+        for word in language_words:
+            if not isinstance(word, str) or not word.strip():
+                continue
+            word = word.strip()
+            # English common words belong in source code and comments.  Only
+            # capitalized English names participate in the public-repository
+            # check; every other language keeps the established matcher.
+            if language == "en" and not ("A" <= word[0] <= "Z"):
+                continue
+            words.add(word)
+            word_languages.setdefault(word, language)
+
+
+def load_rules(layer: pathlib.Path) -> tuple[list[str], dict[str, int], list[str], list[str], list[str]]:
     words = set()
+    word_languages: dict[str, str] = {}
     for f in sorted(layer.rglob("*.json")):
         rel = f.relative_to(layer).as_posix()
         if rel.startswith(("materials/", "tools/")) or "/." in "/" + rel:
@@ -40,10 +71,13 @@ def load_rules(layer: pathlib.Path) -> tuple[list[str], list[str], list[str], li
         except (ValueError, UnicodeDecodeError):
             continue
         if isinstance(data, dict):
-            for rule in data.get("forbidden") or []:
-                for w in rule.get("words") or []:
-                    if isinstance(w, str) and w.strip():
-                        words.add(w.strip())
+            forbidden = data.get("forbidden") or []
+            if not isinstance(forbidden, list):
+                raise SystemExit("tools/check-public-spoilers.py の形が違う(forbidden)")
+            for rule in forbidden:
+                if not isinstance(rule, dict):
+                    raise SystemExit("tools/check-public-spoilers.py の形が違う(forbidden)")
+                load_words(rule.get("words") or [], words, word_languages)
     # 禁止語から外したが(気配として出す等)公開リポジトリには書かない語。読み込みの対象外の tools/ に置く
     # (ContentLoader は tools/ を読まず、封にも入らない)。形: {"publicOnlyWords": ["…", …]}
     patterns: list[str] = []
@@ -55,18 +89,19 @@ def load_rules(layer: pathlib.Path) -> tuple[list[str], list[str], list[str], li
             data = json.loads(extra.read_text(encoding="utf-8"))
         except (ValueError, UnicodeDecodeError):
             data = None
-        if not isinstance(data, dict) or not isinstance(data.get("publicOnlyWords"), list):
-            raise SystemExit("tools/public-words.json の形が違う(publicOnlyWords の配列)")
-        for w in data["publicOnlyWords"]:
-            if isinstance(w, str) and w.strip():
-                words.add(w.strip())
+        if not isinstance(data, dict) or "publicOnlyWords" not in data:
+            raise SystemExit("tools/public-words.json の形が違う(publicOnlyWords)")
+        load_words(data["publicOnlyWords"], words, word_languages)
         for key, destination in [("publicOnlyPatterns", patterns), ("publicOnlyIdentifiers", identifiers),
                                  ("identifierExceptions", exceptions)]:
             values = data.get(key, [])
             if not isinstance(values, list) or not all(isinstance(value, str) for value in values):
                 raise SystemExit(f"tools/public-words.json の形が違う({key} の文字列配列)")
             destination.extend(value for value in values if value)
-    return sorted(words, key=len, reverse=True), patterns, identifiers, exceptions
+    language_counts = {language: 0 for language in LANGUAGES}
+    for language in word_languages.values():
+        language_counts[language] += 1
+    return sorted(words, key=len, reverse=True), language_counts, patterns, identifiers, exceptions
 
 
 def matcher(words: list[str], patterns: list[str], identifiers: list[str], exceptions: list[str]):
@@ -136,7 +171,7 @@ def main() -> int:
     if layer is None:
         print("非公開の層が無いので、物語の語の検査は飛ばす")
         return 0
-    words, patterns, identifiers, exceptions = load_rules(layer)
+    words, language_counts, patterns, identifiers, exceptions = load_rules(layer)
     if not words and not patterns and not identifiers:
         print("非公開の層に検査規則が無い(forbidden.json と tools/public-words.json を確かめる)")
         return 1
@@ -174,7 +209,8 @@ def main() -> int:
     if found:
         print(f"物語の語が公開リポジトリに {len(found)} か所ある(語はログに出さない。手元で該当の行を見て直す)")
         return 1
-    print(f"物語の語は見つからない(語 {len(words)}、正規表現 {len(patterns)}、識別子 {len(identifiers)})")
+    breakdown = "・".join(f"{language} {count}" for language, count in language_counts.items() if count)
+    print(f"物語の語は見つからない(語 {len(words)}({breakdown})、正規表現 {len(patterns)}、識別子 {len(identifiers)})")
     return 0
 
 
