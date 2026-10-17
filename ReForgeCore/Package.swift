@@ -75,7 +75,7 @@ targets += testedModules.map {
                 exclude: testExcludes[$0] ?? [])
 }
 /// 受け入れテスト(TEST-R1-xx のボット走行など、複数システムをまたぐもの)
-targets.append(.testTarget(name: "AcceptanceTests", dependencies: ["ReForgeEngine", "RFTestSupport"]))
+targets.append(.testTarget(name: "AcceptanceTests", dependencies: ["ReForgeEngine", "RFTestSupport"], exclude: ["Fixtures"]))
 
 let package = Package(
     name: "ReForgeCore",
