@@ -129,6 +129,12 @@ jobs:
       - name: 固定文言の検査器を確かめる
         if: always()
         run: python3 tools/test_check_app_strings.py
+      - name: アプリの言語が出す言語 + Base だけ(OS の言語の一覧に使えない言語を出さない)
+        if: always()
+        run: python3 tools/check-languages.py
+      - name: 言語の検査器を確かめる
+        if: always()
+        run: python3 tools/test_check_languages.py
       - name: 足元カード・拠点のタブに、できない理由の文が無い
         if: always()
         run: python3 tools/check-no-reason-text.py
@@ -241,6 +247,15 @@ jobs:
           grep -E "\*\* BUILD" build.log || true
 
       # build.log・test.log は成果物に上げない(このジョブは非公開の層を重ねて回すので、記録に物語の文が混ざりうる)
+
+      - name: 束の言語が出す言語だけ(CFBundleLocalizations)
+        run: |
+          APP=build/Build/Products/Release-iphoneos/ReForge.app
+          /usr/libexec/PlistBuddy -c "Print :CFBundleLocalizations" "$APP/Info.plist"
+          # Base は Xcode が入れるかどうかの扱いが版で違うので、言語の集合として比べる(出す言語に足りない・多いなら失敗)
+          got=$(/usr/libexec/PlistBuddy -c "Print :CFBundleLocalizations" "$APP/Info.plist" | sed -e '1d;$d' | tr -d ' ' | grep -vx Base | sort | tr '\n' ' ')
+          want=$(python3 tools/released-languages.py | sort | tr '\n' ' ')
+          test "$got" = "$want" || { echo "CFBundleLocalizations [$got] が出す言語 [$want] と違う"; exit 1; }
 
       - name: Package ipa
         run: |

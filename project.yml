@@ -6,6 +6,9 @@ options:
     iOS: "17.0"
   createIntermediateGroups: true
   developmentLanguage: ja
+  # 言語の知らせ方: XcodeGen に knownRegions の鍵は無い。プロジェクトの言語は developmentLanguage・Base・
+  # 文字列カタログ(ReForge/Resources/InfoPlist.xcstrings)の言語の項で決まり、Xcode が Info.plist の CFBundleLocalizations にする。
+  # 出す言語(LanguageID.released)と一致していることは tools/check-languages.py が確かめる(INFOPLIST_KEY_CFBundleLocalizations は無効な鍵)。
 
 settings:
   base:
@@ -23,7 +26,7 @@ targets:
     type: application
     platform: iOS
     sources:
-      # Sources(SwiftUI)と Resources(Localizable.xcstrings・同梱フォント BIZ UDGothic と OFL のライセンス文)
+      # Sources(SwiftUI)と Resources(InfoPlist.xcstrings・同梱フォント BIZ UDGothic と OFL のライセンス文。画面の固定文言は Resources でなく content/public/text/ja/app*.json の表から引く)
       # (Resources/PrivacyInfo.xcprivacy も、ここから拡張子で自動的にリソースの段に束ねられる)
       - path: ReForge
       # コンテンツの束(公開の層の平文と、封をした非公開の層 private.sealed)。tools/content/stage.sh が作る。

@@ -1,0 +1,17 @@
+{
+  "sourceLanguage" : "ja",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Re:Forge"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

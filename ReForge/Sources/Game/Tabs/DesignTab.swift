@@ -28,7 +28,7 @@ struct DesignTabView: View {
     private var wb: WorkbenchModel { store.workbench }
 
     var body: some View {
-        InkPanel(title: Text("設計")) {
+        InkPanel(title: ui("ui.tab.design")) {
             if let m = wb.message {
                 Text(verbatim: m).foregroundStyle(InkColor.notice).accessibilityIdentifier("benchMessage")
             }
@@ -55,7 +55,7 @@ struct DesignTabView: View {
 
     private var inputRow: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("試す物").foregroundStyle(InkColor.textDim)
+            ui("ui.body.trial_input").foregroundStyle(InkColor.textDim)
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array((wb.bench?.materials ?? []).enumerated()), id: \.offset) { _, s in
@@ -68,7 +68,7 @@ struct DesignTabView: View {
             }
             if store.benchOpen(BenchGate.trial) {
                 HStack(spacing: 10) {
-                    Text("数")
+                    ui("ui.body.quantity")
                     chip(Text(verbatim: "−"), on: false) { wb.quantity = max(1, wb.quantity - 1) }
                     Text(verbatim: "\(wb.quantity)").frame(minWidth: 24).accessibilityIdentifier("quantity")
                     chip(Text(verbatim: "+"), on: false) { wb.quantity = min(99, wb.quantity + 1) }
@@ -90,13 +90,13 @@ struct DesignTabView: View {
                 .padding(10)
                 .background(InkColor.panel)
         } else {
-            Text("下の段を選んで積む").foregroundStyle(InkColor.textDim)
+            ui("ui.body.pick_module").foregroundStyle(InkColor.textDim)
         }
     }
 
     private var modulePalette: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("段").foregroundStyle(InkColor.textDim)
+            ui("ui.body.module_label").foregroundStyle(InkColor.textDim)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(wb.bench?.modules ?? [], id: \.module) { m in
                     chip(Text(verbatim: "\(m.glyph) \(m.name)"), note: m.missing, on: false, dim: m.missing != nil) {
@@ -106,7 +106,7 @@ struct DesignTabView: View {
                 }
                 // まだ知らない段があることだけを見せる(名前は出さない)
                 if let n = wb.bench?.unknownModules, n > 0 {
-                    Text(verbatim: "？ ×\(n)")
+                    ui("ui.body.unknown_modules", ["n": .int(n)])
                         .foregroundStyle(InkColor.textFaint)
                         .frame(minHeight: InkMetric.buttonHeight)
                         .accessibilityIdentifier("unknownModules")
@@ -121,7 +121,7 @@ struct DesignTabView: View {
             let target = wb.selectedStep ?? wb.steps.count - 1
             let inStep = Set(wb.steps.indices.contains(target) ? wb.steps[target].inputItems : [])
             VStack(alignment: .leading, spacing: 6) {
-                Text("\(target + 1) 段目に入れる").foregroundStyle(InkColor.textDim)
+                ui("ui.body.additive_target", ["n": .int(target + 1)]).foregroundStyle(InkColor.textDim)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(Array(adds.enumerated()), id: \.offset) { _, s in
@@ -140,16 +140,16 @@ struct DesignTabView: View {
     private var actionRow: some View {
         HStack(spacing: 10) {
             if store.benchOpen(BenchGate.trial) {
-                bigButton("試す", id: "trialButton", kind: .primary, enabled: !wb.steps.isEmpty && wb.input != nil) {
+                bigButton(ui("ui.button.trial"), id: "trialButton", kind: .primary, enabled: !wb.steps.isEmpty && wb.input != nil) {
                     Task { await wb.trial(store) }
                 }
             }
             if store.benchOpen(BenchGate.plate) {
-                bigButton("札にする", id: "plateButton", enabled: !wb.steps.isEmpty) {
+                bigButton(ui("ui.button.make_plate"), id: "plateButton", enabled: !wb.steps.isEmpty) {
                     Task { await wb.makePlate(store) }
                 }
             }
-            bigButton("崩す", id: "clearButton", enabled: !wb.steps.isEmpty) { Task { await wb.clear(store) } }
+            bigButton(ui("ui.button.clear"), id: "clearButton", enabled: !wb.steps.isEmpty) { Task { await wb.clear(store) } }
         }
     }
 
@@ -157,13 +157,13 @@ struct DesignTabView: View {
 
     private func platesArea(_ plates: [DesignBench.Plate]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("札").foregroundStyle(InkColor.textDim)
+            ui("ui.body.plates").foregroundStyle(InkColor.textDim)
             ForEach(plates, id: \.design) { p in
                 HStack(spacing: 8) {
-                    InkRow(glyph: "▤", title: Text(verbatim: p.result ?? "？"),
+                    InkRow(glyph: "▤", title: Text(verbatim: p.result ?? UIText.shared.string("ui.body.unknown")),
                            detail: Text(verbatim: p.steps.joined(separator: " → ")))
-                    chip(Text("写す"), on: false) { Task { await wb.load(plate: p, store) } }
-                    chip(Text("捨てる"), on: false) { Task { await wb.discard(p, store) } }
+                    chip(ui("ui.button.load_plate"), on: false) { Task { await wb.load(plate: p, store) } }
+                    chip(ui("ui.button.discard_plate"), on: false) { Task { await wb.discard(p, store) } }
                 }
             }
         }
@@ -179,7 +179,7 @@ struct DesignTabView: View {
                     showClues.toggle()
                 } label: {
                     HStack(spacing: 6) {
-                        Text("手がかり \(nb.clues.count)・所見 \(nb.findings.count)")
+                        ui("ui.body.clues_toggle", ["clues": .int(nb.clues.count), "findings": .int(nb.findings.count)])
                         Text(verbatim: showClues ? "▾" : "▸")
                     }
                         .foregroundStyle(InkColor.textDim)
@@ -191,7 +191,7 @@ struct DesignTabView: View {
                 if showClues {
                     ForEach(Array(nb.clues.enumerated()), id: \.offset) { _, c in ClueLineView(clue: c) }
                     ForEach(Array(nb.findings.enumerated()), id: \.offset) { _, f in
-                        Text(verbatim: "・\(f.text)").font(InkFont.small)
+                        ui("ui.body.finding_line", ["text": .string(f.text)]).font(InkFont.small)
                     }
                 }
             }
@@ -212,7 +212,7 @@ struct DesignTabView: View {
                 .foregroundStyle(on ? InkColor.accent : (dim ? InkColor.textDim : InkColor.text))
                 if let sense {
                     HStack(spacing: 4) {
-                        Text("手:")
+                        ui("ui.body.sense_label")
                         SenseWords.phrase(sense)
                     }
                     .font(InkFont.caption).foregroundStyle(InkColor.textDim).lineLimit(1)
@@ -223,9 +223,9 @@ struct DesignTabView: View {
         .buttonStyle(.ink(.secondary, fill: false))
     }
 
-    private func bigButton(_ label: LocalizedStringKey, id: String, kind: InkButtonKind = .secondary, enabled: Bool,
+    private func bigButton(_ label: Text, id: String, kind: InkButtonKind = .secondary, enabled: Bool,
                            _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { Text(label) }
+        Button(action: action) { label }
             .buttonStyle(.ink(kind))
             .disabled(!enabled)
             .accessibilityIdentifier(id)
@@ -238,8 +238,8 @@ struct ClueLineView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text("「\(clue.text)」")  // xcstrings: @
-            Text("\(clue.source)・\(clue.about)・\(clue.day)日目")  // xcstrings: @,@,lld
+            ui("ui.body.quote", ["text": .string(clue.text)])
+            ui("ui.body.clue_meta", ["source": .string(clue.source), "about": .string(clue.about), "day": .int(clue.day)])
                 .font(InkFont.small).foregroundStyle(InkColor.textDim)
         }
     }

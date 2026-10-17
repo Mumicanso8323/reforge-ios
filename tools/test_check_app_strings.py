@@ -120,6 +120,14 @@ class CheckAppStrings(unittest.TestCase):
         self.addCleanup(sample.close)
         self.assertEqual(sample.rules(), [4])
 
+    def test_core_ids_used_by_the_app_are_exempt_from_the_shape_rule(self):
+        table_files = {"Used.swift": USES_ALL, "A.swift": 'ui("ui.roster.confirm")\n'}
+        sample = Sample(table_files)
+        self.addCleanup(sample.close)
+        (sample.root / "content/public/text/ja/core_ui.json").write_text(
+            json.dumps({"language": "ja", "texts": {"ui.roster.confirm": "確定する"}}, ensure_ascii=False), encoding="utf-8")
+        self.assertEqual(sample.rules(), [])
+
     # 規則 5
     def test_dynamic_id_fails(self):
         for code in ('ui("ui.tab." + name)', "ui(id)", 'ui("ui.tab.\\(name)")', 'UIText.shared.string(id)'):

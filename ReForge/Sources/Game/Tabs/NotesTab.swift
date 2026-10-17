@@ -10,7 +10,7 @@ struct NotesTabView: View {
     private var wb: WorkbenchModel { store.workbench }
 
     var body: some View {
-        InkPanel(title: wb.page == .index ? Text("ノート") : nil) {
+        InkPanel(title: wb.page == .index ? ui("ui.tab.notes") : nil) {
             if let m = wb.message {
                 Text(verbatim: m).foregroundStyle(InkColor.notice)
             }
@@ -32,13 +32,13 @@ struct NotesTabView: View {
     private var index: some View {
         if let nb = wb.notebook {
             if store.benchOpen(BenchGate.trials), !nb.trials.isEmpty {
-                section("試したこと")
+                section(ui("ui.body.section_trials"))
                 ForEach(nb.trials, id: \.record) { t in
                     row {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(verbatim: "\(t.input.name) → \(t.result.name)")
                             HStack(spacing: 4) {
-                                Text("\(t.day)日目・\(t.steps)段・\(t.quantity)個・手:")
+                                ui("ui.body.trial_meta", ["day": .int(t.day), "steps": .int(t.steps), "quantity": .int(t.quantity)])
                                 SenseWords.phrase(t.result.percent)
                             }
                                 .font(InkFont.small).foregroundStyle(InkColor.textDim)
@@ -46,16 +46,16 @@ struct NotesTabView: View {
                     } open: { Task { await wb.open(.sheet(.trial(t.record)), store) } }
                 }
                 if !nb.findings.isEmpty {
-                    section("所見")
+                    section(ui("ui.body.section_findings"))
                     ForEach(Array(nb.findings.enumerated()), id: \.offset) { _, f in
-                        row { Text(verbatim: "・\(f.text)") } open: {
+                        row { ui("ui.body.finding_line", ["text": .string(f.text)]) } open: {
                             Task { await wb.open(.sheet(.trial(f.trial)), store) }
                         }
                     }
                 }
             }
             if store.benchOpen(BenchGate.codex), !nb.codex.isEmpty {
-                section("図鑑")
+                section(ui("ui.body.section_codex"))
                 ForEach(Array(nb.codex.enumerated()), id: \.offset) { _, c in
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {
@@ -67,17 +67,17 @@ struct NotesTabView: View {
                             }
                         }
                         ForEach(c.clues, id: \.self) { t in
-                            Text("「\(t)」").font(InkFont.small).foregroundStyle(InkColor.textDim)  // xcstrings: @
+                            ui("ui.body.quote", ["text": .string(t)]).font(InkFont.small).foregroundStyle(InkColor.textDim)
                         }
                     }
                 }
             }
             if store.benchOpen(BenchGate.clues), !nb.clues.isEmpty {
-                section("手がかり")
+                section(ui("ui.body.section_clues"))
                 ForEach(Array(nb.clues.enumerated()), id: \.offset) { _, c in ClueLineView(clue: c) }
             }
             if !nb.records.isEmpty {
-                section("記録")
+                section(ui("ui.body.records"))
                 ForEach(nb.records, id: \.sheet) { r in
                     row { Text(verbatim: "▤ \(r.title)") } open: {
                         Task { await wb.open(.sheet(.record(r.sheet)), store) }
@@ -85,7 +85,7 @@ struct NotesTabView: View {
                 }
             }
             if store.benchOpen(BenchGate.documents), !nb.documents.isEmpty {
-                section("資料")
+                section(ui("ui.body.section_documents"))
                 ForEach(nb.documents, id: \.id) { d in
                     row {
                         HStack {
@@ -97,7 +97,7 @@ struct NotesTabView: View {
                 }
             }
             if nb.trials.isEmpty && nb.codex.isEmpty && nb.clues.isEmpty && nb.records.isEmpty && nb.documents.isEmpty {
-                Text("まだ何も書いていない。").foregroundStyle(InkColor.textDim)
+                ui("ui.body.notes_empty").foregroundStyle(InkColor.textDim)
             }
         }
     }
@@ -111,8 +111,8 @@ struct NotesTabView: View {
             ProcessSheetView(sheet: s, actions: actions(for: source))
             if let a = wb.answering, let sid = sheetID(source) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("置く記録").foregroundStyle(InkColor.textDim)
-                    if a.candidates.isEmpty { Text("まだ無い。").foregroundStyle(InkColor.textDim) }
+                    ui("ui.body.answer_records").foregroundStyle(InkColor.textDim)
+                    if a.candidates.isEmpty { ui("ui.body.answer_none").foregroundStyle(InkColor.textDim) }
                     ForEach(a.candidates, id: \.record) { c in
                         row { Text(verbatim: c.label) } open: { Task { await wb.place(c, sheet: sid, store) } }
                     }
@@ -123,7 +123,7 @@ struct NotesTabView: View {
             if let im = s.grant, let sid = sheetID(source) { grantArea(im, labels: s.labels, sheet: sid) }
             if s.rosterConfirmed == false, let sid = sheetID(source) {
                 let labels = s.labels
-                InkHoldButton(label: coreText(labels?.rosterConfirm, "確定する"), hint: coreText(labels?.rosterConfirmHint, "長押しで確定")) {
+                InkHoldButton(label: coreText(labels?.rosterConfirm, ui("ui.roster.confirm")), hint: coreText(labels?.rosterConfirmHint, ui("ui.roster.confirm_hint"))) {
                     Task { await wb.confirmRoster(sheet: sid, store) }
                 }
                 .accessibilityIdentifier("confirmRoster")
@@ -132,18 +132,18 @@ struct NotesTabView: View {
     }
 
     /// 人ごとに付けられる技能と、その選択肢。
-    /// 内容の層が名前を渡したらそれ、無ければ画面の文字列カタログの文(端末の言語)。
-    private func coreText(_ text: String?, _ fallback: LocalizedStringKey) -> Text {
-        text.map { Text(verbatim: $0) } ?? Text(fallback)
+    /// 内容の層が名前を渡したらそれ、無ければ文言の表の文(いまの言語)。
+    private func coreText(_ text: String?, _ fallback: Text) -> Text {
+        text.map { Text(verbatim: $0) } ?? fallback
     }
 
     private func grantArea(_ im: ProcessSheet.SkillGrant, labels: ProcessSheet.Labels?, sheet sid: SheetID) -> some View {
-        InkSection(title: coreText(labels?.grantTitle, "技能を付ける")) {
+        InkSection(title: coreText(labels?.grantTitle, ui("ui.grant.title"))) {
             ForEach(im.targets, id: \.person) { t in
                 VStack(alignment: .leading, spacing: 6) {
                     InkRow(title: Text(verbatim: t.name),
                            detail: t.written.isEmpty ? nil : Text(verbatim: t.written.formatted(.list(type: .and))),
-                           value: t.declined == nil ? nil : (t.declined == true ? coreText(labels?.grantRefused, "本人が断った") : coreText(labels?.grantSkip, "付けない")))
+                           value: t.declined == nil ? nil : (t.declined == true ? coreText(labels?.grantRefused, ui("ui.grant.refused")) : coreText(labels?.grantSkip, ui("ui.grant.skip"))))
                     if t.declined == nil {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
@@ -153,7 +153,7 @@ struct NotesTabView: View {
                                         .buttonStyle(.ink(.secondary, fill: false))
                                 }
                                 Button { Task { await wb.grant(sheet: sid, person: t.person, skill: nil, store) } }
-                                    label: { coreText(labels?.grantSkip, "付けない") }
+                                    label: { coreText(labels?.grantSkip, ui("ui.grant.skip")) }
                                     .buttonStyle(.ink(.quiet, fill: false))
                             }
                         }
@@ -177,7 +177,7 @@ struct NotesTabView: View {
         Button {
             Task { await wb.back(store) }
         } label: {
-            Text("← もどる")
+            ui("ui.button.back")
         }
         .buttonStyle(.ink(.quiet, fill: false))
         .accessibilityIdentifier("notesBack")
@@ -205,8 +205,8 @@ struct NotesTabView: View {
 
     // MARK: 部品
 
-    private func section(_ title: LocalizedStringKey) -> some View {
-        Text(title).font(InkFont.small).foregroundStyle(InkColor.textDim).padding(.top, 8)
+    private func section(_ title: Text) -> some View {
+        title.font(InkFont.small).foregroundStyle(InkColor.textDim).padding(.top, 8)
     }
 
     private func row<C: View>(@ViewBuilder _ content: () -> C, open: @escaping () -> Void) -> some View {

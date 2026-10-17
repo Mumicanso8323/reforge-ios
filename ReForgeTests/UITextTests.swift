@@ -41,6 +41,21 @@ final class UITextTests: XCTestCase {
         XCTAssertEqual(text.string("ui.band.made_sep"), "・") // ja-table
     }
 
+    /// 区切りと空白は表の文が持つ(コードで足さない)。対象・状態が無いときは、その区切りごと出ない。
+    func testCrewSummaryJoinsThroughTheTable() throws {
+        let text = try configured()
+        func summary(target: String?, conditions: String?) -> String {
+            text.string("ui.body.crew_summary", [
+                "kind": .string("A"), "hasTarget": .string(target == nil ? "no" : "yes"), "target": .string(target ?? ""),
+                "doing": .string("B"), "hasConditions": .string(conditions == nil ? "no" : "yes"), "conditions": .string(conditions ?? ""),
+            ])
+        }
+        XCTAssertEqual(summary(target: nil, conditions: nil), "A ・ B") // ja-table
+        XCTAssertEqual(summary(target: "T", conditions: "C"), "A T ・ B ・ C") // ja-table
+        XCTAssertEqual(text.string("ui.button.assign_chip", ["kind": .string("A"), "hasTarget": .string("no"), "target": .string("")]), "A")
+        XCTAssertEqual(text.string("ui.button.assign_chip", ["kind": .string("A"), "hasTarget": .string("yes"), "target": .string("T")]), "A T")
+    }
+
     /// (ii) 擬似言語で configure すると、⟦…⟧ で囲まれた文を返す。
     func testPseudoLanguageWrapsTheSentence() throws {
         let text = try configured(.pseudo)

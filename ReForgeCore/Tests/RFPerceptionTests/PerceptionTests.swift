@@ -296,14 +296,17 @@ final class PerceptionTests: XCTestCase {
         XCTAssertFalse(ForbiddenAudit.auditFixedStrings(["%lld iron_ore"], content: db, origin: "x").isEmpty)
     }
 
-    /// アプリの画面の固定文言(Localizable.xcstrings)も、重ねたコンテンツの規則で全段 0 件。
-    func testAppStringCatalogPassesRules() throws {
-        let url = TestContent.repoRoot.appendingPathComponent("ReForge/Resources/Localizable.xcstrings")
-        try XCTSkipUnless(FileManager.default.fileExists(atPath: url.path), "アプリの文字列カタログが無い")
-        let obj = try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any]
-        let keys = try XCTUnwrap(obj?["strings"] as? [String: Any]).keys.sorted()
-        XCTAssertFalse(keys.isEmpty)
-        let v = ForbiddenAudit.auditFixedStrings(keys, content: try TestContent.full(), origin: "Localizable.xcstrings")
+    /// アプリの画面の固定文言(文言の表 content/public/text/ja/app*.json。L-11 で文字列カタログから移した)も、
+    /// 重ねたコンテンツの規則で全段 0 件。
+    func testAppTextTablesPassRules() throws {
+        let directory = TestContent.repoRoot.appendingPathComponent("content/public/text/ja", isDirectory: true)
+        var sentences: [String] = []
+        for name in try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted() where name.hasPrefix("app") && name.hasSuffix(".json") {
+            let obj = try JSONSerialization.jsonObject(with: Data(contentsOf: directory.appendingPathComponent(name))) as? [String: Any]
+            sentences += try XCTUnwrap(obj?["texts"] as? [String: String]).values.sorted()
+        }
+        XCTAssertFalse(sentences.isEmpty)
+        let v = ForbiddenAudit.auditFixedStrings(sentences, content: try TestContent.full(), origin: "app*.json")
         XCTAssertEqual(v.count, 0, "\(v.prefix(20))")
     }
 

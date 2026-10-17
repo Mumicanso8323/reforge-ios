@@ -32,7 +32,7 @@ ID_SHAPE = re.compile(r"^ui\.(?:%s)\.[a-z][a-z0-9_]*$" % "|".join(KINDS))
 CALL = re.compile(r"(?<![\w.])(?<!func )(ui|UIText\.shared\.string)\(")
 UI_TEXT_FILE = "ReForge/Sources/Theme/UIText.swift"
 ARG_NAME = re.compile(r"\{\s*([A-Za-z_][A-Za-z0-9_]*)\s*[,}]")
-DICT_KEY = re.compile(r'"([A-Za-z_][A-Za-z0-9_]*)"\s*:')
+DICT_KEY = re.compile(r'[\[,]\s*"([A-Za-z_][A-Za-z0-9_]*)"\s*:')
 
 
 def scan_strings(source):
@@ -278,7 +278,8 @@ def check(root):
                 problems.append((5, relative, number))
                 continue
             used.add(literal)
-            if not ID_SHAPE.match(literal):
+            # 本体が使う ID(ui.roster.*・ui.grant.* など。app*.json に無い物)は形の対象にしない
+            if not ID_SHAPE.match(literal) and (literal in app or literal not in everything):
                 problems.append((4, relative, number))
             if literal not in everything:
                 problems.append((2, relative, number))
@@ -330,8 +331,8 @@ def write_baseline(root):
     print(f"基準を書いた: {sum(new.values())} 件({len(new)} ファイル)")
 
 
-# 旧カタログのキーのうち、表の文に移さなかった物(断片の連結をやめて 1 つの差し込みの文にしたため)。
-RETIRED_FRAGMENTS = {"残り", "回", "手ざわり: ", "割くらい", "日目"}
+# 旧カタログのキーのうち、表の文に移さなかった物(漢数字の表も断片:コードの表をやめて「割くらい」の文が持つ。断片の連結をやめて 1 つの差し込みの文にしたため)。
+RETIRED_FRAGMENTS = {"残り", "回", "手ざわり: ", "割くらい", "日目", "必要: ", *"一二三四五六七八九十"}
 
 
 def parity(root, catalog=None):
@@ -348,6 +349,10 @@ def parity(root, catalog=None):
 
     values = {shape(v) for v in everything.values()}
     debug_bodies = []
+    allow_path = root / "tools" / "app-strings-allow.json"
+    if allow_path.exists():  # 許可の一覧(名前の表・開発者向けの組み立て)も、表に移さない物
+        for literals in json.loads(allow_path.read_text(encoding="utf-8")).values():
+            debug_bodies.extend(static_text(body) for body in literals)
     for path in sources(root):
         text = path.read_text(encoding="utf-8")
         flags = debug_lines(text)

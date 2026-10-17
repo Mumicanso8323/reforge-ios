@@ -9,10 +9,10 @@
 ## 構成
 
 - `ReForge/` — アプリ(SwiftUI、iOS 17 以上)。画面は本体が作る `Frame` を描くだけです。下に高さ 50pt の広告枠 1 つ(いまはダミーの灰色の枠)を確保した共通コンテナの中に全画面を置きます。購入(広告除去)は枠だけで、StoreKit はまだ入れていません。
-  - 画面の固定文言は `Text("…")` のリテラルで書き、`ReForge/Resources/Localizable.xcstrings` に集めます。ソースを変えたら `python3 tools/gen-xcstrings.py` でカタログを作り直してください(CI が `--check` で抜けを見ます)。多言語の文言の表へ移す作業が進んでいます。
+  - 画面の固定文言は `ui("ui.<区分>.<名前>")` で文言の表(`content/public/text/ja/app*.json`)から引きます。`Text("…")` のリテラルは書きません。確かめは `python3 tools/check-app-strings.py` です(CI が見ます)。
 - `ReForgeCore/` — Swift パッケージ。UIKit / SwiftUI に依存せず Linux でもテストできます。モジュールは層に分かれています(`RFKernel` → 地図・物質・文言の書式 → 世界状態とコンテンツ → 規則と認識 → 各システム → シミュレーション・保存・画面向けの組み立て)。正本は `docs/architecture/A-modules.md`。乱数は seed 固定で、同じ入力から同じ結果になります。
 - `content/public/` — 公開の試験用コンテンツ(物語を含まない最小の集まり)。本物のコンテンツは非公開の層で、ビルドのときに封をしてアプリに入れます。
-- `tools/` — 確かめの道具(`check-app-switches.py`・`check-app-names.py`・`check-public-spoilers.py`・`check-store-metadata.py`・`gen-xcstrings.py`)。
+- `tools/` — 確かめの道具(`check-app-switches.py`・`check-app-names.py`・`check-public-spoilers.py`・`check-store-metadata.py`・`check-app-strings.py`・`check-languages.py`)。
 - `store/` — ストアの原稿の置き場(言語ごと)。
 - `docs/` — 設計(`architecture/` の A〜G)と、作業の説明書(`briefs/`)。
 - `project.yml` — XcodeGen の定義。`.xcodeproj` はコミットせず、生成して使います。

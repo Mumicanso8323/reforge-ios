@@ -33,7 +33,7 @@
     "ui.body.slot_dawn": "{day} 日目の夜明け",
     "ui.body.slot_manual": "手動 {number}",
     "ui.body.slot_resume": "つづき",
-    "ui.bubble.purity": "手ざわり: {tenths, select, 1 {一割くらい} 2 {二割くらい} 3 {三割くらい} 4 {四割くらい} 5 {五割くらい} 6 {六割くらい} 7 {七割くらい} 8 {八割くらい} 9 {九割くらい} 10 {十割くらい} other {{tenths}割くらい}}",
+    "ui.bubble.purity": "手ざわり: {tenths, select, 1 {一割くらい} 2 {二割くらい} 3 {三割くらい} 4 {四割くらい} 5 {五割くらい} 6 {六割くらい} 7 {七割くらい} 8 {八割くらい} 9 {九割くらい} 10 {十割くらい}}",
     "ui.bubble.remaining": "残り {n} 回",
     "ui.button.ask": "頼む",
     "ui.button.cancel": "やめる",
