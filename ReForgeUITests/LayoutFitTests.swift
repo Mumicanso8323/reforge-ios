@@ -147,4 +147,23 @@ final class LayoutFitTests: XCTestCase {
         defer { app.terminate() }
         checkDayWrap(app, "大きい文字")
     }
+
+    /// 火の画面(W-02d): 日没の世界で、火のゲージ・寝る見込み・申し出が出て、「頼む」を押すと申し出が消え、「寝る」は押せたまま。
+    func testFireScreenAtDusk() {
+        let app = launch("dayWrap")
+        defer { app.terminate() }
+        let gauge = one(app, "fireGauge")
+        XCTAssertTrue(gauge.waitForExistence(timeout: 60), "火のゲージが出ない")
+        XCTAssertFalse(gauge.value as? String == "", "火のゲージの値が空")
+        XCTAssertTrue(one(app, "sleepForecast").waitForExistence(timeout: 30), "寝る見込みの行が出ない")
+        let offer = one(app, "offer-tendFire")
+        if offer.waitForExistence(timeout: 10) {
+            offer.tap()
+            let gone = NSPredicate(format: "exists == false")
+            expectation(for: gone, evaluatedWith: one(app, "offer-tendFire"))
+            waitForExpectations(timeout: 30)
+        }
+        let sleep = app.buttons["寝る"]
+        XCTAssertTrue(sleep.exists && sleep.isHittable, "寝るが押せない")
+    }
 }

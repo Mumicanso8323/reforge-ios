@@ -18,6 +18,9 @@ struct StatusBandView: View {
                 }
                 .bold()
                 phase
+                if let g = store.fireGauge, store.ui.isOpen(UIElements.bandFire) {
+                    fireGauge(g)
+                }
                 ForEach(store.status.filter { !$0.label.isEmpty && !$0.value.isEmpty }, id: \.key) { item in
                     HStack(spacing: 3) {
                         Text(verbatim: item.label).foregroundStyle(InkColor.textDim)
@@ -36,15 +39,6 @@ struct StatusBandView: View {
                     .accessibilityValue(Text(verbatim: item.value))
                     .accessibilityIdentifier("status-item-\(item.key)")
                 }
-            }
-            // 日没の火の見込みは見るだけの帯に残す。
-            if store.decision == nil, !store.clock.bandActions.isEmpty, let o = store.clock.fireOutlook {
-                HStack(spacing: 4) {
-                    Text("火:")
-                    FireOutlookLine.word(o)
-                }
-                .foregroundStyle(InkColor.textDim)
-                .accessibilityIdentifier("duskFireOutlook")
             }
             if let r = store.resumeBanner {
                 ResumeBannerView(line: r)
@@ -78,6 +72,39 @@ struct StatusBandView: View {
         // 子の識別子(status-item-*)を上書きしないよう、まとめずに含む形にする(折り返しのレイアウトでは項目が直の子になる)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("statusBand")
+    }
+
+    /// 火のゲージ: 見出し + 5 段の言葉。状態の表示で、押せる物ではない。
+    private func fireGauge(_ g: FireGaugeView) -> some View {
+        let word = Self.fireWord(g.level)
+        return HStack(spacing: 3) {
+            Text("火").foregroundStyle(InkColor.textDim)
+            Text(verbatim: word).foregroundStyle(Self.fireColor(g))
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(Text(verbatim: word))
+        .accessibilityIdentifier("fireGauge")
+    }
+
+    /// 5 段の固定の言葉(日本語は画面の側)。
+    private static func fireWord(_ l: HearthLevel) -> String {
+        switch l {
+        case .out: String(localized: "消えている")
+        case .smoldering: String(localized: "くすぶっている")
+        case .flickering: String(localized: "ちらついている")
+        case .burning: String(localized: "燃えている")
+        case .roaring: String(localized: "盛んに燃えている")
+        }
+    }
+
+    private static func fireColor(_ g: FireGaugeView) -> Color {
+        if g.level == .out { return InkColor.alert }
+        switch g.outlook {
+        case .throughNight: return InkColor.text
+        case .beforeDawn, .midnight: return InkColor.notice
+        case .untilEvening: return InkColor.alert
+        }
     }
 
     @ViewBuilder private var phase: some View {

@@ -131,6 +131,16 @@
         }
       }
     },
+    "くすぶっている": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "くすぶっている"
+          }
+        }
+      }
+    },
     "ここに建てる": {
       "localizations": {
         "ja": {
@@ -177,6 +187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "すべての権利を留保"
+          }
+        }
+      }
+    },
+    "ちらついている": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ちらついている"
           }
         }
       }
@@ -1331,6 +1351,16 @@
         }
       }
     },
+    "消えている": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消えている"
+          }
+        }
+      }
+    },
     "混じり気がほぼ無い": {
       "localizations": {
         "ja": {
@@ -1351,12 +1381,62 @@
         }
       }
     },
-    "火:": {
+    "火": {
       "localizations": {
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "火:"
+            "value": "火"
+          }
+        }
+      }
+    },
+    "火は夜明けまでに消える": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "火は夜明けまでに消える"
+          }
+        }
+      }
+    },
+    "火は夜明けまで持つ": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "火は夜明けまで持つ"
+          }
+        }
+      }
+    },
+    "炉は朝までに冷える": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "炉は朝までに冷える"
+          }
+        }
+      }
+    },
+    "炉は朝まで熱い": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "炉は朝まで熱い"
+          }
+        }
+      }
+    },
+    "燃えている": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "燃えている"
           }
         }
       }
@@ -1367,6 +1447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "物語のデータを読めなかったので、試遊用のデータで動いています"
+          }
+        }
+      }
+    },
+    "盛んに燃えている": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "盛んに燃えている"
           }
         }
       }
@@ -1867,6 +1957,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "開発"
+          }
+        }
+      }
+    },
+    "頼む": {
+      "localizations": {
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "頼む"
           }
         }
       }
