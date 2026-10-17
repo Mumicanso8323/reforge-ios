@@ -44,6 +44,8 @@ final class AppModel {
     let storeService: any StoreService
     let adProvider: any AdProvider
     let backgroundTasks: any BackgroundTaskManaging
+    /// 言語の状態(L-10b)。選びは UserDefaults にあり、セーブには入れない(記録を消しても残る)。
+    let language: AppLanguage
     /// 広告除去の権利(正は StoreService。UserDefaults はキャッシュ)。
     private(set) var adsRemoved: Bool
     private(set) var game: GameStore?
@@ -126,7 +128,8 @@ final class AppModel {
          storeService: any StoreService = UnavailableStoreService(),
          adProvider: any AdProvider = NoopAdProvider(),
          backgroundTasks: any BackgroundTaskManaging = ApplicationBackgroundTasks(),
-         bundle: Bundle = .main, defaults: UserDefaults = .standard) {
+         bundle: Bundle = .main, defaults: UserDefaults = .standard,
+         language: AppLanguage? = nil) {
         self.prologueSeen = PrologueSeen(defaults: defaults)
         FontBook.register(bundle: bundle)
         var content: ContentDB?
@@ -148,6 +151,27 @@ final class AppModel {
         self.backgroundTasks = backgroundTasks
         self.adsRemoved = UserDefaults.standard.bool(forKey: Self.adsRemovedKey)
         self.hasResume = Self.resumeIsReadable(saves)
+        let language = language ?? AppLanguage(defaults: defaults, tables: content?.textTables ?? TextTables())
+        self.language = language
+        InkFont.setLanguage(language.effective.rawValue)
+    }
+
+    /// ゲームに渡す言語と、開発の版だけの [ja] 印(表に無くて日本語に落ちた文の印)。
+    private var gameLanguage: LanguageID { language.effective }
+    private var markFallback: Bool {
+#if DEBUG
+        true
+#else
+        false
+#endif
+    }
+
+    /// 言語を選ぶ。字体を替え(AppLanguage.select)、ゲーム中なら世界を進めずに文だけ引き直す。
+    func selectLanguage(_ choice: LanguageChoice) {
+        language.select(choice)
+        guard let g = game else { return }
+        let effective = language.effective
+        Task { await g.setLanguage(effective) }
     }
 
     /// アプリの束に同梱した `content/`(公開の層と、あれば封をした非公開の層)を読む。鍵は rf-seal が生成した ContentKey。
@@ -173,7 +197,7 @@ final class AppModel {
         guard let content else { return }
         GameStore.forgetLastOperation()
         let world = GameBootstrap.newWorld(content: content, seed: seed)
-        game = GameStore(content: content, world: world, saves: saves)
+        game = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback)
         game?.isPaused = settingsOpen
     }
 
@@ -245,7 +269,7 @@ final class AppModel {
             world.map[origin.layer]?.deposits.add(
                 DepositGenerator.make(id: DepositID("deposit.screenshot"), at: vein, category: .coal, rng: &rng))
         }
-        game = GameStore(content: content, world: world, saves: saves)
+        game = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback)
         game?.isPaused = settingsOpen
     }
 #endif
@@ -254,7 +278,7 @@ final class AppModel {
         guard let content else { return }
         let world = GameBootstrap.newWorld(content: content, seed: UInt64.random(in: .min ... .max))
         GameStore.forgetLastOperation()
-        let g = GameStore(content: content, world: world, saves: saves)
+        let g = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback)
         settingsOpen = false
         game = g
         hasResume = true
@@ -276,7 +300,7 @@ final class AppModel {
             return
         }
         settingsOpen = false
-        game = GameStore(content: content, world: env.world, saves: saves)
+        game = GameStore(content: content, world: env.world, saves: saves, language: gameLanguage, markFallback: markFallback)
     }
 
     func backToTitle() async {

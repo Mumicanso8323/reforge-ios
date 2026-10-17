@@ -32,7 +32,9 @@ struct SettingsView: View {
             RemoveAdsView(app: app, back: { showRemoveAds = false })
         } else {
             VStack(alignment: .leading, spacing: 24) {
-                // 言語の節の場所(L-10b で作る。いまは空けておくだけ)
+                // 言語の節(選べる言語が 2 つ以上のときだけ出る。いまは日本語だけなので何も置かない)
+                LanguageSection(app: app)
+
                 if AdPolicy.shown {
                     InkSection(title: Text("広告")) {
                         if app.adsRemoved {

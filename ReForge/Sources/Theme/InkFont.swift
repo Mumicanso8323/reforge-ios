@@ -1,4 +1,15 @@
 import SwiftUI
+import Observation
+
+/// 今の言語を入れる観察できる小さな箱(L-10b)。InkFont.font がここを読むので、setLanguage で書くと
+/// InkFont を使っている View が作り直されずに描き直される(.id で全体を作り直さない)。
+/// 書く側は主スレッドの 1 か所だけ(AppLanguage.select と AppModel.init)。読む側の InkFont.font が
+/// MainActor の外(非分離の文脈)からも呼ばれるので、@MainActor にはせず @unchecked Sendable で通す。
+@Observable
+final class InkFontState: @unchecked Sendable {
+    static let shared = InkFontState()
+    var language: String = Locale.preferredLanguages.first ?? "ja"
+}
 
 /// 文字組み(docs/art/README.md §2)。書体は言語ごとに 1 つ(日本語・英語は同梱の BIZ UDGothic、
 /// 中国語と韓国語は iOS の標準の書体。BIZ UDGothic にハングルと簡体字の字形が無いため)。
@@ -6,10 +17,10 @@ import SwiftUI
 /// 地図の 1 マス 1 文字は言語によらず FontBook.mapFont(記号は書体に無くても固定の枠の中央に描く)。
 enum InkFont {
     /// 今の言語(入口はここ 1 か所)。アプリの言語の設定が変わったら setLanguage で入れ、画面を描き直す。
-    private(set) static var language: String = Locale.preferredLanguages.first ?? "ja"
+    static var language: String { InkFontState.shared.language }
 
     static func setLanguage(_ identifier: String) {
-        language = identifier
+        InkFontState.shared.language = identifier
     }
 
     /// 言語の識別子(ja・en・zh-Hans・zh-Hant・ko など)から書体の名前を選ぶ。
