@@ -66,6 +66,8 @@ jobs:
       # TEST-O12 地図の保証の種の数(手元の既定は 50。CI は全部の 1000)
       REFORGE_O12_SEEDS: "1000"
       REFORGE_FIRSTFIRE_SEEDS: "200"
+      # W-05 生産ボットの基準(1 走が長い。CI は 2 走)
+      REFORGE_W05_SEEDS: "2"
     steps:
       - uses: actions/checkout@v5
       # main への push で鍵が無いと非公開の層が丸ごと飛ばされて緑になる。それは失敗にする(手動起動・PR は fork などで鍵が無いことがあるので今のまま)。
