@@ -124,6 +124,26 @@ enum BandOverlayLayout {
     }
 }
 
+/// 子に高さの上限を伝え、子の大きさをそのまま返す。
+/// (.frame(maxHeight:) は提案が上限より大きいと上限いっぱいに広がり、帯が地図の下端から浮く)
+struct CappedHeightLayout: Layout {
+    var maxHeight: CGFloat?
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let child = subviews.first else { return .zero }
+        return child.sizeThatFits(capped(proposal))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: bounds.origin, proposal: capped(ProposedViewSize(bounds.size)))
+    }
+
+    private func capped(_ p: ProposedViewSize) -> ProposedViewSize {
+        guard let m = maxHeight else { return p }
+        return ProposedViewSize(width: p.width, height: min(p.height ?? m, m))
+    }
+}
+
 /// 地図に重なる帯の実測高さを親へ渡す。
 struct MapBandHeightKey: PreferenceKey {
     static var defaultValue: CGFloat = 0

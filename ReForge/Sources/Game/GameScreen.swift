@@ -89,11 +89,12 @@ struct GameScreen: View {
                 if tab == .map, app.activePrologue == nil {
                     // 帯が地図の半分(操作部品を持ち上げる上限。BandOverlayLayout.controlLift)を超えるときは、
                     // 半分までに収めて中を縦に流す(大きい文字で火の行・見込み・申し出が増えても操作棒と重ならない。隠さない)
-                    ViewThatFits(in: .vertical) {
-                        MapActionBand(store: store)
-                        ScrollView(.vertical, showsIndicators: false) { MapActionBand(store: store) }
+                    CappedHeightLayout(maxHeight: mapAreaHeight > 0 ? mapAreaHeight / 2 : nil) {
+                        ViewThatFits(in: .vertical) {
+                            MapActionBand(store: store)
+                            ScrollView(.vertical, showsIndicators: false) { MapActionBand(store: store) }
+                        }
                     }
-                    .frame(maxHeight: mapAreaHeight > 0 ? mapAreaHeight / 2 : nil)
                     .background {
                         GeometryReader { geo in
                             Color.clear.preference(key: MapBandHeightKey.self, value: geo.size.height)

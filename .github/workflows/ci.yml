@@ -226,6 +226,10 @@ jobs:
                 # 非公開の層を重ねて回した。公開ログに XCTAssert の文面(物語の文が入りうる)を出さない。テストの名前(公開のコード)だけ。
                 grep -oE "Test Case '[^']+' failed" test.log | sort -u | head -50 || true
                 grep -qE "error: |Undefined symbol" test.log && echo "ビルドかテストにエラー(詳細は手元で)"
+                # コンパイルの誤り(行:桁 付き)と xcodebuild 自身の誤りだけを出す。公開のコードのファイルに限り、生成物(鍵)は出さない。
+                # XCTAssert の失敗は「行:」だけで桁が無いので、ここには混ざらない
+                grep -E "^/[^ ]*/(ReForge|ReForgeTests|ReForgeUITests|ReForgeCore)/[^ ]*\.swift:[0-9]+:[0-9]+: error: |^xcodebuild: error: " test.log \
+                  | grep -v "/Generated/" | sed -E 's|^/[^ ]*/reforge-ios/||' | sort -u | head -40 || true
               else
                 grep -E "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
               fi

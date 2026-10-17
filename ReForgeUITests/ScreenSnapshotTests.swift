@@ -138,6 +138,11 @@ final class ScreenSnapshotTests: XCTestCase {
             // 初回は擬似言語の配置の所見(overflow・offscreen・overlap・区分の表に無い id)を全て報告だけにする。失敗にするのは写真が撮れない・落ちる時だけ
             reported = findings
             findings = []
+        } else if lang.code != "ja" {
+            // 出す言語(LanguageID.released)は日本語だけ。ほかの言語の写真は、訳が無く日本語の文に開発の版の [ja] の印が付いて伸びる。
+            // その伸びで縮む・切れる(overflow)は報告だけにする(画面の外・重なりは失敗のまま)。訳が入った言語は出す時にここから外す
+            reported = findings.filter { $0.kind == "overflow" }
+            findings.removeAll { $0.kind == "overflow" }
         }
         if screen == "prologue" || screen == "stage" {
             findings += prologueFindings(app, lang: lang.code, screen: screen, screenshot: screenshot)
