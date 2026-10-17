@@ -13,7 +13,7 @@ CHECKER = HERE / "check-public-spoilers.py"
 
 
 class PublicSpoilerCheckerTests(unittest.TestCase):
-    def run_checker(self, source: str, rules: dict) -> subprocess.CompletedProcess[str]:
+    def run_checker(self, source: str, rules: dict, forbidden: dict | None = None) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as temp:
             root = pathlib.Path(temp)
             tools = root / "tools"
@@ -23,6 +23,8 @@ class PublicSpoilerCheckerTests(unittest.TestCase):
             shutil.copy2(CHECKER, tools / CHECKER.name)
             (root / "sample.txt").write_text(source)
             (private_tools / "public-words.json").write_text(json.dumps(rules))
+            if forbidden is not None:
+                (root / "private" / "forbidden.json").write_text(json.dumps(forbidden))
             subprocess.run(["git", "init", "-q"], cwd=root, check=True)
             subprocess.run(["git", "add", "sample.txt", "tools"], cwd=root, check=True)
             env = os.environ | {"REFORGE_PRIVATE_CONTENT": str(root / "private")}
@@ -66,6 +68,101 @@ class PublicSpoilerCheckerTests(unittest.TestCase):
                  "publicOnlyIdentifiers": [], "identifierExceptions": []}
         result = self.run_checker("\u304b\u3099\u3089\u304f\u305f\n", rules)
         self.assertEqual(result.returncode, 1)
+
+    def test_decomposed_synthetic_word_hits(self) -> None:
+        rules = {"publicOnlyWords": ["zo\u0308rb"], "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("z\u006f\u0308rb\n", rules)
+        self.assertEqual(result.returncode, 1)
+
+    def test_language_object_matches_korean_and_chinese_substrings(self) -> None:
+        rules = {"publicOnlyWords": [],
+                 "publicOnlyPatterns": [], "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        forbidden = {"forbidden": [{"words": {"ko": ["zorbko"], "zh-Hans": ["zorbzh"]}}]}
+        result = self.run_checker("zorbko\uc744\n\u7532zorbzh\u4e59\n", rules, forbidden)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sample.txt:1", result.stdout)
+        self.assertIn("sample.txt:2", result.stdout)
+
+    def test_language_object_only_uses_capitalized_english_words_at_boundaries(self) -> None:
+        rules = {"publicOnlyWords": [],
+                 "publicOnlyPatterns": [], "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        forbidden = {"forbidden": [{"words": {"en": ["zorblow", "Zorbleft"]}}]}
+        result = self.run_checker("Zorbleft\nZorblefty\nxZorbleft\nzorblow\n", rules, forbidden)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sample.txt:1", result.stdout)
+        self.assertNotIn("sample.txt:2", result.stdout)
+        self.assertNotIn("sample.txt:3", result.stdout)
+        self.assertNotIn("sample.txt:4", result.stdout)
+        self.assertNotIn("Zorbleft", result.stdout)
+        self.assertNotIn("zorblow", result.stdout)
+
+    def test_latin_word_inside_ja_object_respects_boundary(self) -> None:
+        rules = {"publicOnlyWords": [],
+                 "publicOnlyPatterns": [], "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        forbidden = {"forbidden": [{"words": {"ja": ["zorbja"]}}]}
+        result = self.run_checker("zorbja\nzorbjay\nxzorbja\n", rules, forbidden)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sample.txt:1", result.stdout)
+        self.assertNotIn("sample.txt:2", result.stdout)
+        self.assertNotIn("sample.txt:3", result.stdout)
+
+    def test_non_array_forbidden_fails(self) -> None:
+        rules = {"publicOnlyWords": [], "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("safe\n", rules, {"forbidden": {"words": ["zorbsecret"]}})
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn("zorbsecret", result.stdout + result.stderr)
+
+    def test_dropped_english_count_is_reported(self) -> None:
+        rules = {"publicOnlyWords": {"en": ["zorblow", "Zorbup"]}, "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("safe\n", rules)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("除外 1", result.stdout)
+        self.assertNotIn("zorblow", result.stdout)
+
+    def test_legacy_arrays_remain_active(self) -> None:
+        rules = {"publicOnlyWords": ["zorbextra"], "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        forbidden = {"forbidden": [{"words": ["zorbarray"]}]}
+        result = self.run_checker("zorbarray\nzorbextra\n", rules, forbidden)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sample.txt:1", result.stdout)
+        self.assertIn("sample.txt:2", result.stdout)
+
+    def test_pronoun_rules_do_not_participate(self) -> None:
+        rules = {"publicOnlyWords": ["zorbpublic"], "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        forbidden = {"pronounRules": [{"error": ["zorbpronoun"]}]}
+        result = self.run_checker("zorbpronoun\n", rules, forbidden)
+        self.assertEqual(result.returncode, 0)
+        self.assertNotIn("sample.txt:", result.stdout)
+        self.assertNotIn("zorbpronoun", result.stdout)
+
+    def test_unknown_language_key_fails_without_exposing_words(self) -> None:
+        rules = {"publicOnlyWords": [], "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        forbidden = {"forbidden": [{"words": {"x-zorb": ["zorbsecret"]}}]}
+        result = self.run_checker("safe\n", rules, forbidden)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("(\u8a00\u8a9e\u306e\u9375)", result.stderr)
+        self.assertNotIn("zorbsecret", result.stdout + result.stderr)
+
+    def test_object_hit_output_does_not_expose_word(self) -> None:
+        rules = {"publicOnlyWords": {"en": ["Zorbname"]}, "publicOnlyPatterns": [],
+                 "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("Zorbname\n", rules)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("sample.txt:1", result.stdout)
+        self.assertNotIn("Zorbname", result.stdout)
+
+    def test_success_reports_language_breakdown(self) -> None:
+        rules = {"publicOnlyWords": {"ja": ["zorbja"], "en": ["Zorben"]},
+                 "publicOnlyPatterns": [], "publicOnlyIdentifiers": [], "identifierExceptions": []}
+        result = self.run_checker("safe\n", rules)
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("語 2(ja 1・en 1)", result.stdout)
 
 
 if __name__ == "__main__":

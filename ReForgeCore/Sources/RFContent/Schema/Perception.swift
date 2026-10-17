@@ -151,20 +151,144 @@ public enum StatDisplay: Codable, Equatable, Sendable {
 
 /// 禁止語の規則: until が成り立つまで、プレイヤーに見える文字列に words を含めてはいけない。
 /// 本物の規則は非公開のコンテンツにある(語そのものがネタバレなので)。公開版は試験用の語だけ。
+public struct LanguageWords: Codable, Equatable, Sendable {
+    public var byLanguage: [LanguageID: [String]]
+
+    public init(_ words: [String]) { byLanguage = [.ja: words] }
+    public init(byLanguage: [LanguageID: [String]]) { self.byLanguage = byLanguage }
+
+    public subscript(_ language: LanguageID) -> [String] {
+        get { byLanguage[language] ?? [] }
+        set { byLanguage[language] = newValue }
+    }
+
+    public var ja: [String] {
+        get { self[.ja] }
+        set { self[.ja] = newValue }
+    }
+
+    public init(from decoder: Decoder) throws {
+        if let words = try? decoder.singleValueContainer().decode([String].self) {
+            self.init(words)
+            return
+        }
+        let container = try decoder.container(keyedBy: DynamicKey.self)
+        var values: [LanguageID: [String]] = [:]
+        for key in container.allKeys {
+            guard let language = LanguageID(rawValue: key.stringValue), language != .pseudo else {
+                throw DecodingError.dataCorruptedError(forKey: key, in: container, debugDescription: "invalid language key")
+            }
+            values[language] = try container.decode([String].self, forKey: key)
+        }
+        self.init(byLanguage: values)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        if Set(byLanguage.keys).isSubset(of: [.ja]) {
+            var container = encoder.singleValueContainer()
+            try container.encode(self[.ja])
+            return
+        }
+        var container = encoder.container(keyedBy: DynamicKey.self)
+        for (language, words) in byLanguage {
+            try container.encode(words, forKey: DynamicKey(language.rawValue))
+        }
+    }
+
+    private struct DynamicKey: CodingKey {
+        var stringValue: String
+        var intValue: Int? { nil }
+        init(_ stringValue: String) { self.stringValue = stringValue }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { nil }
+    }
+}
+
+public struct ForbiddenScope: Codable, Equatable, Sendable {
+    public var speakers: [PersonID]
+    public var narration: Bool
+    public var other: Bool
+
+    public init(speakers: [PersonID] = [], narration: Bool = false, other: Bool = false) {
+        self.speakers = speakers
+        self.narration = narration
+        self.other = other
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        speakers = try container.decodeIfPresent([PersonID].self, forKey: .speakers) ?? []
+        narration = try container.decodeIfPresent(Bool.self, forKey: .narration) ?? false
+        other = try container.decodeIfPresent(Bool.self, forKey: .other) ?? false
+    }
+}
+
+/// 禁止語の規則: until が成り立つまで、プレイヤーに見える文字列に words を含めてはいけない。
+/// 本物の規則は非公開のコンテンツにある(語そのものがネタバレなので)。公開版は試験用の語だけ。
 public struct ForbiddenRule: Codable, Equatable, Sendable {
     /// 規則の名札(違反の報告で語の代わりに出す。語そのものを公開のログに出さないため)。
     public var id: String?
-    public var words: [String]
+    /// 既存 API の日本語の語。言語別の値は languageWords で持つ。
+    public var words: [String] {
+        get { languageWords.ja }
+        set { languageWords.ja = newValue }
+    }
+    public var languageWords: LanguageWords
     public var until: FactExpr
     /// 静的な監査で「until が解けない限り、ほかのどの事実を知っていても出さない」まで調べるか(既定 true)。
     /// false にすると、監査の段(auditStages)で書いた事実の組だけで調べる。
     public var strict: Bool?
+    public var scope: ForbiddenScope?
 
     public init(id: String? = nil, words: [String], until: FactExpr, strict: Bool? = nil) {
         self.id = id
-        self.words = words
+        self.languageWords = LanguageWords(words)
         self.until = until
         self.strict = strict
+        self.scope = nil
+    }
+
+    public init(id: String? = nil, words: LanguageWords, until: FactExpr, strict: Bool? = nil,
+                scope: ForbiddenScope? = nil) {
+        self.id = id
+        self.languageWords = words
+        self.until = until
+        self.strict = strict
+        self.scope = scope
+    }
+
+    enum CodingKeys: String, CodingKey { case id, words, until, strict, scope }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(String.self, forKey: .id)
+        languageWords = try container.decode(LanguageWords.self, forKey: .words)
+        until = try container.decode(FactExpr.self, forKey: .until)
+        strict = try container.decodeIfPresent(Bool.self, forKey: .strict)
+        scope = try container.decodeIfPresent(ForbiddenScope.self, forKey: .scope)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encodeIfPresent(id, forKey: .id)
+        try container.encode(languageWords, forKey: .words)
+        try container.encode(until, forKey: .until)
+        try container.encodeIfPresent(strict, forKey: .strict)
+        try container.encodeIfPresent(scope, forKey: .scope)
+    }
+}
+
+public struct PronounRule: Codable, Equatable, Sendable {
+    public var id: String
+    public var about: PersonID
+    public var error: LanguageWords
+    public var review: LanguageWords
+
+    public init(id: String, about: PersonID, error: LanguageWords, review: LanguageWords) {
+        self.id = id
+        self.about = about
+        self.error = error
+        self.review = review
     }
 }
 

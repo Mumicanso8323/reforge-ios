@@ -278,7 +278,7 @@ struct ContentFile: Codable {
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
         case memoryKinds, lines, hints, research, skills, abilities, enemies, auras, stats, failureRules
         case trackers, facts, events, scenes, sheets, objectives, chapters, endings, findings, documents, groups
-        case perception, forbidden, auditStages, textGates, texts, glyphs, latinAllowed, language, nameJoin
+        case perception, forbidden, pronounRules, auditStages, textGates, about, texts, glyphs, latinAllowed, language, nameJoin
         case remove
         // 探索と拠点(U8)
         case fields, exploreEvents, exploration, base
@@ -337,15 +337,17 @@ struct ContentFile: Codable {
     var findings: [FindingDef]?
     var perception: [SubjectDef]?
     var forbidden: [ForbiddenRule]?
+    var pronounRules: [PronounRule]?
     var auditStages: [AuditStage]?
     var textGates: [TextGate]?
+    var about: [String: [String]]?
     var texts: [String: String]?
     /// 無ければ従来どおり日本語の表として読む。
     var language: LanguageID?
     var nameJoin: NameJoin?
     var glyphs: [String: String]?
     /// 画面に出してよいラテン文字の語(足し合わせ)。
-    var latinAllowed: [String]?
+    var latinAllowed: LanguageWords?
     /// 前の層の定義を消す(集まりの名前 → ID の並び)。
     var remove: [String: [String]]?
     // 探索と拠点(U8)
@@ -364,8 +366,8 @@ struct ContentFile: Codable {
         if textLanguage == .pseudo {
             throw ContentLoader.LoadError.decode(file: file, message: "x-pseudo は文字列表を持てない")
         }
-        if textLanguage != .ja, textGates != nil {
-            throw ContentLoader.LoadError.decode(file: file, message: "日本語以外の文字列表に textGates は書けない")
+        if textLanguage != .ja, textGates != nil || about != nil {
+            throw ContentLoader.LoadError.decode(file: file, message: "non-source text table has source-only metadata")
         }
         var dups: [String] = []
         func one(_ name: String, _ present: Bool) { if present { seen.insert(name, "", dups: &dups) } }
@@ -428,6 +430,11 @@ struct ContentFile: Codable {
         upsert("perception", &db.perception, perception)
         // 禁止語の規則は層をまたいで足し合わせる(公開の試験用の語 + 非公開の本物)
         db.forbidden += forbidden ?? []
+        for rule in pronounRules ?? [] {
+            seen.insert("pronounRules", rule.id, dups: &dups)
+            if let index = db.pronounRules.firstIndex(where: { $0.id == rule.id }) { db.pronounRules[index] = rule }
+            else { db.pronounRules.append(rule) }
+        }
         for s in auditStages ?? [] {
             seen.insert("auditStages", s.id, dups: &dups)
             if let i = db.auditStages.firstIndex(where: { $0.id == s.id }) { db.auditStages[i] = s } else { db.auditStages.append(s) }
@@ -435,6 +442,10 @@ struct ContentFile: Codable {
         for g in textGates ?? [] {
             seen.insert("textGates", g.text.rawValue, dups: &dups)
             db.textGates[g.text] = g
+        }
+        for (text, people) in about ?? [:] {
+            seen.insert("about", text, dups: &dups)
+            db.textAbout[TextID(text)] = Set(people)
         }
         if let nameJoin { db.textTables.meta[textLanguage] = TextMeta(nameJoin: nameJoin) }
         var textTable = db.textTables.tables[textLanguage] ?? [:]
@@ -447,9 +458,13 @@ struct ContentFile: Codable {
             seen.insert("glyphs", k, dups: &dups)
             db.glyphs[SubjectID(k)] = v
         }
-        for w in latinAllowed ?? [] {
-            seen.insert("latinAllowed", w, dups: &dups)
-            if !db.latinAllowed.contains(w) { db.latinAllowed.append(w) }
+        for (language, words) in latinAllowed?.byLanguage ?? [:] {
+            for word in words {
+                seen.insert("latinAllowed.\(language.rawValue)", word, dups: &dups)
+                if !db.latinAllowedByLanguage[language].contains(word) {
+                    db.latinAllowedByLanguage[language].append(word)
+                }
+            }
         }
         // 探索と拠点(U8)
         upsert("fields", &db.fields, fields)
@@ -507,6 +522,7 @@ struct ContentFile: Codable {
         case "findings": drop(&db.findings)
         case "perception": drop(&db.perception)
         case "textGates": drop(&db.textGates)
+        case "about": drop(&db.textAbout)
         case "texts":
             for language in Array(db.textTables.tables.keys) {
                 for id in ids { db.textTables.tables[language]?[TextID(id)] = nil }
@@ -519,9 +535,13 @@ struct ContentFile: Codable {
         case "codexShadows": drop(&db.codexShadows)
         case "glyphs": drop(&db.glyphs)
         case "auditStages": db.auditStages.removeAll { ids.contains($0.id) }
-        case "latinAllowed": db.latinAllowed.removeAll { ids.contains($0) }
+        case "latinAllowed":
+            for language in Array(db.latinAllowedByLanguage.byLanguage.keys) {
+                db.latinAllowedByLanguage[language].removeAll { ids.contains($0) }
+            }
         // 禁止語の規則は名札(id)で消す(名札の無い規則は消せない)
         case "forbidden": db.forbidden.removeAll { $0.id.map(ids.contains) ?? false }
+        case "pronounRules": db.pronounRules.removeAll { ids.contains($0.id) }
         default: return false
         }
         return true

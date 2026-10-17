@@ -22,10 +22,21 @@ public enum ForbiddenAudit {
         public var word: String
         public var text: String
         public var origin: String
+        public var language: LanguageID
+
+        public init(stage: String, rule: String, word: String, text: String, origin: String, language: LanguageID = .ja) {
+            self.stage = stage
+            self.rule = rule
+            self.word = word
+            self.text = text
+            self.origin = origin
+            self.language = language
+        }
 
         public var description: String {
             if ForbiddenAudit.verbose { return "[\(stage)] 「\(word)」が「\(text)」(\(origin))" }
-            return "[\(stage)] 規則 \(rule) が \(origin) に当たった(語と文は伏せた。REFORGE_AUDIT_VERBOSE=1 で表示)"
+            let prefix = language == .ja ? "[\(stage)]" : "[\(stage)/\(language.rawValue)]"
+            return "\(prefix) 規則 \(rule) が \(origin) に当たった(語と文は伏せた。REFORGE_AUDIT_VERBOSE=1 で表示)"
         }
     }
 
@@ -40,62 +51,80 @@ public enum ForbiddenAudit {
     }
 
     /// その事実の集合で禁止されている語。
-    public static func forbiddenWords(_ content: ContentDB, known: Set<FactID>) -> [String] {
-        activeRules(content, known: known).flatMap(\.rule.words)
+    public static func forbiddenWords(_ content: ContentDB, known: Set<FactID>, language: LanguageID = .ja) -> [String] {
+        activeRules(content, known: known).flatMap { $0.rule.languageWords[wordsLanguage(language)] }
+    }
+
+    /// 声の表。scope を持つ規則が無ければ使わないので作らない。1 回の監査・1 回の検査にまとめて 1 度だけ作る。
+    static func voices(_ content: ContentDB, rules: [ForbiddenRule]) -> [TextID: Set<TextVoice>] {
+        rules.contains { $0.scope != nil } ? TextVoices.of(content) : [:]
     }
 
     static func ruleName(_ i: Int, _ r: ForbiddenRule) -> String { r.id ?? "#\(i)" }
 
     /// 文字列 1 つを調べる(走行中の監査)。
     public static func check(_ text: String, content: ContentDB, known: Set<FactID>, stage: String = "run",
-                             origin: String = "") -> [Violation]
+                             origin: String = "", language: LanguageID = .ja, textID: TextID? = nil) -> [Violation]
     {
-        check(text, rules: activeRules(content, known: known), allowed: content.latinAllowed, stage: stage, origin: origin)
+        check(text, rules: activeRules(content, known: known), allowed: content.latinAllowedByLanguage[wordsLanguage(language)], stage: stage,
+              origin: origin, language: language, textID: textID, voices: voices(content, rules: content.forbidden))
     }
 
     /// 文字列の並びを調べる(Frame の全文字列など)。
     public static func check(_ texts: [String], content: ContentDB, known: Set<FactID>, stage: String = "run",
-                             origin: String = "") -> [Violation]
+                             origin: String = "", language: LanguageID = .ja) -> [Violation]
     {
         let rules = activeRules(content, known: known)
-        return texts.flatMap { check($0, rules: rules, allowed: content.latinAllowed, stage: stage, origin: origin) }
+        let voices = voices(content, rules: content.forbidden)
+        return texts.flatMap { check($0, rules: rules, allowed: content.latinAllowedByLanguage[wordsLanguage(language)], stage: stage,
+                                     origin: origin, language: language, textID: nil, voices: voices) }
     }
 
     static func check(_ text: String, rules: [(index: Int, rule: ForbiddenRule)], allowed: [String], stage: String,
-                      origin: String) -> [Violation]
+                      origin: String, language: LanguageID = .ja, textID: TextID? = nil,
+                      voices: [TextID: Set<TextVoice>] = [:]) -> [Violation]
     {
         var out: [Violation] = []
         for (i, r) in rules {
-            for w in r.words where !w.isEmpty && text.contains(w) {
-                out.append(Violation(stage: stage, rule: ruleName(i, r), word: w, text: text, origin: origin))
+            guard applies(r.scope, textID: textID, voices: voices) else { continue }
+            for w in r.languageWords[wordsLanguage(language)] where !w.isEmpty && WordMatcher.contains(text, word: w, language: language) {
+                out.append(Violation(stage: stage, rule: ruleName(i, r), word: w, text: text, origin: origin, language: language))
             }
         }
-        if looksLikeInternalID(text, allowed: allowed) {
-            out.append(Violation(stage: stage, rule: latinRule, word: "(英語の ID)", text: text, origin: origin))
+        if looksLikeInternalID(text, allowed: allowed, language: language) {
+            out.append(Violation(stage: stage, rule: latinRule, word: "internal-id", text: text, origin: origin, language: language))
         }
         return out
     }
 
     /// 英語の内部 ID・アンダーバー付きの識別子らしき文字列か。埋め込みの {名前} は文の型の一部なので除いて見る。
     /// 許す語(ContentDB.latinAllowed: 固有名・題名)は長いものから、語の境目でだけ取り除いてから判定する。
-    public static func looksLikeInternalID(_ text: String, allowed: [String] = []) -> Bool {
+    public static func looksLikeInternalID(_ text: String, allowed: [String] = [], language: LanguageID = .ja) -> Bool {
         var body = text.replacingOccurrences(of: #"\{[^}]*\}"#, with: "", options: .regularExpression)
         // 語の境目でだけ取り除く(許した語に英字が続く・前に付くものは別の語として調べる)
         for w in allowed.sorted(by: { $0.count > $1.count }) where !w.isEmpty {
             let pattern = "(?<![A-Za-z])" + NSRegularExpression.escapedPattern(for: w) + "(?![A-Za-z])"
             body = body.replacingOccurrences(of: pattern, with: " ", options: .regularExpression)
         }
-        return body.range(of: #"[a-z]{3,}|_"#, options: .regularExpression) != nil
+        if language != .en { return body.range(of: #"[a-z]{3,}|_"#, options: .regularExpression) != nil }
+        let pattern = #"(?<![A-Za-z])(?:[a-z][a-z0-9]*_[a-z0-9_]*|[a-z][a-z0-9]*(?:\.[a-z][a-z0-9]*)+)(?![A-Za-z])"#
+        let regex = try! NSRegularExpression(pattern: pattern)
+        let range = NSRange(body.startIndex..., in: body)
+        return regex.matches(in: body, range: range).contains { match in
+            let value = (body as NSString).substring(with: match.range)
+            return !value.contains(".") || value.split(separator: ".").contains(where: { $0.count > 1 })
+        }
     }
 
     // MARK: 静的な監査
 
     /// 静的な監査。段ごとに出うる文字列を全部作って当てる。違反は重ねずに返す。
-    public static func audit(_ content: ContentDB) -> [Violation] {
+    public static func audit(_ content: ContentDB, language: LanguageID = .ja) -> [Violation] {
         var out: [Violation] = []
         var seen = Set<Violation>()
+        let voices = voices(content, rules: content.forbidden)
         func add(_ vs: [Violation]) {
-            for v in vs where seen.insert(Violation(stage: "", rule: v.rule, word: v.word, text: v.text, origin: v.origin)).inserted {
+            for v in vs where seen.insert(Violation(stage: "", rule: v.rule, word: v.word, text: v.text, origin: v.origin, language: v.language)).inserted {
                 out.append(v)
             }
         }
@@ -103,11 +132,16 @@ public enum ForbiddenAudit {
             let known = closure(Set(st.facts), content)
             var rules = activeRules(content, known: known)
             if let only = st.onlyRule { rules = rules.filter { $0.index == only } }
-            for (text, origin) in visibleTexts(content, known: known) {
-                add(check(text, rules: rules, allowed: content.latinAllowed, stage: st.id, origin: origin))
+            for visible in visibleTexts(content, known: known, language: language) {
+                add(check(visible.text, rules: rules, allowed: content.latinAllowedByLanguage[wordsLanguage(language)], stage: st.id,
+                          origin: visible.origin, language: language, textID: visible.id, voices: voices))
             }
         }
         return out
+    }
+
+    public static func auditAll(_ content: ContentDB) -> [LanguageID: [Violation]] {
+        Dictionary(uniqueKeysWithValues: content.textTables.available.sorted { $0.rawValue < $1.rawValue }.map { ($0, audit(content, language: $0)) })
     }
 
     /// アプリの固定文言(Localizable.xcstrings のキーなど。いつでも画面に出うる)を全段で調べる。
@@ -172,9 +206,11 @@ public enum ForbiddenAudit {
     /// - 認識の表の見え方だけが指す文字列は、その段で選ばれた見え方のものだけ。
     /// - それ以外の文字列(場面・一言・所見・理由…と、どこからも指されていない文字列)は、門が開いていれば出うる
     ///   (門が無ければいつでも出うる。安全側)。
-    static func visibleTexts(_ content: ContentDB, known: Set<FactID>) -> [(String, String)] {
-        var out: [(String, String)] = []
-        let p = Perceiver(content: content, known: known)
+    struct VisibleText { var text: String; var id: TextID?; var origin: String }
+
+    static func visibleTexts(_ content: ContentDB, known: Set<FactID>, language: LanguageID = .ja) -> [VisibleText] {
+        var out: [VisibleText] = []
+        let p = Perceiver(content: content, known: known, language: language)
         var perceptionTexts = Set<TextID>()
         for d in content.perception.values {
             for v in d.variants { perceptionTexts.formUnion(texts(of: v)) }
@@ -182,14 +218,16 @@ public enum ForbiddenAudit {
         let elsewhere = ContentValidator.nonPerceptionTextRefs(content)
         for (s, _) in content.perception.sorted(by: { $0.key < $1.key }) {
             guard let v = p.variant(s) else { continue }
-            for t in texts(of: v).sorted() { out.append((p.rawText(t), "\(s.rawValue) → \(t.rawValue)")) }
-            if let g = v.glyph { out.append((g, "\(s.rawValue) の地図の文字")) }
+            for t in texts(of: v).sorted() where content.textTables.tables[wordsLanguage(language)]?[t] != nil {
+                out.append(VisibleText(text: p.rawText(t), id: t, origin: "\(s.rawValue) → \(t.rawValue)"))
+            }
+            if let g = v.glyph { out.append(VisibleText(text: g, id: nil, origin: "\(s.rawValue) の地図の文字")) }
         }
-        for (id, s) in content.texts.sorted(by: { $0.key < $1.key }) {
+        for (id, s) in (content.textTables.tables[wordsLanguage(language)] ?? [:]).sorted(by: { $0.key < $1.key }) {
             if perceptionTexts.contains(id), !elsewhere.contains(id) { continue }
-            if content.textGates[id]?.gate.evaluate(known) ?? true { out.append((s, id.rawValue)) }
+            if content.textGates[id]?.gate.evaluate(known) ?? true { out.append(VisibleText(text: s, id: id, origin: id.rawValue)) }
         }
-        for (s, g) in content.glyphs.sorted(by: { $0.key < $1.key }) { out.append((g, "\(s.rawValue) の地図の文字")) }
+        for (s, g) in content.glyphs.sorted(by: { $0.key < $1.key }) { out.append(VisibleText(text: g, id: nil, origin: "\(s.rawValue) の地図の文字")) }
         return out
     }
 
@@ -201,5 +239,19 @@ public enum ForbiddenAudit {
         case .hidden, nil: break
         }
         return s
+    }
+
+    static func wordsLanguage(_ language: LanguageID) -> LanguageID { language == .pseudo ? .ja : language }
+
+    static func applies(_ scope: ForbiddenScope?, textID: TextID?, voices: [TextID: Set<TextVoice>]) -> Bool {
+        guard let scope else { return true }
+        let values = textID.flatMap { voices[$0] } ?? [.other]
+        return values.contains { voice in
+            switch voice {
+            case .person(let person): return scope.speakers.contains(person)
+            case .narration: return scope.narration
+            case .other: return scope.other
+            }
+        }
     }
 }

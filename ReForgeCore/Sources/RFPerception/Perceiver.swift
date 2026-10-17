@@ -76,7 +76,7 @@ public struct Perceiver: Sendable {
 
     /// 画面に出す文を、言語と型付きの引数から組み立てる唯一の入口。
     public func render(_ ref: TextRef) -> String {
-        audited(rawRender(ref), origin: ref.id.rawValue)
+        audited(rawRender(ref), origin: ref.id.rawValue, textID: ref.id)
     }
 
     /// 断りの `detail` を型付きの引数にする(1 か所)。数は `.int`、`item`・`module` の文字列は対象の名前(`.subject`)。
@@ -328,8 +328,8 @@ public struct Perceiver: Sendable {
         }
     }
 
-    private func audited(_ s: String, origin: @autoclosure () -> String) -> String {
-        if let a = auditor { a.inspect(s, content: content, known: known, origin: origin()) }
+    private func audited(_ s: String, origin: @autoclosure () -> String, textID: TextID? = nil) -> String {
+        if let a = auditor { a.inspect(s, content: content, known: known, origin: origin(), language: language, textID: textID) }
         return s
     }
 
@@ -387,8 +387,9 @@ public final class PerceptionAuditor: @unchecked Sendable {
 
     public init(stage: String = "run") { self.stage = stage }
 
-    public func inspect(_ text: String, content: ContentDB, known: Set<FactID>, origin: String) {
-        let v = ForbiddenAudit.check(text, content: content, known: known, stage: stage, origin: origin)
+    public func inspect(_ text: String, content: ContentDB, known: Set<FactID>, origin: String,
+                        language: LanguageID = .ja, textID: TextID? = nil) {
+        let v = ForbiddenAudit.check(text, content: content, known: known, stage: stage, origin: origin, language: language, textID: textID)
         lock.lock()
         seen += 1
         found += v
