@@ -25,6 +25,8 @@ public struct Frame: Equatable, Sendable {
     /// The time band and colour treatment derived from clock, never saved.
     public var timeMark: TimeMark
     public var timeTint: TimeTint
+    /// The localized time-band word, if the active content layer supplies it.
+    public var timeWord: String? = nil
     public var status: [StatusItem]
     /// 次の目標(上の帯に 1 つ)。
     public var objective: String?
@@ -76,7 +78,7 @@ public struct Frame: Equatable, Sendable {
     /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではないとき)。画面は自分で判断しない。
     public var canSteer: Bool = false
 
-    public init(revision: Int, language: LanguageID = .ja, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef(ClockDef())),
+    public init(revision: Int, language: LanguageID = .ja, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef(ClockDef())), timeWord: String? = nil,
                 status: [StatusItem], objective: String? = nil, map: MapView,
                 actors: [ActorSprite], placements: [PlacementSprite], route: [GridPoint] = [], focus: GridPoint? = nil,
                 decision: DecisionView?, sceneLines: [String], notices: [String], renamed: [String],
@@ -86,6 +88,7 @@ public struct Frame: Equatable, Sendable {
         self.clock = clock
         self.timeMark = timeMark
         self.timeTint = timeTint
+        self.timeWord = timeWord
         self.status = status
         self.objective = objective
         self.map = map
@@ -313,13 +316,17 @@ public struct MapChunk: Equatable, Sendable {
     public var index: Int
     public var revision: Int
     public var rect: GridRect
+    /// The treatment used while deriving `tiles`, retained with the chunk so a
+    /// later world tick cannot make a cached tile internally inconsistent.
+    public var timeTint: TimeTint
     /// 行優先(rect.size の大きさ)。
     public var tiles: [TileView]
 
-    public init(index: Int, revision: Int, rect: GridRect, tiles: [TileView]) {
+    public init(index: Int, revision: Int, rect: GridRect, tiles: [TileView], timeTint: TimeTint = .neutral) {
         self.index = index
         self.revision = revision
         self.rect = rect
+        self.timeTint = timeTint
         self.tiles = tiles
     }
 

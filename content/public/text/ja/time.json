@@ -1,0 +1,9 @@
+{
+  "language": "ja",
+  "texts": {
+    "ui.time.dawn": "夜明け",
+    "ui.time.day": "昼",
+    "ui.time.evening": "夕方",
+    "ui.time.night": "夜"
+  }
+}

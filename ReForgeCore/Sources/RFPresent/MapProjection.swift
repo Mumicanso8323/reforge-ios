@@ -112,15 +112,13 @@ struct MapProjector {
         var tint: String
         var glow = false
         if let poi = poiAt[p] {
-            let v = partSubject(poi.poi, at: p).flatMap { perceiver.variant($0) }
             glyph = partSubject(poi.poi, at: p).map { perceiver.glyph($0, fallback: poiGlyph(poi.poi.kind)) } ?? poiGlyph(poi.poi.kind)
             tint = TilePalette.poi
-            glow = v?.glow ?? perceiver.variant(Subject.poi(poi.poi.kind))?.glow ?? false
+            glow = glows(at: p)
         } else if let d = depositAt[p], d.deposit.remainingExtractions > 0 {
-            let v = perceiver.variant(PresentSubject.deposit(d.deposit))
             glyph = perceiver.glyph(PresentSubject.deposit(d.deposit), fallback: "♦")
             tint = TilePalette.deposit(d.deposit.category.rawValue)
-            glow = v?.glow ?? false
+            glow = glows(at: p)
         } else {
             glyph = TilePalette.pickGlyph(l.biome(at: p).flatMap { terrainGlyphs[$0] } ?? "？", at: p)
             tint = l.terrain(at: p).map(TilePalette.terrain) ?? TilePalette.void
@@ -136,26 +134,46 @@ struct MapProjector {
         }
         if fog == .unknown { glow = false }
         return TileView(glyph: MapGlyphFont.safe(glyph), tint: tint, fog: fog, shadow: shadow.map(MapGlyphFont.safe), glow: glow,
-                        brightness: tileBrightness(at: p, fog: fog, visible: visible, glow: glow))
+                        brightness: tileBrightness(at: p, visible: visible, glow: glow))
+    }
+
+    /// Glow does not take part in terrain brightness invalidation: its own
+    /// presentation is refreshed through `.perception` instead.
+    func glows(at p: GridPoint) -> Bool {
+        if let poi = poiAt[p] {
+            return partSubject(poi.poi, at: p).flatMap { perceiver.variant($0) }?.glow
+                ?? perceiver.variant(Subject.poi(poi.poi.kind))?.glow ?? false
+        }
+        if let deposit = depositAt[p], deposit.deposit.remainingExtractions > 0 {
+            return perceiver.variant(PresentSubject.deposit(deposit.deposit))?.glow ?? false
+        }
+        return false
     }
 
     /// The light test intentionally shares VisionRule's circle metric through
     /// VisionArea.  This changes drawing only, never the visibility model.
-    func tileBrightness(at p: GridPoint, fog: TileView.Fog, visible: Bool, glow: Bool) -> Int? {
-        guard !glow else { return nil }
-        if !isNight {
-            guard visible || fog == .remembered || fog == .visible else { return nil }
-            return visible ? timeTint.brightness : TilePalette.rememberedPermille * timeTint.brightness / 1000
-        }
-        guard fog == .remembered || fog == .visible else { return nil }
+    func brightnessClass(at p: GridPoint, visible: Bool) -> Int {
+        guard isKnown(p) else { return 0 }
+        if !isNight { return visible ? 1 : 2 }
         var onEdge = false
         for area in lightAreas where area.contains(p) {
             let dx = p.x - area.center.x
             let dy = p.y - area.center.y
-            if dx * dx + dy * dy < area.radius * area.radius { return timeTint.brightness }
+            if dx * dx + dy * dy < area.radius * area.radius { return 3 }
             onEdge = true
         }
-        return onEdge ? 500 : timeTint.outside
+        return onEdge ? 4 : 5
+    }
+
+    func tileBrightness(at p: GridPoint, visible: Bool, glow: Bool) -> Int? {
+        guard !glow else { return nil }
+        switch brightnessClass(at: p, visible: visible) {
+        case 1, 3: return timeTint.brightness
+        case 2: return TilePalette.rememberedPermille * timeTint.brightness / 1000
+        case 4: return 500
+        case 5: return timeTint.outside
+        default: return nil
+        }
     }
 
     /// 遠景の半径(POIDef.landmarkRadius)。
@@ -174,14 +192,26 @@ struct MapProjector {
     }
 
     /// 区画の中身の指紋(地形・既知・手がかり・目印・鉱脈)。見え方の文字は事実が変わったときに全区画を上げるので入れない。
-    func signature(_ r: GridRect) -> Int {
+    func hasKnown(_ r: GridRect) -> Bool {
+        guard let known else { return false }
+        for y in r.origin.y..<(r.origin.y + r.size.height) {
+            for x in r.origin.x..<(r.origin.x + r.size.width) where known[GridPoint(x, y)] { return true }
+        }
+        return false
+    }
+
+    func signature(_ r: GridRect, vision: [VisionArea]) -> Int {
         guard let l = layer else { return 0 }
         var h = Hasher()
         for y in r.origin.y..<(r.origin.y + r.size.height) {
             for x in r.origin.x..<(r.origin.x + r.size.width) {
                 let p = GridPoint(x, y)
                 h.combine(l.biome(at: p))
-                h.combine(isKnown(p))
+                let knownHere = isKnown(p)
+                h.combine(knownHere)
+                if knownHere, !glows(at: p) {
+                    h.combine(brightnessClass(at: p, visible: vision.contains { $0.contains(p) }))
+                }
                 if let poi = poiAt[p] {
                     h.combine(poi.id)
                     h.combine(isHint(p))
@@ -204,6 +234,6 @@ struct MapProjector {
             }
         }
         let rev = index < map.chunkRevisions.count ? map.chunkRevisions[index] : 0
-        return MapChunk(index: index, revision: rev, rect: r, tiles: tiles)
+        return MapChunk(index: index, revision: rev, rect: r, tiles: tiles, timeTint: timeTint)
     }
 }
