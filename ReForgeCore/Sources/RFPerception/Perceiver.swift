@@ -79,24 +79,32 @@ public struct Perceiver: Sendable {
         audited(rawRender(ref), origin: ref.id.rawValue)
     }
 
-    /// 断った理由の文。断りが持つ数・品・モジュールを {名前}(品・モジュールは {0} も)に差し込む。
-    /// 差し込めずに `{…}` が残った文は出さず、わからない文にする(「あと{days}日」のまま画面に出さない)。
-    public func rejectionText(_ id: TextID, detail: [String: Value] = [:]) -> String {
-        var args: [String: String] = [:]
+    /// 断りの `detail` を型付きの引数にする(1 か所)。数は `.int`、`item`・`module` の文字列は対象の名前(`.subject`)。
+    /// `item`・`module` があれば `0` にも同じ値を渡す。ほかの文字列は無視する。
+    public static func rejectionArgs(_ detail: [String: Value]) -> [String: TextArg] {
+        var args: [String: TextArg] = [:]
         for (k, v) in detail {
             switch v {
-            case .int(let n): args[k] = String(n)
-            case .uint(let n): args[k] = String(n)
+            case .int(let n): args[k] = .int(n)
+            case .uint(let n): args[k] = .int(Int64(clamping: n))
             case .string(let s):
-                if k == "item" { args[k] = name(Subject.item(ItemID(s))) }
-                else if k == "module" { args[k] = name(Subject.module(ModuleKindID(s))) }
+                if k == "item" { args[k] = .subject(Subject.item(ItemID(s))) }
+                else if k == "module" { args[k] = .subject(Subject.module(ModuleKindID(s))) }
             default: break
             }
         }
         if let first = args["item"] ?? args["module"] { args["0"] = first }
-        let s = text(id, args)
-        if s.contains("{") || s.contains("}") { return text(Self.unknownText) }
-        return s
+        return args
+    }
+
+    /// 断った理由の組む前の参照。
+    public static func rejectionRef(_ id: TextID, detail: [String: Value] = [:]) -> TextRef {
+        TextRef(id, rejectionArgs(detail))
+    }
+
+    /// 断った理由の文。差し込めずに引数が足りない文は出さず、わからない文にする(「あと{days}日」のまま出さない)。
+    public func rejectionText(_ id: TextID, detail: [String: Value] = [:]) -> String {
+        render(Self.rejectionRef(id, detail: detail))
     }
 
     /// 止まっているライン・モジュールの理由の文(何が来ていないかも差し込む)。

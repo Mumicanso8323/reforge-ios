@@ -61,12 +61,34 @@ final class DayWrapTests: XCTestCase {
         XCTAssertEqual(made.map(\.count), [4, 4, 1])
         let names = [p.name(Subject.item("wood")), p.name(Subject.item("test_ore"))]
         XCTAssertEqual(Set(made.prefix(2).map(\.name)), Set(names))
-        XCTAssertEqual(made[0].name, names.sorted()[0], "同数は名前の順")
+        XCTAssertEqual(made[0].name, p.name(Subject.item("test_ore")), "同数は対象の鍵の順(名前の字順ではない)")
         // INV-B2-3: 数は来歴から数えた値と一致する
         XCTAssertEqual(made[0].count, w.ledger.records.filter { $0.day == 3 && $0.subject == .item("wood") && $0.act == .mined }.reduce(0) { $0 + $1.count })
     }
 
     /// 日没の間だけ Frame に入る(昼・夜作業では入らない)。
+    /// 同数の 2 つの並びは、表の名前を差し替えても変わらない(INV-L4: 表示の文で並べない)。
+    func testMadeTieOrderDoesNotDependOnNames() throws {
+        let rig = try TestRig.publicOnly()
+        var w = dusk(rig)
+        record(&w, .crafted, .item("wood"))
+        record(&w, .crafted, .item("test_ore"))
+        let before = FrameBuilder(content: rig.content).dayWrap(w).made
+        var swapped = rig.content
+        let a = Subject.item("wood"), b = Subject.item("test_ore")
+        let nameA = try XCTUnwrap(swapped.perception[a]?.variants.first?.name)
+        let nameB = try XCTUnwrap(swapped.perception[b]?.variants.first?.name)
+        swapped.textTables.tables[.ja]?[nameA] = "zzz"
+        swapped.textTables.tables[.ja]?[nameB] = "aaa"
+        swapped.texts[nameA] = "zzz"
+        swapped.texts[nameB] = "aaa"
+        let after = FrameBuilder(content: swapped).dayWrap(w).made
+        XCTAssertEqual(before.count, 2)
+        XCTAssertEqual(after.map(\.count), before.map(\.count))
+        XCTAssertNotEqual(after.map(\.name), before.map(\.name))
+        XCTAssertEqual(after.map(\.name), [Perceiver(content: swapped, world: w).name(b), Perceiver(content: swapped, world: w).name(a)])
+    }
+
     func testDayWrapOnlyAtDusk() throws {
         let rig = try TestRig.publicOnly()
         var w = dusk(rig)

@@ -101,4 +101,40 @@ final class RejectionTextTests: XCTestCase {
         XCTAssertEqual(p.rejectionText("reason.explore.need_more_people", detail: ["count": .int(2)]), "2人")
         XCTAssertTrue(noBraces(p.rejectionText("reason.explore.cooldown")))
     }
+
+    /// B: detail は型付きの引数になる。item・module は対象、数は .int、ほかの文字列は無視、0 には item/module。
+    func testRejectionDetailBecomesTypedArguments() {
+        let args = Perceiver.rejectionArgs(["days": .int(4), "n": .uint(2), "item": .string("stick"),
+                                            "module": .string("hearth"), "cause": .string("x")])
+        XCTAssertEqual(args["days"], .int(4))
+        XCTAssertEqual(args["n"], .int(2))
+        XCTAssertEqual(args["item"], .subject(Subject.item("stick")))
+        XCTAssertEqual(args["module"], .subject(Subject.module("hearth")))
+        XCTAssertNil(args["cause"])
+        XCTAssertNotNil(args["0"])
+        XCTAssertEqual(Perceiver.rejectionArgs(["module": .string("hearth")])["0"], .subject(Subject.module("hearth")))
+    }
+
+    /// B: 参照を render した文は rejectionText と同じ。言語を変えても参照は同じ。
+    func testRenderOfRejectionRefMatchesRejectionText() throws {
+        var content = try TestContent.publicOnly()
+        content.textTables.tables[.ja]?["reason.explore.cooldown"] = "あと{days}日 {0}"
+        let p = Perceiver(content: content, known: [])
+        let detail: [String: Value] = ["days": .int(4), "item": .string("stick")]
+        let ref = Perceiver.rejectionRef("reason.explore.cooldown", detail: detail)
+        XCTAssertEqual(p.render(ref), p.rejectionText("reason.explore.cooldown", detail: detail))
+        XCTAssertEqual(p.render(ref), "あと4日 " + p.name(Subject.item("stick")))
+        let pseudo = Perceiver(content: content, known: [], language: .pseudo)
+        XCTAssertTrue(pseudo.render(ref).hasPrefix("⟦"))
+        XCTAssertEqual(p.render(Perceiver.rejectionRef("reason.explore.cooldown")), p.text(Perceiver.unknownText))
+    }
+
+    /// B: MessageFormat は数字の引数名 "0" "1" を受ける。
+    func testNumericArgumentNamesGoThroughMessageFormat() throws {
+        var content = try TestContent.publicOnly()
+        content.textTables.tables[.ja]?["test.note"] = "{0}と{1}"
+        let p = Perceiver(content: content, known: [])
+        XCTAssertEqual(p.render(TextRef("test.note", ["0": .subject(Subject.item("stick")), "1": .int(7)])),
+                       p.name(Subject.item("stick")) + "と7")
+    }
 }

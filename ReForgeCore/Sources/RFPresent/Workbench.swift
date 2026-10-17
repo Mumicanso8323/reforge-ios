@@ -309,23 +309,30 @@ extension FrameBuilder {
 
     /// 所見の文({0} {1} を引数で埋める)。文の定義が無ければ認識の層の「わからない」。
     func findingText(_ id: FindingID, _ args: [FindingArg], _ p: Perceiver) -> String {
-        let text = content.findings[id]?.text ?? Perceiver.unknownText
-        return p.text(text, argStrings(args, p))
+        p.render(findingRef(id, args))
+    }
+
+    /// 所見の組む前の参照(引数の名前は "0"・"1"…)。
+    func findingRef(_ id: FindingID, _ args: [FindingArg]) -> TextRef {
+        TextRef(content.findings[id]?.text ?? Perceiver.unknownText, Self.findingArgs(args))
     }
 
     func noteText(_ n: NoteEntry, _ p: Perceiver) -> String {
-        p.text(n.text, argStrings(n.args, p))
+        p.render(TextRef(n.text, Self.findingArgs(n.args)))
     }
 
-    private func argStrings(_ args: [FindingArg], _ p: Perceiver) -> [String: String] {
-        var out: [String: String] = [:]
+    /// 純度の見当の「NN%」の文言(単位の記号も言語の表に置く)。
+    static let percentText = TextID("ui.finding.percent")
+
+    static func findingArgs(_ args: [FindingArg]) -> [String: TextArg] {
+        var out: [String: TextArg] = [:]
         for (i, a) in args.enumerated() {
             out["\(i)"] = switch a {
-            case .item(let it): p.name(Subject.item(it))
-            case .module(let m): p.name(Subject.module(m))
-            case .shape(let s): p.name(Subject.namePart(.shape(s)))
-            case .temper(let t): p.name(Subject.namePart(.temper(t)))
-            case .purity(let q): "\(HandSense.estimate(q).basisPoints / 100)%"
+            case .item(let it): .subject(Subject.item(it))
+            case .module(let m): .subject(Subject.module(m))
+            case .shape(let s): .subject(Subject.namePart(.shape(s)))
+            case .temper(let t): .subject(Subject.namePart(.temper(t)))
+            case .purity(let q): .ref(TextRef(percentText, ["value": .int(Int64(HandSense.estimate(q).basisPoints / 100))]))
             }
         }
         return out
