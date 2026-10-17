@@ -240,8 +240,17 @@ final class GameStore {
     func setLanguage(_ lang: LanguageID) async {
         let f = await host.setLanguage(lang)
         await refresh(f)
-        if let point = inspection?.point { inspection = await host.peek(at: point) }
-        if let id = panel?.id { panel = await host.document(id) }
+        // 間に別の更新が入って切り替えの Frame が古い版として捨てられても、本体の最新(切り替え後に組んだ=新しい言語)を取り込む
+        await refresh(await host.frame)
+        // 待っている間に閉じた吹き出し・資料を生き返らせない(同じ物のままのときだけ置き換える)
+        if let point = inspection?.point {
+            let fresh = await host.peek(at: point)
+            if inspection?.point == point { inspection = fresh }
+        }
+        if let id = panel?.id {
+            let fresh = await host.document(id)
+            if panel?.id == id { panel = fresh }
+        }
         if let undo = decisionUndo, let label = decision?.choices.first(where: { $0.id == undo.choice })?.label {
             decisionUndo?.label = label
         }
@@ -504,7 +513,9 @@ final class GameStore {
         // 断りの理由は画面に出さない(押せるボタンは必ず受け付けられる決め)。押した事実への応えと、端末内の記録だけ。
         refusals += 1
         haptics.nudge()
-        logPlay(kind: "refused", fields: ["reason": ref.id.rawValue])
+        var fields = ["reason": ref.id.rawValue]
+        for (key, arg) in ref.args.sorted(by: { $0.key < $1.key }) { fields["arg." + key] = String(describing: arg) }
+        logPlay(kind: "refused", fields: fields)
         let t = ProcessInfo.processInfo.systemUptime
         if noticeRef == ref, t - noticeShownAt < noticeLifetime { return }
         noticeTask?.cancel()

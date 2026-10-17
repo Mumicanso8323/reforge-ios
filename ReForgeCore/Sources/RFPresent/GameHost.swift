@@ -56,6 +56,7 @@ public actor GameHost {
     public func send(_ command: Command) -> (frame: Frame, report: StepReport) {
         replayLog.append((world.clock.now.seconds / SimStep.gameSeconds, command))
         let r = simulation.apply(command, to: &world)
+        // 受け付けられた操作は、前の断りを消す(古い断りが残らない)
         lastRejection = r.rejection.map(rejectionRef)
         if !world.clock.held { heldCarry = 0 }
         return (rebuild(r), r)
@@ -89,6 +90,7 @@ public actor GameHost {
     public func replace(world w: WorldState) -> Frame {
         world = w
         heldCarry = 0
+        lastRejection = nil
         revision += 1
         frame = builder.build(w, revision: revision, previous: nil, report: nil)
         return frame
