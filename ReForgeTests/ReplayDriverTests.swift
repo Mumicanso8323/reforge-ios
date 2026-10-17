@@ -45,7 +45,7 @@ final class ReplayDriverTests: XCTestCase {
 
     private func logText(_ store: GameStore) async -> String {
         let log = await store.host.replayLog
-        return "送られた \(log.count) 本 notice=\(store.notice ?? "nil")"
+        return "送られた \(log.count) 本 notice=\(store.noticeRef?.id.rawValue ?? "nil")"
     }
 
     func testDrivesCommandsAndWritesDoneMark() async throws {

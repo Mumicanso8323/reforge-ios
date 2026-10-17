@@ -80,7 +80,7 @@ final class AppTests: XCTestCase {
         let w = await store.host.world
         let noah = w.people[.noah]
         let active = w.exploration.active[.noah]
-        return "[\(label)] rejection=\(String(describing: rejection)) notice=\(String(describing: store.notice)) "
+        return "[\(label)] rejection=\(String(describing: rejection)) notice=\(String(describing: store.noticeRef?.id)) "
             + "darkStart=\(String(describing: store.darkStart)) running=\(store.clock.running) held=\(w.clock.held) "
             + "phase=\(w.clock.phase) now=\(w.clock.now.seconds) active=\(String(describing: active)) "
             + "pos=\(String(describing: noah?.position)) motion=\(String(describing: noah?.motion)) "
@@ -232,7 +232,7 @@ final class AppTests: XCTestCase {
         let noah = await store.host.world.people[.noah]
         return "target=\(String(describing: target)) noah=\(String(describing: noah?.position?.point)) motion=\(noah?.motion != nil) "
             + "route=\(store.route.count) walkable=\(store.walkable.count) canSteer=\(store.canSteer) "
-            + "darkStart=\(store.darkStart != nil) notice=\(store.notice ?? "nil")"
+            + "darkStart=\(store.darkStart != nil) notice=\(store.noticeRef?.id.rawValue ?? "nil")"
     }
 
     /// 焚き火を置いて点けた世界(火が点くまでは歩ける範囲が空なので、歩く確かめはこの世界で行う)。
@@ -262,7 +262,7 @@ final class AppTests: XCTestCase {
         store.select(target)
         XCTAssertEqual(store.selected, target)
         XCTAssertTrue(store.route.isEmpty)
-        XCTAssertNil(store.notice, "1 度目の選びでは歩く命令を送らない")
+        XCTAssertNil(store.noticeRef, "1 度目の選びでは歩く命令を送らない")
         let afterFirstSelection = await store.host.world.people[.noah]?.position
         XCTAssertEqual(afterFirstSelection, start)
 
@@ -292,10 +292,10 @@ final class AppTests: XCTestCase {
         let far = start.point + GridPoint(40, 0)
         store.select(far)
         store.select(far)
-        for _ in 0..<100 where store.notice == nil { try await Task.sleep(nanoseconds: 20_000_000) }
+        for _ in 0..<100 where store.noticeRef == nil { try await Task.sleep(nanoseconds: 20_000_000) }
         let noah = await store.host.world.people[.noah]
         let diagnostic = await walkDiagnostic(store, target: far)
-        XCTAssertNotNil(store.notice, diagnostic)
+        XCTAssertNotNil(store.noticeRef, diagnostic)
         XCTAssertEqual(noah?.position, start)
         XCTAssertNil(noah?.motion)
     }
@@ -308,8 +308,8 @@ final class AppTests: XCTestCase {
         try await readThroughPrologue(store)
         try await startDarkStartAction(store)
         store.choose(.sleep)
-        for _ in 0..<100 where store.notice == nil { try await Task.sleep(nanoseconds: 20_000_000) }
-        XCTAssertEqual(store.notice, "まだ昼だ")
+        for _ in 0..<100 where store.noticeRef == nil { try await Task.sleep(nanoseconds: 20_000_000) }
+        XCTAssertEqual(store.noticeRef?.id, "reason.time.still_day")
     }
 
     func testHeldStartUsesAndClearsDarkStartAction() async throws {
