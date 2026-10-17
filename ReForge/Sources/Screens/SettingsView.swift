@@ -27,12 +27,28 @@ struct SettingsView: View {
         return "\(v) (\(b))"
     }
 
+    /// 記録を消す(読み込みの失敗の画面でも出す。文は BootText にもあるので表が無くても出る)。
+    private var recordsSection: some View {
+        InkSection(title: ui("ui.body.records")) {
+            InkHoldButton(label: ui("ui.button.delete_save"),
+                          hint: ui("ui.body.delete_save_hint")) {
+                app.deleteSave()
+                close()
+            }
+            .padding(.top, 10)
+            .accessibilityIdentifier("deleteSaveButton")
+        }
+    }
+
     var body: some View {
         if app.content == nil {
-            // 読み込みの失敗の画面(文言の表が無い)。表を要らない行だけ(BootText で出せる文と、バージョン)
-            Text(verbatim: version)
-                .font(InkFont.caption)
-                .foregroundStyle(InkColor.textDim)
+            // 読み込みの失敗の画面(文言の表が無い)。表を要らない行だけ(BootText で出せる文と、バージョン)。記録は消せる
+            VStack(alignment: .leading, spacing: 24) {
+                Text(verbatim: version)
+                    .font(InkFont.caption)
+                    .foregroundStyle(InkColor.textDim)
+                recordsSection
+            }
         } else if showRemoveAds {
             RemoveAdsView(app: app, back: { showRemoveAds = false })
         } else {
@@ -121,15 +137,7 @@ struct SettingsView: View {
                 }
 
                 // 一番下(押し方は今のまま。確かめのダイアログは足さない)
-                InkSection(title: ui("ui.body.records")) {
-                    InkHoldButton(label: ui("ui.button.delete_save"),
-                                  hint: ui("ui.body.delete_save_hint")) {
-                        app.deleteSave()
-                        close()
-                    }
-                    .padding(.top, 10)
-                    .accessibilityIdentifier("deleteSaveButton")
-                }
+                recordsSection
             }
         }
     }

@@ -17,8 +17,8 @@ enum GameTab: String, CaseIterable, Identifiable {
         }
     }
 
-    /// タブの名前(文言の表から。ID は静的に書く)。
-    var title: Text {
+    /// タブの名前(文言の表から。ID は静的に書く)。`ui` が MainActor なので、ここも MainActor(`visible` などは分離の外のまま)。
+    @MainActor var title: Text {
         switch self {
         case .map: ui("ui.tab.map")
         case .design: ui("ui.tab.design")

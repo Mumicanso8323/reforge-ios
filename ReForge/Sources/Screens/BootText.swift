@@ -11,6 +11,10 @@ enum BootText {
             "ui.a11y.settings_open": "設定を開く",
             "ui.a11y.settings_close": "設定を閉じる",
             "ui.body.settings": "設定",
+            // 読み込みの失敗の画面でも記録を消せるように(直す前は失敗の画面の設定にも出ていた)
+            "ui.body.records": "記録",
+            "ui.button.delete_save": "記録を消す",
+            "ui.body.delete_save_hint": "長押しで、いまの状態とセーブ地点をすべて消します。元には戻せません。",
         ],
     ]
 

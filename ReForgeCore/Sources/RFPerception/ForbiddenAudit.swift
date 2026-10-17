@@ -144,7 +144,7 @@ public enum ForbiddenAudit {
         Dictionary(uniqueKeysWithValues: content.textTables.available.sorted { $0.rawValue < $1.rawValue }.map { ($0, audit(content, language: $0)) })
     }
 
-    /// アプリの固定文言(Localizable.xcstrings のキーなど。いつでも画面に出うる)を全段で調べる。
+    /// アプリの固定文言(`content/public/text/*/app*.json` の文など。いつでも画面に出うる)を全段で調べる。
     public static func auditFixedStrings(_ strings: [String], content: ContentDB, origin: String) -> [Violation] {
         var out = Set<Violation>()
         // 文字列カタログのキーの書式の指定(%lld・%@・%%・%1$@ など)は文ではないので外してから見る(英字の ID の検査に当たらないように)
