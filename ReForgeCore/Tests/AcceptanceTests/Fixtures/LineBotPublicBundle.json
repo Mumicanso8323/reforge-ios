@@ -1,0 +1,52 @@
+{
+  "mapGen": { "size": { "width": 64, "height": 64 }, "parameters": null },
+  "clock": { "dayRealSeconds": 180, "dayGameHours": 8, "nightGameHours": 18 },
+  "people": [
+    { "id": "person.test_d", "name": "person:person.test_d", "specialties": [], "ideology": {} }
+  ],
+  "start": {
+    "members": ["person.noah", "person.test_a", "person.test_b", "person.test_c", "person.test_d"],
+    "unmet": [], "items": [], "facts": [],
+    "unlocks": [
+      { "module": { "id": "minehead" } }, { "module": { "id": "furnace" } }, { "module": { "id": "anvil" } },
+      { "handwork": { "id": "handwork.mine" } }, { "handwork": { "id": "handwork.smelt" } },
+      { "handwork": { "id": "handwork.hammer" } }
+    ], "objectives": []
+  },
+  "hauling": { "perPersonPerDay": 10, "freeDistance": 8, "stepDistance": 5, "keepPermille": 800 },
+  "crewWork": { "gatherWorkPermille": 600, "requireHandFirst": false },
+  "modules": [
+    { "id": "minehead", "cost": [{ "item": "stone", "quantity": 4 }, { "item": "wood", "quantity": 2 }],
+      "placement": { "requiresDeposit": true }, "ports": [{ "side": "north", "flow": "output" }],
+      "cycleSeconds": 9600, "batch": 1, "specialty": "mining" },
+    { "id": "furnace", "cost": [{ "item": "stone", "quantity": 8 }, { "item": "clay", "quantity": 4 }],
+      "placement": { "terrainTags": ["ground", "rock"] },
+      "ports": [{ "side": "south", "flow": "input" }, { "side": "north", "flow": "output" }],
+      "cycleSeconds": 9600, "batch": 2, "specialty": "smith",
+      "hearth": { "capSeconds": 43200, "fuels": { "wood": 21600 }, "thresholds": [0, 10800, 21600, 32400],
+        "light": [0, 1, 2, 3, 4], "burnPermille": [0, 0, 0, 0, 0], "needsFlame": false,
+        "furnace": { "workTemp": 1100, "preheatSeconds": 5400, "preheatFuel": { "charcoal": 2 },
+          "burnPerHour": { "charcoal": 400, "coal": 300 }, "maxTempByFuel": { "wood": 900 }, "coolPerHour": 200 } } },
+    { "id": "anvil", "cost": [{ "item": "stone", "quantity": 4 }, { "item": "wood", "quantity": 1 }],
+      "placement": { "terrainTags": ["ground", "rock"] },
+      "ports": [{ "side": "south", "flow": "input" }, { "side": "north", "flow": "output" }],
+      "cycleSeconds": 9600, "batch": 1, "specialty": "smith" }
+  ],
+  "structures": [
+    { "id": "charcoal_kiln", "cost": [{ "item": "stone", "quantity": 4 }, { "item": "wood", "quantity": 6 }],
+      "buildSeconds": 10800, "provides": { "kiln": 1 }, "requiresBaseArea": false }
+  ],
+  "interactions": [
+    { "id": "interaction.chop_wood", "target": { "terrain": { "tag": "ground" } }, "seconds": 7200, "hold": false,
+      "yields": [{ "item": "wood", "min": 4, "max": 6 }], "felling": true },
+    { "id": "interaction.burn_charcoal", "target": { "structure": { "kind": "charcoal_kiln" } }, "seconds": 14400, "hold": false,
+      "cost": [{ "item": "wood", "quantity": 3 }], "yields": [{ "item": "charcoal", "min": 2, "max": 2 }], "yieldsTo": "site" }
+  ],
+  "handwork": [
+    { "id": "handwork.mine", "presses": 12, "pressSeconds": 160, "onDeposit": true, "promotedBy": ["minehead"] },
+    { "id": "handwork.smelt", "step": { "module": "furnace", "inputs": [{ "item": "charcoal", "quantity": 1, "purity": 10000 }] },
+      "presses": 8, "pressSeconds": 160, "promotedBy": ["furnace"] },
+    { "id": "handwork.hammer", "step": { "module": "anvil", "inputs": [] }, "presses": 16, "pressSeconds": 160,
+      "promotedBy": ["anvil"] }
+  ]
+}
