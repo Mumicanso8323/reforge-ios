@@ -17,7 +17,12 @@ TEXT_SWIFT = '''public enum LanguageID: String {
     public static let released: [LanguageID] = [%s]
 }
 '''
-PROJECT = "name: ReForge\noptions:\n  developmentLanguage: ja\n%s"
+PROJECT = "name: ReForge\noptions:\n  developmentLanguage: ja\n%s        INFOPLIST_FILE: Config/ReForge-Info.plist\n"
+
+
+def info_plist(*locales):
+    import plistlib
+    return plistlib.dumps({"CFBundleLocalizations": list(locales)}).decode("utf-8")
 
 
 def catalog(*locales):
@@ -26,13 +31,16 @@ def catalog(*locales):
 
 
 class Sample:
-    def __init__(self, released=".ja", project_extra="", info_locales=("ja",), development="ja", extra_files=None):
+    def __init__(self, released=".ja", project_extra="", info_locales=("ja",), development="ja", extra_files=None,
+                 plist_locales=("ja",)):
         self.dir = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self.dir.name)
         write(self.root / "ReForgeCore/Sources/RFKernel/Text.swift", TEXT_SWIFT % released)
         write(self.root / "project.yml", (PROJECT % project_extra).replace("developmentLanguage: ja", f"developmentLanguage: {development}"))
         if info_locales is not None:
             write(self.root / MODULE.INFO_PLIST_CATALOG, catalog(*info_locales))
+        if plist_locales is not None:
+            write(self.root / MODULE.INFO_PLIST, info_plist(*plist_locales))
         for name, body in (extra_files or {}).items():
             write(self.root / name, body)
 
@@ -77,7 +85,7 @@ class CheckLanguages(unittest.TestCase):
         self.assertTrue(self.sample(released=".ja, .en").problems())
 
     def test_adding_a_released_language_requires_project_changes(self):
-        s = self.sample(released=".ja, .en", info_locales=("ja", "en"), development="ja")
+        s = self.sample(released=".ja, .en", info_locales=("ja", "en"), development="ja", plist_locales=("ja", "en"))
         self.assertEqual(MODULE.known_regions(s.root), {"ja", "en", "Base"})
         self.assertEqual(s.problems(), [])
 
@@ -97,6 +105,18 @@ class CheckLanguages(unittest.TestCase):
 
     def test_missing_info_plist_catalog_fails(self):
         self.assertTrue(self.sample(info_locales=None).problems())
+
+    def test_info_plist_localizations_must_match_released(self):
+        problems = self.sample(plist_locales=("ja", "en")).problems()
+        self.assertTrue(any("CFBundleLocalizations" in p for p in problems), problems)
+
+    def test_missing_info_plist_fails(self):
+        self.assertTrue(any("ReForge-Info.plist" in p for p in self.sample(plist_locales=None).problems()))
+
+    def test_project_must_point_info_plist_file(self):
+        s = self.sample()
+        write(s.root / "project.yml", "name: ReForge\noptions:\n  developmentLanguage: ja\n")
+        self.assertTrue(any("INFOPLIST_FILE" in p for p in s.problems()))
 
 
 if __name__ == "__main__":

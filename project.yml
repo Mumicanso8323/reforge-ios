@@ -7,8 +7,9 @@ options:
   createIntermediateGroups: true
   developmentLanguage: ja
   # 言語の知らせ方: XcodeGen に knownRegions の鍵は無い。プロジェクトの言語は developmentLanguage・Base・
-  # 文字列カタログ(ReForge/Resources/InfoPlist.xcstrings)の言語の項で決まり、Xcode が Info.plist の CFBundleLocalizations にする。
-  # 出す言語(LanguageID.released)と一致していることは tools/check-languages.py が確かめる(INFOPLIST_KEY_CFBundleLocalizations は無効な鍵)。
+  # 文字列カタログ(ReForge/Resources/InfoPlist.xcstrings)の言語の項で決まる。Xcode はそこから CFBundleLocalizations を作らないので、
+  # Info.plist の CFBundleLocalizations は Config/ReForge-Info.plist に書き、生成する Info.plist に合わせる(INFOPLIST_FILE)。
+  # どちらも出す言語(LanguageID.released)と一致していることは tools/check-languages.py が確かめる(INFOPLIST_KEY_CFBundleLocalizations は無効な鍵)。
 
 settings:
   base:
@@ -44,6 +45,8 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.yusukedoi.reforge
         PRODUCT_NAME: ReForge
         GENERATE_INFOPLIST_FILE: YES
+        # 生成する鍵に、出す言語の一覧(CFBundleLocalizations)だけを足す
+        INFOPLIST_FILE: Config/ReForge-Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: "Re:Forge"
         # アプリのアイコン(オーナーが A2R_1 を本採用)
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon

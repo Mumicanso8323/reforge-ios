@@ -8,8 +8,10 @@ XcodeGen には knownRegions という設定の鍵が無い。プロジェクト
   - ソースの中の *.lproj の名前
   - ソースの中の文字列カタログ(*.xcstrings)の localizations にある言語(sourceLanguage は数えない)
 この道具はその和集合を同じ決まりで作り、出す言語 + Base と照らす(多くても少なくても失敗)。
-Xcode は knownRegions から Info.plist の CFBundleLocalizations を作るので、OS の「設定 > このアプリ」の言語の一覧は
-ここで決まる。`INFOPLIST_KEY_CFBundleLocalizations` のような生成の対象でない鍵は黙って捨てられるので、書いたら失敗にする。
+Xcode は knownRegions から CFBundleLocalizations を作らない(CI のビルドで鍵が無かった)。OS に知らせる言語の一覧は
+Config/ReForge-Info.plist の CFBundleLocalizations に書き、project.yml の INFOPLIST_FILE で生成する Info.plist に合わせる。
+その一覧が出す言語と一致すること・INFOPLIST_FILE がそれを指すことも確かめる。
+`INFOPLIST_KEY_CFBundleLocalizations` のような生成の対象でない鍵は黙って捨てられるので、書いたら失敗にする。
 ほかに ReForge/Resources/InfoPlist.xcstrings の言語の項が出す言語だけであること、CFBundleDisplayName を持つことも確かめる。
 
 使い方: python3 tools/check-languages.py   (外れたら終了コード 1)
@@ -17,6 +19,7 @@ Xcode は knownRegions から Info.plist の CFBundleLocalizations を作るの�
 import argparse
 import importlib.util
 import json
+import plistlib
 import re
 import sys
 from pathlib import Path
@@ -24,6 +27,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 SOURCE_DIRS = ["ReForge", "ReForgeTests", "ReForgeUITests"]  # project.yml の targets の sources
 INFO_PLIST_CATALOG = "ReForge/Resources/InfoPlist.xcstrings"
+INFO_PLIST = "Config/ReForge-Info.plist"  # 生成する Info.plist に足す鍵(CFBundleLocalizations)
 
 
 def released_languages(root):
@@ -84,6 +88,15 @@ def check(root):
     if regions != expected:
         problems.append(f"プロジェクトの knownRegions {sorted(regions)} が 出す言語 + Base {sorted(expected)} と違う"
                         f"(多い: {sorted(regions - expected)}・足りない: {sorted(expected - regions)})")
+    if not any(re.match(rf"\s*INFOPLIST_FILE:\s*\"?{re.escape(INFO_PLIST)}\"?\s*$", line) for line in uncommented_lines(project)):
+        problems.append(f"project.yml の INFOPLIST_FILE が {INFO_PLIST} を指していない(CFBundleLocalizations が Info.plist に入らない)")
+    plist = root / INFO_PLIST
+    if not plist.exists():
+        problems.append(f"{INFO_PLIST} が無い")
+    else:
+        listed = plistlib.loads(plist.read_bytes()).get("CFBundleLocalizations")
+        if not isinstance(listed, list) or set(listed) != released or len(listed) != len(set(listed)):
+            problems.append(f"{INFO_PLIST} の CFBundleLocalizations {listed} が 出す言語 {sorted(released)} と違う")
     catalog = root / INFO_PLIST_CATALOG
     if not catalog.exists():
         problems.append(f"{INFO_PLIST_CATALOG} が無い")
