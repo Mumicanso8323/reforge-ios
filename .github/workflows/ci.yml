@@ -52,7 +52,7 @@ jobs:
     name: ReForgeCore (Linux・${{ matrix.layer }})
     runs-on: ubuntu-latest
     container: swift:6.1-noble
-    timeout-minutes: 60  # 150 日の受け入れテストがある(10/17 で 41 分。TEST-O11 の夜の分を見込んで 60)
+    timeout-minutes: 75  # 150 日の受け入れテストがある(10/17 で 41 分。10/19 は非公開の層が生成したコンテンツの W-05 込みで 56 分)
     strategy:
       fail-fast: false
       matrix:
