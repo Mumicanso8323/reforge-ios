@@ -172,6 +172,14 @@ final class LayoutFitTests: XCTestCase {
         XCTAssertLessThanOrEqual(bubble.frame.maxX, screen.maxX + 0.5)
     }
 
+    /// アプリが測った切れ(inkFitReport の印。撮る起動の inkFitCheck)に、prefix で始まる要素が無い。
+    private func assertNoTruncation(_ app: XCUIApplication, _ prefix: String, _ tag: String) {
+        let report = one(app, "inkFitReport")
+        XCTAssertTrue(report.waitForExistence(timeout: 10), "\(tag): 切れの印が無い")
+        let hits = ((report.value as? String) ?? "").split(separator: ";").filter { $0.hasPrefix(prefix) }
+        XCTAssertTrue(hits.isEmpty, "\(tag): 文が切れている \(hits)")
+    }
+
     /// 日没の締めの各行が画面の中に収まり(左へはみ出して切れない)、地図の操作棒・足元カードと重ならない。
     private func checkDayWrap(_ app: XCUIApplication, _ tag: String) {
         let made = one(app, "dayWrapMade")
@@ -192,6 +200,38 @@ final class LayoutFitTests: XCTestCase {
         let label = one(app, "dayWrapMadeLabel")
         XCTAssertTrue(label.exists, "\(tag): 見出しが出ない")
         XCTAssertLessThan(label.frame.maxX, made.frame.minX + 6.5, "\(tag): 見出しと名前の並びが重なる")
+        // 物の名前の並び・動いている物・明日の見込みは省略せず折り返す(全文が読める)
+        assertNoTruncation(app, "InkDayWrap.", tag)
+    }
+
+    /// 焚き火の見込みの行(足元カード)が画面の中にあり、切れない(縮めず、収まらなければ折り返す)。
+    private func checkFireOutlook(_ app: XCUIApplication, _ tag: String) {
+        let line = one(app, "fireOutlook")
+        XCTAssertTrue(line.waitForExistence(timeout: 60), "\(tag): 焚き火の見込みの行が出ない")
+        let screen = app.windows.firstMatch.frame
+        XCTAssertGreaterThanOrEqual(line.frame.minX, screen.minX - 0.5, "\(tag): 左端が画面の外 \(line.frame)")
+        XCTAssertLessThanOrEqual(line.frame.maxX, screen.maxX + 0.5, "\(tag): 右端が画面の外 \(line.frame)")
+        assertNoTruncation(app, "InkFireOutlook.", tag)
+    }
+
+    func testFireOutlookFits() {
+        let app = launch("dayWrap")
+        defer { app.terminate() }
+        checkFireOutlook(app, "標準")
+    }
+
+    func testFireOutlookFitsAtLargeText() {
+        let app = launch("dayWrap", category: "UICTContentSizeCategoryAccessibilityXXXL")
+        defer { app.terminate() }
+        checkFireOutlook(app, "大きい文字")
+    }
+
+    func testDayWrapShowsWholeLinesInPseudo() {
+        let app = launch("dayWrap", pseudo: true)
+        defer { app.terminate() }
+        XCTAssertTrue(one(app, "dayWrapMade").waitForExistence(timeout: 60), "擬似言語: 今日できた物の行が出ない")
+        assertNoTruncation(app, "InkDayWrap.", "擬似言語")
+        assertNoTruncation(app, "InkFireOutlook.", "擬似言語")
     }
 
     func testDayWrapFitsScreen() {

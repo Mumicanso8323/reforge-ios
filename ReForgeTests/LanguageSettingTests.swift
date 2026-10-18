@@ -22,8 +22,17 @@ final class LanguageSettingTests: XCTestCase {
         try AppModel.loadBundledContent(bundle: .main).textTables
     }
 
+    /// 共有の字体と文言の口(UIText.shared)を日本語に戻す。試験が途中で落ちても、擬似言語のまま次の試験や宿のアプリの画面へ漏らさない。
+    private func restoreSharedLanguage() throws {
+        let loaded = try tables()
+        addTeardownBlock {
+            InkFont.setLanguage("ja")
+            UIText.shared.configure(tables: loaded, language: .ja, markFallback: false)
+        }
+    }
+
     private func makeLanguage(_ defaults: UserDefaults, pseudo: Bool, preferred: [String] = ["en-US"], pinned: LanguageID? = nil) throws -> AppLanguage {
-        addTeardownBlock { InkFont.setLanguage("ja") }
+        try restoreSharedLanguage()
         return AppLanguage(defaults: defaults, tables: try tables(), preferred: preferred, includePseudo: pseudo, pinned: pinned)
     }
 
@@ -31,7 +40,7 @@ final class LanguageSettingTests: XCTestCase {
         let defaults = isolatedDefaults()
         let language = AppLanguage(defaults: defaults, tables: try tables(), preferred: ["en-US"],
                                    includePseudo: false, pinned: .ko)
-        addTeardownBlock { InkFont.setLanguage("ja") }
+        try restoreSharedLanguage()
         XCTAssertFalse(language.offered.contains(.ko))
         XCTAssertEqual(language.effective, .ko, "offered に無くても固定が勝つ")
         language.select(.language(.ja))
@@ -71,17 +80,17 @@ final class LanguageSettingTests: XCTestCase {
         XCTAssertFalse(japanese.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "比べる文が画面に無い")
         XCTAssertFalse(japanese.contains("⟦"))
 
-        app.selectLanguage(.language(.pseudo))
+        // 画面の切り替えと同じ口(AppModel.selectLanguage が投げる引き直し)を通し、その終わりだけを待つ
+        let toPseudo = app.selectLanguage(.language(.pseudo))
+        XCTAssertNotNil(toPseudo, "ゲーム中は文を引き直す")
         XCTAssertEqual(defaults.string(forKey: LanguageChoice.defaultsKey), "x-pseudo")
         XCTAssertEqual(InkFont.language, "x-pseudo")
-        // 切り替えの引き直しを待つ
-        await store.setLanguage(language.effective)
+        await toPseudo?.value
         XCTAssertTrue(shownText(store).contains("⟦"), "文が囲みに変わる")
         let during = try await store.host.saveData(slot: .resume, stamps: [])
         XCTAssertEqual(during, before, "切り替えは世界を進めない")
 
-        app.selectLanguage(.language(.ja))
-        await store.setLanguage(language.effective)
+        await app.selectLanguage(.language(.ja))?.value
         XCTAssertEqual(shownText(store), japanese, "日本語に戻すと元の文")
         let after = try await store.host.saveData(slot: .resume, stamps: [])
         XCTAssertEqual(after, before)

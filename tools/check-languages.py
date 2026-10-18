@@ -13,6 +13,8 @@ Config/ReForge-Info.plist の CFBundleLocalizations に書き、project.yml の 
 その一覧が出す言語と一致すること・INFOPLIST_FILE がそれを指すことも確かめる。
 `INFOPLIST_KEY_CFBundleLocalizations` のような生成の対象でない鍵は黙って捨てられるので、書いたら失敗にする。
 ほかに ReForge/Resources/InfoPlist.xcstrings の言語の項が出す言語だけであること、CFBundleDisplayName を持つことも確かめる。
+画面の写真の試験が切れを報告だけにする「訳の無い言語」が、写真の言語 − 出す言語と同じであることも確かめる
+(言語を出したのに免除が残り、訳の切れが CI を通るのを防ぐ)。
 
 使い方: python3 tools/check-languages.py   (外れたら終了コード 1)
 """
@@ -28,6 +30,16 @@ HERE = Path(__file__).resolve().parent
 SOURCE_DIRS = ["ReForge", "ReForgeTests", "ReForgeUITests"]  # project.yml の targets の sources
 INFO_PLIST_CATALOG = "ReForge/Resources/InfoPlist.xcstrings"
 INFO_PLIST = "Config/ReForge-Info.plist"  # 生成する Info.plist に足す鍵(CFBundleLocalizations)
+SNAPSHOT_TESTS = "ReForgeUITests/ScreenSnapshotTests.swift"  # 画面の写真の言語と、切れを報告だけにする訳の無い言語
+
+
+def snapshot_languages(text):
+    """写真の言語(languages の組の頭)と、訳の無い言語(untranslated)。見つからなければ None。"""
+    langs = re.search(r"static let languages:[^=]*=\s*\[(.*?)\n\s*\]", text, re.S)
+    untranslated = re.search(r"static let untranslated:\s*Set<String>\s*=\s*\[(.*?)\]", text, re.S)
+    if not langs or not untranslated:
+        return None
+    return (set(re.findall(r'\(\s*"([\w-]+)"\s*,', langs.group(1))), set(re.findall(r'"([\w-]+)"', untranslated.group(1))))
 
 
 def released_languages(root):
@@ -106,6 +118,15 @@ def check(root):
             problems.append(f"{INFO_PLIST_CATALOG} の言語の項 {sorted(locales)} が 出す言語 {sorted(released)} と違う")
         if "CFBundleDisplayName" not in json.loads(catalog.read_text(encoding="utf-8")).get("strings", {}):
             problems.append(f"{INFO_PLIST_CATALOG} に CFBundleDisplayName が無い")
+    snapshot = root / SNAPSHOT_TESTS
+    found = snapshot_languages(snapshot.read_text(encoding="utf-8")) if snapshot.exists() else None
+    if found is None:
+        problems.append(f"{SNAPSHOT_TESTS} に写真の言語(languages)と訳の無い言語(untranslated)が無い")
+    else:
+        shot, untranslated = found
+        if untranslated != shot - released:
+            problems.append(f"{SNAPSHOT_TESTS} の訳の無い言語 {sorted(untranslated)} が 写真の言語 − 出す言語 {sorted(shot - released)} と違う"
+                            "(出した言語の切れを報告だけにしない。出したら untranslated から外す)")
     return problems
 
 

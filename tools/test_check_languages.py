@@ -25,6 +25,13 @@ def info_plist(*locales):
     return plistlib.dumps({"CFBundleLocalizations": list(locales)}).decode("utf-8")
 
 
+def snapshot(*untranslated):
+    langs = ", ".join(f'("{c}", "x")' for c in ("ja", "en", "zh-Hans", "zh-Hant", "ko"))
+    marks = ", ".join(f'"{c}"' for c in untranslated)
+    return (f"    private static let languages: [(code: String, locale: String)] = [\n        {langs},\n    ]\n"
+            f"    private static let untranslated: Set<String> = [{marks}]\n")
+
+
 def catalog(*locales):
     strings = {"CFBundleDisplayName": {"localizations": {l: {"stringUnit": {"state": "translated", "value": "x"}} for l in locales}}}
     return json.dumps({"sourceLanguage": "ja", "strings": strings, "version": "1.0"})
@@ -32,7 +39,7 @@ def catalog(*locales):
 
 class Sample:
     def __init__(self, released=".ja", project_extra="", info_locales=("ja",), development="ja", extra_files=None,
-                 plist_locales=("ja",)):
+                 plist_locales=("ja",), untranslated=("en", "zh-Hans", "zh-Hant", "ko")):
         self.dir = tempfile.TemporaryDirectory()
         self.root = pathlib.Path(self.dir.name)
         write(self.root / "ReForgeCore/Sources/RFKernel/Text.swift", TEXT_SWIFT % released)
@@ -41,6 +48,8 @@ class Sample:
             write(self.root / MODULE.INFO_PLIST_CATALOG, catalog(*info_locales))
         if plist_locales is not None:
             write(self.root / MODULE.INFO_PLIST, info_plist(*plist_locales))
+        if untranslated is not None:
+            write(self.root / MODULE.SNAPSHOT_TESTS, snapshot(*untranslated))
         for name, body in (extra_files or {}).items():
             write(self.root / name, body)
 
@@ -81,11 +90,22 @@ class CheckLanguages(unittest.TestCase):
         extra = {"ReForge/Resources/en.lproj/Foo.strings": ""}
         self.assertTrue(any("knownRegions" in p for p in self.sample(extra_files=extra).problems()))
 
+    def test_released_language_must_leave_snapshot_exemption(self):
+        s = self.sample(released=".ja, .en", info_locales=("ja", "en"), plist_locales=("ja", "en"))
+        self.assertTrue(any("untranslated" in p for p in s.problems()), "出した言語が免除に残れば落ちる")
+
+    def test_snapshot_exemption_must_cover_untranslated_languages(self):
+        self.assertTrue(any("untranslated" in p for p in self.sample(untranslated=("en",)).problems()))
+
+    def test_missing_snapshot_languages_fail(self):
+        self.assertTrue(any("untranslated" in p for p in self.sample(untranslated=None).problems()))
+
     def test_missing_released_language_fails(self):
         self.assertTrue(self.sample(released=".ja, .en").problems())
 
     def test_adding_a_released_language_requires_project_changes(self):
-        s = self.sample(released=".ja, .en", info_locales=("ja", "en"), development="ja", plist_locales=("ja", "en"))
+        s = self.sample(released=".ja, .en", info_locales=("ja", "en"), development="ja", plist_locales=("ja", "en"),
+                        untranslated=("zh-Hans", "zh-Hant", "ko"))
         self.assertEqual(MODULE.known_regions(s.root), {"ja", "en", "Base"})
         self.assertEqual(s.problems(), [])
 

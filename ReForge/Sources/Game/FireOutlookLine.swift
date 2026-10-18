@@ -7,22 +7,20 @@ struct FireOutlookLine: View {
     let fire: FireOutlookView
 
     var body: some View {
-        HStack(spacing: 4) {
-            ui("ui.card.fire_now")
-            Self.word(fire.now)
-            ui("ui.card.fire_after")
-            Self.word(fire.afterOneMore)
-        }
+        // 4 つの断片を 1 つの文につなぐ。収まらない時は縮めず省略もせず、語の切れ目で折り返す
+        (ui("ui.card.fire_now") + Text(verbatim: " ") + Self.word(fire.now) + Text(verbatim: " ")
+            + ui("ui.card.fire_after") + Text(verbatim: " ") + Self.word(fire.afterOneMore))
         .font(InkFont.small)
         .foregroundStyle(InkColor.textDim)
-        .lineLimit(1)
-        .minimumScaleFactor(InkMetric.minimumScale)
+        .inkFitCheck(id: "InkFireOutlook.line")
+        .fixedSize(horizontal: false, vertical: true)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("fireOutlook")
     }
 
     /// 4 段の言葉。
-    @ViewBuilder static func word(_ o: FireOutlook) -> some View {
+    static func word(_ o: FireOutlook) -> Text {
         switch o {
         case .untilEvening: ui("ui.card.fire_until_evening")
         case .midnight: ui("ui.card.fire_midnight")

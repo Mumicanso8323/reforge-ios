@@ -14,14 +14,18 @@ struct DayWrapLinesView: View {
                     ui("ui.band.made_label").foregroundStyle(InkColor.textDim)
                         .lineLimit(1).fixedSize().layoutPriority(1)  // 見出しは縮めない(縮めるのは物の名前の並びだけ)
                         .accessibilityIdentifier("dayWrapMadeLabel")
+                    // 物の名前の並びは省略せず折り返す(長い名前・多い品でも全部読める)
                     Text(verbatim: wrap.made.map { UIText.shared.string("ui.band.made_item", ["name": .string($0.name), "count": .int($0.count)]) }.joined(separator: UIText.shared.string("ui.band.made_sep")))
-                        .lineLimit(1).truncationMode(.tail)
+                        .inkFitCheck(id: "InkDayWrap.made")
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("dayWrapMade")
                 }
             }
             if let running = wrap.running {
-                Text(verbatim: running).lineLimit(1).truncationMode(.tail)
+                Text(verbatim: running)
+                    .inkFitCheck(id: "InkDayWrap.running")
+                    .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .accessibilityIdentifier("dayWrapRunning")
             }
@@ -30,7 +34,9 @@ struct DayWrapLinesView: View {
                     ui("ui.band.tomorrow_label").foregroundStyle(InkColor.textDim)
                         .lineLimit(1).fixedSize().layoutPriority(1)
                         .accessibilityIdentifier("dayWrapOutlookLabel")
-                    Text(verbatim: outlook).lineLimit(1).truncationMode(.tail)
+                    Text(verbatim: outlook)
+                        .inkFitCheck(id: "InkDayWrap.outlook")
+                        .fixedSize(horizontal: false, vertical: true)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .accessibilityIdentifier("dayWrapOutlook")
                 }

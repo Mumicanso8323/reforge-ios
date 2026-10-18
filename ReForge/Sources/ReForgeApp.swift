@@ -169,12 +169,14 @@ final class AppModel {
     }
 
     /// 言語を選ぶ。字体を替え(AppLanguage.select)、ゲーム中なら世界を進めずに文だけ引き直す。
-    func selectLanguage(_ choice: LanguageChoice) {
+    /// 引き直しは待たない(画面はすぐ返す)。返す Task は試験がこの経路の終わりを待つためだけに使う。
+    @discardableResult
+    func selectLanguage(_ choice: LanguageChoice) -> Task<Void, Never>? {
         language.select(choice)
         UIText.shared.configure(tables: content?.textTables ?? TextTables(), language: language.effective, markFallback: markFallback)
-        guard let g = game else { return }
+        guard let g = game else { return nil }
         let effective = language.effective
-        Task { await g.setLanguage(effective) }
+        return Task { await g.setLanguage(effective) }
     }
 
     /// アプリの束に同梱した `content/`(公開の層と、あれば封をした非公開の層)を読む。鍵は rf-seal が生成した ContentKey。

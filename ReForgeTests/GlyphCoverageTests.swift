@@ -71,6 +71,24 @@ final class GlyphCoverageTests: XCTestCase {
         XCTAssertTrue(all.isEmpty, "字体で描けない字:\n\(report(all))")
     }
 
+    /// 日本語以外の字体(簡体字・繁体字・韓国語・英語): その言語の表の文と、日本語の表の文(訳の無い文はこれが出る)の全部の字が、
+    /// その言語の字体と iOS の代わりの字体で描ける(言語を出す前に豆腐を見つける)。
+    func testScreenTextIsDrawableInEveryShippedFont() throws {
+        let content = try AppModel.loadBundledContent(bundle: .main)
+        let japanese = content.textTables.tables[.ja] ?? [:]
+        var all: [Miss] = []
+        for language in LanguageID.shipped where language != .ja {
+            let base = ctFont(InkFont.family(for: language))
+            for (id, text) in content.textTables.tables[language] ?? [:] {
+                all += misses(in: text, language: language.rawValue, place: "text:\(id.rawValue)", base: base)
+            }
+            for (id, text) in japanese {
+                all += misses(in: text, language: language.rawValue, place: "ja-text:\(id.rawValue)", base: base)
+            }
+        }
+        XCTAssertTrue(all.isEmpty, "字体で描けない字:\n\(report(all))")
+    }
+
     /// 地図の字: 地図の 1 マスの字体(BIZ UD ゴシック)か iOS の代わりの字体で描ける。
     func testMapGlyphsAreDrawable() throws {
         let content = try AppModel.loadBundledContent(bundle: .main)

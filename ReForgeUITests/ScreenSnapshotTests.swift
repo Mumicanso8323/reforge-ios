@@ -15,6 +15,10 @@ final class ScreenSnapshotTests: XCTestCase {
     private static let languages: [(code: String, locale: String)] = [
         ("ja", "ja_JP"), ("en", "en_US"), ("zh-Hans", "zh_CN"), ("zh-Hant", "zh_TW"), ("ko", "ko_KR"),
     ]
+    /// 訳が無く、日本語の文に開発の版の [ja] の印が付いて伸びる言語。この言語の切れ(overflow)だけは報告にとどめる。
+    /// 出す言語(LanguageID.released)とは重ねない。tools/check-languages.py が「写真の言語 − 出す言語」と同じかを確かめるので、
+    /// 言語を出すと静的な確かめが落ち、ここから外すまで通らない(外せば切れは失敗に戻る)。
+    private static let untranslated: Set<String> = ["en", "zh-Hans", "zh-Hant", "ko"]
     /// 主な画面 8 つと、タイトル・ノート・決断の帯・読み込みの失敗(説明書 §8)。
     /// 序(prologue)は、公開の層の中立の見本(Debug/PrologueSample.swift)を画面全体の場面で撮る(PT-B6)。
     /// 暗い場面(darkStart)は、最初の行為の前の画面(PT-B8)。
@@ -138,9 +142,8 @@ final class ScreenSnapshotTests: XCTestCase {
             // 初回は擬似言語の配置の所見(overflow・offscreen・overlap・区分の表に無い id)を全て報告だけにする。失敗にするのは写真が撮れない・落ちる時だけ
             reported = findings
             findings = []
-        } else if lang.code != "ja" {
-            // 出す言語(LanguageID.released)は日本語だけ。ほかの言語の写真は、訳が無く日本語の文に開発の版の [ja] の印が付いて伸びる。
-            // その伸びで縮む・切れる(overflow)は報告だけにする(画面の外・重なりは失敗のまま)。訳が入った言語は出す時にここから外す
+        } else if Self.untranslated.contains(lang.code) {
+            // 訳の無い言語の伸びで縮む・切れる(overflow)は報告だけにする(画面の外・重なりは失敗のまま)
             reported = findings.filter { $0.kind == "overflow" }
             findings.removeAll { $0.kind == "overflow" }
         }
