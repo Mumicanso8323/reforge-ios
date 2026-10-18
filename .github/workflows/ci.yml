@@ -66,8 +66,8 @@ jobs:
       REFORGE_FIRSTFIRE_SEEDS: "200"
       # TEST-O11 寝る見込みと実際の一致(1 晩約 3.7 秒。手元の既定は 100、CI は 20。1000 は手で)
       REFORGE_O11_NIGHTS: "20"
-      # W-05 生産ボットの基準(1 走が長い。CI は 2 走)
-      REFORGE_W05_SEEDS: "2"
+      # W-05 生産ボットの基準(1 走が長い。公開の層は 2 走。非公開の層は生成したコンテンツで回り 1 走が約 7 分なので、最小の比が出る seed 0 の 1 走)
+      REFORGE_W05_SEEDS: ${{ matrix.layer == 'private' && '1' || '2' }}
     steps:
       - uses: actions/checkout@v5
       # main への push で鍵が無いと非公開の層が丸ごと飛ばされて緑になる。それは失敗にする(手動起動・PR は fork などで鍵が無いことがあるので今のまま)。
