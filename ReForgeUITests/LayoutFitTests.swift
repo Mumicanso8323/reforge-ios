@@ -188,10 +188,17 @@ final class LayoutFitTests: XCTestCase {
         let stick = one(app, "stickControl")
         let card = one(app, "footCard")
         XCTAssertTrue(card.waitForExistence(timeout: 30), "\(tag): 足元カードが出ない")
+        // 帯が地図の半分を超える時(大きい文字)は、帯の中を縦に流す(GameScreen の CappedHeightLayout + ScrollView)。
+        // 流れる窓の外の部分は見えないので、窓で切った見える部分で測る。窓そのものも足元カードと重ならない。
+        let windows = app.scrollViews.containing(NSPredicate(format: "identifier == 'dayWrapMade'")).allElementsBoundByIndex
+            .map(\.frame).filter { !$0.isEmpty }
+        let window = windows.min { $0.height < $1.height }
+        if let window { XCTAssertFalse(window.insetBy(dx: 0, dy: 0.5).intersects(card.frame), "\(tag): 帯の流れる窓が足元カードと重なる \(window)") }
         for id in ["dayWrapMadeLabel", "dayWrapMade", "dayWrapRunning", "dayWrapOutlookLabel", "dayWrapOutlook"] {
             let e = one(app, id)
             guard e.exists else { continue }
-            let f = e.frame
+            let f = window.map { e.frame.intersection($0) } ?? e.frame
+            guard !f.isNull, !f.isEmpty else { continue }
             XCTAssertGreaterThanOrEqual(f.minX, screen.minX - 0.5, "\(tag): \(id) の左端が画面の外 \(f)")
             XCTAssertLessThanOrEqual(f.maxX, screen.maxX + 0.5, "\(tag): \(id) の右端が画面の外 \(f)")
             XCTAssertFalse(f.intersects(card.frame), "\(tag): \(id) が足元カードと重なる \(f)")
