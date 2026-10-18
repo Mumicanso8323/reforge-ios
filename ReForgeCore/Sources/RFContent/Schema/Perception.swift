@@ -283,12 +283,36 @@ public struct PronounRule: Codable, Equatable, Sendable {
     public var about: PersonID
     public var error: LanguageWords
     public var review: LanguageWords
+    /// 照らす前に文から除く語(語の一部に代名詞の字を含むが代名詞ではない語。複数形・熟語など)。既定は空。
+    public var allow: LanguageWords
 
-    public init(id: String, about: PersonID, error: LanguageWords, review: LanguageWords) {
+    public init(id: String, about: PersonID, error: LanguageWords, review: LanguageWords,
+                allow: LanguageWords = LanguageWords(byLanguage: [:])) {
         self.id = id
         self.about = about
         self.error = error
         self.review = review
+        self.allow = allow
+    }
+
+    enum CodingKeys: String, CodingKey { case id, about, error, review, allow }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(String.self, forKey: .id)
+        about = try container.decode(PersonID.self, forKey: .about)
+        error = try container.decode(LanguageWords.self, forKey: .error)
+        review = try container.decodeIfPresent(LanguageWords.self, forKey: .review) ?? LanguageWords(byLanguage: [:])
+        allow = try container.decodeIfPresent(LanguageWords.self, forKey: .allow) ?? LanguageWords(byLanguage: [:])
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(about, forKey: .about)
+        try container.encode(error, forKey: .error)
+        try container.encode(review, forKey: .review)
+        if !allow.byLanguage.isEmpty { try container.encode(allow, forKey: .allow) }
     }
 }
 

@@ -212,6 +212,16 @@ final class PerceptionTests: XCTestCase {
         XCTAssertEqual(v.count, 0, "\(v.prefix(20))")
     }
 
+    /// 非公開の層があれば、代名詞の規則(pronounRules と文言の表の about)で止める指摘が全部の言語で 0 件。
+    /// 見直しの列(review)は止めない。指摘は規則の名札と文言の ID だけ(語と文は持たない)。
+    func testFullContentHasNoPronounErrors() throws {
+        let content = try TestContent.full()
+        for (language, findings) in PronounAudit.checkAll(content) {
+            let errors = findings.filter { $0.severity == .error }
+            XCTAssertEqual(errors.count, 0, "\(language.rawValue): \(errors.prefix(20).map { "\($0.rule) \($0.text.rawValue)" })")
+        }
+    }
+
     /// 監査は、まだ知らない事実の語と英語の ID を捕まえる(走行中の検査の関数)。
     func testRuntimeCheckCatchesForbiddenWordAndEnglishID() throws {
         let db = try TestContent.publicOnly()
