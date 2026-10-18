@@ -224,36 +224,36 @@ jobs:
             || {
               if [ "$HAS_CONTENT_KEY" = "true" ]; then
                 # 非公開の層を重ねて回した。公開ログに XCTAssert の文面(物語の文が入りうる)を出さない。テストの名前(公開のコード)だけ。
-                grep -oE "Test Case '[^']+' failed" test.log | sort -u | head -50 || true
-                grep -qE "error: |Undefined symbol" test.log && echo "ビルドかテストにエラー(詳細は手元で)"
+                grep -aoE "Test Case '[^']+' failed" test.log | sort -u | head -50 || true
+                grep -aqE "error: |Undefined symbol" test.log && echo "ビルドかテストにエラー(詳細は手元で)"
                 # コンパイルの誤り(行:桁 付き)と xcodebuild 自身の誤りだけを出す。公開のコードのファイルに限り、生成物(鍵)は出さない。
                 # XCTAssert の失敗は「行:」だけで桁が無いので、ここには混ざらない
-                grep -E "^/[^ ]*/(ReForge|ReForgeTests|ReForgeUITests|ReForgeCore)/[^ ]*\.swift:[0-9]+:[0-9]+: error: |^xcodebuild: error: " test.log \
-                  | grep -v "/Generated/" | sed -E 's|^/[^ ]*/reforge-ios/||' | sort -u | head -40 || true
+                grep -aE "^/[^ ]*/(ReForge|ReForgeTests|ReForgeUITests|ReForgeCore)/[^ ]*\.swift:[0-9]+:[0-9]+: error: |^xcodebuild: error: " test.log \
+                  | grep -av "/Generated/" | sed -E 's|^/[^ ]*/reforge-ios/||' | sort -u | head -40 || true
                 # 落ちた確かめの場所(ファイル:行)だけ。文面と値(物語の文が入りうる)は切り落とす
-                grep -oE "^/[^ ]*/(ReForgeTests|ReForgeUITests)/[^ ]*\.swift:[0-9]+: error: " test.log \
+                grep -aoE "^/[^ ]*/(ReForgeTests|ReForgeUITests)/[^ ]*\.swift:[0-9]+: error: " test.log \
                   | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -40 || true
                 # 落ち方の要約(件数・落ちた/時間切れ・どのテストで再起動したか)。決まった形の語だけを抜き出す
-                grep -oE "Executed [0-9]+ tests?, with [0-9]+ failures? \([0-9]+ unexpected\)|\*\* TEST [A-Z]+ \*\*|Restarting after unexpected exit, crash, or test timeout in [A-Za-z0-9_]+\.[A-Za-z0-9_]+\(\)|encountered an error \((Crash|Early unexpected exit|Test crashed)|Test crashed with signal [a-z]+|exceeded execution time allowance|Testing failed:|Test runner exited|\[MT\] [A-Za-z]+Error" test.log \
+                grep -aoE "Executed [0-9]+ tests?, with [0-9]+ failures? \([0-9]+ unexpected\)|\*\* TEST [A-Z]+ \*\*|Restarting after unexpected exit, crash, or test timeout in [A-Za-z0-9_]+\.[A-Za-z0-9_]+\(\)|encountered an error \((Crash|Early unexpected exit|Test crashed)|Test crashed with signal [a-z]+|exceeded execution time allowance|Testing failed:|Test runner exited|\[MT\] [A-Za-z]+Error" test.log \
                   | sort | uniq -c | head -30 || true
-                grep -oE "Test Suite '[A-Za-z0-9_.]+' failed" test.log | sort | uniq -c | head -20 || true
+                grep -aoE "Test Suite '[A-Za-z0-9_.]+' failed" test.log | sort | uniq -c | head -20 || true
                 # xcodebuild の終わりの「Testing failed:」の各行は、先頭の英字の 40 字と対象の名前だけ(日本語の文は抜けない)
-                sed -n '/^Testing failed:/,/^\*\* TEST/p' test.log | grep -oE "^[[:space:]]*[A-Za-z][A-Za-z ()_.-]{0,40}|\(in target '[A-Za-z]+' from project '[A-Za-z]+'\)" | head -20 || true
-                grep -oE "^[^ :]{1,60}: error: " test.log | grep -v "\.swift" | sort | uniq -c | head -10 || true
+                sed -n '/^Testing failed:/,/^\*\* TEST/p' test.log | grep -aoE "^[[:space:]]*[A-Za-z][A-Za-z ()_.-]{0,40}|\(in target '[A-Za-z]+' from project '[A-Za-z]+'\)" | head -20 || true
+                grep -aoE "^[^ :]{1,60}: error: " test.log | grep -av "\.swift" | sort | uniq -c | head -10 || true
                 # 始まったのに終わりの記録が無い組(落ちた・止まった試験の組の名前)
-                comm -23 <(grep -oE "Test Suite '[A-Za-z0-9_]+' started" test.log | sed -E "s/.*'(.*)'.*/\1/" | sort -u) \
-                         <(grep -oE "Test Suite '[A-Za-z0-9_]+' (passed|failed)" test.log | sed -E "s/.*'(.*)'.*/\1/" | sort -u) | head -20 || true
+                comm -23 <(grep -aoE "Test Suite '[A-Za-z0-9_]+' started" test.log | sed -E "s/.*'(.*)'.*/\1/" | sort -u) \
+                         <(grep -aoE "Test Suite '[A-Za-z0-9_]+' (passed|failed)" test.log | sed -E "s/.*'(.*)'.*/\1/" | sort -u) | head -20 || true
                 # 行頭でない所の .swift の誤り(試験の外で記録された失敗など)は、ファイル名・行・試験の名前だけ
-                grep -oE "[A-Za-z0-9_]+\.swift:[0-9]+(:[0-9]+)?: error: (-\[[A-Za-z0-9_.]+ [A-Za-z0-9_]+\])?" test.log | sort | uniq -c | head -20 || true
+                grep -aoE "[A-Za-z0-9_]+\.swift:[0-9]+(:[0-9]+)?: error: (-\[[A-Za-z0-9_.]+ [A-Za-z0-9_]+\])?" test.log | sort | uniq -c | head -20 || true
                 # error: を含む行は、英数と記号だけに削って頭の 100 字(日本語の文は残らない)
-                grep "error:" test.log | grep -vE "\.swift:[0-9]+" | LC_ALL=C sed -E 's/[^A-Za-z0-9_.:()\[\]\/ -]//g' | cut -c1-100 | sort | uniq -c | sort -rn | head -15 || true
-                grep -oE "^/[^ ]*/(ReForgeCore|ReForge)/[^ ]*\.swift:[0-9]+: error: " test.log | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -20 || true
+                grep -a "error: " test.log | LC_ALL=C sed -E 's/[^A-Za-z0-9_.:()\[\]\/ -]//g' | cut -c1-100 | sort | uniq -c | sort -rn | head -15 || true
+                grep -aoE "^/[^ ]*/(ReForgeCore|ReForge)/[^ ]*\.swift:[0-9]+: error: " test.log | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -20 || true
               else
-                grep -E "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
+                grep -aE "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
               fi
               exit 1
             }
-          grep -E "Test Case .*(passed|failed)|Executed|\*\* TEST" test.log | tail -20
+          grep -aE "Test Case .*(passed|failed)|Executed|\*\* TEST" test.log | tail -20
 
       - name: Build (unsigned)
         run: |
