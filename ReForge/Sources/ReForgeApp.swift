@@ -210,7 +210,7 @@ final class AppModel {
     /// failed なら走行が終わった形(ゲームオーバーの 4 択)にする。
     /// decision なら、公開の層の試験用の決断を 1 つ出した形にする(決断の帯)。
     func startScreenshotGame(failed: Bool, decision: Bool, darkStart: Bool = false, darkMark: Bool = false,
-                             foot: Bool = false, dusk: Bool = false, time: ScreenshotTime? = nil) {
+                             foot: Bool = false, dusk: Bool = false, focusFire: Bool = false, time: ScreenshotTime? = nil) {
         guard var content else { return }
         if darkMark, var mark = content.structures["structure.fence"] {
             mark.seenInDark = true
@@ -276,6 +276,11 @@ final class AppModel {
         }
         game = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback)
         game?.isPaused = settingsOpen
+        // 足元カードを焚き火に向ける(焚き火は足元の残骸を避けて隣に置かれる)
+        if focusFire, let fire = world.placements.sortedIDs.compactMap({ world.placements.items[$0] })
+            .first(where: { $0.kind == .structure("structure.campfire") }) {
+            game?.select(fire.at.point)
+        }
     }
 #endif
 

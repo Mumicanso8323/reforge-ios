@@ -199,7 +199,8 @@ final class LayoutFitTests: XCTestCase {
         }
         let label = one(app, "dayWrapMadeLabel")
         XCTAssertTrue(label.exists, "\(tag): 見出しが出ない")
-        XCTAssertLessThan(label.frame.maxX, made.frame.minX + 6.5, "\(tag): 見出しと名前の並びが重なる")
+        // 見出しは名前の並びの左(標準)か上(大きい文字)。どちらでも重ならない
+        XCTAssertFalse(label.frame.insetBy(dx: 1, dy: 1).intersects(made.frame), "\(tag): 見出しと名前の並びが重なる \(label.frame) \(made.frame)")
         // 物の名前の並び・動いている物・明日の見込みは省略せず折り返す(全文が読める)
         assertNoTruncation(app, "InkDayWrap.", tag)
     }
@@ -215,13 +216,13 @@ final class LayoutFitTests: XCTestCase {
     }
 
     func testFireOutlookFits() {
-        let app = launch("dayWrap")
+        let app = launch("fireCard")
         defer { app.terminate() }
         checkFireOutlook(app, "標準")
     }
 
     func testFireOutlookFitsAtLargeText() {
-        let app = launch("dayWrap", category: "UICTContentSizeCategoryAccessibilityXXXL")
+        let app = launch("fireCard", category: "UICTContentSizeCategoryAccessibilityXXXL")
         defer { app.terminate() }
         checkFireOutlook(app, "大きい文字")
     }
@@ -231,7 +232,12 @@ final class LayoutFitTests: XCTestCase {
         defer { app.terminate() }
         XCTAssertTrue(one(app, "dayWrapMade").waitForExistence(timeout: 60), "擬似言語: 今日できた物の行が出ない")
         assertNoTruncation(app, "InkDayWrap.", "擬似言語")
-        assertNoTruncation(app, "InkFireOutlook.", "擬似言語")
+    }
+
+    func testFireOutlookFitsInPseudo() {
+        let app = launch("fireCard", pseudo: true)
+        defer { app.terminate() }
+        checkFireOutlook(app, "擬似言語")
     }
 
     func testDayWrapFitsScreen() {

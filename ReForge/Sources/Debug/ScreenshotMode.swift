@@ -13,6 +13,8 @@ enum ScreenshotScreen: String, CaseIterable {
     case title, notes, decisionBand, bootFailure, prologue, stage, darkStart, darkMark
     /// 日没の締め(夜の帯の上の 3 行。長い名前の並び)。はみ出しの測り用(LayoutFitTests)。
     case dayWrap
+    /// 日没の世界で、足元カードを点いた焚き火に向けた形(焚き火の見込みの行。LayoutFitTests)。
+    case fireCard
 
     /// 最初に選ぶタブ。研究は拠点のタブ(研究の節までの巻き取りはアプリの側。BaseTab の DEBUG)。
     var tab: GameTab {
@@ -34,6 +36,7 @@ enum ScreenshotScreen: String, CaseIterable {
         case .darkStart: .map
         case .darkMark: .map
         case .dayWrap: .map
+        case .fireCard: .map
         }
     }
 }
@@ -104,12 +107,12 @@ enum ScreenshotMode {
             return AppModel(saves: saves, bundle: Bundle(url: empty) ?? Bundle())
         case .title:
             return AppModel(saves: saves)
-        case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand, .prologue, .stage, .darkStart, .darkMark, .dayWrap:
+        case .map, .foot, .design, .base, .crew, .research, .gameOver, .settings, .notes, .decisionBand, .prologue, .stage, .darkStart, .darkMark, .dayWrap, .fireCard:
             let model = AppModel(saves: saves)
             model.startScreenshotGame(failed: screen == .gameOver, decision: screen == .decisionBand,
                                       darkStart: screen == .darkStart, darkMark: screen == .darkMark,
-                                      foot: screen == .foot, dusk: screen == .dayWrap,
-                                      time: time)
+                                      foot: screen == .foot, dusk: screen == .dayWrap || screen == .fireCard,
+                                      focusFire: screen == .fireCard, time: time)
             // 設定は、角のボタンで開いた形で撮る(札は RootView。L-10a)
             if screen == .settings { model.settingsOpen = true }
             // 序は、見本の場面を画面全体で出した形(送りは UI テストのタップ)

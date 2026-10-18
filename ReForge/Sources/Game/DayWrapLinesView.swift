@@ -6,14 +6,32 @@ import ReForgeEngine
 /// 文言は固定の文言と、数・物の名前だけ。
 struct DayWrapLinesView: View {
     let wrap: DayWrapView
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// 見出しと中身の並べ方。大きい文字(アクセシビリティの大きさ)では見出しを上に置き、中身に幅を全部渡す
+    /// (横に並べると見出しが幅を取り、中身が 1 字ずつ折り返して縦に長く伸びる)。
+    private var row: AnyLayout {
+        typeSize.isAccessibilitySize ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2)) : AnyLayout(HStackLayout(spacing: 6))
+    }
+
+    /// 見出し。横に並べる時は縮めない(縮めるのは中身の並びだけ)。上に置く時は幅に合わせて折り返す。
+    @ViewBuilder private func label(_ text: Text, _ identifier: String) -> some View {
+        if typeSize.isAccessibilitySize {
+            text.foregroundStyle(InkColor.textDim)
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier(identifier)
+        } else {
+            text.foregroundStyle(InkColor.textDim)
+                .lineLimit(1).fixedSize().layoutPriority(1)
+                .accessibilityIdentifier(identifier)
+        }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             if !wrap.made.isEmpty {
-                HStack(spacing: 6) {
-                    ui("ui.band.made_label").foregroundStyle(InkColor.textDim)
-                        .lineLimit(1).fixedSize().layoutPriority(1)  // 見出しは縮めない(縮めるのは物の名前の並びだけ)
-                        .accessibilityIdentifier("dayWrapMadeLabel")
+                row {
+                    label(ui("ui.band.made_label"), "dayWrapMadeLabel")
                     // 物の名前の並びは省略せず折り返す(長い名前・多い品でも全部読める)
                     spokenText(wrap.made.map { UIText.shared.string("ui.band.made_item", ["name": .string($0.name), "count": .int($0.count)]) }.joined(separator: UIText.shared.string("ui.band.made_sep")))
                         .inkFitCheck(id: "InkDayWrap.made")
@@ -30,10 +48,8 @@ struct DayWrapLinesView: View {
                     .accessibilityIdentifier("dayWrapRunning")
             }
             if let outlook = wrap.outlook {
-                HStack(spacing: 6) {
-                    ui("ui.band.tomorrow_label").foregroundStyle(InkColor.textDim)
-                        .lineLimit(1).fixedSize().layoutPriority(1)
-                        .accessibilityIdentifier("dayWrapOutlookLabel")
+                row {
+                    label(ui("ui.band.tomorrow_label"), "dayWrapOutlookLabel")
                     spokenText(outlook)
                         .inkFitCheck(id: "InkDayWrap.outlook")
                         .fixedSize(horizontal: false, vertical: true)
