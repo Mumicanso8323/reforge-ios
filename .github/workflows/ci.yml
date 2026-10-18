@@ -240,6 +240,11 @@ jobs:
                 # xcodebuild の終わりの「Testing failed:」の各行は、先頭の英字の 40 字と対象の名前だけ(日本語の文は抜けない)
                 sed -n '/^Testing failed:/,/^\*\* TEST/p' test.log | grep -oE "^[[:space:]]*[A-Za-z][A-Za-z ()_.-]{0,40}|\(in target '[A-Za-z]+' from project '[A-Za-z]+'\)" | head -20 || true
                 grep -oE "^[^ :]{1,60}: error: " test.log | grep -v "\.swift" | sort | uniq -c | head -10 || true
+                # 始まったのに終わりの記録が無い組(落ちた・止まった試験の組の名前)
+                comm -23 <(grep -oE "Test Suite '[A-Za-z0-9_]+' started" test.log | sed -E "s/.*'(.*)'.*/\1/" | sort -u) \
+                         <(grep -oE "Test Suite '[A-Za-z0-9_]+' (passed|failed)" test.log | sed -E "s/.*'(.*)'.*/\1/" | sort -u) | head -20 || true
+                # error: を含む行は、英数と記号だけに削って頭の 100 字(日本語の文は残らない)
+                grep "error:" test.log | grep -vE "\.swift:[0-9]+" | LC_ALL=C sed -E 's/[^A-Za-z0-9_.:()\[\]\/ -]//g' | cut -c1-100 | sort | uniq -c | sort -rn | head -15 || true
                 grep -oE "^/[^ ]*/(ReForgeCore|ReForge)/[^ ]*\.swift:[0-9]+: error: " test.log | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -20 || true
               else
                 grep -E "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
