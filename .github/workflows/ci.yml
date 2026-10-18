@@ -236,6 +236,10 @@ jobs:
                 # 落ち方の要約(件数・落ちた/時間切れ・どのテストで再起動したか)。決まった形の語だけを抜き出す
                 grep -oE "Executed [0-9]+ tests?, with [0-9]+ failures? \([0-9]+ unexpected\)|\*\* TEST [A-Z]+ \*\*|Restarting after unexpected exit, crash, or test timeout in [A-Za-z0-9_]+\.[A-Za-z0-9_]+\(\)|encountered an error \((Crash|Early unexpected exit|Test crashed)|Test crashed with signal [a-z]+|exceeded execution time allowance|Testing failed:|Test runner exited|\[MT\] [A-Za-z]+Error" test.log \
                   | sort | uniq -c | head -30 || true
+                grep -oE "Test Suite '[A-Za-z0-9_.]+' failed" test.log | sort | uniq -c | head -20 || true
+                # xcodebuild の終わりの「Testing failed:」の各行は、先頭の英字の 40 字と対象の名前だけ(日本語の文は抜けない)
+                sed -n '/^Testing failed:/,/^\*\* TEST/p' test.log | grep -oE "^[[:space:]]*[A-Za-z][A-Za-z ()_.-]{0,40}|\(in target '[A-Za-z]+' from project '[A-Za-z]+'\)" | head -20 || true
+                grep -oE "^[^ :]{1,60}: error: " test.log | grep -v "\.swift" | sort | uniq -c | head -10 || true
                 grep -oE "^/[^ ]*/(ReForgeCore|ReForge)/[^ ]*\.swift:[0-9]+: error: " test.log | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -20 || true
               else
                 grep -E "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
