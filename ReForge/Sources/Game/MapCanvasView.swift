@@ -243,7 +243,7 @@ struct MapCanvasView: View {
         if let page = store.panel {
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
-                    Text(verbatim: page.title).font(InkFont.heading)
+                    spokenText(page.title).font(InkFont.heading)
                     Spacer()
                     Button { store.closePanel() } label: { ui("ui.button.close") }
                         .buttonStyle(.ink(.quiet, fill: false))
@@ -255,7 +255,7 @@ struct MapCanvasView: View {
                     .foregroundStyle(InkColor.textDim)
                 }
                 ScrollView {
-                    Text(verbatim: page.body)
+                    spokenText(page.body)
                         .font(.custom(FontBook.mapFont, size: 14))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -274,7 +274,7 @@ struct MapCanvasView: View {
         if store.placing != nil {
             HStack(spacing: InkMetric.gap) {
                 if let r = store.preview?.reason {
-                    Text(verbatim: r).font(InkFont.small).foregroundStyle(InkColor.alert).lineLimit(1)
+                    spokenText(r).font(InkFont.small).foregroundStyle(InkColor.alert).lineLimit(1)
                 } else {
                     ui("ui.band.place_prompt").font(InkFont.small).foregroundStyle(InkColor.textDim)
                 }
@@ -299,7 +299,7 @@ struct MapCanvasView: View {
                 Bubble {
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(Array(store.sceneLines.enumerated()), id: \.offset) { _, line in
-                            Text(verbatim: line)
+                            spokenText(line)
                         }
                     }
                 }
@@ -349,11 +349,11 @@ struct InspectionText: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(verbatim: inspection.title).bold()
+            spokenText(inspection.title).bold()
             ForEach(Array(inspection.lines.enumerated()), id: \.offset) { _, line in
                 switch line {
                 case .name(let s):
-                    Text(verbatim: s)
+                    spokenText(s)
                 case .remaining(let n):
                     ui("ui.bubble.remaining", ["n": .int(n)])
                 case .purityTenths(let n):

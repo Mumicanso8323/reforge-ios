@@ -26,7 +26,7 @@ struct ProcessSheetView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(verbatim: sheet.title).font(InkFont.heading).bold()
+                spokenText(sheet.title).font(InkFont.heading).bold()
                 Spacer()
                 if let t = sheet.tally {
                     Text(verbatim: "\(t.filled) / \(t.slots)").foregroundStyle(InkColor.textDim)
@@ -34,7 +34,7 @@ struct ProcessSheetView: View {
             }
             if let h = sheet.head {
                 HStack(spacing: 6) {
-                    Text(verbatim: h.name)
+                    spokenText(h.name)
                     Text(verbatim: "──")
                     ui("ui.body.sense_label")
                     SenseWords.phrase(h.percent)
@@ -46,7 +46,7 @@ struct ProcessSheetView: View {
                 rowView(row, last: i == sheet.rows.count - 1)
             }
             if let r = sheet.result {
-                Text(verbatim: "═ \(r)").bold().foregroundStyle(InkColor.accent)
+                spokenText("═ \(r)").bold().foregroundStyle(InkColor.accent)
                     .accessibilityIdentifier("sheetResult")
             }
             if let c = sheet.card { TrialCardView(card: c) }
@@ -65,14 +65,14 @@ struct ProcessSheetView: View {
         let selected = row.step != nil && row.step == actions.selectedStep
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: 6) {
-                Text(verbatim: lead(row)).foregroundStyle(selected ? InkColor.accent : InkColor.textDim)
-                Text(verbatim: row.title)
+                spokenText(lead(row)).foregroundStyle(selected ? InkColor.accent : InkColor.textDim)
+                spokenText(row.title)
                     .foregroundStyle(row.empty ? InkColor.textDim : InkColor.text)
                     .bold(selected)
                 if !row.inputs.isEmpty {
-                    Text(verbatim: "+ \(row.inputs.formatted(.list(type: .and)))").foregroundStyle(InkColor.textDim).lineLimit(1)
+                    spokenText("+ \(row.inputs.formatted(.list(type: .and)))").foregroundStyle(InkColor.textDim).lineLimit(1)
                 }
-                if let n = row.note { Text(verbatim: "+ \(n)").foregroundStyle(InkColor.textDim).lineLimit(1) }
+                if let n = row.note { spokenText("+ \(n)").foregroundStyle(InkColor.textDim).lineLimit(1) }
                 if let f = row.figure { Text(verbatim: "\(f)").foregroundStyle(InkColor.textDim) }
                 Spacer(minLength: 4)
                 controls(row, labels: sheet.labels)
@@ -84,7 +84,7 @@ struct ProcessSheetView: View {
             }
             if let f = row.forecast {
                 HStack(spacing: 4) {
-                    Text(verbatim: "  │ → \(f.name)")
+                    spokenText("  │ → \(f.name)")
                     SenseWords.phrase(f.percent)
                 }
                 .foregroundStyle(InkColor.textDim)
@@ -95,7 +95,7 @@ struct ProcessSheetView: View {
                 ui("ui.body.sheet_finding", ["text": .string(t)]).font(InkFont.small).foregroundStyle(InkColor.textDim)
             }
             if let a = row.answer {
-                Text(verbatim: "  └ \(a)").foregroundStyle(InkColor.accent)
+                spokenText("  └ \(a)").foregroundStyle(InkColor.accent)
             }
         }
     }
@@ -122,8 +122,8 @@ struct ProcessSheetView: View {
             if row.declared != nil { ui("ui.body.declared").font(InkFont.small).foregroundStyle(InkColor.textDim) }
             let included = labels?.rosterInclude ?? UIText.shared.string("ui.roster.include")
             let excluded = labels?.rosterExclude ?? UIText.shared.string("ui.roster.exclude")
-            glyphButton(Text(verbatim: row.included == true ? "[\(included)]" : included), id: "pick.in.\(p.rawValue)") { set(p, true) }
-            glyphButton(Text(verbatim: row.included == false ? "[\(excluded)]" : excluded), id: "pick.out.\(p.rawValue)") { set(p, false) }
+            glyphButton(spokenText(row.included == true ? "[\(included)]" : included), id: "pick.in.\(p.rawValue)") { set(p, true) }
+            glyphButton(spokenText(row.included == false ? "[\(excluded)]" : excluded), id: "pick.out.\(p.rawValue)") { set(p, false) }
         }
     }
 
@@ -143,7 +143,7 @@ struct TrialCardView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(verbatim: "┌ \(card.product.name) ×\(card.quantity)\(card.unique ? " ★" : "")").bold()
+            spokenText("┌ \(card.product.name) ×\(card.quantity)\(card.unique ? " ★" : "")").bold()
             HStack(spacing: 8) {
                 Text(verbatim: "│")
                 ui("ui.body.sense_label")
@@ -155,7 +155,7 @@ struct TrialCardView: View {
                 HStack(spacing: 4) {
                     Text(verbatim: "│")
                     ui("ui.body.byproducts")
-                    Text(verbatim: card.byproducts.formatted(.list(type: .and)))
+                    spokenText(card.byproducts.formatted(.list(type: .and)))
                 }
             }
             ForEach(card.findings, id: \.self) { f in ui("ui.body.card_finding", ["text": .string(f)]) }
@@ -163,7 +163,7 @@ struct TrialCardView: View {
                 HStack(spacing: 4) {
                     Text(verbatim: "└")
                     ui("ui.body.used")
-                    Text(verbatim: card.used.map { "\($0.name) ×\($0.quantity)" }.formatted(.list(type: .and)))
+                    spokenText(card.used.map { "\($0.name) ×\($0.quantity)" }.formatted(.list(type: .and)))
                 }
                 .foregroundStyle(InkColor.textDim)
             }

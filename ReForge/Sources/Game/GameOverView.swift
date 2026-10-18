@@ -19,7 +19,7 @@ struct GameOverView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     row(c)
                     if !c.available, let r = reasons[c.option] {
-                        Text(verbatim: r)
+                        spokenText(r)
                             .font(InkFont.caption)
                             .foregroundStyle(InkColor.textDim)
                     }
@@ -36,7 +36,7 @@ struct GameOverView: View {
                 }
             }
             if let problem {
-                Text(verbatim: problem)
+                spokenText(problem)
                     .font(InkFont.small)
                     .foregroundStyle(InkColor.notice)
                     .accessibilityIdentifier("recoveryProblem")

@@ -8,7 +8,7 @@ struct UndoBand: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(verbatim: label).lineLimit(1).minimumScaleFactor(InkMetric.minimumScale)
+            spokenText(label).lineLimit(1).minimumScaleFactor(InkMetric.minimumScale)
             Spacer(minLength: 4)
             ui("ui.band.undo_remaining", ["seconds": .int(seconds)])
                 .font(InkFont.small)

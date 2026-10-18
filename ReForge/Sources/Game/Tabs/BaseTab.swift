@@ -50,7 +50,7 @@ struct BaseTabView: View {
                 InkRow(title: ui("ui.body.stock_empty")).foregroundStyle(InkColor.textDim)
             }
             ForEach(v.stock, id: \.name) { s in
-                InkRow(title: Text(verbatim: s.name), value: Text(verbatim: "\(s.quantity)"))
+                InkRow(title: spokenText(s.name), value: Text(verbatim: "\(s.quantity)"))
             }
         }
     }
@@ -58,7 +58,7 @@ struct BaseTabView: View {
     private func built(_ v: BaseView) -> some View {
         InkSection(title: ui("ui.body.built")) {
             ForEach(v.built, id: \.id) { b in
-                let row = InkRow(glyph: b.glyph, title: Text(verbatim: b.name), detail: detail(b), value: state(b.state))
+                let row = InkRow(glyph: b.glyph, title: spokenText(b.name), detail: detail(b), value: state(b.state))
                 if case .blocked = b.state {
                     row.accessibilityLabel(ui("ui.a11y.blocked"))
                 } else {
@@ -69,14 +69,14 @@ struct BaseTabView: View {
     }
 
     private func detail(_ b: BaseView.Built) -> Text? {
-        b.workers.isEmpty ? nil : Text(verbatim: b.workers.joined(separator: UIText.shared.string("ui.body.list_sep")))
+        b.workers.isEmpty ? nil : spokenText(b.workers.joined(separator: UIText.shared.string("ui.body.list_sep")))
     }
 
     private func state(_ s: BaseView.Built.State) -> Text {
         switch s {
         case .running: ui("ui.body.state_running")
         case .building(let p): ui("ui.body.state_building", ["percent": .int(p / 10)])
-        case .stopped(let r): Text(verbatim: r)
+        case .stopped(let r): spokenText(r)
         case .blocked:
             Text("■").foregroundStyle(InkColor.alert)
         case .broken: ui("ui.body.state_broken")
@@ -92,14 +92,14 @@ struct BaseTabView: View {
                     Button {
                         store.beginPlacing(o.kind)
                     } label: {
-                        InkRow(glyph: o.glyph, title: Text(verbatim: o.name),
-                               detail: Text(verbatim: Self.price(o)),
+                        InkRow(glyph: o.glyph, title: spokenText(o.name),
+                               detail: spokenText(Self.price(o)),
                                selected: store.placing == o.kind)
                     }
                     .buttonStyle(.inkRow)
                     .accessibilityIdentifier("build-\(o.kind.rawValue)")
                 case .plain:
-                    InkRow(glyph: o.glyph, title: Text(verbatim: o.name), detail: Text(verbatim: Self.price(o)))
+                    InkRow(glyph: o.glyph, title: spokenText(o.name), detail: spokenText(Self.price(o)))
                         .foregroundStyle(InkColor.textDim)
                         .accessibilityValue(ui("ui.a11y.unavailable"))
                 }
@@ -124,9 +124,9 @@ struct BaseTabView: View {
     private func lines(_ v: BaseView) -> some View {
         InkSection(title: ui("ui.body.lines")) {
             ForEach(v.lines, id: \.id) { l in
-                InkRow(glyph: "→", title: Text(verbatim: "\(l.from) → \(l.to)"),
-                       detail: l.blocked.map { Text(verbatim: $0) }
-                           ?? (l.haulers.isEmpty ? nil : Text(verbatim: l.haulers.joined(separator: UIText.shared.string("ui.body.list_sep")))),
+                InkRow(glyph: "→", title: spokenText("\(l.from) → \(l.to)"),
+                       detail: l.blocked.map { spokenText($0) }
+                           ?? (l.haulers.isEmpty ? nil : spokenText(l.haulers.joined(separator: UIText.shared.string("ui.body.list_sep")))),
                        value: ui("ui.body.moved_yesterday", ["n": .int(l.movedYesterday)]))
             }
         }
@@ -192,9 +192,9 @@ struct ResearchSection: View {
         InkSection(title: ui("ui.body.research")) {
             ForEach(view.entries, id: \.id) { e in
                 Button { store.send(e.selectCommand) } label: {
-                    InkRow(glyph: mark(e.status), title: Text(verbatim: e.name),
+                    InkRow(glyph: mark(e.status), title: spokenText(e.name),
                            detail: e.status == .active && !view.studying.isEmpty
-                               ? Text(verbatim: view.studying.joined(separator: UIText.shared.string("ui.body.list_sep"))) : nil,
+                               ? spokenText(view.studying.joined(separator: UIText.shared.string("ui.body.list_sep"))) : nil,
                            value: Text(verbatim: "\(e.points)/\(e.totalPoints)"), selected: e.status == .active)
                 }
                 .buttonStyle(.inkRow)

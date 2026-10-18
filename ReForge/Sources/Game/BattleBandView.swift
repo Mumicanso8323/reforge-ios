@@ -12,8 +12,8 @@ struct BattleBandView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     ForEach(store.battles, id: \.id) { b in
                         HStack(spacing: 8) {
-                            Text(verbatim: b.foe).foregroundStyle(InkColor.alert).lineLimit(1).minimumScaleFactor(InkMetric.minimumScale)
-                            Text(verbatim: BattleBandView.lane(b))
+                            spokenText(b.foe).foregroundStyle(InkColor.alert).lineLimit(1).minimumScaleFactor(InkMetric.minimumScale)
+                            spokenText(BattleBandView.lane(b))
                                 .font(InkFont.body)
                                 .lineLimit(1)
                                 .minimumScaleFactor(InkMetric.minimumScale)

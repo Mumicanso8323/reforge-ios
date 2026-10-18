@@ -20,8 +20,8 @@ struct StatusBandView: View {
                 }
                 ForEach(store.status.filter { !$0.label.isEmpty && !$0.value.isEmpty }, id: \.key) { item in
                     HStack(spacing: 3) {
-                        Text(verbatim: item.label).foregroundStyle(InkColor.textDim)
-                        Text(verbatim: item.value)
+                        spokenText(item.label).foregroundStyle(InkColor.textDim)
+                        spokenText(item.value)
                             .foregroundStyle(item.alert ? InkColor.alert : InkColor.text)
                         if let g = item.gauge {
                             // 棒と、意味の書かれていない目盛り(§10 HNT-05。U18)
@@ -32,8 +32,8 @@ struct StatusBandView: View {
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel(Text(verbatim: item.label))
-                    .accessibilityValue(Text(verbatim: item.value))
+                    .accessibilityLabel(spokenText(item.label))
+                    .accessibilityValue(spokenText(item.value))
                     .accessibilityIdentifier("status-item-\(item.key)")
                 }
             }
@@ -51,7 +51,7 @@ struct StatusBandView: View {
             if let o = store.objective {
                 HStack(spacing: 6) {
                     ui("ui.band.objective").foregroundStyle(InkColor.textDim)
-                    Text(verbatim: o)
+                    spokenText(o)
                 }
                 .accessibilityIdentifier("statusObjective")
             }
@@ -77,11 +77,11 @@ struct StatusBandView: View {
         let word = Self.fireWord(g.level)
         return HStack(spacing: 3) {
             ui("ui.band.fire").foregroundStyle(InkColor.textDim)
-            Text(verbatim: word).foregroundStyle(Self.fireColor(g))
+            spokenText(word).foregroundStyle(Self.fireColor(g))
         }
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(Text(verbatim: word))
+        .accessibilityValue(spokenText(word))
         .accessibilityIdentifier("fireGauge")
     }
 

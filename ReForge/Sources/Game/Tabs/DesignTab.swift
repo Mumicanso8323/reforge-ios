@@ -30,7 +30,7 @@ struct DesignTabView: View {
     var body: some View {
         InkPanel(title: ui("ui.tab.design")) {
             if let m = wb.message {
-                Text(verbatim: m).foregroundStyle(InkColor.notice).accessibilityIdentifier("benchMessage")
+                spokenText(m).foregroundStyle(InkColor.notice).accessibilityIdentifier("benchMessage")
             }
             if store.benchOpen(BenchGate.sheet) {
                 inputRow
@@ -59,7 +59,7 @@ struct DesignTabView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Array((wb.bench?.materials ?? []).enumerated()), id: \.offset) { _, s in
-                        chip(Text(verbatim: "\(s.name) ×\(s.quantity)"), sense: s.percent,
+                        chip(spokenText("\(s.name) ×\(s.quantity)"), sense: s.percent,
                              on: wb.input == s.selector) {
                             Task { await wb.choose(input: s.selector, store) }
                         }
@@ -99,7 +99,7 @@ struct DesignTabView: View {
             ui("ui.body.module_label").foregroundStyle(InkColor.textDim)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], alignment: .leading, spacing: 8) {
                 ForEach(wb.bench?.modules ?? [], id: \.module) { m in
-                    chip(Text(verbatim: "\(m.glyph) \(m.name)"), note: m.missing, on: false, dim: m.missing != nil) {
+                    chip(spokenText("\(m.glyph) \(m.name)"), note: m.missing, on: false, dim: m.missing != nil) {
                         Task { await wb.append(m.module, store) }
                     }
                     .accessibilityIdentifier("module.\(m.module.rawValue)")
@@ -126,7 +126,7 @@ struct DesignTabView: View {
                     HStack(spacing: 8) {
                         ForEach(Array(adds.enumerated()), id: \.offset) { _, s in
                             if case .item(let item) = s.selector.stuff {
-                                chip(Text(verbatim: "\(s.name) ×\(s.quantity)"), on: inStep.contains(item)) {
+                                chip(spokenText("\(s.name) ×\(s.quantity)"), on: inStep.contains(item)) {
                                     Task { await wb.toggleAdditive(item, store) }
                                 }
                             }
@@ -160,8 +160,8 @@ struct DesignTabView: View {
             ui("ui.body.plates").foregroundStyle(InkColor.textDim)
             ForEach(plates, id: \.design) { p in
                 HStack(spacing: 8) {
-                    InkRow(glyph: "▤", title: Text(verbatim: p.result ?? UIText.shared.string("ui.body.unknown")),
-                           detail: Text(verbatim: p.steps.joined(separator: " → ")))
+                    InkRow(glyph: "▤", title: spokenText(p.result ?? UIText.shared.string("ui.body.unknown")),
+                           detail: spokenText(p.steps.joined(separator: " → ")))
                     chip(ui("ui.button.load_plate"), on: false) { Task { await wb.load(plate: p, store) } }
                     chip(ui("ui.button.discard_plate"), on: false) { Task { await wb.discard(p, store) } }
                 }
@@ -217,7 +217,7 @@ struct DesignTabView: View {
                     }
                     .font(InkFont.caption).foregroundStyle(InkColor.textDim).lineLimit(1)
                 }
-                if let note { Text(verbatim: note).font(InkFont.caption).foregroundStyle(InkColor.textDim).lineLimit(1) }
+                if let note { spokenText(note).font(InkFont.caption).foregroundStyle(InkColor.textDim).lineLimit(1) }
             }
         }
         .buttonStyle(.ink(.secondary, fill: false))

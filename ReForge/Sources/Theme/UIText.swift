@@ -59,5 +59,44 @@ final class UIText {
 /// 画面の固定文言を 1 つの Text にする。`Text(verbatim:)` に表から引いた文を渡す(LocalizedStringKey を通さない)。
 @MainActor
 func ui(_ id: TextID, _ args: [String: UIArg] = [:]) -> Text {
-    Text(verbatim: UIText.shared.string(id, args))
+    spokenText(UIText.shared.string(id, args))
+}
+
+/// 画面に出す 1 つの文を Text にする(読み上げの言語の口。ゲーム本体の文も固定文言もここを通す)。
+/// 文に開発の版の印 `[ja]` があれば、その行だけ日本語で読む属性を付ける。文字は変えない(印は見せたまま)。
+/// 印が無い文・日本語がアプリの言語の時は、今までと同じ `Text(verbatim:)`。
+@MainActor
+func spokenText(_ string: String) -> Text {
+    let language = UIText.shared.language
+    guard SpeechLanguage.isMarked(string),
+          SpeechLanguage.identifier(for: language, composed: string) != SpeechLanguage.base(language) else {
+        return Text(verbatim: string)
+    }
+    return Text(SpokenString.attributed(string))
+}
+
+/// 行の読み上げ言語を日本語にした属性付きの文。
+enum SpokenString {
+    static func attributed(_ string: String) -> AttributedString {
+        var attributed = AttributedString(string)
+        attributed[SpeechLanguageKey.self] = LanguageID.ja.rawValue
+        attributed[AttributeScopes.FoundationAttributes.LanguageIdentifierAttribute.self] = LanguageID.ja.rawValue
+        return attributed
+    }
+
+    /// 属性が付いているか(テスト用)。
+    static func spokenLanguage(of attributed: AttributedString) -> String? {
+        attributed[SpeechLanguageKey.self]
+    }
+}
+
+/// UIKit の読み上げの言語の鍵(`UIAccessibilitySpeechAttributeLanguage`)。Swift の AttributedString の
+/// AccessibilityAttributes には言語の属性が無い(iOS 17)ので、NSAttributedString に渡る名前で鍵を持つ。
+enum SpeechLanguageKey: ObjectiveCConvertibleAttributedStringKey {
+    typealias Value = String
+    typealias ObjectiveCValue = NSString
+    static let name = "UIAccessibilitySpeechAttributeLanguage"
+
+    static func objectiveCValue(for value: String) throws -> NSString { value as NSString }
+    static func value(for object: NSString) throws -> String { object as String }
 }

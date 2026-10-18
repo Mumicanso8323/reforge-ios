@@ -10,7 +10,7 @@ struct FootCardView: View {
         InkBand(edge: .top, minHeight: 84) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(verbatim: store.footCard?.title ?? " ")
+                    spokenText(store.footCard?.title ?? " ")
                         .font(InkFont.body)
                         .bold()
                         // 名前は 2 行まで(日本語は 1 行のまま。高さは minHeight 84 から内容に合わせて伸びる)
@@ -37,7 +37,7 @@ struct FootCardView: View {
                     }
                     // 残骸から開く資料(段階つきの資料など。U18)
                     ForEach(store.footCard?.documents ?? [], id: \.id) { d in
-                        Button { store.openPanel(d.id) } label: { Text(verbatim: d.title) }
+                        Button { store.openPanel(d.id) } label: { spokenText(d.title) }
                             .buttonStyle(.ink(.quiet, fill: false))
                             .accessibilityIdentifier("panel-\(d.id.rawValue)")
                     }
@@ -61,7 +61,7 @@ struct ActionButton: View {
         if action.hold {
             HStack(spacing: 8) {
                 HoldRing(permille: action.progressPermille, pressing: pressing)
-                Text(verbatim: action.label)
+                spokenText(action.label)
                     .font(InkFont.body)
                     // 名前は省略せず、2 行まで折り返す
                     .lineLimit(2)
@@ -87,7 +87,7 @@ struct ActionButton: View {
                         store.act(action, pressing: false)
                     })
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel(Text(verbatim: action.label))
+                .accessibilityLabel(spokenText(action.label))
                 .accessibilityValue(Text(verbatim: HoldRing.spokenValue(hold: true) ?? ""))
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("holdRing")
@@ -96,7 +96,7 @@ struct ActionButton: View {
             Button {
                 store.act(action, pressing: true)
             } label: {
-                Text(verbatim: action.label)
+                spokenText(action.label)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .multilineTextAlignment(.center)

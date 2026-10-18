@@ -13,7 +13,7 @@ struct MapActionBand: View {
         } else if let decision = store.decision {
             VStack(spacing: 8) {
                 if let prompt = decision.prompt {
-                    Text(verbatim: prompt)
+                    spokenText(prompt)
                         .font(InkFont.body)
                         .foregroundStyle(InkColor.text)
                         .lineSpacing(InkFont.bodyLineSpacing / 2)
@@ -23,7 +23,7 @@ struct MapActionBand: View {
                 }
                 HStack(spacing: 8) {
                     ForEach(Array(decision.choices.enumerated()), id: \.offset) { _, choice in
-                        Button { store.decide(choice.id) } label: { Text(verbatim: choice.label).frame(maxWidth: .infinity) }
+                        Button { store.decide(choice.id) } label: { spokenText(choice.label).frame(maxWidth: .infinity) }
                             .buttonStyle(.ink(.secondary))
                             .frame(minHeight: InkMetric.buttonHeight)
                     }
@@ -78,9 +78,9 @@ struct MapActionBand: View {
     /// 申し出の 1 行: 名前 + 一言(あれば。データの文)+ 「頼む」。押したら命令を送るだけ。
     private func offerRow(_ offer: PendingOffer) -> some View {
         HStack(spacing: 8) {
-            Text(verbatim: offer.name).foregroundStyle(InkColor.text)
+            spokenText(offer.name).foregroundStyle(InkColor.text)
             if let line = offer.line {
-                Text(verbatim: line).foregroundStyle(InkColor.textDim)
+                spokenText(line).foregroundStyle(InkColor.textDim)
             }
             Spacer(minLength: 8)
             Button { store.send(offer.command) } label: { ui("ui.button.ask") }
