@@ -7,12 +7,15 @@ struct FireOutlookLine: View {
     let fire: FireOutlookView
 
     var body: some View {
-        // 4 つの断片を 1 つの文につなぐ。収まらない時は縮めず省略もせず、語の切れ目で折り返す
-        (ui("ui.card.fire_now") + Text(verbatim: " ") + Self.word(fire.now) + Text(verbatim: " ")
-            + ui("ui.card.fire_after") + Text(verbatim: " ") + Self.word(fire.afterOneMore))
+        // 4 つの断片を左から並べ、収まらない時は縮めず省略もせず、断片の切れ目で次の行へ折り返す
+        InkFlowLayout(spacing: 4, lineSpacing: 2) {
+            ui("ui.card.fire_now").inkFitCheck(id: "InkFireOutlook.now")
+            Self.word(fire.now).inkFitCheck(id: "InkFireOutlook.nowWord")
+            ui("ui.card.fire_after").inkFitCheck(id: "InkFireOutlook.after")
+            Self.word(fire.afterOneMore).inkFitCheck(id: "InkFireOutlook.afterWord")
+        }
         .font(InkFont.small)
         .foregroundStyle(InkColor.textDim)
-        .inkFitCheck(id: "InkFireOutlook.line")
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
