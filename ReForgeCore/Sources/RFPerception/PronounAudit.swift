@@ -23,7 +23,8 @@ public enum PronounAudit {
         var findings = Set<Finding>()
         for rule in content.pronounRules {
             for (text, about) in content.textAbout where about.contains(rule.about.rawValue) || about.contains("*") {
-                guard let value = table[text] else { continue }
+                guard let original = table[text] else { continue }
+                let value = WordMatcher.removing(rule.allow[language], from: original, language: language)
                 if rule.error[language].contains(where: { WordMatcher.contains(value, word: $0, language: language) }) {
                     findings.insert(Finding(rule: rule.id, text: text, language: language, severity: .error))
                 }
@@ -34,6 +35,15 @@ public enum PronounAudit {
             }
         }
         return findings.sorted { ($0.rule, $0.text, $0.language.rawValue, severityOrder($0.severity)) < ($1.rule, $1.text, $1.language.rawValue, severityOrder($1.severity)) }
+    }
+
+    /// 表のある全部の言語(擬似言語は日本語の表を変形した物なので除く)。
+    public static func checkAll(_ content: ContentDB) -> [LanguageID: [Finding]] {
+        var result: [LanguageID: [Finding]] = [:]
+        for language in content.textTables.tables.keys where language != .pseudo {
+            result[language] = check(content, language: language)
+        }
+        return result
     }
 
     private static func severityOrder(_ severity: Severity) -> Int {

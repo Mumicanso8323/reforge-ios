@@ -21,6 +21,15 @@ public enum WordMatcher {
         return false
     }
 
+    /// 文から語を除く(除いた所は空白にする。前後の字が新しい語にくっつかないように)。英語は大文字小文字を区別しない。
+    public static func removing(_ words: [String], from text: String, language: LanguageID) -> String {
+        var result = text.precomposedStringWithCanonicalMapping
+        for word in words.map(\.precomposedStringWithCanonicalMapping) where !word.isEmpty {
+            result = result.replacingOccurrences(of: word, with: " ", options: language == .en ? [.caseInsensitive] : [])
+        }
+        return result
+    }
+
     private static func normalizedEnglish(_ value: String) -> String {
         value.lowercased().replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
     }
