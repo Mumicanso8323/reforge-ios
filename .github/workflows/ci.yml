@@ -246,7 +246,7 @@ jobs:
                 # 行頭でない所の .swift の誤り(試験の外で記録された失敗など)は、ファイル名・行・試験の名前だけ
                 grep -aoE "[A-Za-z0-9_]+\.swift:[0-9]+(:[0-9]+)?: error: (-\[[A-Za-z0-9_.]+ [A-Za-z0-9_]+\])?" test.log | sort | uniq -c | head -20 || true
                 # error: を含む行は、英数と記号だけに削って頭の 100 字(日本語の文は残らない)
-                grep -a "error: " test.log | LC_ALL=C sed -E 's/[^A-Za-z0-9_.:()\[\]\/ -]//g' | cut -c1-100 | sort | uniq -c | sort -rn | head -15 || true
+                grep -a "error: " test.log | LC_ALL=C tr -cd 'A-Za-z0-9_.:()[]/ \n-' | cut -c1-100 | sort | uniq -c | sort -rn | head -15 || true
                 grep -aoE "^/[^ ]*/(ReForgeCore|ReForge)/[^ ]*\.swift:[0-9]+: error: " test.log | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -20 || true
               else
                 grep -aE "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log

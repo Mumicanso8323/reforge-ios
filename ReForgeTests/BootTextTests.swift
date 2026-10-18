@@ -30,9 +30,9 @@ final class BootTextTests: XCTestCase {
 
     /// 表が空でも、読み込みの失敗の画面と設定の札の題・角のボタンの読み上げは BootText から出る。
     func testUITextFallsBackToBootTextWhenTablesAreMissing() {
-        let shared = UIText.shared
+        // 共有の UIText は空にしない(テストの宿のアプリの題の画面が空の表で描き直され、開発の版の assertionFailure で落ちる)
+        let shared = UIText()
         shared.configure(tables: TextTables(), language: .ja, markFallback: false)
-        addTeardownBlock { UIText.shared.configure(tables: TextTables(), language: .ja, markFallback: false) }
         XCTAssertEqual(shared.string("ui.body.load_failed"), "データを読み込めませんでした") // ja-table
         XCTAssertEqual(shared.string("ui.a11y.settings_open"), "設定を開く") // ja-table
         XCTAssertEqual(shared.string("ui.a11y.settings_close"), "設定を閉じる") // ja-table
