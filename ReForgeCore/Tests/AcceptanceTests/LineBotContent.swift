@@ -8,9 +8,8 @@ enum LineBotContent {
     enum Source: String { case generated, publicBundle }
 
     static func load() throws -> (content: ContentDB, source: Source) {
-        // 生成したコンテンツ(非公開の層)では、手掘り・叩く場の ID と始まりの違いの突き合わせがまだで、ラインが動かない(W-05 §8)。
-        // それまでは公開の束で測り、非公開の層は REFORGE_W05_SOURCE=generated の時だけ使う。
-        if ProcessInfo.processInfo.environment["REFORGE_W05_SOURCE"] == "generated", TestContent.hasPrivateLayer {
+        // 非公開の層があれば生成したコンテンツで測る。REFORGE_W05_SOURCE=public なら、層があっても公開の束(突き合わせ用)。
+        if ProcessInfo.processInfo.environment["REFORGE_W05_SOURCE"] != "public", TestContent.hasPrivateLayer {
             return (try TestContent.full(), .generated)
         }
         var content = try TestContent.publicOnly()
@@ -42,4 +41,7 @@ struct LineBotKit {
     static let stone: ItemID = "stone"
     static let clay: ItemID = "clay"
     static let useBlade = false
+    /// 手作業ボットも 1 日目に掘って、鉱石を 2 日目へ持ち越す(手作業に有利。既定は真)。REFORGE_W05_HAND_DAY1=0 で、
+    /// 1 日目は何もしない(炉が無いので 0 枚)手作業にして、手の最良日を比べられる。ラインのボットは 1 日目に必ず掘る。
+    static let handMinesOnDayOne = ProcessInfo.processInfo.environment["REFORGE_W05_HAND_DAY1"] != "0"
 }

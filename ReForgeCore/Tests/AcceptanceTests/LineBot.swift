@@ -43,6 +43,7 @@ struct LineBot {
     var furnaceIDs: [EntityID] = []
     var kilnIDs: [EntityID] = []
     var design: EntityID?
+    var campfire: EntityID?
     var anvilIDs: [EntityID] = []
     var autoHeat = false
     /// Path B coal: a real minehead -> furnace route; the furnace hearth's fuel is accepted by the receiving module.
@@ -101,6 +102,8 @@ struct LineBot {
         w.map[.surface]?.deposits.add(coal)
         result.clamped = clamped
         grantOpening()
+        skipPrologueDay()
+        recruitCrew()
     }
 
     /// Stand-in for the opening (W-13 replaces it): unlock what the bot uses and hand Noah the stone hammer that
@@ -112,11 +115,40 @@ struct LineBot {
         for interaction in [LineBotKit.mineByHand, LineBotKit.burnCharcoal, LineBotKit.chopWood] {
             w.research.unlocked.interactions.insert(interaction)
         }
+        // 手が先(INV-O8): crew may only be asked for what Noah did by hand once.  The bot records that as done
+        // (Noah is not in the 32 person-hour ledger, so his hand runs are not charged; reported as a deviation).
+        if let kiln = sim.content.interactions[LineBotKit.burnCharcoal] { CrewWork.noteHand(CrewWork.family(of: kiln), &w) }
+        CrewWork.noteHand(.haul, &w)
+        CrewWork.noteHand(.build, &w)
         if minesByInteraction {
             var context = StepContext(world: w, content: sim.content)
             context.addStock(.item(LineBotKit.stoneHammer), 1, to: .person(.noah))
             w = context.world
             result.provisioned[0, default: [:]][LineBotKit.stoneHammer, default: 0] += 1
+        }
+    }
+
+    /// A generated start opens on a short day 0 (the prologue).  W-05 counts from the first full day, so sleep through
+    /// day 0 and let the bot's day 1 be the first dawn after it.  The public bundle already starts on day 1.
+    mutating func skipPrologueDay() {
+        var guardSteps = 0
+        while w.clock.day < 1, guardSteps < 100_000 {
+            if w.clock.phase != .day, !w.clock.sleeping { _ = sim.apply(.time(.sleep), to: &w) }
+            _ = sim.advance(&w, realSeconds: 1.0)
+            guardSteps += 1
+        }
+    }
+
+    /// The W-05 ledger is "four crew".  A generated start has only Noah (the player gathers the rest in play, and the
+    /// order is not measured here), so take the first four other people by ID.  The public bundle already has four.
+    mutating func recruitCrew() {
+        var have = crew.count
+        for id in sim.content.people.keys.sorted() where have < 4 && id != .noah && w.people[id]?.presence.isMember != true {
+            var state = w.people[id] ?? PersonState(id: id, presence: .unmet)
+            state.presence = .member(since: .zero)
+            state.position = w.map.spawn
+            w.people[id] = state
+            have += 1
         }
     }
 
@@ -134,7 +166,7 @@ struct LineBot {
             _ = sim.advance(&w, realSeconds: 1.0)
             if w.clock.now == started { stalled = true; result.stalls += 1 }
             let after = furnaceFuelCount()
-            if hot > 0 { result.furnaceHotSeconds[day, default: 0] += Int(SimStep.gameSeconds) }
+            if hot > 0 { result.furnaceHotSeconds[day, default: 0] += Int(w.clock.now.seconds - started.seconds) }
             if after.charcoal < before.charcoal { result.charcoalUsed[day, default: 0] += before.charcoal - after.charcoal }
         }
     }
@@ -217,7 +249,16 @@ struct LineBot {
         var waited = 0
         while isDay, !furnaceIDs.isEmpty, hotFurnaces() == 0, waited < 40 { tick(); waited += 1 }
         let (_, ore) = pocket(Self.isOre)
-        if let ore { hold(LineBotKit.smelt, ore) }
+        if let ore {
+            // Smelt only what today's hammering needs (one lump per plate); the rest of the ore waits for tomorrow.
+            hold(LineBotKit.smelt, ore) { world in
+                let lumps = world.inventory.entries(.person(.noah)).reduce(0) { total, entry in
+                    if case .matter(let matter) = entry.stuff, Self.isLump(matter) { return total + entry.quantity }
+                    return total
+                }
+                return lumps >= maxPlates
+            }
+        }
         var made = 0
         while isDay && made < maxPlates {
             let (_, lump) = pocket(Self.isLump)
@@ -233,6 +274,42 @@ struct LineBot {
             guard after > before else { return }
             made += after - before
         }
+    }
+
+    /// Hand work of one day, planned to make as many plates as the day allows (hand-favourable: no wasted ore, no
+    /// idle wait for the furnace beyond its preheat).  Per plate: one ore (mine), one smelt, one hammering.  Costs
+    /// come from the content (presses x pressSeconds, or the interaction's seconds); one dig gives two ore (the
+    /// minehead's own yield).  Existing lumps and ore are used first.  Without a furnace (day 1) it only mines.
+    mutating func handDay() {
+        let content = sim.content
+        func seconds(_ id: HandworkID) -> Int { (content.handwork[id]?.presses ?? 0) * (content.handwork[id]?.pressSeconds ?? 160) }
+        let perDig = content.handwork[LineBotKit.mine] != nil ? seconds(LineBotKit.mine) : (content.interactions[LineBotKit.mineByHand]?.seconds ?? 7200)
+        let orePerDig = 2
+        let tick = Int(sim.content.clock.dayGameSeconds) / max(1, sim.content.clock.dayRealSeconds) // game seconds per real second
+        let dayLength = Int(content.clock.dayGameSeconds) - 4 * tick
+        let now = Int(w.clock.sinceDawn.seconds)
+        let here = w.people[.noah]?.position?.point ?? home
+        let trip = tick * ((here.chebyshev(to: ironOutcrop) + 3) / 4) * 2
+        let ore = pocket(Self.isOre).0, lumps = pocket(Self.isLump).0
+        guard !furnaceIDs.isEmpty else {
+            let digs = max(0, (dayLength - now - trip) / max(1, perDig))
+            if digs > 0 { mine(at: ironOutcrop, until: ore + digs * orePerDig) }
+            return
+        }
+        let hotAt = hotFurnaces() > 0 ? now : now + (sim.content.modules[LineBotKit.furnace]?.hearth?.furnace?.preheat ?? 5400)
+        var plan = 0
+        for plates in 1...40 {
+            let smelts = max(0, plates - lumps)
+            let digs = max(0, smelts - ore + orePerDig - 1) / orePerDig
+            let mining = digs > 0 ? digs * perDig + trip : 0
+            let finish = max(now + mining, hotAt) + smelts * seconds(LineBotKit.smelt) + plates * seconds(LineBotKit.hammer)
+            if finish <= dayLength { plan = plates } else { break }
+        }
+        guard plan > 0 else { return }
+        let smelts = max(0, plan - lumps)
+        let digs = max(0, smelts - ore + orePerDig - 1) / orePerDig
+        if digs > 0 { mine(at: ironOutcrop, until: ore + digs * orePerDig) }
+        craft(maxPlates: plan)
     }
 
     mutating func give(_ item: ItemID, _ quantity: Int, day: Int? = nil) {
@@ -298,15 +375,18 @@ struct LineBot {
         return w.placements.at(WorldPoint(.surface, point)).first
     }
 
-    mutating func buildStructure(_ kind: StructureKindID, at point: GridPoint) -> EntityID? {
+    mutating func buildStructure(_ kind: StructureKindID, at point: GridPoint, wait: Bool = true) -> EntityID? {
         provisionStructure(kind)
         // Research/unlock is outside W-05 (W-13 replaces this); grant the structure, like the materials.
         w.research.unlocked.structures.insert(kind)
         guard sim.apply(.base(.build(structure: kind, at: WorldPoint(.surface, point), facing: .east)), to: &w).rejection == nil,
               let id = w.placements.at(WorldPoint(.surface, point)).first else { return nil }
         for person in crew { w.people[person]?.assignment = .build(placement: id) }
+        // The crew builds while Noah keeps working (hand-favourable); `sleepAndRecord` releases them at the day's end.
+        guard wait else { return id }
         let seconds = Int(sim.content.structures[kind]?.buildSeconds ?? 0)
-        tick((seconds + Int(SimStep.gameSeconds) - 1) / Int(SimStep.gameSeconds) + 1)
+        let perTick = max(1, Int(sim.content.clock.dayGameSeconds) / max(1, sim.content.clock.dayRealSeconds)) // game seconds per real second
+        tick((seconds + perTick - 1) / perTick + 1)
         for person in crew { w.people[person]?.assignment = .idle }
         return id
     }
@@ -319,7 +399,25 @@ struct LineBot {
 
     /// Generated hand hammering needs a campfire within one tile of the worker; day 1 for both bots.
     mutating func buildCampfire() {
-        _ = buildStructure(LineBotKit.campfire, at: GridPoint(home.x - 1, home.y + 1))
+        campfire = buildStructure(LineBotKit.campfire, at: GridPoint(home.x - 1, home.y + 1), wait: false)
+    }
+
+    /// Base-area construction only advances while a fire burns (W-02c), and the opening leaves a lit campfire.  Each
+    /// dawn: stoke it with wood from the stock (charged), and relight it if it went out overnight (the light-fire
+    /// act needs a flame the bot cannot supply, so the state is set directly; reported as a deviation).
+    mutating func tendCampfire() {
+        guard let id = campfire, let placement = w.placements.items[id], placement.status == .running,
+              let def = Hearths.def(placement, sim.content) else { return }
+        let wood = w.inventory.entries(.base).filter { $0.stuff == .item(LineBotKit.wood) }.reduce(0) { $0 + $1.quantity }
+        if wood < 2 { give(LineBotKit.wood, 2 - wood, day: day) }   // a shortage is granted and reported, never silent
+        for _ in 0..<2 { _ = sim.apply(.base(.hearth(placement: id, op: .stoke(item: LineBotKit.wood))), to: &w) }
+        guard var state = Hearths.state(w.placements.items[id]!, sim.content), !state.lit else { return }
+        state = HearthRule.kindle(state, def)
+        state.lit = true
+        state.banked = false
+        var runtime = w.placements.items[id]?.structure ?? StructureRuntime()
+        runtime.hearth = state
+        w.placements.items[id]?.structure = runtime
     }
 
     mutating func assignKilns(_ count: Int) {
@@ -366,6 +464,7 @@ struct LineBot {
                 heat(furnace, fuel: heatFuel, reserve: 0)
             }
         }
+        for person in crew { if case .build = w.people[person]?.assignment { w.people[person]?.assignment = .idle } }
         let completedDay = day
         if stalled { result.stallDay = completedDay; return }
         _ = sim.apply(.time(.sleep), to: &w)
@@ -412,6 +511,7 @@ struct LineBot {
         var bot = LineBot(content: content, seed: seed)
         while bot.day <= days && bot.w.run.isActive && !bot.stalled {
             if bot.day == 1 { bot.buildCampfire() }
+            bot.tendCampfire()
             if bot.day == 2 {
                 bot.provisionModule(LineBotKit.furnace)
                 if let furnace = bot.place(LineBotKit.furnace, at: bot.home) { bot.furnaceIDs = [furnace] }
@@ -420,9 +520,8 @@ struct LineBot {
                 // W-05 grants only the hand-maintenance charcoal (at most ten), never wood.
                 bot.give(LineBotKit.charcoal, 6)
                 bot.heat(furnace, fuel: LineBotKit.charcoal, reserve: 4)
-                bot.mine(at: bot.ironOutcrop, until: 6)
-                bot.craft()
             }
+            if bot.day >= 2 || LineBotKit.handMinesOnDayOne { bot.handDay() }
             bot.sleepAndRecord()
         }
         return bot.result
@@ -434,6 +533,7 @@ struct LineBot {
         var coalRoute: EntityID?
         while bot.day <= days && bot.w.run.isActive && !bot.stalled {
             if bot.day == 1 { bot.buildCampfire() }
+            bot.tendCampfire()
             if bot.day == 2 {
                 bot.provisionModule(LineBotKit.furnace)
                 _ = bot.sim.apply(.invention(.makeDesign(steps: [.minehead, .charcoalFurnace, .anvil])), to: &bot.w)
@@ -528,10 +628,7 @@ struct LineBot {
                     bot.heat(furnace, fuel: fuel, reserve: 0)
                 }
             }
-            if bot.day <= 2 {
-                bot.mine(at: bot.ironOutcrop, until: 6)
-                bot.craft()
-            }
+            if bot.day <= 2 { bot.handDay() }
             bot.sleepAndRecord()
         }
         return bot.result

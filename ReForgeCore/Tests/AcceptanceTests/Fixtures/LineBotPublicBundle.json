@@ -1,5 +1,5 @@
 {
-  "mapGen": { "size": { "width": 64, "height": 64 }, "parameters": null },
+  "mapGen": { "size": { "width": 32, "height": 32 }, "parameters": null },
   "clock": { "dayRealSeconds": 180, "dayGameHours": 8, "nightGameHours": 18 },
   "people": [
     { "id": "person.test_d", "name": "person:person.test_d", "specialties": [], "ideology": {} }
@@ -18,7 +18,7 @@
   "modules": [
     { "id": "minehead", "cost": [{ "item": "stone", "quantity": 4 }, { "item": "wood", "quantity": 2 }],
       "placement": { "requiresDeposit": true }, "ports": [{ "side": "north", "flow": "output" }],
-      "cycleSeconds": 9600, "batch": 1, "specialty": "mining" },
+      "cycleSeconds": 9600, "batch": 1, "specialty": "miner" },
     { "id": "furnace", "cost": [{ "item": "stone", "quantity": 8 }, { "item": "clay", "quantity": 4 }],
       "placement": { "terrainTags": ["ground", "rock"] },
       "ports": [{ "side": "south", "flow": "input" }, { "side": "north", "flow": "output" }],
@@ -43,7 +43,7 @@
       "cost": [{ "item": "wood", "quantity": 3 }], "yields": [{ "item": "charcoal", "min": 2, "max": 2 }], "yieldsTo": "site" }
   ],
   "handwork": [
-    { "id": "handwork.mine", "presses": 12, "pressSeconds": 160, "onDeposit": true, "promotedBy": ["minehead"] },
+    { "id": "handwork.mine", "presses": 45, "pressSeconds": 160, "onDeposit": true, "promotedBy": ["minehead"] },
     { "id": "handwork.smelt", "step": { "module": "furnace", "inputs": [{ "item": "charcoal", "quantity": 1, "purity": 10000 }] },
       "presses": 8, "pressSeconds": 160, "promotedBy": ["furnace"] },
     { "id": "handwork.hammer", "step": { "module": "anvil", "inputs": [] }, "presses": 16, "pressSeconds": 160,
