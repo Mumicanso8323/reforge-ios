@@ -96,7 +96,7 @@ struct PrologueScene: View {
         }
         .opacity(sceneOpacity)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: lines.joined(separator: "\n")))
+        .accessibilityLabel(spokenText(lines.joined(separator: "\n")))
         .accessibilityAddTraits(.isButton)
         .accessibilityIdentifier("prologueScene")
         .accessibilityAction(.default) { tapped() }
@@ -142,7 +142,7 @@ struct PrologueScene: View {
                     ForEach(Array(lines.enumerated()), id: \.offset) { index, line in
                         VStack(alignment: .leading, spacing: 3) {
                             if speakers.indices.contains(index), let speaker = speakers[index] {
-                                Text(verbatim: speaker)
+                                spokenText(speaker)
                                     .font(InkFont.small)
                                     .foregroundStyle(InkColor.textDim)
                                     .accessibilityIdentifier("stage-speaker-\(index)")
@@ -187,11 +187,11 @@ struct PrologueScene: View {
         // 場所を取る字(見えない)と出ている字は、どちらも自分の折り返しで自分の高さを持つ(下の行はその下に積まれる)。
         // 出ている字を場所を取る字の overlay にすると、折り返す行の高さを 1 段分に取り違えうるので、同じ ZStack に並べる。
         ZStack(alignment: .topLeading) {
-            Text(verbatim: line)
+            spokenText(line)
                 .opacity(0)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
-            Text(verbatim: partial)
+            spokenText(partial)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
         }

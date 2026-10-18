@@ -12,7 +12,7 @@ struct NotesTabView: View {
     var body: some View {
         InkPanel(title: wb.page == .index ? ui("ui.tab.notes") : nil) {
             if let m = wb.message {
-                Text(verbatim: m).foregroundStyle(InkColor.notice)
+                spokenText(m).foregroundStyle(InkColor.notice)
             }
             switch wb.page {
             case .index: index
@@ -36,7 +36,7 @@ struct NotesTabView: View {
                 ForEach(nb.trials, id: \.record) { t in
                     row {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(verbatim: "\(t.input.name) → \(t.result.name)")
+                            spokenText("\(t.input.name) → \(t.result.name)")
                             HStack(spacing: 4) {
                                 ui("ui.body.trial_meta", ["day": .int(t.day), "steps": .int(t.steps), "quantity": .int(t.quantity)])
                                 SenseWords.phrase(t.result.percent)
@@ -60,7 +60,7 @@ struct NotesTabView: View {
                     VStack(alignment: .leading, spacing: 2) {
                         HStack {
                             Text(verbatim: c.item ? (c.made ? "◆" : "◇") : (c.made ? "■" : "□")).foregroundStyle(c.made ? InkColor.accent : InkColor.textDim)
-                            Text(verbatim: c.name).foregroundStyle(c.made ? InkColor.text : InkColor.textDim)
+                            spokenText(c.name).foregroundStyle(c.made ? InkColor.text : InkColor.textDim)
                             Spacer()
                             if let p = c.percent {
                                 SenseWords.phrase(p).font(InkFont.small).foregroundStyle(InkColor.textDim)
@@ -79,7 +79,7 @@ struct NotesTabView: View {
             if !nb.records.isEmpty {
                 section(ui("ui.body.records"))
                 ForEach(nb.records, id: \.sheet) { r in
-                    row { Text(verbatim: "▤ \(r.title)") } open: {
+                    row { spokenText("▤ \(r.title)") } open: {
                         Task { await wb.open(.sheet(.record(r.sheet)), store) }
                     }
                 }
@@ -89,9 +89,9 @@ struct NotesTabView: View {
                 ForEach(nb.documents, id: \.id) { d in
                     row {
                         HStack {
-                            Text(verbatim: "≡ \(d.title)")
+                            spokenText("≡ \(d.title)")
                             Spacer()
-                            if let s = d.source { Text(verbatim: s).font(InkFont.small).foregroundStyle(InkColor.textDim) }
+                            if let s = d.source { spokenText(s).font(InkFont.small).foregroundStyle(InkColor.textDim) }
                         }
                     } open: { Task { await wb.open(.document(d.id), store) } }
                 }
@@ -114,7 +114,7 @@ struct NotesTabView: View {
                     ui("ui.body.answer_records").foregroundStyle(InkColor.textDim)
                     if a.candidates.isEmpty { ui("ui.body.answer_none").foregroundStyle(InkColor.textDim) }
                     ForEach(a.candidates, id: \.record) { c in
-                        row { Text(verbatim: c.label) } open: { Task { await wb.place(c, sheet: sid, store) } }
+                        row { spokenText(c.label) } open: { Task { await wb.place(c, sheet: sid, store) } }
                     }
                 }
                 .padding(8)
@@ -134,22 +134,22 @@ struct NotesTabView: View {
     /// 人ごとに付けられる技能と、その選択肢。
     /// 内容の層が名前を渡したらそれ、無ければ文言の表の文(いまの言語)。
     private func coreText(_ text: String?, _ fallback: Text) -> Text {
-        text.map { Text(verbatim: $0) } ?? fallback
+        text.map { spokenText($0) } ?? fallback
     }
 
     private func grantArea(_ im: ProcessSheet.SkillGrant, labels: ProcessSheet.Labels?, sheet sid: SheetID) -> some View {
         InkSection(title: coreText(labels?.grantTitle, ui("ui.grant.title"))) {
             ForEach(im.targets, id: \.person) { t in
                 VStack(alignment: .leading, spacing: 6) {
-                    InkRow(title: Text(verbatim: t.name),
-                           detail: t.written.isEmpty ? nil : Text(verbatim: t.written.formatted(.list(type: .and))),
+                    InkRow(title: spokenText(t.name),
+                           detail: t.written.isEmpty ? nil : spokenText(t.written.formatted(.list(type: .and))),
                            value: t.declined == nil ? nil : (t.declined == true ? coreText(labels?.grantRefused, ui("ui.grant.refused")) : coreText(labels?.grantSkip, ui("ui.grant.skip"))))
                     if t.declined == nil {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(im.skills, id: \.id) { k in
                                     Button { Task { await wb.grant(sheet: sid, person: t.person, skill: k.id, store) } }
-                                        label: { Text(verbatim: k.name) }
+                                        label: { spokenText(k.name) }
                                         .buttonStyle(.ink(.secondary, fill: false))
                                 }
                                 Button { Task { await wb.grant(sheet: sid, person: t.person, skill: nil, store) } }
@@ -167,9 +167,9 @@ struct NotesTabView: View {
     private var documentPage: some View {
         backRow
         if let d = wb.openDocument {
-            Text(verbatim: d.title).font(InkFont.heading).bold()
-            if let s = d.source { Text(verbatim: "── \(s)").foregroundStyle(InkColor.textDim) }
-            Text(verbatim: d.body).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("documentBody")
+            spokenText(d.title).font(InkFont.heading).bold()
+            if let s = d.source { spokenText("── \(s)").foregroundStyle(InkColor.textDim) }
+            spokenText(d.body).fixedSize(horizontal: false, vertical: true).accessibilityIdentifier("documentBody")
         }
     }
 

@@ -43,7 +43,7 @@ private struct DarkStartActionButton: View {
                 .overlay(RoundedRectangle(cornerRadius: InkMetric.corner)
                     .stroke(InkColor.accent.opacity(reduceMotion ? 1 : borderOpacity), lineWidth: InkMetric.rule))
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel(Text(verbatim: action.label))
+                .accessibilityLabel(spokenText(action.label))
                 .accessibilityValue(Text(verbatim: HoldRing.spokenValue(hold: action.hold) ?? ""))
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("darkStartAct")
@@ -74,7 +74,7 @@ private struct DarkStartActionButton: View {
         if action.hold {
             HStack(spacing: 8) {
                 HoldRing(permille: action.progressPermille, pressing: pressing)
-                Text(verbatim: action.label)
+                spokenText(action.label)
                     .font(InkFont.body)
                     .lineLimit(1)
                     .minimumScaleFactor(InkMetric.minimumScale)
@@ -90,7 +90,7 @@ private struct DarkStartActionButton: View {
                 .accessibilityAddTraits(.isButton)
         } else {
             Button { store.act(action, pressing: true) } label: {
-                Text(verbatim: action.label)
+                spokenText(action.label)
                     .font(InkFont.body)
                     .lineLimit(1)
                     .minimumScaleFactor(InkMetric.minimumScale)

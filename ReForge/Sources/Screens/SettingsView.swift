@@ -75,7 +75,7 @@ struct SettingsView: View {
                                 restoreMessage = app.adsRemoved ? UIText.shared.string("ui.body.restore_done") : UIText.shared.string("ui.body.restore_none")
                             }
                         } label: {
-                            InkRow(title: ui("ui.body.restore_purchases"), detail: restoreMessage.map { Text(verbatim: $0) })
+                            InkRow(title: ui("ui.body.restore_purchases"), detail: restoreMessage.map { spokenText($0) })
                         }
                         .buttonStyle(.inkRow)
                         .accessibilityIdentifier("restoreButton")

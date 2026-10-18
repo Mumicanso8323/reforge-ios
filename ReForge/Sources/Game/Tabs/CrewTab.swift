@@ -16,7 +16,7 @@ struct CrewTabView: View {
                 InkSection {
                     ForEach(crew.members, id: \.id) { m in
                         Button { selected = selected == m.id ? nil : m.id } label: {
-                            InkRow(glyph: m.glyph, title: Text(verbatim: m.name), detail: summary(m),
+                            InkRow(glyph: m.glyph, title: spokenText(m.name), detail: summary(m),
                                    value: relation(m), selected: selected == m.id)
                         }
                         .buttonStyle(.inkRow)
@@ -169,7 +169,7 @@ enum AssignText {
         }
     }
 
-    static func kind(_ k: CrewMemberView.AssignKind) -> Text { Text(verbatim: kindString(k)) }
+    static func kind(_ k: CrewMemberView.AssignKind) -> Text { spokenText(kindString(k)) }
 
     static func doingString(_ d: CrewMemberView.Doing) -> String {
         switch d {
@@ -185,7 +185,7 @@ enum AssignText {
         }
     }
 
-    static func doing(_ d: CrewMemberView.Doing) -> Text { Text(verbatim: doingString(d)) }
+    static func doing(_ d: CrewMemberView.Doing) -> Text { spokenText(doingString(d)) }
 
     static func stance(_ s: BattleState.Stance) -> Text {
         switch s {

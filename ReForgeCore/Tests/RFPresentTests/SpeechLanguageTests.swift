@@ -21,4 +21,19 @@ final class SpeechLanguageTests: XCTestCase {
         XCTAssertEqual(SpeechLanguage.identifier(for: .pseudo, text: "abc"), "ja")
         XCTAssertEqual(SpeechLanguage.base(.pseudo), "ja")
     }
+
+    func testComposedLineWithMarkAnywhereIsJapanese() {
+        XCTAssertEqual(SpeechLanguage.identifier(for: .en, composed: "▤ [ja]abc"), "ja")
+        XCTAssertEqual(SpeechLanguage.identifier(for: .ko, composed: "[ja]a, [ja]b"), "ja")
+        XCTAssertEqual(SpeechLanguage.identifier(for: .ko, composed: "▤ abc"), "ko")
+        XCTAssertEqual(SpeechLanguage.identifier(for: .pseudo, composed: "abc"), "ja")
+        XCTAssertTrue(SpeechLanguage.isMarked("x[ja]"))
+        XCTAssertFalse(SpeechLanguage.isMarked("ja"))
+    }
+
+    func testNoMarkKeepsBaseForEveryShippedLanguage() {
+        for lang in LanguageID.shipped {
+            XCTAssertEqual(SpeechLanguage.identifier(for: lang, composed: "abc"), SpeechLanguage.base(lang))
+        }
+    }
 }

@@ -24,7 +24,7 @@ struct DayBarView: View {
         HStack(spacing: 6) {
             bar
             if let word, !word.isEmpty {
-                Text(verbatim: word)
+                spokenText(word)
                     .font(InkFont.small)
                     .foregroundStyle(InkColor.textDim)
                     .lineLimit(1)
@@ -32,7 +32,7 @@ struct DayBarView: View {
         }
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: word ?? ""))
+        .accessibilityLabel(spokenText(word ?? ""))
         .accessibilityIdentifier("dayBar")
     }
 
