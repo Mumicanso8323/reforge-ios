@@ -5,8 +5,11 @@ import ReForgeEngine
 /// 設計・ノートのタブの画面側の状態(U17)。射影そのものは RFPresentTests の WorkbenchTests が Linux で確かめる。
 @MainActor
 final class WorkbenchAppTests: XCTestCase {
+    /// 公開の層だけで作る。CI は非公開の層を重ねて回し、非公開の層は公開の試験用の物(工程・人・表)を外す。
+    /// ここで確かめるのは画面側の状態と取り消しの帯の配線で、物語のコンテンツには依らない。
     private func store() throws -> GameStore {
-        let c = try AppModel.loadBundledContent(bundle: .main)
+        let root = try XCTUnwrap(Bundle.main.url(forResource: "content", withExtension: nil))
+        let c = try ContentLoader.load(layers: [root.appendingPathComponent("public", isDirectory: true)])
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
         return GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3), saves: FileSaveStorage(directory: dir))

@@ -24,10 +24,32 @@ final class StoreServiceTests: XCTestCase {
     func testStoreKitPurchaseRefundRestoreAndFamilyShareableFullGame() async throws {
         let service = StoreKitStoreService()
         XCTAssertEqual(service.productIds, [ProductID.fullGame])
+        // CI の記録は外れた行の番号だけを残すので、外れ方ごとに行を分ける
+        let loaded = try await Product.products(for: [ProductID.fullGame])
+        XCTAssertEqual(loaded.count, 1, "試験の店から商品を読めない")
         let before = await service.entitlements()
         XCTAssertFalse(before.contains(ProductID.fullGame))
 
         let bought = await service.purchase(ProductID.fullGame)
+        if !bought, let product = loaded.first {
+            do {
+                switch try await product.purchase() {
+                case .success(.verified(let transaction)):
+                    await transaction.finish()
+                    XCTFail("2 度目の購入だけが通った")
+                case .success(.unverified):
+                    XCTFail("取引を検証できない")
+                case .pending:
+                    XCTFail("購入が保留になった")
+                case .userCancelled:
+                    XCTFail("購入が取り消された")
+                @unknown default:
+                    XCTFail("購入の結果が分からない")
+                }
+            } catch {
+                XCTFail("購入で投げた: \(error)")
+            }
+        }
         XCTAssertTrue(bought, "購入した検証済み取引を権利にする")
         let afterPurchase = await service.entitlements()
         XCTAssertTrue(afterPurchase.contains(ProductID.fullGame))
