@@ -482,6 +482,8 @@ public struct ResearchView: Equatable, Sendable {
     public var hasDesk: Bool
     /// まだ見えていない研究の数(「この先にまだ n 件」。名前は出さない。§10 HNT-16)。
     public var hiddenCount: Int = 0
+    /// 区切り(体験版の門)で研究を待たせている間。画面は研究を選ぶ物を出さない(Z1)。
+    public var held: Bool = false
 }
 
 extension FrameBuilder {
@@ -496,8 +498,10 @@ extension FrameBuilder {
             return (content.structures[k]?.provides["research"] ?? 0) > 0
         }
         let hidden = content.research.values.filter { !ResearchRules.isVisible($0, w, content) }.count
+        let held = TrialGate.closed(w, content, entitlements) && TrialGate.mode(content) == .fence
+            && content.trialGate?.holds?.research == true
         return ResearchView(entries: entries, studying: w.research.studying.map { p.name(Subject.person($0)) },
-                            hasDesk: desk, hiddenCount: hidden)
+                            hasDesk: desk, hiddenCount: hidden, held: held)
     }
 }
 

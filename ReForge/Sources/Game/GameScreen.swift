@@ -76,7 +76,7 @@ struct GameScreen: View {
                 if store.runEnded {
                     GameOverView(app: app, store: store)
                 }
-                if let trial = store.trial, app.trialNoticeVisible {
+                if let trial = store.trial, trial.mode == .fence, app.trialNoticeVisible {
                     TrialGateCard(app: app, trial: trial)
                 }
             }
@@ -111,7 +111,8 @@ struct GameScreen: View {
                 FootCardView(store: store)
                     .accessibilitySortPriority(2)
             }
-            if tab == .design, store.trial?.mode == .fence, !app.trialNoticeVisible {
+            // 研究は拠点のタブにある。待たせている間はそこに 1 行(押すと札をもう一度出す)
+            if tab == .base, store.trial?.mode == .fence, !app.trialNoticeVisible {
                 Button { app.trialNoticeVisible = true } label: { ui("ui.trial.waiting") }
                     .buttonStyle(.ink(.quiet, fill: false))
             }
@@ -123,6 +124,15 @@ struct GameScreen: View {
         // 設計かノートを開いている間は、開発の設定が入のとき時計を止める(PT-B2。切なら何も変わらない)
         .onChange(of: tab, initial: true) { _, t in store.benchOpen = (t == .design || t == .notes) }
         .onPreferenceChange(MapBandHeightKey.self) { mapBandHeight = $0 }
+        // 止める形(freeze)の間は何も受け付けないので、帯・地図・タブを見せずに札だけを出す(Z1)
+        .overlay {
+            if let trial = store.trial, trial.mode == .freeze {
+                ZStack {
+                    InkColor.field.ignoresSafeArea()
+                    TrialGateCard(app: app, trial: trial)
+                }
+            }
+        }
     }
 }
 
@@ -132,7 +142,7 @@ private struct TrialGateCard: View {
     @Bindable var app: AppModel
     let trial: TrialFrame
     var body: some View {
-        if app.trialNoticeVisible {
+        if app.trialNoticeVisible || trial.mode == .freeze {
             VStack(alignment: .leading, spacing: 12) {
                 ui("ui.trial.title").font(InkFont.heading)
                 ui("ui.trial.body")
