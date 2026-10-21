@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""足元カード・暗い始まり・拠点のタブの画面コードに、「できない理由を説明する文」が書かれていないことを確かめる(INV-F1)。
+"""アプリの画面のコード(ReForge/Sources の全部の .swift)に、「できない理由を説明する文」が書かれていないことを確かめる(INV-F1)。
 押せない行動はボタンを置かず、理由の文でも補わない。見るのは 2 つ(禁止の語は同じ):
   - 画面の文字列リテラル(Text("…") と Text(verbatim: "…"))に、不足・禁止の語の形が無いこと。
   - ui("…") ・ UIText.shared.string("…") が引く文言の表(content/public/text/ja/)の日本語に、同じ語が無いこと(L-11:
@@ -10,8 +10,8 @@ import re
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-FILES = ["ReForge/Sources/Game/FootCardView.swift", "ReForge/Sources/Game/DarkStartScene.swift", "ReForge/Sources/Game/Tabs/BaseTab.swift",
-         "ReForge/Sources/Game/StatusBandView.swift", "ReForge/Sources/Game/MapActionBand.swift"]
+# 前は足元カード・暗い始まり・拠点のタブなど 5 本だけを見ていた。新しい画面のファイルも漏れないよう、全部を見る
+FILES = [str(p.relative_to(ROOT)) for p in sorted((ROOT / "ReForge" / "Sources").rglob("*.swift"))]
 FORBIDDEN = ["あと ", "あと\\(", "足りない", "がない", "できない", "遠すぎる", "届かない", "待つ"]
 # 表の文では差し込みが {名前} の形。コードの補間の形(あと\()に当たる物
 FORBIDDEN_IN_TABLE = FORBIDDEN + ["あと{"]
@@ -50,4 +50,4 @@ if __name__ == "__main__":
         print("できない理由を説明する文が画面に書かれている(INV-F1):")
         print("\n".join(bad))
         sys.exit(1)
-    print("足元カード・暗い始まり・拠点のタブに、できない理由の文は無い")
+    print(f"アプリの画面のコード {len(FILES)} 本に、できない理由の文は無い")
