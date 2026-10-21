@@ -222,9 +222,10 @@ jobs:
           set -o pipefail
           udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
           echo "simulator $udid"
+          # シミュレータ用の簡易署名にする(署名の無いアプリは StoreKit の試験の店から商品を受け取れない)
           xcodebuild test -project ReForge.xcodeproj -scheme ReForge \
             -destination "id=$udid" -derivedDataPath build-test \
-            CODE_SIGNING_ALLOWED=NO > test.log 2>&1 \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= > test.log 2>&1 \
             || {
               if [ "$HAS_CONTENT_KEY" = "true" ]; then
                 # 非公開の層を重ねて回した。公開ログに XCTAssert の文面(物語の文が入りうる)を出さない。テストの名前(公開のコード)だけ。
@@ -252,7 +253,7 @@ jobs:
                 # error: を含む行は、英数と記号だけに削って頭の 100 字(日本語の文は残らない)
                 grep -a "error: " test.log | LC_ALL=C tr -cd 'A-Za-z0-9_.:()[]/ \n-' | cut -c1-100 | sort | uniq -c | sort -rn | head -15 || true
                 # 購入の試験の外れ方(試験が「STORE 」で始まる英数の文で書く。物語の語は入らない)
-                grep -aoE "STORE [^\"]{0,300}" test.log | LC_ALL=C tr -cd 'A-Za-z0-9_.:()[]/=, \n-' | cut -c1-300 | sort -u | head -10 || true
+                grep -aoE "STORE [^\"]{0,250}" test.log | LC_ALL=C tr -cd 'A-Za-z0-9_.:()[]/=, \n-' | cut -c1-300 | sort -u | head -10 || true
                 grep -aoE "^/[^ ]*/(ReForgeCore|ReForge)/[^ ]*\.swift:[0-9]+: error: " test.log | sed -E 's|^/[^ ]*/reforge-ios/||; s|: error: $||' | sort | uniq -c | head -20 || true
               else
                 grep -aE "error:|failed|Undefined symbol" test.log | sort -u | head -80; tail -40 test.log
