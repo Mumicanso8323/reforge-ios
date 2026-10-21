@@ -3,7 +3,7 @@ import ReForgeEngine
 
 /// ゲームオーバーの 4 択(同じ重さで並べる。推奨の順位を付けない。D-save.md §3)。
 /// 確認のダイアログも長押しも使わない。実行後は短時間だけ取り消せる。
-/// 選べないものは押す物にせず表示だけにする。巻き戻し・ロードの行き先が複数あれば、その下に並べる(既定は先頭)。
+/// 選べない択は出さない(見せて禁じない。要件 Z1)。巻き戻し・ロードの行き先が複数あれば、その下に並べる(既定は先頭)。
 struct GameOverView: View {
     @Bindable var app: AppModel
     let store: GameStore
@@ -55,11 +55,13 @@ struct GameOverView: View {
             Button { run(choice.option, choice.targets.first) } label: { RecoveryLabel(option: choice.option) }
                 .buttonStyle(.ink(.secondary))
                 .accessibilityIdentifier("recovery-\(choice.option.rawValue)")
-        } else {
+        } else if working {
+            // 押した直後(本体の返事待ち)は形を保ち、押せる物には見せない
             RecoveryLabel(option: choice.option)
                 .foregroundStyle(InkColor.textFaint)
                 .frame(minHeight: InkMetric.buttonHeight, alignment: .leading)
         }
+        // 選べない択は出さない(見せて禁じない。要件 Z1)
     }
 
     private func run(_ option: RecoveryOption, _ target: SaveSlot?) {
