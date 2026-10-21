@@ -403,7 +403,9 @@ extension FrameBuilder {
     }
 
     /// 割り当ての選択肢。種類の順(採取・運搬・炉などの持ち場・研究・見張り・建造・休む・空き)。
-    /// 採取は、見つけた鉱脈と既知の POI のうち拠点(無ければノア)に近いものから最大 4 か所。
+    /// 採取は、見つけた鉱脈と既知の POI のうち拠点(無ければノア)に近いものから、行為ごとに一番近い 1 か所(最大 4 つ)。
+    /// 同じ行為を場所違いで並べると、同じ字の札が並んで押し分けられない。
+    /// 持ち場・建造・研究で同じ名前の物が 2 つ以上あるときは、名前の後に通し番号を付ける(同じ字の札を作らない)。
     func assignChoices(_ w: WorldState, _ p: Perceiver, _ desks: Set<EntityID>) -> [AssignChoice] {
         var out: [AssignChoice] = []
         let layer = LayerID.surface
@@ -421,10 +423,13 @@ extension FrameBuilder {
         let dist = { (a: GridPoint) in center.map { abs($0.x - a.x) + abs($0.y - a.y) } ?? 0 }
         spots.sort { (dist($0.0), $0.0.y, $0.0.x, $0.1) < (dist($1.0), $1.0.y, $1.0.x, $1.1) }
         var seen = Set<GridPoint>()
-        for (pt, id) in spots where seen.insert(pt).inserted && seen.count <= 4 {
+        var seenActs = Set<InteractionID>()
+        for (pt, id) in spots where !seen.contains(pt) && !seenActs.contains(id) && seenActs.count < 4 {
             if let c = content.interactions[id]?.when, ConditionEvaluator.evaluatePure(c, world: w, content: content) != true {
                 continue
             }
+            seen.insert(pt)
+            seenActs.insert(id)
             out.append(AssignChoice(kind: .gather, target: p.name(PresentSubject.interaction(id)),
                                     assignment: .gather(interaction: id, at: WorldPoint(layer, pt))))
         }
@@ -434,16 +439,28 @@ extension FrameBuilder {
             out.append(AssignChoice(kind: .haul, target: "\(endpointName(r.from, w, p))→\(endpointName(r.to, w, p))",
                                     assignment: .haul(route: id)))
         }
-        // 持ち場(モジュール)・研究机
+        // 持ち場(モジュール)・研究机。同じ名前が 2 つ以上なら通し番号(ID の順)を付ける
+        var placementChoices: [AssignChoice] = []
         for id in w.placements.sortedIDs {
             guard let pl = w.placements.items[id] else { continue }
             if case .underConstruction = pl.status {
-                out.append(AssignChoice(kind: .build, target: p.name(of: pl.kind), assignment: .build(placement: id)))
+                placementChoices.append(AssignChoice(kind: .build, target: p.name(of: pl.kind), assignment: .build(placement: id)))
             } else if desks.contains(id) {
-                out.append(AssignChoice(kind: .research, target: p.name(of: pl.kind), assignment: .operate(placement: id)))
+                placementChoices.append(AssignChoice(kind: .research, target: p.name(of: pl.kind), assignment: .operate(placement: id)))
             } else if pl.module != nil {
-                out.append(AssignChoice(kind: .operate, target: p.name(of: pl.kind), assignment: .operate(placement: id)))
+                placementChoices.append(AssignChoice(kind: .operate, target: p.name(of: pl.kind), assignment: .operate(placement: id)))
             }
+        }
+        var sameName: [String: Int] = [:]
+        for c in placementChoices { sameName["\(c.kind)|\(c.target ?? "")", default: 0] += 1 }
+        var numbered: [String: Int] = [:]
+        for var c in placementChoices {
+            let key = "\(c.kind)|\(c.target ?? "")"
+            if sameName[key, default: 0] > 1 {
+                numbered[key, default: 0] += 1
+                c.target = "\(c.target ?? "") \(numbered[key]!)"
+            }
+            out.append(c)
         }
         // 見張り(拠点の真ん中)
         if let c = center {
