@@ -14,7 +14,7 @@ import RFWorld
 /// - 一時停止・アプリの非アクティブは画面側の判断で tick を呼ばないことで表す(本体は壁時計を読まない)。
 /// - 走行の再現のため、受けたコマンドを (ステップ番号, コマンド) で記録できる(replayLog)。
 public actor GameHost {
-    public let simulation: Simulation
+    public private(set) var simulation: Simulation
     public private(set) var builder: FrameBuilder
     public private(set) var language: LanguageID
     public private(set) var world: WorldState
@@ -32,6 +32,7 @@ public actor GameHost {
         self.simulation = simulation
         self.language = language
         var builder = FrameBuilder(content: simulation.content)
+        builder.entitlements = simulation.entitlements
         builder.language = language
         builder.markFallback = markFallback
         self.builder = builder
@@ -47,6 +48,16 @@ public actor GameHost {
         revision += 1
         var report = StepReport()
         report.changes.mark(.perception)
+        frame = builder.build(world, revision: revision, previous: frame, report: report)
+        return frame
+    }
+
+    /// Purchase rights can change while the same world stays open.
+    public func setEntitlements(_ entitlements: Entitlements) -> Frame {
+        simulation = Simulation(content: simulation.content, systems: simulation.systems, entitlements: entitlements)
+        builder.entitlements = entitlements
+        revision += 1
+        let report = simulation.syncEntitlements(&world)
         frame = builder.build(world, revision: revision, previous: frame, report: report)
         return frame
     }

@@ -319,6 +319,10 @@ extension ContentValidator {
                 checkEffects(ch.effects, "\(o) / \(ch.id)")
             }
         }
+        if let gate = db.trialGate {
+            checkCondition(gate.when, "trialGate")
+            checkEffects(gate.onRelease, "trialGate.onRelease")
+        }
         for (id, ob) in db.objectives.sorted(by: { $0.key < $1.key }) {
             checkCondition(ob.completeWhen, "objective \(id)")
             checkCondition(ob.failWhen, "objective \(id)")

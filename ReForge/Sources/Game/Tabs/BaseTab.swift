@@ -191,15 +191,16 @@ struct ResearchSection: View {
     var body: some View {
         InkSection(title: ui("ui.body.research")) {
             ForEach(view.entries, id: \.id) { e in
-                Button { store.send(e.selectCommand) } label: {
-                    InkRow(glyph: mark(e.status), title: spokenText(e.name),
-                           detail: e.status == .active && !view.studying.isEmpty
-                               ? spokenText(view.studying.joined(separator: UIText.shared.string("ui.body.list_sep"))) : nil,
-                           value: Text(verbatim: "\(e.points)/\(e.totalPoints)"), selected: e.status == .active)
+                // 選べる物だけをボタンにする(解けていない・済んだ・区切りで待っている間は行だけ。Z1)
+                if !view.held, e.status == .available || e.status == .active {
+                    Button { store.send(e.selectCommand) } label: { row(e) }
+                        .buttonStyle(.inkRow)
+                        .accessibilityIdentifier("research-\(e.id.rawValue)")
+                } else {
+                    row(e)
+                        .foregroundStyle(e.status == .locked ? InkColor.textDim : InkColor.text)
+                        .accessibilityIdentifier("research-\(e.id.rawValue)")
                 }
-                .buttonStyle(.inkRow)
-                .disabled(e.status == .locked || e.status == .done)
-                .accessibilityIdentifier("research-\(e.id.rawValue)")
             }
             if view.hiddenCount > 0 {
                 // 深さの気配: 名前は出さず、数だけ(§10 HNT-16)
@@ -208,6 +209,13 @@ struct ResearchSection: View {
                     .accessibilityIdentifier("researchHidden")
             }
         }
+    }
+
+    private func row(_ e: ResearchView.Entry) -> InkRow {
+        InkRow(glyph: mark(e.status), title: spokenText(e.name),
+               detail: e.status == .active && !view.studying.isEmpty
+                   ? spokenText(view.studying.joined(separator: UIText.shared.string("ui.body.list_sep"))) : nil,
+               value: Text(verbatim: "\(e.points)/\(e.totalPoints)"), selected: e.status == .active)
     }
 
     private func mark(_ s: ResearchQueries.Status) -> String {

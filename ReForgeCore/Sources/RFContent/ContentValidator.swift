@@ -43,12 +43,27 @@ public enum ContentValidator {
         eventsNotTriggeredByDays(db, &out)
         scenesWellFormed(db, &out)
         narrativeRules(db, &out)  // 出来事まわり(U11。Schema/Condition.swift)
+        trialGateWellFormed(db, &out)
         worldTypeRules(db, &out)
         codexShadowsWellFormed(db, &out)  // 図鑑の影の欄(U17。Schema/CodexShadows.swift)
         uiGatesWellFormed(db, &out)  // 画面の要素の解放(U18。Schema/UIGates.swift)
         artIDsAreNeutral(db, &out)  // 立ち絵の ID の形(U18)
         tendOfferWellFormed(db, &out)  // 火の番の申し出(W-02d)
         return out
+    }
+
+    static func trialGateWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        guard let gate = db.trialGate else { return }
+        for id in gate.holds?.events ?? [] where db.events[id] == nil {
+            out.append(Issue(level: .error, rule: "trialGate.event", message: "undefined event \(id)"))
+        }
+        let failures = gate.holds?.failures ?? []
+        for id in failures where db.failureRules[id] == nil {
+            out.append(Issue(level: .error, rule: "trialGate.failure", message: "undefined failure rule \(id)"))
+        }
+        if !failures.isEmpty, gate.resume == nil {
+            out.append(Issue(level: .error, rule: "trialGate.resume", message: "held failures need a resume rule"))
+        }
     }
 
     /// 副産物の行き先が空の品 ID だと、出口の中身を一意に決められない。

@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 import ReForgeEngine
 
 @main
@@ -42,12 +43,12 @@ final class AppModel {
     let sealedContentFailed: Bool
     let saves: FileSaveStorage
     let storeService: any StoreService
-    let adProvider: any AdProvider
     let backgroundTasks: any BackgroundTaskManaging
     /// 言語の状態(L-10b)。選びは UserDefaults にあり、セーブには入れない(記録を消しても残る)。
     let language: AppLanguage
-    /// 広告除去の権利(正は StoreService。UserDefaults はキャッシュ)。
-    private(set) var adsRemoved: Bool
+    /// StoreKit の署名付き記録から作る実行時の権利。保存や UserDefaults には書かない。
+    private(set) var entitlements = Entitlements(fullGame: false)
+    private let trialGateOpen: Bool
     private(set) var game: GameStore?
     /// 「つづきから」があるか。
     private(set) var hasResume: Bool
@@ -56,8 +57,8 @@ final class AppModel {
     var settingsOpen = false {
         didSet { game?.isPaused = settingsOpen }
     }
-
-    static let adsRemovedKey = "adsRemoved"
+    /// Presentation-only state for the non-blocking trial card; never saved.
+    var trialNoticeVisible = true
 
 #if DEBUG
     /// 撮る起動の序(Debug/PrologueSample.swift)。公開の層には序の場面が無いので、見本の場面をここから出す。
@@ -125,8 +126,7 @@ final class AppModel {
     var cornerButtonVisible: Bool { activePrologue == nil && game?.darkStart == nil }
 
     init(saves: FileSaveStorage = FileSaveStorage(),
-         storeService: any StoreService = UnavailableStoreService(),
-         adProvider: any AdProvider = NoopAdProvider(),
+         storeService: any StoreService = StoreKitStoreService(),
          backgroundTasks: any BackgroundTaskManaging = ApplicationBackgroundTasks(),
          bundle: Bundle = .main, defaults: UserDefaults = .standard,
          language: AppLanguage? = nil) {
@@ -147,9 +147,9 @@ final class AppModel {
         self.sealedContentFailed = sealedFailed
         self.saves = saves
         self.storeService = storeService
-        self.adProvider = adProvider
+        let gateValue = bundle.object(forInfoDictionaryKey: "ReForgeTrialGateOpen")
+        self.trialGateOpen = (gateValue as? Bool) ?? (gateValue as? String).map { ($0 as NSString).boolValue } ?? false
         self.backgroundTasks = backgroundTasks
-        self.adsRemoved = UserDefaults.standard.bool(forKey: Self.adsRemovedKey)
         self.hasResume = Self.resumeIsReadable(saves)
         let language = language ?? AppLanguage(defaults: defaults, tables: content?.textTables ?? TextTables())
         self.language = language
@@ -202,7 +202,7 @@ final class AppModel {
         guard let content else { return }
         GameStore.forgetLastOperation()
         let world = GameBootstrap.newWorld(content: content, seed: seed)
-        game = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback)
+        game = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback, entitlements: gameEntitlements)
         game?.isPaused = settingsOpen
     }
 
@@ -276,7 +276,7 @@ final class AppModel {
         }
         // 時計を止めた世界は「見る」の一歩が走らず、地図の既知が空のまま(地形が真っ黒)。いまの視界を既知にしておく
         Vision.markVisibleKnown(&world, content: content)
-        game = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback)
+        game = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback, entitlements: gameEntitlements)
         game?.isPaused = settingsOpen
         // 足元カードを焚き火に向ける(焚き火は足元の残骸を避けて隣に置かれる)
         if focusFire, let fire = world.placements.sortedIDs.compactMap({ world.placements.items[$0] })
@@ -290,8 +290,9 @@ final class AppModel {
         guard let content else { return }
         let world = GameBootstrap.newWorld(content: content, seed: UInt64.random(in: .min ... .max))
         GameStore.forgetLastOperation()
-        let g = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback)
+        let g = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback, entitlements: gameEntitlements)
         settingsOpen = false
+        trialNoticeVisible = true
         game = g
         hasResume = true
         Task { await g.saveResume() }
@@ -312,7 +313,8 @@ final class AppModel {
             return
         }
         settingsOpen = false
-        game = GameStore(content: content, world: env.world, saves: saves, language: gameLanguage, markFallback: markFallback)
+        trialNoticeVisible = true
+        game = GameStore(content: content, world: env.world, saves: saves, language: gameLanguage, markFallback: markFallback, entitlements: gameEntitlements)
     }
 
     func backToTitle() async {
@@ -358,21 +360,29 @@ final class AppModel {
     }
 
     func refreshEntitlements() async {
-        guard storeService.isAvailable else { return }
-        setAdsRemoved(await storeService.adsRemovedEntitlement())
+        let ids = await storeService.entitlements()
+        entitlements = Entitlements(fullGame: ids.contains(ProductID.fullGame))
+        if let game { await game.setEntitlements(gameEntitlements) }
     }
 
-    private func setAdsRemoved(_ v: Bool) {
-        adsRemoved = v
-        UserDefaults.standard.set(v, forKey: Self.adsRemovedKey)
-    }
+    private var gameEntitlements: Entitlements { Entitlements(fullGame: trialGateOpen || entitlements.fullGame) }
 
-    func purchaseRemoveAds() async {
-        if await storeService.purchase(ProductID.removeAds) { setAdsRemoved(true) }
+    func purchaseFullGame() async {
+        _ = await storeService.purchase(ProductID.fullGame)
+        await refreshEntitlements()
     }
 
     func restorePurchases() async {
-        if await storeService.restore() { setAdsRemoved(true) }
+        _ = await storeService.restore()
+        await refreshEntitlements()
+    }
+
+    /// StoreKit sends signed updates for purchases, family sharing, and revocations.
+    func observeTransactionUpdates() async {
+        for await result in Transaction.updates {
+            if case .verified(let transaction) = result { await transaction.finish() }
+            await refreshEntitlements()
+        }
     }
 }
 
@@ -383,7 +393,7 @@ final class BackgroundTaskBox {
     var ended = false
 }
 
-/// 全画面の共通の土台。広告枠コンテナの内側に画面を置くので、どの画面でも下の枠は残る。
+/// 全画面の共通の土台。画面は安全域を含む高さをそのまま使う。
 struct RootView: View {
     @Bindable var app: AppModel
     @Environment(\.scenePhase) private var scenePhase
@@ -420,21 +430,21 @@ struct RootView: View {
         // 言語の印(L-12): iOS が代わりの字体を選ぶときもアプリの言語の字形にする。切り替えで値が替わるだけ(作り直さない)。
         .environment(\.locale, Locale(identifier: SpeechLanguage.base(app.language.effective)))
         .background(SpeechLanguageInstaller(identifier: SpeechLanguage.base(app.language.effective)))
-        .task { await app.refreshEntitlements() }
+        .task {
+            await app.refreshEntitlements()
+            await app.observeTransactionUpdates()
+        }
         .onChange(of: scenePhase) { _, phase in
             app.scenePhaseChanged(active: phase == .active)
+            if phase == .active { Task { await app.refreshEntitlements() } }
         }
     }
 
     private var mainContent: some View {
-        AdBannerContainer(adsRemoved: app.adsRemoved) {
-            if let message = app.loadError {
-                ContentErrorView(message: message)
-            } else if let game = app.game {
-                GameScreen(app: app, store: game)
-            } else {
-                TitleView(app: app)
-            }
+        Group {
+            if let message = app.loadError { ContentErrorView(message: message) }
+            else if let game = app.game { GameScreen(app: app, store: game) }
+            else { TitleView(app: app) }
         }
         // 設定は地図の下半分に出す札。ボタンは別の窓(SettingsCorner)にあるので、どの画面・札・シートの上でも見える
         .inkCard(isPresented: $app.settingsOpen, title: ui("ui.body.settings"), maxHeightRatio: 0.5) {

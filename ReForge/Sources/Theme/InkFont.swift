@@ -46,7 +46,7 @@ enum InkFont {
         Font.custom(family(for: language), size: size, relativeTo: style)
     }
 
-    /// 12pt 注記・広告の注意・バージョン。
+    /// 12pt 注記・購入の補助・バージョン。
     static var caption: Font { font(12, relativeTo: .caption) }
     /// 14pt 帯・一覧の補助。
     static var small: Font { font(14, relativeTo: .footnote) }

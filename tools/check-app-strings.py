@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 JAPANESE = re.compile(r"[぀-ヿ㐀-鿿豈-﫿가-힯　-〿＀-￯]")
-KINDS = ("button", "band", "tab", "card", "bubble", "prologue", "label", "body", "a11y")
+KINDS = ("button", "band", "tab", "card", "bubble", "prologue", "label", "body", "a11y", "store", "trial")
 ID_SHAPE = re.compile(r"^ui\.(?:%s)\.[a-z][a-z0-9_]*$" % "|".join(KINDS))
 CALL = re.compile(r"(?<![\w.])(?<!func )(ui|UIText\.shared\.string)\(")
 UI_TEXT_FILE = "ReForge/Sources/Theme/UIText.swift"

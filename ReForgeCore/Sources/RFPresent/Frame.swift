@@ -77,6 +77,8 @@ public struct Frame: Equatable, Sendable {
     public var walkable: [WalkSpan] = []
     /// 操作棒を出してよいか(地図が灯っていて、戦闘中・眠っている間ではないとき)。画面は自分で判断しない。
     public var canSteer: Bool = false
+    /// Runtime view of the optional free-opening boundary.
+    public var trial: TrialFrame?
 
     public init(revision: Int, language: LanguageID = .ja, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef(ClockDef())), timeWord: String? = nil,
                 status: [StatusItem], objective: String? = nil, map: MapView,
@@ -104,6 +106,12 @@ public struct Frame: Equatable, Sendable {
         self.renamed = renamed
         self.runEnded = runEnded
     }
+}
+
+public struct TrialFrame: Equatable, Sendable {
+    public var mode: TrialGateMode
+    public var deferredCount: Int
+    public init(mode: TrialGateMode, deferredCount: Int) { self.mode = mode; self.deferredCount = deferredCount }
 }
 
 public struct PrologueView: Equatable, Sendable {

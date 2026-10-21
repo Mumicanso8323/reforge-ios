@@ -17,6 +17,7 @@ settings:
     MARKETING_VERSION: "0.1.0"
     # ローカルは 1。CI は xcodebuild の引数で run 番号(ios ジョブの BUILD と同じ値)を渡して上書きする。
     CURRENT_PROJECT_VERSION: "1"
+    REFORGE_TRIAL_GATE_OPEN: NO
 
 packages:
   ReForgeCore:
@@ -30,6 +31,11 @@ targets:
       # Sources(SwiftUI)と Resources(InfoPlist.xcstrings・同梱フォント BIZ UDGothic と OFL のライセンス文。画面の固定文言は Resources でなく content/public/text/ja/app*.json の表から引く)
       # (Resources/PrivacyInfo.xcprivacy も、ここから拡張子で自動的にリソースの段に束ねられる)
       - path: ReForge
+        excludes:
+          - Resources/ReForge.storekit
+      # SKTestSession(configurationFileNamed:) reads this from the app-host bundle.
+      - path: ReForge/Resources/ReForge.storekit
+        buildPhase: resources
       # コンテンツの束(公開の層の平文と、封をした非公開の層 private.sealed)。tools/content/stage.sh が作る。
       # 平文の content/private は同梱しない(docs/architecture/E-content.md §4.5)。
       # アプリは束の中の content/ を GameBootstrap.loadContent で読む。
@@ -56,6 +62,7 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_ReForgeTrialGateOpen: "$(REFORGE_TRIAL_GATE_OPEN)"
         # 部品は暗い地のまま固定(システムの警告・キーボードも端末の外観を読まない。W-19・INV-O16)
         INFOPLIST_KEY_UIUserInterfaceStyle: Dark
         TARGETED_DEVICE_FAMILY: "1"

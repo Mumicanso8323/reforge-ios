@@ -26,13 +26,16 @@ import RFWorld
 public struct Simulation: Sendable {
     public let content: ContentDB
     public let systems: [any SimSystem]
+    public let entitlements: Entitlements
 
     /// 1 ステップで出来事の反応を何周まで回すか(反応が反応を呼ぶ連鎖の上限)。
     public static let maxReactionRounds = 16
 
-    public init(content: ContentDB, systems: [any SimSystem] = Simulation.standardSystems) {
+    public init(content: ContentDB, systems: [any SimSystem] = Simulation.standardSystems,
+                entitlements: Entitlements = Entitlements()) {
         self.content = content
         self.systems = systems
+        self.entitlements = entitlements
     }
 
     /// 既定のシステムと、毎ステップ呼ぶ順番(B-data-model.md §1 の持ち主の表と同じ並び)。
@@ -48,8 +51,17 @@ public struct Simulation: Sendable {
     /// コマンドを 1 つ処理する。夜作業の行為なら、その時間ぶんのステップも進める。
     public func apply(_ command: Command, to world: inout WorldState) -> StepReport {
         var report = StepReport()
+        prepareTrial(&world, &report)
         guard world.run.isActive else {
             report.rejection = Rejection("reason.run.not_active")
+            return report
+        }
+        if TrialGate.closed(world, content, entitlements), TrialGate.mode(content) == .freeze {
+            report.rejection = Rejection("reason.trial.locked")
+            return report
+        }
+        if trialHoldsResearch(world), isResearchStart(command) {
+            report.rejection = Rejection("reason.trial.locked")
             return report
         }
         if let scene = world.narrative.scene,
@@ -74,7 +86,7 @@ public struct Simulation: Sendable {
             report.rejection = Rejection("reason.start.first_act")
             return report
         }
-        var ctx = StepContext(world: world, content: content)
+        var ctx = StepContext(world: world, content: content, entitlements: entitlements)
         let result = dispatch(command, &ctx)
         if ctx.world.clock.held, content.start.clock?.firstAct == nil, case .accepted = result, Self.releasesHold(command) {
             // 最初の行為で時計が動き出す(W-01)。戻らない
@@ -137,6 +149,7 @@ public struct Simulation: Sendable {
     /// 本物の世界と乱数の流れは進めない(値型の写しで回す)。乱数の種も写しのものを使うので、同じ世界に
     /// 寝るを当てた実際の結果と必ず一致する。夜でない(断られる)ときは nil。
     public func forecastSleep(_ world: WorldState) -> (world: WorldState, report: StepReport)? {
+        if TrialGate.closed(world, content, entitlements), TrialGate.mode(content) == .freeze { return nil }
         var copy = world
         let r = apply(.time(.sleep), to: &copy)
         guard r.rejection == nil else { return nil }
@@ -161,6 +174,7 @@ public struct Simulation: Sendable {
     public static let maxRealSecondsPerAdvance = 1.0
 
     public func advance(_ world: inout WorldState, realSeconds: Double) -> StepReport {
+        if TrialGate.closed(world, content, entitlements), TrialGate.mode(content) == .freeze { return StepReport() }
         guard world.run.isActive, world.clock.phase == .day, !world.clock.held, realSeconds > 0, realSeconds.isFinite,
               !world.narrative.pending.contains(where: \.blocking), !hasStageScene(world)
         else { return StepReport() }
@@ -176,6 +190,7 @@ public struct Simulation: Sendable {
     /// 時計を保留した始まりで、ノアが最初の押し続ける行為をしている間だけ進める。
     /// 繰り越しは保存する時計ではなく、呼び出し側が持つ carry を使う。
     public func advanceHeld(_ world: inout WorldState, realSeconds: Double, carry: inout Int64) -> StepReport {
+        if TrialGate.closed(world, content, entitlements), TrialGate.mode(content) == .freeze { return StepReport() }
         guard world.run.isActive, world.clock.held, let firstAct = content.start.clock?.firstAct,
               let active = world.exploration.active[.noah], active.interaction == firstAct, active.holding,
               realSeconds > 0, realSeconds.isFinite, !hasStageScene(world)
@@ -189,7 +204,7 @@ public struct Simulation: Sendable {
         guard steps > 0 else { return StepReport() }
 
         var report = StepReport()
-        var ctx = StepContext(world: world, content: content)
+        var ctx = StepContext(world: world, content: content, entitlements: entitlements)
         for _ in 0..<steps {
             guard ctx.world.run.isActive, ctx.world.clock.held,
                   ctx.world.exploration.active[.noah]?.interaction == firstAct,
@@ -210,7 +225,9 @@ public struct Simulation: Sendable {
     public func runSteps(_ n: Int, _ world: inout WorldState, stopAtPhaseChange: Bool = false) -> StepReport {
         var report = StepReport()
         guard n > 0 else { return report }
-        var ctx = StepContext(world: world, content: content)
+        prepareTrial(&world, &report)
+        if TrialGate.closed(world, content, entitlements), TrialGate.mode(content) == .freeze { return report }
+        var ctx = StepContext(world: world, content: content, entitlements: entitlements)
         for _ in 0..<n {
             guard ctx.world.run.isActive, !hasStageScene(ctx.world) else { break }
             let phase = ctx.world.clock.phase
@@ -224,6 +241,76 @@ public struct Simulation: Sendable {
         world = ctx.world
         if Disclosure.record(&world, content) { report.changes.mark(.narrative) }
         return report
+    }
+
+    /// Re-evaluate a changed runtime entitlement without advancing the clock.
+    public func syncEntitlements(_ world: inout WorldState) -> StepReport {
+        var report = StepReport()
+        prepareTrial(&world, &report)
+        return report
+    }
+
+    private func isResearchStart(_ command: Command) -> Bool {
+        if case .research(.select) = command { return true }
+        if case .research(.learnSkill) = command { return true }
+        return false
+    }
+
+    private func trialHoldsResearch(_ world: WorldState) -> Bool {
+        TrialGate.closed(world, content, entitlements) && TrialGate.mode(content) == .fence &&
+            content.trialGate?.holds?.research == true
+    }
+
+    /// Notices, snapshots, and release are driven at the simulation boundary so
+    /// they apply equally after a purchase and after loading a trial save in a
+    /// full build.  Nothing here is an entitlement cache.
+    private func prepareTrial(_ world: inout WorldState, _ report: inout StepReport) {
+        guard let gate = content.trialGate else { return }
+        let closed = TrialGate.closed(world, content, entitlements)
+        var state = world.trial ?? TrialState()
+        if closed {
+            if state.releasedAt != nil { state.releasedAt = nil }
+            if state.noticed != true {
+                state.noticed = true
+                let ids = gate.holds?.failures ?? []
+                var stats: [StatID: Int] = [:]
+                for id in ids {
+                    guard let rule = content.failureRules[id] else { continue }
+                    for stat in TrialGate.heldStats(rule.when) { stats[stat] = Int(world.survival.stats[stat]?.raw ?? 0) }
+                }
+                if !stats.isEmpty { state.cutStats = stats }
+                report.events.append(.trialReached)
+            }
+            world.trial = state
+            return
+        }
+        guard entitlements.fullGame, state.noticed == true, state.releasedAt == nil else { return }
+        state.releasedAt = world.clock.now
+        var ctx = StepContext(world: world, content: content, entitlements: entitlements)
+        EffectApplier.apply(gate.onRelease ?? [], &ctx, cause: nil)
+        if gate.resume == .shiftThresholds {
+            var shifts: [FailureRuleID: [StatID: Int]] = [:]
+            for id in gate.holds?.failures ?? [] {
+                guard let rule = content.failureRules[id] else { continue }
+                shifts[id] = Dictionary(uniqueKeysWithValues: TrialGate.heldStats(rule.when).map {
+                    ($0, Int(ctx.world.survival.stats[$0]?.raw ?? 0) - (state.cutStats?[$0] ?? Int(ctx.world.survival.stats[$0]?.raw ?? 0)))
+                })
+            }
+            state.shifts = shifts
+        }
+        ctx.world.trial = state
+        // Re-fire deferred events in insertion order.  fireFromEffect deliberately
+        // bypasses the original trigger condition but still honours repeat state.
+        for held in state.deferred where held.kind == .event {
+            _ = dispatch(.narrative(.fireFromEffect(event: EventID(held.id), cause: nil)), &ctx)
+        }
+        FailureSystem().step(&ctx)
+        state = ctx.world.trial ?? state
+        state.deferred.removeAll()
+        ctx.world.trial = state
+        ctx.emit(.trialReleased)
+        settle(&ctx, &report)
+        world = ctx.world
     }
 
     /// 出来事を全システムに配り、出た追加のコマンドを処理する(連鎖は maxReactionRounds 周まで)。

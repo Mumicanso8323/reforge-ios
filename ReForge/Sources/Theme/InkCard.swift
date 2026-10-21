@@ -3,7 +3,7 @@ import SwiftUI
 /// 下からの札。iOS の .sheet / .alert / .confirmationDialog の代わり(オーナーの決め: 閉じさせるシートと確認のダイアログは出さない)。
 /// - 画面の下から伸びるだけで、上に残った画面は暗くせず、押せるまま(時計も止めない)。
 /// - 引き下げて閉じる操作は無い。閉じるのは札の右上の「閉じる」か、札を開いた元のボタンをもう一度押したとき。
-/// - 札の中で次の段へ進むとき(設定 → 広告を消す)は、札を重ねず中身を差し替える。
+/// - 札の中で別の操作へ進んでも、札を重ねない。
 /// 使い方:
 /// ```
 /// someView.inkCard(isPresented: $showSettings, title: ui("ui.body.settings")) { SettingsView(app: app, close: { showSettings = false }) }

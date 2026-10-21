@@ -53,6 +53,13 @@ public struct WorldState: Codable, Equatable, Sendable {
     public var narrative: NarrativeState
     /// 周回・巻き戻し・失敗。持ち主: RFFailure
     public var run: RunState
+    /// Deferred work at the optional trial boundary.  Missing keys in older saves decode as the default.
+    public var trial: TrialState?
+
+    enum CodingKeys: String, CodingKey {
+        case rng, ids, clock, map, people, placements, inventory, invention, notebook, logistics, knowledge, ledger
+        case survival, exploration, base, combat, research, auras, abilities, narrative, run, trial
+    }
 
     public init(seed: UInt64, map: MapState) {
         rng = RandomStreams(seed: seed)
@@ -76,6 +83,36 @@ public struct WorldState: Codable, Equatable, Sendable {
         abilities = AbilitiesState()
         narrative = NarrativeState()
         run = RunState()
+        trial = nil
+    }
+
+    /// Keep pre-boundary save bytes stable: `trial` is omitted until it has
+    /// actual deferred state, while old saves decode as an empty boundary.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        rng = try c.decode(RandomStreams.self, forKey: .rng); ids = try c.decode(IDAllocator.self, forKey: .ids)
+        clock = try c.decode(ClockState.self, forKey: .clock); map = try c.decode(MapState.self, forKey: .map)
+        people = try c.decode(PeopleState.self, forKey: .people); placements = try c.decode(PlacementsState.self, forKey: .placements)
+        inventory = try c.decode(InventoryState.self, forKey: .inventory); invention = try c.decode(InventionState.self, forKey: .invention)
+        notebook = try c.decode(NotebookState.self, forKey: .notebook); logistics = try c.decode(LogisticsState.self, forKey: .logistics)
+        knowledge = try c.decode(KnowledgeState.self, forKey: .knowledge); ledger = try c.decode(ProvenanceLedger.self, forKey: .ledger)
+        survival = try c.decode(SurvivalState.self, forKey: .survival); exploration = try c.decode(ExplorationState.self, forKey: .exploration)
+        base = try c.decode(BaseState.self, forKey: .base); combat = try c.decode(CombatState.self, forKey: .combat)
+        research = try c.decode(ResearchState.self, forKey: .research); auras = try c.decode(AuraState.self, forKey: .auras)
+        abilities = try c.decode(AbilitiesState.self, forKey: .abilities); narrative = try c.decode(NarrativeState.self, forKey: .narrative)
+        run = try c.decode(RunState.self, forKey: .run); trial = try c.decodeIfPresent(TrialState.self, forKey: .trial)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(rng, forKey: .rng); try c.encode(ids, forKey: .ids); try c.encode(clock, forKey: .clock); try c.encode(map, forKey: .map)
+        try c.encode(people, forKey: .people); try c.encode(placements, forKey: .placements); try c.encode(inventory, forKey: .inventory)
+        try c.encode(invention, forKey: .invention); try c.encode(notebook, forKey: .notebook); try c.encode(logistics, forKey: .logistics)
+        try c.encode(knowledge, forKey: .knowledge); try c.encode(ledger, forKey: .ledger); try c.encode(survival, forKey: .survival)
+        try c.encode(exploration, forKey: .exploration); try c.encode(base, forKey: .base); try c.encode(combat, forKey: .combat)
+        try c.encode(research, forKey: .research); try c.encode(auras, forKey: .auras); try c.encode(abilities, forKey: .abilities)
+        try c.encode(narrative, forKey: .narrative); try c.encode(run, forKey: .run)
+        try c.encodeIfPresent(trial, forKey: .trial)
     }
 
     public var seed: UInt64 { rng.seed }

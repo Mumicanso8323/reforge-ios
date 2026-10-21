@@ -49,6 +49,7 @@
     "reason.start.first_act": "いまは、これしかできない",
     "reason.run.not_active": "もう終わっている",
     "reason.command.unhandled": "いまはできない",
+    "reason.trial.locked": "いまはできません",
     "cause.unknown": "分からない",
     "text.matter.fe.variant_b": "試験の材料B",
     "text.structure.shelter": "試験の小屋",
