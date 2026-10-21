@@ -46,7 +46,7 @@ public struct NarrativeSystem: SimSystem {
             return .done
         case .fireFromEffect(let id, let cause):
             guard let def = ctx.content.events[id] else { return .rejected(Rejection("reason.narrative.no_event")) }
-            if Self.mayFire(id, def, ctx.world) { fire(id, def, &ctx, trigger: cause) }
+            if Self.mayFire(id, def, ctx.world), !Self.holdForTrial(id, &ctx) { fire(id, def, &ctx, trigger: cause) }
             return .done
         case .openSheet, .grant, .placeAnswer, .setRosterPick, .confirmRoster:
             return SheetActions.handle(c, &ctx) ?? .notMine
@@ -89,18 +89,22 @@ public struct NarrativeSystem: SimSystem {
         for def in defs {
             guard Self.mayFire(def.id, def, ctx.world) else { continue }
             guard ConditionEvaluator.evaluate(def.trigger.when, &ctx, trigger: trigger) else { continue }
-            if TrialGate.closed(ctx.world, ctx.content, ctx.entitlements), TrialGate.mode(ctx.content) == .fence,
-               ctx.content.trialGate?.holds?.events?.contains(def.id) == true {
-                var trial = ctx.world.trial ?? TrialState()
-                if !trial.deferred.contains(where: { $0.kind == .event && $0.id == def.id.rawValue }) {
-                    trial.deferred.append(TrialHeld(kind: .event, id: def.id.rawValue, since: ctx.world.clock.now))
-                    ctx.world.trial = trial
-                    ctx.changes.mark(.narrative)
-                }
-                continue
-            }
+            if Self.holdForTrial(def.id, &ctx) { continue }
             fire(def.id, def, &ctx, trigger: trigger)
         }
+    }
+
+    /// 区切りの門(fence)が待たせる出来事なら、起こさずに列へ積む(1 度だけ)。どの起こり方(hook・予約・効果)も通る。
+    static func holdForTrial(_ id: EventID, _ ctx: inout StepContext) -> Bool {
+        guard TrialGate.closed(ctx.world, ctx.content, ctx.entitlements), TrialGate.mode(ctx.content) == .fence,
+              ctx.content.trialGate?.holds?.events?.contains(id) == true else { return false }
+        var trial = ctx.world.trial ?? TrialState()
+        if !trial.deferred.contains(where: { $0.kind == .event && $0.id == id.rawValue }) {
+            trial.deferred.append(TrialHeld(kind: .event, id: id.rawValue, since: ctx.world.clock.now))
+            ctx.world.trial = trial
+            ctx.changes.mark(.narrative)
+        }
+        return true
     }
 
     /// 繰り返しの規則と、同じ出来事の決断待ちが無いかを見る。
@@ -153,6 +157,7 @@ public struct NarrativeSystem: SimSystem {
             }
             guard Self.mayFire(s.event, def, ctx.world),
                   ConditionEvaluator.evaluate(def.trigger.when, &ctx, trigger: s.cause) else { continue }
+            if Self.holdForTrial(s.event, &ctx) { continue }
             fire(s.event, def, &ctx, trigger: s.cause)
         }
         ctx.changes.mark(.narrative)

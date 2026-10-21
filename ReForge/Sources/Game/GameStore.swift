@@ -290,6 +290,7 @@ final class GameStore {
     /// 断りの参照)を捨て、差し替え後の Frame を必ず取り込む(前の世界の区画や足元カードが居残らない)。
     @discardableResult
     func replaceWorld(_ world: WorldState) async -> Frame {
+        commitTimedUndo()
         let f = await host.replace(world: world)
 #if DEBUG
         ReplayStats.replaces += 1
@@ -396,9 +397,8 @@ final class GameStore {
     /// 取り消し中にも時計を進めるかは操作ごとに決める。
     @discardableResult
     func performUndoable(_ command: Command, label: String, seconds: Int = 4, pausesClock: Bool = false) async -> String? {
-        guard timedUndo == nil else { return nil }
+        noteOperation()  // 前の帯は確定して閉じる(押した物は必ず効く)
         let before = await host.world
-        noteOperation()
         let (f, rejection, rejectionRef) = await perform(throughHost: command)
         show(notice: rejectionRef)
         await refresh(f)
@@ -418,7 +418,7 @@ final class GameStore {
                 guard !Task.isCancelled else { return }
                 timedUndo?.seconds = remaining
             }
-            finishTimedUndo()
+            commitTimedUndo()
         }
     }
 
@@ -433,8 +433,10 @@ final class GameStore {
         return Task { _ = await replaceWorld(pending.world) }
     }
 
-    private func finishTimedUndo() {
+    /// 帯を確定して閉じる(時間切れ・次の操作・世界の差し替え)。古い写しで後の操作や別の走行を消さない。
+    func commitTimedUndo() {
         guard let pending = timedUndo else { return }
+        timedUndoTask?.cancel()
         timedUndoTask = nil
         timedUndo = nil
         isPaused = pending.wasPaused

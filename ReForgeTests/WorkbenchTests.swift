@@ -81,6 +81,29 @@ final class WorkbenchAppTests: XCTestCase {
         XCTAssertEqual(restored.invention, before.invention, "取り消しで札を戻す")
     }
 
+    /// 帯が出ている間に次の操作をすると、帯は確定して閉じる(古い写しで後の操作を消さない)。
+    func testNextOperationCommitsThePendingUndo() async throws {
+        let s = try store()
+        await s.load()
+        var unlocked = await s.host.world
+        unlocked.research.unlocked.modules.insert("furnace")
+        await s.refresh(await s.host.replace(world: unlocked))
+        let wb = s.workbench
+        await wb.reload(s)
+        await wb.append("furnace", s)
+        await wb.makePlate(s)
+        guard let plate = wb.bench?.plates.first else {
+            return XCTFail("試験用の札を作れない: \(wb.message ?? "-")")
+        }
+        await wb.discard(plate, s)
+        XCTAssertNotNil(s.timedUndo)
+        _ = await s.perform(.crew(.steer(direction: nil)))
+        XCTAssertNil(s.timedUndo, "次の操作で帯は閉じる")
+        XCTAssertNil(s.undoTimed(), "閉じた帯は戻さない")
+        let after = await s.host.world
+        XCTAssertNil(after.invention.designs[plate.design], "捨てたまま")
+    }
+
     /// 技能を付ける選びもすぐ反映し、取り消すと技能を付ける前の世界へ戻る。
     func testGrantUndoRestoresThePreviousWorld() async throws {
         let s = try store()

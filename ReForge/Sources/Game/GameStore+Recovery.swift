@@ -48,7 +48,7 @@ extension GameStore {
     /// 失敗からの復帰はすぐ反映し、短時間だけ失敗直前へ戻せるようにする。
     @discardableResult
     func recoverUndoable(_ option: RecoveryOption, target: SaveSlot? = nil, label: String) async -> String? {
-        guard timedUndo == nil else { return nil }
+        commitTimedUndo()
         let before = await host.world
         let problem = await recover(option, target: target)
         if problem == nil { beginTimedUndo(world: before, label: label, pausesClock: true) }

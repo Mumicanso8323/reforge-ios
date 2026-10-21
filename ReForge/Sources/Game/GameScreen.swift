@@ -150,7 +150,6 @@ private struct TrialGateCard: View {
         if app.trialNoticeVisible || trial.mode == .freeze {
             VStack(alignment: .leading, spacing: 12) {
                 ui("ui.trial.title").font(InkFont.heading)
-                ui("ui.trial.body")
                 if app.storeService.isAvailable {
                     Button { Task { await app.purchaseFullGame() } } label: { ui("ui.trial.buy") }.buttonStyle(.ink(.primary))
                     Button { Task { await app.restorePurchases() } } label: { ui("ui.trial.restore") }.buttonStyle(.ink(.quiet, fill: false))

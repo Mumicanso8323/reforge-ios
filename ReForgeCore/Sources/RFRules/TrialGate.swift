@@ -9,10 +9,11 @@ public struct Entitlements: Sendable, Equatable {
 }
 
 public enum TrialGate {
+    /// 一度区切りに届いた(noticed)世界は、条件が後で崩れても権利が付くまで閉じたまま(買わずに開かない)。
     public static func closed(_ world: WorldState, _ content: ContentDB, _ entitlements: Entitlements) -> Bool {
-        !entitlements.fullGame && content.trialGate.map {
-            ConditionEvaluator.evaluatePure($0.when, world: world, content: content) == true
-        } == true
+        guard !entitlements.fullGame, let gate = content.trialGate else { return false }
+        if world.trial?.noticed == true { return true }
+        return ConditionEvaluator.evaluatePure(gate.when, world: world, content: content) == true
     }
 
     public static func mode(_ content: ContentDB) -> TrialGateMode { content.trialGate?.mode ?? .fence }

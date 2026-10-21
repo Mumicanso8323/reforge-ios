@@ -310,4 +310,36 @@ final class TrialGateTests: XCTestCase {
         XCTAssertTrue(ContentValidator.validate(danglingCondition).contains { $0.level == .error },
                       "門の条件に書いた ID も検証する")
     }
+
+    /// 一度区切りに届いた世界は、門の条件が後で崩れても、権利が付くまで閉じたまま(買わずに開かない)。
+    func testReachedGateStaysClosedWhenItsConditionFallsBack() throws {
+        let content = try heldContent()
+        let trial = trialSimulation(content, fullGame: false)
+        var world = world(content)
+        _ = trial.runSteps(1, &world)
+        XCTAssertEqual(world.trial?.noticed, true)
+        world.narrative.counters[gateCounter] = 0
+        XCTAssertTrue(TrialGate.closed(world, content, Entitlements(fullGame: false)), "条件が崩れても閉じたまま")
+        XCTAssertEqual(trial.apply(.research(.select(research: "research.test.basics")), to: &world).rejection?.reason,
+                       "reason.trial.locked")
+        XCTAssertFalse(TrialGate.closed(world, content, Entitlements(fullGame: true)), "権利があれば開く")
+        var fresh = self.world(content, closed: false)
+        XCTAssertFalse(TrialGate.closed(fresh, content, Entitlements(fullGame: false)), "届く前は閉じない")
+        _ = trial.runSteps(1, &fresh)
+        XCTAssertNotEqual(fresh.trial?.noticed, true)
+    }
+
+    /// 予約から起きる出来事も、門が待たせる物なら起こさずに列へ積む(hook 以外の起こり方も素通りしない)。
+    func testScheduledHeldEventIsDeferredToo() throws {
+        let content = try heldContent()
+        let trial = trialSimulation(content, fullGame: false)
+        var world = world(content)
+        _ = trial.runSteps(1, &world)
+        world.trial?.deferred.removeAll()
+        world.narrative.scheduled.append(ScheduledEvent(event: firstEvent, at: world.clock.now))
+        _ = trial.runSteps(1, &world)
+        XCTAssertTrue(world.narrative.scheduled.isEmpty)
+        XCTAssertFalse(world.narrative.fired.keys.contains(firstEvent), "予約の出来事が門を素通りした")
+        XCTAssertTrue(world.trial?.deferred.contains { $0.kind == .event && $0.id == firstEvent.rawValue } == true)
+    }
 }

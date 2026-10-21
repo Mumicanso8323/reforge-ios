@@ -26,6 +26,7 @@ extension GameStore {
 
     /// 命令を出した。再開の 1 行を消し、操作の実時刻を覚える。
     func noteOperation() {
+        commitTimedUndo()
         if resumeBanner != nil { resumeBanner = nil }
         defaults.set(now().timeIntervalSince1970, forKey: Self.lastOperationKey)
     }

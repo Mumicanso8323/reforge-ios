@@ -95,7 +95,7 @@
   - 既定は無い: `holds.failures` があって `resume` が無い門は確かめでエラー(前のまま)。
   - 払い戻しで権利が消え、門がもう一度閉じたステップでは `releasedAt` を nil に戻す(次に権利が付いたとき、同じ手順がもう一度走る)。
 - 画面の組み立て: `Frame` に `trial: TrialFrame?`(閉じているか・形(fence/freeze)・待っている物の数)を足し、`FrameBuilder` に `entitlements` を渡す口を足す(既定は解放済み)。
-- 文言: `reason.trial.locked` と、案内の札の文言 ID(例 `ui.trial.title`・`ui.trial.body`・`ui.trial.buy`・`ui.trial.restore`・`ui.trial.continue`)を公開の層の `text/ja/` に中立の見本で置く(「ここから先は購入で遊べます」程度。物語の語を使わない)。
+- 文言: `reason.trial.locked` と、案内の札の文言 ID(例 `ui.trial.title`・`ui.trial.buy`・`ui.trial.restore`・`ui.trial.continue`)を公開の層の `text/ja/` に中立の見本で置く(物語の語を使わない)。
 - テスト(新しいファイル `RFSimTests/TrialGateTests.swift` など。公開の層に、テストの中だけで試験用の門と出来事を重ねる):
   1. `trialGate` の無い内容では、権利が無くても今とまったく同じ(同じ seed・同じ命令で同じ世界)。
   2. fence: 権利無しで区切りの事実を知った後も、時計・手の作業・生産は進む。研究を始める命令は `reason.trial.locked`。`holds.events` の出来事は起きずに列に積まれ(1 度だけ)、ほかの出来事は起きる。`trialReached` は 1 回だけ。
@@ -151,3 +151,10 @@
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
 Claude-Session: (依頼の文で渡される URL)
 ```
+
+## 統合での直し(10/21)
+- 札の説明の文(`ui.trial.body`)は置かない(説明・理由の文を画面に出さない)。札は題とボタンだけ。
+- 囲いで研究を待たせている間は、研究の行をボタンにしない(`ResearchView.held`。見せて禁じない Z1)。解けていない・済んだ研究も行だけにする。待っている 1 行は研究のある拠点のタブに置く。
+- 止める形(freeze)の間は、帯・地図・タブを見せずに札だけを出す。設定(購入・復元・言語・記録)は押せば効くので開ける。
+- 一度区切りに届いた世界(`TrialState.noticed`)は、門の条件が後で崩れても権利が付くまで閉じたまま。
+- 門が待たせる出来事は、hook だけでなく予約・効果から起きる時も列に積む。
