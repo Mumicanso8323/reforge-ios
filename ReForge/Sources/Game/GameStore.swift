@@ -415,13 +415,15 @@ final class GameStore {
         }
     }
 
-    func undoTimed() {
-        guard let pending = timedUndo else { return }
+    /// 帯の「戻す」。世界の差し替えは後から走るので、待ちたい呼び手(試験)には差し替えの Task を返す。
+    @discardableResult
+    func undoTimed() -> Task<Void, Never>? {
+        guard let pending = timedUndo else { return nil }
         timedUndoTask?.cancel()
         timedUndoTask = nil
         timedUndo = nil
         isPaused = pending.wasPaused
-        Task { await replaceWorld(pending.world) }
+        return Task { _ = await replaceWorld(pending.world) }
     }
 
     private func finishTimedUndo() {

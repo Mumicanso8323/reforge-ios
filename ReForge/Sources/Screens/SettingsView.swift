@@ -83,7 +83,8 @@ struct SettingsView: View {
                 }
 
 #if DEBUG
-                if GameStore.devSettingsAvailable {
+                // 撮る起動(写真・UI 試験)は配る版と同じ画面にする(開発の節は配る ipa に出ない)
+                if GameStore.devSettingsAvailable, !ScreenshotMode.isActive {
                     InkSection(title: Text("開発")) {
                         if let summary = app.game?.slowStepSummary {
                             InkRow(title: Text("重い歩み"), value: Text(verbatim: summary))

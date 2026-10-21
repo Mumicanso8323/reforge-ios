@@ -107,8 +107,7 @@ final class U18ScreenTests: XCTestCase {
         XCTAssertEqual(s.timedUndo?.seconds, 4, "取り消しの帯は4秒")
         XCTAssertTrue(s.isPaused, "復帰の取り消し中は時計を止める")
 
-        s.undoTimed()
-        for _ in 0..<100 where !s.runEnded { await Task.yield() }
+        await s.undoTimed()?.value
         XCTAssertTrue(s.runEnded, "取り消すと失敗の画面へ戻る")
         let restored = await s.host.world
         XCTAssertEqual(restored, failed, "取り消しは失敗直前の世界を戻す")

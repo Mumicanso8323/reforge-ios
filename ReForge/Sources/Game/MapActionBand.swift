@@ -11,7 +11,7 @@ struct MapActionBand: View {
         if let pending = store.decisionUndo {
             UndoBand(label: pending.label, seconds: pending.seconds, undo: store.undoDecision)
         } else if let pending = store.timedUndo {
-            UndoBand(label: pending.label, seconds: pending.seconds, undo: store.undoTimed)
+            UndoBand(label: pending.label, seconds: pending.seconds, undo: { _ = store.undoTimed() })
         } else if let decision = store.decision {
             VStack(spacing: 8) {
                 if let prompt = decision.prompt {

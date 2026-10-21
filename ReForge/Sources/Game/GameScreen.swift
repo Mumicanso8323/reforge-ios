@@ -97,7 +97,7 @@ struct GameScreen: View {
                                 }
                             }
                         } else if let pending = store.timedUndo {
-                            UndoBand(label: pending.label, seconds: pending.seconds, undo: store.undoTimed)
+                            UndoBand(label: pending.label, seconds: pending.seconds, undo: { _ = store.undoTimed() })
                         }
                     }
                     .background {

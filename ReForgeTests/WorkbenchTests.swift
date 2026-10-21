@@ -58,12 +58,16 @@ final class WorkbenchAppTests: XCTestCase {
     func testDiscardPlateUndoRestoresTheDesign() async throws {
         let s = try store()
         await s.load()
+        // 開始時は工程が無い(Z2)。炉を解いた世界で札を作る
+        var unlocked = await s.host.world
+        unlocked.research.unlocked.modules.insert("furnace")
+        await s.refresh(await s.host.replace(world: unlocked))
         let wb = s.workbench
         await wb.reload(s)
         await wb.append("furnace", s)
         await wb.makePlate(s)
         guard let plate = wb.bench?.plates.first else {
-            return XCTFail("試験用の札を作れない")
+            return XCTFail("試験用の札を作れない: \(wb.message ?? "-")")
         }
         let before = await s.host.world
 
@@ -72,11 +76,7 @@ final class WorkbenchAppTests: XCTestCase {
         let discarded = await s.host.world
         XCTAssertNil(discarded.invention.designs[plate.design], "捨てる操作はすぐ効く")
 
-        s.undoTimed()
-        for _ in 0..<100 {
-            if (await s.host.world).invention.designs[plate.design] != nil { break }
-            await Task.yield()
-        }
+        await s.undoTimed()?.value
         let restored = await s.host.world
         XCTAssertEqual(restored.invention, before.invention, "取り消しで札を戻す")
     }
@@ -85,21 +85,23 @@ final class WorkbenchAppTests: XCTestCase {
     func testGrantUndoRestoresThePreviousWorld() async throws {
         let s = try store()
         await s.load()
+        // 開始時は仲間がいない(Z2)。付ける相手を仲間にした世界で付ける
         var context = StepContext(world: await s.host.world, content: s.content)
         context.learn("fact.test.device_fixed")
+        var person = context.world.people["person.test_a"] ?? PersonState(id: "person.test_a", presence: .unmet)
+        person.presence = .member(since: .zero)
+        person.position = context.world.map.spawn
+        context.world.people["person.test_a"] = person
         await s.refresh(await s.host.replace(world: context.world))
         let before = await s.host.world
 
         await s.workbench.grant(sheet: "sheet.test.ledger", person: "person.test_a", skill: "skill.test.kindling", s)
+        XCTAssertNil(s.workbench.message, "付ける操作が断られた")
         let granted = await s.host.world
         XCTAssertTrue(granted.people["person.test_a"]?.skills.contains("skill.test.kindling") == true, "付ける操作はすぐ効く")
         XCTAssertNotNil(s.timedUndo, "付けると取り消しの帯を出す")
 
-        s.undoTimed()
-        for _ in 0..<100 {
-            if (await s.host.world).people["person.test_a"]?.skills.contains("skill.test.kindling") == false { break }
-            await Task.yield()
-        }
+        await s.undoTimed()?.value
         let restored = await s.host.world
         XCTAssertEqual(restored, before, "取り消しで技能を付ける前へ戻す")
     }
