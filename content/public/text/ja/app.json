@@ -12,6 +12,8 @@
     "ui.body.license_value": "すべての権利を留保",
     "ui.body.load_failed": "データを読み込めませんでした",
     "ui.body.records": "記録",
+    "ui.body.records_auto": "夜明けの記録",
+    "ui.body.records_manual": "自分の記録",
     "ui.body.restore_done": "購入を復元しました",
     "ui.body.restore_none": "復元できる購入はありません",
     "ui.body.restore_purchases": "購入を復元",

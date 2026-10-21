@@ -10,13 +10,18 @@ struct GameOverView: View {
     @State private var choices: [RecoveryChoice] = []
     @State private var problem: String?
     @State private var working = false
+    /// 「セーブから読む」の一覧(自動と手動の 2 つの節)を開いているか。
+    @State private var loadListOpen = false
+    @State private var groups = SavePointGroups(auto: [], manual: [])
 
     var body: some View {
         InkPlate(title: ui("ui.body.game_over_title")) {
             ForEach(choices, id: \.option) { c in
                 VStack(alignment: .leading, spacing: 4) {
                     row(c)
-                    if c.available, c.targets.count > 1 {
+                    if c.option == .loadSavePoint, c.available, loadListOpen {
+                        SavePointSections(groups: groups) { run(.loadSavePoint, $0) }
+                    } else if c.option != .loadSavePoint, c.available, c.targets.count > 1 {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: InkMetric.gap) {
                                 ForEach(c.targets, id: \.self) { t in
@@ -38,6 +43,7 @@ struct GameOverView: View {
         .accessibilityIdentifier("gameOver")
         .task(id: store.revision) {
             choices = await store.recoveryChoices()
+            groups = store.savePointGroups(activeOnly: true).readable
         }
     }
 
@@ -45,14 +51,20 @@ struct GameOverView: View {
         switch c.option {
         case .restart:
             recoveryButton(c)
-        case .rewindWithMemory, .continueWithLoss, .loadSavePoint:
+        case .loadSavePoint:
+            // 読む枠は一覧から選ぶ(自動と手動。先頭へ黙って読まない)。もう一度押すと一覧を閉じる
+            recoveryButton(c) { loadListOpen.toggle() }
+        case .rewindWithMemory, .continueWithLoss:
             recoveryButton(c)
         }
     }
 
-    @ViewBuilder private func recoveryButton(_ choice: RecoveryChoice) -> some View {
+    /// 択のボタン。押した時の動きは既定で、その択を先頭の行き先で実行する。
+    @ViewBuilder private func recoveryButton(_ choice: RecoveryChoice, action: (() -> Void)? = nil) -> some View {
         if choice.available, !working {
-            Button { run(choice.option, choice.targets.first) } label: { RecoveryLabel(option: choice.option) }
+            Button { if let action { action() } else { run(choice.option, choice.targets.first) } } label: {
+                RecoveryLabel(option: choice.option)
+            }
                 .buttonStyle(.ink(.secondary))
                 .accessibilityIdentifier("recovery-\(choice.option.rawValue)")
         } else if working {
@@ -110,5 +122,49 @@ struct SlotLabel: View {
     case .dawn(let d): ui("ui.body.slot_dawn", ["day": .int(d)])
     case .manual(let i): ui("ui.body.slot_manual", ["number": .int(i + 1)])
     case .resume, .screen: ui("ui.body.slot_resume")
+    }
+}
+
+extension SavePointGroups {
+    /// 読める枠だけ(読めない枠は、押せないのでボタンにせず出さない)。
+    var readable: SavePointGroups {
+        SavePointGroups(auto: auto.filter { $0.problem == nil }, manual: manual.filter { $0.problem == nil })
+    }
+
+    var isEmpty: Bool { auto.isEmpty && manual.isEmpty }
+}
+
+/// 「セーブから読む」の一覧: 自動(夜明けの記録)と手動(自分の記録)の 2 つの節。中身のある枠だけを並べ、
+/// 選ぶと pick を呼ぶ。空の節は見出しごと出さない。ゲームオーバーの 4 択とタイトルが使う。
+struct SavePointSections: View {
+    let groups: SavePointGroups
+    let pick: (SaveSlot) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: InkMetric.gap) {
+            if !groups.auto.isEmpty {
+                InkSection(title: ui("ui.body.records_auto")) {
+                    ForEach(groups.auto, id: \.slot) { p in
+                        Button { pick(p.slot) } label: {
+                            InkRow(title: slotText(p.slot), value: ui("ui.button.save_read"))
+                        }
+                        .buttonStyle(.inkRow)
+                        .accessibilityIdentifier("load-\(p.slot.fileStem)")
+                    }
+                }
+            }
+            if !groups.manual.isEmpty {
+                InkSection(title: ui("ui.body.records_manual")) {
+                    ForEach(groups.manual, id: \.slot) { p in
+                        Button { pick(p.slot) } label: {
+                            InkRow(title: slotText(p.slot),
+                                   value: p.summary.map { ui("ui.body.slot_day", ["day": .int($0.day)]) })
+                        }
+                        .buttonStyle(.inkRow)
+                        .accessibilityIdentifier("load-\(p.slot.fileStem)")
+                    }
+                }
+            }
+        }
     }
 }

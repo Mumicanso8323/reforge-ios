@@ -9,7 +9,7 @@ struct BaseTabView: View {
     let store: GameStore
     @State private var base: BaseView?
     @State private var research: ResearchView?
-    @State private var points: [SavePoint] = []
+    @State private var groups = SavePointGroups(auto: [], manual: [])
 
     var body: some View {
         InkPanel(title: ui("ui.tab.base")) {
@@ -36,7 +36,7 @@ struct BaseTabView: View {
         .task(id: store.revision) {
             base = await store.host.base()
             research = await store.host.research()
-            points = store.savePoints()
+            groups = store.savePointGroups(activeOnly: false)
         }
         .accessibilityIdentifier("baseTab")
         #if DEBUG
@@ -132,31 +132,46 @@ struct BaseTabView: View {
         }
     }
 
-    /// 手動セーブ(3 枠。確認なしで上書き)とロード(夜明け・手動)。
+    /// 記録: 夜明けの記録(自動。読むだけ)と自分の記録(手動 3 枠。確認なしで上書き。中身があれば読める)の 2 つの節。
     private var saves: some View {
-        InkSection(title: ui("ui.body.records")) {
-            ForEach(0..<SavePolicy.manualSlots, id: \.self) { i in
-                let existing = points.first { $0.slot == .manual(index: i) }?.summary
-                HStack(spacing: InkMetric.gap) {
-                    InkRow(title: slotText(.manual(index: i)),
-                           value: existing.map { ui("ui.body.slot_day", ["day": .int($0.day)]) } ?? ui("ui.body.slot_empty"))
-                    Button {
-                        Task {
-                            await store.saveManual(i)
-                            points = store.savePoints()
+        let readableAuto = groups.readable.auto.filter { $0.summary?.active == true }
+        return VStack(alignment: .leading, spacing: InkMetric.gap) {
+            if !readableAuto.isEmpty {
+                InkSection(title: ui("ui.body.records_auto")) {
+                    ForEach(readableAuto, id: \.slot) { p in
+                        Button {
+                            Task { await store.load(p.slot) }
+                        } label: {
+                            InkRow(title: slotText(p.slot), value: ui("ui.button.save_read"))
                         }
-                    } label: { ui("ui.button.save_write") }
-                        .buttonStyle(.ink(.secondary, fill: false))
-                        .accessibilityIdentifier("save-\(i)")
+                        .buttonStyle(.inkRow)
+                    }
                 }
             }
-            ForEach(points.filter { $0.summary?.active == true }, id: \.slot) { p in
-                Button {
-                    Task { await store.load(p.slot) }
-                } label: {
-                    InkRow(title: slotText(p.slot), value: ui("ui.button.save_read"))
+            InkSection(title: ui("ui.body.records_manual")) {
+                ForEach(0..<SavePolicy.manualSlots, id: \.self) { i in
+                    let existing = groups.manual.first { $0.slot == .manual(index: i) }?.summary
+                    HStack(spacing: InkMetric.gap) {
+                        InkRow(title: slotText(.manual(index: i)),
+                               value: existing.map { ui("ui.body.slot_day", ["day": .int($0.day)]) } ?? ui("ui.body.slot_empty"))
+                        // 空きと終わった走行の枠には「読む」を置かない(押せない物はボタンにしない)
+                        if existing?.active == true {
+                            Button {
+                                Task { await store.load(.manual(index: i)) }
+                            } label: { ui("ui.button.save_read") }
+                                .buttonStyle(.ink(.secondary, fill: false))
+                                .accessibilityIdentifier("read-\(i)")
+                        }
+                        Button {
+                            Task {
+                                await store.saveManual(i)
+                                groups = store.savePointGroups(activeOnly: false)
+                            }
+                        } label: { ui("ui.button.save_write") }
+                            .buttonStyle(.ink(.secondary, fill: false))
+                            .accessibilityIdentifier("save-\(i)")
+                    }
                 }
-                .buttonStyle(.inkRow)
             }
         }
     }

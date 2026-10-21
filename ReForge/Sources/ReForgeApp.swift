@@ -52,6 +52,8 @@ final class AppModel {
     private(set) var game: GameStore?
     /// 「つづきから」があるか。
     private(set) var hasResume: Bool
+    /// 読める自動か手動の枠が 1 つでもあるか(タイトルの「セーブから読む」。D §7.2)。
+    private(set) var hasSavePoints = false
     /// 設定が開いているか(L-10a)。開いている間はゲームの時計を止める。開閉は右上の角のボタンだけが行う。
     /// 本体には何も送らない(ゲームのコマンドではない)。
     var settingsOpen = false {
@@ -151,6 +153,7 @@ final class AppModel {
         self.trialGateOpen = (gateValue as? Bool) ?? (gateValue as? String).map { ($0 as NSString).boolValue } ?? false
         self.backgroundTasks = backgroundTasks
         self.hasResume = Self.resumeIsReadable(saves)
+        self.hasSavePoints = !Self.readableSavePoints(saves, content: content).isEmpty
         let language = language ?? AppLanguage(defaults: defaults, tables: content?.textTables ?? TextTables())
         self.language = language
         InkFont.setLanguage(language.effective.rawValue)
@@ -305,6 +308,35 @@ final class AppModel {
         return (try? SaveCodec.decode(data)) != nil
     }
 
+    private static func saveBook(_ saves: FileSaveStorage, content: ContentDB?) -> SaveBook {
+        SaveBook(storage: saves, content: content?.layers.map { ContentStamp(layer: $0.id, version: $0.version) } ?? [])
+    }
+
+    /// 読める(進行中の世界の)自動と手動の枠。読めない枠と終わった走行の枠は含めない。
+    static func readableSavePoints(_ saves: FileSaveStorage, content: ContentDB?) -> SavePointGroups {
+        ((try? saveBook(saves, content: content).savePointGroups(activeOnly: true)) ?? SavePointGroups(auto: [], manual: [])).readable
+    }
+
+    /// タイトルの「セーブから読む」の一覧。
+    func savePointGroups() -> SavePointGroups { Self.readableSavePoints(saves, content: content) }
+
+    /// タイトルの「セーブから読む」で選んだ枠の世界で遊び始める。`GameStore.load` と同じ手順:
+    /// 時間軸を切り替え(別の走行と先の日の夜明けを消す)、中断を書いてから始める。読めない枠なら始めない。
+    func loadFromTitle(_ slot: SaveSlot) {
+        guard let content else { return }
+        let book = Self.saveBook(saves, content: content)
+        guard let env = try? book.load(slot), env.summary.active else {
+            hasSavePoints = !Self.readableSavePoints(saves, content: content).isEmpty
+            return
+        }
+        try? book.adoptTimeline(env.world)
+        try? book.writeResume(env.world)
+        GameStore.forgetLastOperation()
+        settingsOpen = false
+        game = GameStore(content: content, world: env.world, saves: saves, language: gameLanguage, markFallback: markFallback, entitlements: gameEntitlements)
+        hasResume = true
+    }
+
     /// 「つづきから」。読めない保存なら始めない(理由は出さずにタイトルに残る)。
     func continueGame() {
         guard let content, let data = try? saves.read(slot: .resume),
@@ -322,6 +354,7 @@ final class AppModel {
         settingsOpen = false
         game = nil
         hasResume = Self.resumeIsReadable(saves)
+        hasSavePoints = !Self.readableSavePoints(saves, content: content).isEmpty
     }
 
     /// 記録を消す(取り返しがつかない。確認のダイアログは出さず、題の画面の長押しだけが呼ぶ)。
@@ -331,6 +364,7 @@ final class AppModel {
         try? saves.deleteAll()
         GameStore.forgetLastOperation()
         hasResume = false
+        hasSavePoints = false
     }
 
     /// 背面に回る・戻る。閉じている間は進まない(時計を止めて「つづきから」を書く)。

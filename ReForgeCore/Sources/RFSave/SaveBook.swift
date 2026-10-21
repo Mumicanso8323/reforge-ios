@@ -29,6 +29,19 @@ public struct SavePoint: Equatable, Sendable {
     public var problem: String?
 }
 
+/// 一覧を自動(夜明け)と手動に分けたもの(画面の 2 つの節。D §7.4)。
+public struct SavePointGroups: Equatable, Sendable {
+    /// 夜明け(新しい順)。
+    public var auto: [SavePoint]
+    /// 手動(番号順。空いた枠は含めない)。
+    public var manual: [SavePoint]
+
+    public init(auto: [SavePoint], manual: [SavePoint]) {
+        self.auto = auto
+        self.manual = manual
+    }
+}
+
 /// 保存の帳簿。どの時点で・どの場所に書くか、どれを消すかの規則をここにまとめる(GameHost が呼ぶ)。
 ///
 /// - 続き(resume): 背面に回る・閉じるたびに上書き。画面側の途中の状態(ui)を添える。
@@ -106,6 +119,24 @@ public struct SaveBook: Sendable {
                 return SavePoint(slot: s, summary: nil, problem: "\(error)")
             }
         }
+    }
+
+    /// セーブ地点の一覧を自動と手動に分けて返す(D §7.4)。activeOnly なら、読めて進行中の枠と、読めない枠(problem つき)だけ
+    /// 残し、終わった走行の枠は含めない。読めない枠は黙って落とさない。
+    public func savePointGroups(activeOnly: Bool) throws -> SavePointGroups {
+        let points = try savePoints().filter { p in
+            guard activeOnly, let s = p.summary else { return true }
+            return s.active
+        }
+        var groups = SavePointGroups(auto: [], manual: [])
+        for p in points {
+            switch p.slot {
+            case .dawn: groups.auto.append(p)
+            case .manual: groups.manual.append(p)
+            case .resume, .screen: break
+            }
+        }
+        return groups
     }
 
     /// 記憶を持って巻き戻すときの戻り先の候補: 同じ走行の、失敗した日以前の夜明け(新しい順)。
