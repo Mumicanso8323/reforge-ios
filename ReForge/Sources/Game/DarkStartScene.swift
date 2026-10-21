@@ -87,6 +87,9 @@ private struct DarkStartActionButton: View {
                     pressing = value
                     store.act(action, pressing: value)
                 })
+                // 輪と名前を 1 つの押せる要素にする(輪だけが小さな別の要素として残らない)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel(spokenText(action.label))
                 .accessibilityAddTraits(.isButton)
         } else {
             Button { store.act(action, pressing: true) } label: {
