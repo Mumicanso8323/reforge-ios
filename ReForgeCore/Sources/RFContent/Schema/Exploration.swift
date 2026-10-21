@@ -168,11 +168,13 @@ extension InteractionDef {
                             allowedPhases: [DayPhase]? = nil, limit: Int? = nil, yields: [Yield] = [],
                             effects: [Effect]? = nil, tags: [ProvenanceTag]? = nil, cost: [Ingredient]? = nil,
                             partOp: PartOp? = nil, cooldownDays: Int? = nil, requiredPeople: Int? = nil,
-                            continues: Bool? = nil, continueRadius: Int? = nil) -> InteractionDef {
+                            continues: Bool? = nil, continueRadius: Int? = nil,
+                            extractPurityBonus: Int? = nil) -> InteractionDef {
         InteractionDef(id: id, target: target, seconds: seconds, hold: hold, when: when, allowedPhases: allowedPhases,
                        limit: limit, yields: yields, effects: effects, tags: tags, cost: cost, partOp: partOp,
                        cooldownDays: cooldownDays, requiredPeople: requiredPeople,
-                       continues: continues, continueRadius: continueRadius)
+                       continues: continues, continueRadius: continueRadius,
+                       extractPurityBonus: extractPurityBonus)
     }
 }
 

@@ -360,6 +360,10 @@ public struct InteractionDef: ContentDef, Equatable {
     public var continues: Bool?
     /// 次の場所を探す半径(マス。既定 3)。
     public var continueRadius: Int?
+    // 以下は P-13。省略可能(無ければ今までどおり)。
+    /// 鉱脈から掘り出した物の純度への上積み(万分率。Purity.basisPoints と同じ単位)。nil・0 は上積み無し。
+    /// 掘り出すとき、掘れた物ごとの純度に足し、0...10000 に収める。持ち主: 統合担当(P-13)
+    public var extractPurityBonus: Int?
 }
 
 /// 得られる物(item か matter のどちらか)。確率は万分率(nil は必ず)。
