@@ -2,27 +2,20 @@ import SwiftUI
 import ReForgeEngine
 
 /// ゲームオーバーの 4 択(同じ重さで並べる。推奨の順位を付けない。D-save.md §3)。
-/// 確認のダイアログは出さない。取り返しのつかない「はじめから」だけ長押しで確定する。
-/// 選べないものは灰色にして理由を 1 行出す。巻き戻し・ロードの行き先が複数あれば、その下に並べる(既定は先頭)。
+/// 確認のダイアログも長押しも使わない。実行後は短時間だけ取り消せる。
+/// 選べないものは押す物にせず表示だけにする。巻き戻し・ロードの行き先が複数あれば、その下に並べる(既定は先頭)。
 struct GameOverView: View {
     @Bindable var app: AppModel
     let store: GameStore
     @State private var choices: [RecoveryChoice] = []
     @State private var problem: String?
     @State private var working = false
-    /// 選べない理由(認識の層を通した 1 行)。
-    @State private var reasons: [RecoveryOption: String] = [:]
 
     var body: some View {
         InkPlate(title: ui("ui.body.game_over_title")) {
             ForEach(choices, id: \.option) { c in
                 VStack(alignment: .leading, spacing: 4) {
                     row(c)
-                    if !c.available, let r = reasons[c.option] {
-                        spokenText(r)
-                            .font(InkFont.caption)
-                            .foregroundStyle(InkColor.textDim)
-                    }
                     if c.available, c.targets.count > 1 {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: InkMetric.gap) {
@@ -42,36 +35,48 @@ struct GameOverView: View {
                     .accessibilityIdentifier("recoveryProblem")
             }
         }
-        .disabled(working)
         .accessibilityIdentifier("gameOver")
         .task(id: store.revision) {
             choices = await store.recoveryChoices()
-            var r: [RecoveryOption: String] = [:]
-            for c in choices { if let id = c.reason { r[c.option] = await store.host.describe(Rejection(id)) } }
-            reasons = r
         }
     }
 
     @ViewBuilder private func row(_ c: RecoveryChoice) -> some View {
         switch c.option {
         case .restart:
-            InkHoldButton(label: ui("ui.button.new_game"), hint: ui("ui.body.restart_hint")) {
-                run(.restart, nil)
-            }
-            .accessibilityIdentifier("recovery-restart")
+            recoveryButton(c)
         case .rewindWithMemory, .continueWithLoss, .loadSavePoint:
-            Button { run(c.option, c.targets.first) } label: { RecoveryLabel(option: c.option) }
+            recoveryButton(c)
+        }
+    }
+
+    @ViewBuilder private func recoveryButton(_ choice: RecoveryChoice) -> some View {
+        if choice.available, !working {
+            Button { run(choice.option, choice.targets.first) } label: { RecoveryLabel(option: choice.option) }
                 .buttonStyle(.ink(.secondary))
-                .disabled(!c.available)
-                .accessibilityIdentifier("recovery-\(c.option.rawValue)")
+                .accessibilityIdentifier("recovery-\(choice.option.rawValue)")
+        } else {
+            RecoveryLabel(option: choice.option)
+                .foregroundStyle(InkColor.textFaint)
+                .frame(minHeight: InkMetric.buttonHeight, alignment: .leading)
         }
     }
 
     private func run(_ option: RecoveryOption, _ target: SaveSlot?) {
+        guard !working else { return }
         working = true
         Task {
-            problem = await store.recover(option, target: target)
+            problem = await store.recoverUndoable(option, target: target, label: label(option))
             working = false
+        }
+    }
+
+    @MainActor private func label(_ option: RecoveryOption) -> String {
+        switch option {
+        case .restart: UIText.shared.string("ui.button.new_game")
+        case .rewindWithMemory: UIText.shared.string("ui.button.recovery_rewind")
+        case .continueWithLoss: UIText.shared.string("ui.button.recovery_continue")
+        case .loadSavePoint: UIText.shared.string("ui.button.recovery_load")
         }
     }
 }

@@ -69,28 +69,26 @@ struct CrewTabView: View {
     }
 }
 
-/// 割り当ての札(横に並べる。押せばすぐ変わる)。種類ごとに解放の条件で出し入れする。
+/// 割り当ての札(幅で折り返す。押せばすぐ変わる)。種類ごとに解放の条件で出し入れする。
 struct AssignChips: View {
     let member: CrewMemberView
     let choices: [AssignChoice]
     let store: GameStore
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: InkMetric.gap) {
-                ForEach(Array(visible.enumerated()), id: \.offset) { _, c in
-                    Button { store.send(c.command(for: member.id)) } label: {
-                        ui("ui.button.assign_chip", [
-                            "kind": .string(AssignText.kindString(c.kind)),
-                            "hasTarget": .string(c.target == nil ? "no" : "yes"),
-                            "target": .string(c.target ?? ""),
-                        ])
-                    }
-                    .buttonStyle(.ink(isCurrent(c) ? .primary : .secondary, fill: false))
+        InkFlowLayout(spacing: InkMetric.gap, lineSpacing: InkMetric.gap) {
+            ForEach(Array(visible.enumerated()), id: \.offset) { _, c in
+                Button { store.send(c.command(for: member.id)) } label: {
+                    ui("ui.button.assign_chip", [
+                        "kind": .string(AssignText.kindString(c.kind)),
+                        "hasTarget": .string(c.target == nil ? "no" : "yes"),
+                        "target": .string(c.target ?? ""),
+                    ])
                 }
+                .buttonStyle(.ink(isCurrent(c) ? .primary : .secondary, fill: false))
             }
-            .padding(.vertical, 6)
         }
+        .padding(.vertical, 6)
         .accessibilityIdentifier("assignChips")
     }
 

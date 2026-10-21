@@ -46,8 +46,6 @@ struct GameScreen: View {
             if app.activePrologue == nil {
                 StatusBandView(store: store, sealedContentFailed: app.sealedContentFailed || ArtProvider.shared.failed)
                     .accessibilitySortPriority(4)
-                BattleBandView(store: store)
-                    .accessibilitySortPriority(4)
             }
             ZStack {
                 // 地図は他のタブの間も残す(視点を保つ。時計も止めない)
@@ -86,13 +84,20 @@ struct GameScreen: View {
             }
             // 決断の帯・夜の帯・取り消しの帯は地図の下端に重ねる(出入りしても地図の枠は動かない。BandOverlayLayout)
             .overlay(alignment: .bottom) {
-                if tab == .map, app.activePrologue == nil {
+                if app.activePrologue == nil {
                     // 帯が地図の半分(操作部品を持ち上げる上限。BandOverlayLayout.controlLift)を超えるときは、
                     // 半分までに収めて中を縦に流す(大きい文字で火の行・見込み・申し出が増えても操作棒と重ならない。隠さない)
-                    CappedHeightLayout(maxHeight: mapAreaHeight > 0 ? mapAreaHeight / 2 : nil) {
-                        ViewThatFits(in: .vertical) {
-                            MapActionBand(store: store)
-                            ScrollView(.vertical, showsIndicators: false) { MapActionBand(store: store) }
+                    VStack(spacing: 0) {
+                        BattleBandView(store: store)
+                        if tab == .map {
+                            CappedHeightLayout(maxHeight: mapAreaHeight > 0 ? mapAreaHeight / 2 : nil) {
+                                ViewThatFits(in: .vertical) {
+                                    MapActionBand(store: store)
+                                    ScrollView(.vertical, showsIndicators: false) { MapActionBand(store: store) }
+                                }
+                            }
+                        } else if let pending = store.timedUndo {
+                            UndoBand(label: pending.label, seconds: pending.seconds, undo: store.undoTimed)
                         }
                     }
                     .background {

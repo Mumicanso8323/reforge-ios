@@ -47,19 +47,44 @@ final class LayoutFitTests: XCTestCase {
         }
     }
 
-    /// 押せる物は縦も横も 44pt 以上(SL-32)。地図の画面と足元カードの画面にある全てのボタン。
-    func testEveryButtonIsAtLeast44Points() {
-        for screen in ["map", "foot"] {
+    /// 44pt の対象から外す物(識別子 → 理由)。地図はマスを Canvas で描く触る面で、個々のマスの枠を UI 要素にしない。
+    private static let touchTargetExclusions: [String: String] = [
+        "map": "地図のマスは Canvas の触る面で、個別の押す物ではない",
+    ]
+
+    /// 撮る起動で開く主な画面。新しい撮る画面を増やす時はここにも足し、触る大きさを同じ試験で測る。
+    private static let touchTargetScreens = [
+        "map", "foot", "design", "base", "crew", "research", "gameOver", "settings",
+        "title", "notes", "decisionBand", "bootFailure", "prologue", "stage", "darkStart", "darkMark",
+        "dayWrap", "fireCard",
+    ]
+
+    /// 押せる物は縦も横も 44pt 以上(SL-32)。ボタンに加え、ボタン以外で明示した触る要素も測る。
+    /// 1件目で止めず、外れた識別子と枠を全部出す。
+    func testEveryHittableTargetIsAtLeast44Points() {
+        for screen in Self.touchTargetScreens {
             let app = launch(screen)
             defer { app.terminate() }
-            XCTAssertTrue(one(app, "statusBand").waitForExistence(timeout: 60), "\(screen): 上の帯が出ない")
+            XCTAssertTrue(one(app, "screenshotGuard").waitForExistence(timeout: 60), "\(screen): 撮る起動にならない")
             let window = app.windows.firstMatch.frame
-            for button in app.buttons.allElementsBoundByIndex where button.exists && button.isHittable {
-                let f = button.frame
+            var failures: [String] = []
+            let elements = app.descendants(matching: .any).allElementsBoundByIndex
+            for element in elements where element.exists && element.isHittable {
+                let id = element.identifier
+                let isButton = element.elementType == .button
+                let isCustomTarget = ["holdRing", "stickControl"].contains(id)
+                guard isButton || isCustomTarget else { continue }
+                if let reason = Self.touchTargetExclusions[id] {
+                    XCTAssertFalse(reason.isEmpty, "\(screen): \(id) の除外理由が空")
+                    continue
+                }
+                let f = element.frame
                 guard f.intersects(window) else { continue }
-                XCTAssertGreaterThanOrEqual(f.width, 43.5, "\(screen): \(button.identifier) の幅が 44pt 未満 \(f)")
-                XCTAssertGreaterThanOrEqual(f.height, 43.5, "\(screen): \(button.identifier) の高さが 44pt 未満 \(f)")
+                if f.width < 43.5 || f.height < 43.5 {
+                    failures.append("\(id.isEmpty ? "(no-id)" : id) \(f)")
+                }
             }
+            XCTAssertTrue(failures.isEmpty, "\(screen): 44pt 未満 \(failures.joined(separator: "; "))")
         }
     }
 

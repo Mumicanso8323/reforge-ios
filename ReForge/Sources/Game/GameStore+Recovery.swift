@@ -2,7 +2,7 @@ import Foundation
 import ReForgeEngine
 
 /// 保存・ゲームオーバーの 4 択・手動セーブとロード(D-save.md §2・§3)。担当: U18。
-/// 確認のダイアログは出さない。取り返しのつかない操作は画面が長押し(InkHoldButton)で受ける。
+/// 確認のダイアログは出さない。復帰は実行後に取り消しの帯で戻せる。
 extension GameStore {
     /// 保存の帳簿(規則は本体の SaveBook)。
     var book: SaveBook {
@@ -43,6 +43,16 @@ extension GameStore {
         } catch {
             return String(describing: error)
         }
+    }
+
+    /// 失敗からの復帰はすぐ反映し、短時間だけ失敗直前へ戻せるようにする。
+    @discardableResult
+    func recoverUndoable(_ option: RecoveryOption, target: SaveSlot? = nil, label: String) async -> String? {
+        guard timedUndo == nil else { return nil }
+        let before = await host.world
+        let problem = await recover(option, target: target)
+        if problem == nil { beginTimedUndo(world: before, label: label, pausesClock: true) }
+        return problem
     }
 
     // MARK: - 手動セーブ・ロード

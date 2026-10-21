@@ -20,5 +20,6 @@ struct UndoBand: View {
         .frame(minHeight: 44)
         .background(InkColor.panel.opacity(0.96))
         .overlay(Rectangle().stroke(InkColor.rule, lineWidth: InkMetric.rule))
+        .accessibilityIdentifier("undoBand")
     }
 }

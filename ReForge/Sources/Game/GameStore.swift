@@ -43,6 +43,14 @@ final class GameStore {
         var seconds: Int
     }
     private(set) var decisionUndo: DecisionUndo?
+    /// 実行済みの操作を短時間だけ戻せる帯。世界の写しを持つので、取り消しは本体にも同じ形で戻る。
+    struct TimedUndo {
+        var label: String
+        var seconds: Int
+        fileprivate let world: WorldState
+        fileprivate let wasPaused: Bool
+    }
+    private(set) var timedUndo: TimedUndo?
     private(set) var sceneLines: [String]
     private(set) var prologue: PrologueView?
     private(set) var darkStart: DarkStartView?
@@ -124,6 +132,7 @@ final class GameStore {
     @ObservationIgnored private var lastSteerDirection: StickDirection?
     @ObservationIgnored var noticeLifetime: TimeInterval = 4
     @ObservationIgnored private var decisionUndoTask: Task<Void, Never>?
+    @ObservationIgnored private var timedUndoTask: Task<Void, Never>?
     @ObservationIgnored private var lastPhase: DayPhase = .day
     @ObservationIgnored private var lastDay = 0
     /// 前回の操作の実時刻の置き場(保存の外。PT-B2)と、実時刻の読み方(テストで差し替える)。
@@ -374,6 +383,52 @@ final class GameStore {
         decisionUndoTask = nil
         decisionUndo = nil
         isPaused = false
+    }
+
+    /// 本体へ送る操作を先に実行し、受け付けられた時だけ直前の世界へ戻す帯を出す。
+    /// 取り消し中にも時計を進めるかは操作ごとに決める。
+    @discardableResult
+    func performUndoable(_ command: Command, label: String, seconds: Int = 4, pausesClock: Bool = false) async -> String? {
+        guard timedUndo == nil else { return nil }
+        let before = await host.world
+        noteOperation()
+        let (f, rejection, rejectionRef) = await perform(throughHost: command)
+        show(notice: rejectionRef)
+        await refresh(f)
+        if rejection == nil { beginTimedUndo(world: before, label: label, seconds: seconds, pausesClock: pausesClock) }
+        return rejection
+    }
+
+    /// 世界を直接差し替える操作(ゲームオーバーからの復帰)にも同じ帯を付ける。
+    func beginTimedUndo(world: WorldState, label: String, seconds: Int = 4, pausesClock: Bool = false) {
+        timedUndoTask?.cancel()
+        let wasPaused = isPaused
+        if pausesClock { isPaused = true }
+        timedUndo = TimedUndo(label: label, seconds: seconds, world: world, wasPaused: wasPaused)
+        timedUndoTask = Task { @MainActor in
+            for remaining in stride(from: seconds - 1, through: 0, by: -1) {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { return }
+                timedUndo?.seconds = remaining
+            }
+            finishTimedUndo()
+        }
+    }
+
+    func undoTimed() {
+        guard let pending = timedUndo else { return }
+        timedUndoTask?.cancel()
+        timedUndoTask = nil
+        timedUndo = nil
+        isPaused = pending.wasPaused
+        Task { await replaceWorld(pending.world) }
+    }
+
+    private func finishTimedUndo() {
+        guard let pending = timedUndo else { return }
+        timedUndoTask = nil
+        timedUndo = nil
+        isPaused = pending.wasPaused
     }
 
     /// 足元カードの行為。押し続ける行為は押し始め(pressing = true)と離した時(false)の 2 回。

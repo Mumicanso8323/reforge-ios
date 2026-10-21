@@ -92,6 +92,28 @@ final class U18ScreenTests: XCTestCase {
         XCTAssertTrue(s.savePoints().contains { $0.slot == .manual(index: 0) }, "はじめからでも手動セーブは残る")
     }
 
+    /// 失敗からの復帰はすぐ反映し、取り消すと失敗直前の世界へ戻る。帯の間は時計も止める。
+    func testRecoveryUndoRestoresFailedWorldAndPausesClock() async throws {
+        let s = try store()
+        await s.load()
+        var failed = await s.host.world
+        failed.narrative.counters["counter.test.doom"] = 1
+        failed.run.outcome = .failed(cause: "text.test.cause", record: nil)
+        await s.refresh(await s.host.replace(world: failed))
+
+        let problem = await s.recoverUndoable(.continueWithLoss, label: UIText.shared.string("ui.button.recovery_continue"))
+        XCTAssertNil(problem)
+        XCTAssertFalse(s.runEnded, "復帰はすぐ効く")
+        XCTAssertEqual(s.timedUndo?.seconds, 4, "取り消しの帯は4秒")
+        XCTAssertTrue(s.isPaused, "復帰の取り消し中は時計を止める")
+
+        s.undoTimed()
+        for _ in 0..<100 where !s.runEnded { await Task.yield() }
+        XCTAssertTrue(s.runEnded, "取り消すと失敗の画面へ戻る")
+        let restored = await s.host.world
+        XCTAssertEqual(restored, failed, "取り消しは失敗直前の世界を戻す")
+    }
+
     /// 古い Frame の取り込みが await の途中で止まり、新しい Frame の取り込みが先に終わっても、古い側の暗い場面は居残らない。
     func testStaleRefreshDoesNotWriteBackDarkStart() async throws {
         let s = try store()

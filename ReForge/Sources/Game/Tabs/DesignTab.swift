@@ -24,6 +24,14 @@ struct DesignTabView: View {
     @Bindable var app: AppModel
     let store: GameStore
     @State private var showClues = false
+    @State private var removedStep: RemovedStep?
+    @State private var removeUndoTask: Task<Void, Never>?
+
+    private struct RemovedStep {
+        let step: ProcessStep
+        let index: Int
+        var seconds: Int
+    }
 
     private var wb: WorkbenchModel { store.workbench }
 
@@ -31,6 +39,9 @@ struct DesignTabView: View {
         InkPanel(title: ui("ui.tab.design")) {
             if let m = wb.message {
                 spokenText(m).foregroundStyle(InkColor.notice).accessibilityIdentifier("benchMessage")
+            }
+            if let removedStep {
+                UndoBand(label: UIText.shared.string("ui.button.clear"), seconds: removedStep.seconds, undo: undoRemove)
             }
             if store.benchOpen(BenchGate.sheet) {
                 inputRow
@@ -86,7 +97,7 @@ struct DesignTabView: View {
                 selectStep: { i in wb.selectedStep = i },
                 selectedStep: wb.selectedStep,
                 moveStep: { i, d in Task { await wb.move(i, by: d, store) } },
-                removeStep: { i in Task { await wb.remove(i, store) } }))
+                removeStep: { i in remove(i) }))
                 .padding(10)
                 .background(InkColor.panel)
         } else {
@@ -223,12 +234,39 @@ struct DesignTabView: View {
         .buttonStyle(.ink(.secondary, fill: false))
     }
 
-    private func bigButton(_ label: Text, id: String, kind: InkButtonKind = .secondary, enabled: Bool,
-                           _ action: @escaping () -> Void) -> some View {
-        Button(action: action) { label }
-            .buttonStyle(.ink(kind))
-            .disabled(!enabled)
-            .accessibilityIdentifier(id)
+    @ViewBuilder private func bigButton(_ label: Text, id: String, kind: InkButtonKind = .secondary, enabled: Bool,
+                                        _ action: @escaping () -> Void) -> some View {
+        if enabled {
+            Button(action: action) { label }
+                .buttonStyle(.ink(kind))
+                .accessibilityIdentifier(id)
+        }
+    }
+
+    private func remove(_ index: Int) {
+        guard wb.steps.indices.contains(index) else { return }
+        let removed = wb.steps[index]
+        removeUndoTask?.cancel()
+        Task {
+            await wb.remove(index, store)
+            removedStep = RemovedStep(step: removed, index: index, seconds: 4)
+            removeUndoTask = Task { @MainActor in
+                for seconds in stride(from: 3, through: 0, by: -1) {
+                    try? await Task.sleep(nanoseconds: 1_000_000_000)
+                    guard !Task.isCancelled else { return }
+                    removedStep?.seconds = seconds
+                }
+                removedStep = nil
+            }
+        }
+    }
+
+    private func undoRemove() {
+        guard let removedStep else { return }
+        removeUndoTask?.cancel()
+        removeUndoTask = nil
+        self.removedStep = nil
+        Task { await wb.restore(step: removedStep.step, at: removedStep.index, store) }
     }
 }
 

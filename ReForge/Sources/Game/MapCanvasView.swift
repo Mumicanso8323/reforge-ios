@@ -242,13 +242,7 @@ struct MapCanvasView: View {
     @ViewBuilder private var forgePanel: some View {
         if let page = store.panel {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    spokenText(page.title).font(InkFont.heading)
-                    Spacer()
-                    Button { store.closePanel() } label: { ui("ui.button.close") }
-                        .buttonStyle(.ink(.quiet, fill: false))
-                        .accessibilityIdentifier("panelClose")
-                }
+                spokenText(page.title).font(InkFont.heading)
                 if let r = page.readablePermille {
                     ui("ui.body.readable_percent", ["percent": .int(r / 10)])
                     .font(InkFont.small)
@@ -260,11 +254,19 @@ struct MapCanvasView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .frame(maxHeight: 260)
+                Button { store.closePanel() } label: { ui("ui.button.close") }
+                    .buttonStyle(.ink(.quiet, fill: false))
+                    .accessibilityIdentifier("panelClose")
             }
             .foregroundStyle(InkColor.text)
             .padding(InkMetric.gutter)
             .background(InkColor.panel.opacity(0.96))
             .overlay(alignment: .top) { Rectangle().fill(InkColor.accent).frame(height: 2) }
+            .simultaneousGesture(DragGesture(minimumDistance: 20).onEnded { value in
+                guard value.translation.height > 44,
+                      value.translation.height > abs(value.translation.width) else { return }
+                store.closePanel()
+            })
             .accessibilityIdentifier("forgePanel")
         }
     }

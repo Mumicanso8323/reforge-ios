@@ -76,6 +76,13 @@ final class WorkbenchModel {
         await reloadDraft(store)
     }
 
+    /// 削除した下書きの段を元の場所へ戻す。下書きは画面側だけの状態なので、本体を書き戻さない。
+    func restore(step: ProcessStep, at index: Int, _ store: GameStore) async {
+        steps.insert(step, at: min(max(index, 0), steps.count))
+        selectedStep = min(max(index, 0), steps.count - 1)
+        await reloadDraft(store)
+    }
+
     func move(_ i: Int, by d: Int, _ store: GameStore) async {
         let j = i + d
         guard steps.indices.contains(i), steps.indices.contains(j) else { return }
@@ -132,7 +139,8 @@ final class WorkbenchModel {
     }
 
     func discard(_ plate: DesignBench.Plate, _ store: GameStore) async {
-        message = await store.perform(.invention(.discardDesign(design: plate.design)))
+        message = await store.performUndoable(.invention(.discardDesign(design: plate.design)),
+                                              label: UIText.shared.string("ui.button.discard_plate"))
         await reload(store)
     }
 
@@ -179,7 +187,8 @@ final class WorkbenchModel {
 
     /// 工程表で技能を付ける(skill nil = この人には使わない)。
     func grant(sheet: SheetID, person: PersonID, skill: SkillID?, _ store: GameStore) async {
-        message = await store.perform(.narrative(.grant(sheet: sheet, person: person, skill: skill)))
+        let label = skill == nil ? UIText.shared.string("ui.grant.skip") : UIText.shared.string("ui.grant.title")
+        message = await store.performUndoable(.narrative(.grant(sheet: sheet, person: person, skill: skill)), label: label)
         await reload(store)
     }
 

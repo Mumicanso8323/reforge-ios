@@ -29,7 +29,6 @@
     "ui.band.undo_remaining": "残り {seconds} 秒",
     "ui.body.game_over_title": "ここまで",
     "ui.body.readable_percent": "読める割合 {percent}%",
-    "ui.body.restart_hint": "長押しで、いまの走行を捨てて始める",
     "ui.body.slot_dawn": "{day} 日目の夜明け",
     "ui.body.slot_manual": "手動 {number}",
     "ui.body.slot_resume": "つづき",
