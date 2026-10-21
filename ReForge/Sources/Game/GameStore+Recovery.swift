@@ -16,6 +16,7 @@ extension GameStore {
 
     /// 夜明けの自動セーブ。
     func saveDawn() async {
+        await settleUndo()  // 走り出した「戻す」を書いてから保存する(差し替えの中からは待たない)
         do {
             let data = try await host.dawnSaveData(stamps: contentStamps)
             try await saveWriter.autosaveDawn(data)

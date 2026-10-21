@@ -665,6 +665,7 @@ final class GameStore {
 #if DEBUG
         if Self.freezeClock { return }  // 撮る起動は保存を書かない
 #endif
+        await settleUndo()  // 走り出した「戻す」を書いてから保存する(差し替えの中からは待たない)
         do {
             let data = try await host.saveData(slot: .resume, stamps: contentStamps)
             try await saveWriter.write(data, slot: .resume)

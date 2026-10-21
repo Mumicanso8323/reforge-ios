@@ -126,6 +126,7 @@ final class WorkbenchAppTests: XCTestCase {
         let gate = Gate()
         s.undoInstallHook = { await gate.wait() }
         s.undoTimed()
+        await gate.entered()  // 差し替えが関門で止まってから次を押す
         async let second: Void = wb.discard(plate, s)
         for _ in 0..<200 { await Task.yield() }
         await gate.open()
@@ -165,11 +166,22 @@ final class WorkbenchAppTests: XCTestCase {
 /// 開くまで待たせる関門(試験用)。
 private actor Gate {
     private var opened = false
+    private var arrived = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var watchers: [CheckedContinuation<Void, Never>] = []
 
     func wait() async {
+        arrived = true
+        watchers.forEach { $0.resume() }
+        watchers = []
         if opened { return }
         await withCheckedContinuation { waiters.append($0) }
+    }
+
+    /// 誰かが関門に着くまで待つ。
+    func entered() async {
+        if arrived { return }
+        await withCheckedContinuation { watchers.append($0) }
     }
 
     func open() {
