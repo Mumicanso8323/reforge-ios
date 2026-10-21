@@ -49,6 +49,7 @@ public enum ContentValidator {
         uiGatesWellFormed(db, &out)  // 画面の要素の解放(U18。Schema/UIGates.swift)
         artIDsAreNeutral(db, &out)  // 立ち絵の ID の形(U18)
         tendOfferWellFormed(db, &out)  // 火の番の申し出(W-02d)
+        extractPurityBonusInRange(db, &out)  // 掘り出しの純度の上積み(P-13)
         return out
     }
 
@@ -63,6 +64,15 @@ public enum ContentValidator {
         }
         if !failures.isEmpty, gate.resume == nil {
             out.append(Issue(level: .error, rule: "trialGate.resume", message: "held failures need a resume rule"))
+        }
+    }
+
+    /// 掘り出しの純度の上積みは 0...10000(下げる向きは認めない)。
+    static func extractPurityBonusInRange(_ db: ContentDB, _ out: inout [Issue]) {
+        for i in db.interactions.values.sorted(by: { $0.id < $1.id }) {
+            guard let b = i.extractPurityBonus, !(0...Purity.scale).contains(b) else { continue }
+            out.append(Issue(level: .error, rule: "interaction.extractPurityBonus",
+                             message: "\(i.id) の上積みが 0...10000 の外"))
         }
     }
 

@@ -321,7 +321,12 @@ public enum Interactions {
             var map = ctx.world.map
             let ores = ctx.random(.exploration) { rng in map.extract(dep, layer: target.layer, rng: &rng) } ?? []
             ctx.world.map = map
-            for o in ores { ctx.addStock(Loot.stuff(for: o), o.quantity, to: .base, origin: rec) }
+            let bonus = max(0, def.extractPurityBonus ?? 0)
+            for o in ores {
+                var o = o
+                if bonus > 0, o.item == .ironOre { o.purity = Purity(basisPoints: o.purity.basisPoints + bonus) }
+                ctx.addStock(Loot.stuff(for: o), o.quantity, to: .base, origin: rec)
+            }
             ctx.changes.markTile(at)
         }
 
