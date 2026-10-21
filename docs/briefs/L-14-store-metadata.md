@@ -15,8 +15,8 @@ App Store に出す文(説明文・副題など)と、課金の品の表示名�
 - 例外: `name.txt` だけは 5 言語とも `Re:Forge`(改行無し。OPEN-L3 の決定)。
 - URL の類(`support_url.txt` など)は作らない(リーダーが後で決める)。
 
-### 2.2 `store/iap/reforge.remove_ads/<地域コード>.json`
-- 品の ID は、アプリの `ProductID.removeAds`(`ReForge/Sources/Monetization/StoreService.swift`)と同じ `reforge.remove_ads`。
+### 2.2 `store/iap/reforge.fullgame/<地域コード>.json`
+- 品の ID は、アプリの `ProductID.fullGame`(`ReForge/Sources/Monetization/StoreService.swift`)と同じ `reforge.fullgame`。
 - 5 つの地域コードごとに `{"name": "", "description": ""}`(キーはこの 2 つだけ。整形は 2 字下げ・末尾に改行)。
 
 ### 2.3 `tools/check-store-metadata.py`(新規。python3 の標準だけ。`check-app-names.py` と同じ書き方)

@@ -19,14 +19,14 @@ public enum ConditionEvaluator {
 
     /// 乱数を使わない評価(画面の「選べるか」の表示など)。chance は nil(分からない)。
     public static func evaluatePure(_ c: Condition, world w: WorldState, content: ContentDB,
-                                    trigger: ProvenanceID? = nil) -> Bool?
+                                    trigger: ProvenanceID? = nil, statShifts: [StatID: Int] = [:]) -> Bool?
     {
         switch c {
         case .always: return true
         case .all(let xs):
             var unknown = false
             for x in xs {
-                switch evaluatePure(x, world: w, content: content, trigger: trigger) {
+                switch evaluatePure(x, world: w, content: content, trigger: trigger, statShifts: statShifts) {
                 case false?: return false
                 case nil: unknown = true
                 default: break
@@ -36,14 +36,14 @@ public enum ConditionEvaluator {
         case .any(let xs):
             var unknown = false
             for x in xs {
-                switch evaluatePure(x, world: w, content: content, trigger: trigger) {
+                switch evaluatePure(x, world: w, content: content, trigger: trigger, statShifts: statShifts) {
                 case true?: return true
                 case nil: unknown = true
                 default: break
                 }
             }
             return unknown ? nil : false
-        case .not(let x): return evaluatePure(x, world: w, content: content, trigger: trigger).map { !$0 }
+        case .not(let x): return evaluatePure(x, world: w, content: content, trigger: trigger, statShifts: statShifts).map { !$0 }
         case .chance: return nil
         case .known(let e): return e.evaluate(w.knowledge.factSet)
         case .has(let ing): return stockCount(ing, w) >= ing.quantity
@@ -99,7 +99,7 @@ public enum ConditionEvaluator {
         case .group(let id, let r): return (w.people.groups[id]?.relation ?? Int.min) >= r
         case .groupFlag(let id, let f): return w.people.groups[id]?.flags.contains(f) ?? false
         case .counter(let id, let cmp, let v): return cmp.test(Int64(w.narrative.counters[id] ?? 0), Int64(v))
-        case .stat(let id, let cmp, let v): return cmp.test(w.survival.stats[id]?.raw ?? 0, Int64(v))
+        case .stat(let id, let cmp, let v): return cmp.test((w.survival.stats[id]?.raw ?? 0) - Int64(statShifts[id] ?? 0), Int64(v))
         case .phase(let ph): return w.clock.phase == ph
         case .dayAtLeast(let d): return w.clock.day >= d
         case .eventFired(let id): return w.narrative.fired[id] != nil

@@ -99,7 +99,7 @@ final class TextTablesTests: XCTestCase {
     func testAppUITextTableLoadsAndIsWellFormed() throws {
         let db = try TestContent.publicOnly()
         XCTAssertEqual(ContentValidator.validate(db).filter { $0.level == .error }, [])
-        let kinds: Set<String> = ["button", "band", "tab", "card", "bubble", "prologue", "label", "body", "a11y"]
+        let kinds: Set<String> = ["button", "band", "tab", "card", "bubble", "prologue", "label", "body", "a11y", "store", "trial"]
         let core = ["ui.daywrap.", "ui.roster.", "ui.grant.", "ui.finding.", "ui.foot.", "ui.time."]
         let japanese = try XCTUnwrap(db.textTables.tables[.ja])
         let appIDs = try appTableIDs()

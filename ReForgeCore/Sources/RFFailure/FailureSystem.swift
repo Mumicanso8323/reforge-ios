@@ -31,8 +31,25 @@ public struct FailureSystem: SimSystem {
 
     /// いま成り立っている最初の失敗の規則(ID の昇順で調べる。決定的)。
     static func firstHolding(_ ctx: inout StepContext) -> (FailureRuleID, FailureRuleDef)? {
-        for (id, rule) in ctx.content.failureRules.sorted(by: { $0.key < $1.key })
-        where ConditionEvaluator.evaluate(rule.when, &ctx) {
+        for (id, rule) in ctx.content.failureRules.sorted(by: { $0.key < $1.key }) {
+            let shifts = ctx.world.trial?.shifts?[id] ?? [:]
+            let holds = shifts.isEmpty
+                ? ConditionEvaluator.evaluate(rule.when, &ctx)
+                : ConditionEvaluator.evaluatePure(rule.when, world: ctx.world, content: ctx.content, statShifts: shifts) == true
+            guard holds else { continue }
+            let gate = ctx.content.trialGate
+            let held = TrialGate.closed(ctx.world, ctx.content, ctx.entitlements) && TrialGate.mode(ctx.content) == .fence &&
+                (gate?.holds?.failures?.contains(id) ?? false)
+            if held {
+                var trial = ctx.world.trial ?? TrialState()
+                if !trial.deferred.contains(where: { $0.kind == .failure && $0.id == id.rawValue }) {
+                    let stats = Dictionary(uniqueKeysWithValues: TrialGate.heldStats(rule.when).map { ($0, Int(ctx.world.survival.stats[$0]?.raw ?? 0)) })
+                    trial.deferred.append(TrialHeld(kind: .failure, id: id.rawValue, since: ctx.world.clock.now, stats: stats))
+                    ctx.world.trial = trial
+                    ctx.changes.mark(.run)
+                }
+                continue
+            }
             return (id, rule)
         }
         return nil

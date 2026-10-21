@@ -272,7 +272,7 @@ struct LayerKeys {
 /// JSON 1 ファイルの形。どの集まりも省略できる。
 struct ContentFile: Codable {
     enum CodingKeys: String, CodingKey, CaseIterable {
-        case bundle, clock, timeTint, mapGen, start, rewind, ruleBook, byproductItems, survival, combat, hauling
+        case bundle, clock, timeTint, mapGen, start, rewind, trialGate, ruleBook, byproductItems, survival, combat, hauling
         // 人の自動化(U22)
         case crewWork
         case terrains, biomes, pois, handwork, modules, structures, interactions, people, ideologyAxes
@@ -299,6 +299,7 @@ struct ContentFile: Codable {
     var mapGen: MapGenConfig?
     var start: StartDef?
     var rewind: RewindDef?
+    var trialGate: TrialGateDef?
     var survival: SurvivalDef?
     var combat: CombatDef?
     var hauling: HaulingDef?
@@ -377,6 +378,7 @@ struct ContentFile: Codable {
         one("mapGen", mapGen != nil)
         one("start", start != nil)
         one("rewind", rewind != nil)
+        one("trialGate", trialGate != nil)
         one("ruleBook", ruleBook != nil)
         one("byproductItems", byproductItems != nil)
         if let b = bundle { db.layers.append(b) }
@@ -385,6 +387,7 @@ struct ContentFile: Codable {
         if let v = mapGen { db.mapGen = v }
         if let v = start { db.start = v }
         if let v = rewind { db.rewind = v }
+        if let v = trialGate { db.trialGate = v }
         if let v = survival { db.survival = v }
         if let v = combat { db.combat = v }
         if let v = hauling { db.hauling = v }

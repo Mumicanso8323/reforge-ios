@@ -92,6 +92,7 @@ final class GameStore {
     private(set) var fireGauge: FireGaugeView?
     /// 日没の帯の申し出(Frame.offers。状態は持たず、毎回世界から導かれる)。
     private(set) var offers: [PendingOffer] = []
+    private(set) var trial: TrialFrame?
     /// 再開の 1 行(前回の操作から実時間で resumeAfterMinutes 分以上たって戻ったとき。最初の命令かその日の終わりで消える。PT-B2)。
     var resumeBanner: ResumeLine?
 
@@ -141,7 +142,7 @@ final class GameStore {
          performanceNow: @escaping () -> ContinuousClock.Instant = { ContinuousClock().now },
          perfSink: any PerfSink = LoggerPerfSink(), saveWriter: (any SaveWriting)? = nil,
          haptics: (any HapticFiring)? = nil,
-         language: LanguageID = .ja, markFallback: Bool = false) {
+         language: LanguageID = .ja, markFallback: Bool = false, entitlements: Entitlements = Entitlements()) {
         self.haptics = haptics ?? SystemHaptics()
         self.content = content
         self.saves = saves
@@ -150,9 +151,10 @@ final class GameStore {
         self.now = now
         self.performanceNow = performanceNow
         self.perfSink = perfSink
-        let host = GameBootstrap.host(content: content, world: world, language: language, markFallback: markFallback)
+        let host = GameHost(simulation: Simulation(content: content, entitlements: entitlements), world: world, language: language, markFallback: markFallback)
         self.host = host
         var builder = FrameBuilder(content: content)
+        builder.entitlements = entitlements
         builder.language = language
         builder.markFallback = markFallback
         let f = builder.build(world, revision: 0, previous: nil, report: nil)
@@ -180,6 +182,7 @@ final class GameStore {
         dayWrap = f.dayWrap
         fireGauge = f.fireGauge
         offers = f.offers
+        trial = f.trial
         logPlay(kind: "build", fields: [
             "hand": MapTouchSettings.hand(defaults).rawValue,
             "directions": "\(MapTouchSettings.directions(defaults))",
@@ -188,6 +191,10 @@ final class GameStore {
             "tapWalk": "\(defaults.bool(forKey: MapTouchSettings.tapWalkKey))",
             "autoReturn": "\(defaults.object(forKey: MapTouchSettings.autoReturnKey) as? Bool ?? true)",
         ])
+    }
+
+    func setEntitlements(_ entitlements: Entitlements) async {
+        await refresh(await host.setEntitlements(entitlements))
     }
 
     /// 画面に出す解放(撮る起動の DEBUG のときだけ、Frame の値を全部開いた形に上書きする)。
@@ -475,6 +482,7 @@ final class GameStore {
         if dayWrap != f.dayWrap { dayWrap = f.dayWrap }
         if fireGauge != f.fireGauge { fireGauge = f.fireGauge }
         if offers != f.offers { offers = f.offers }
+        if trial != f.trial { trial = f.trial }
         if canSteer != f.canSteer { canSteer = f.canSteer }
         if walkable != f.walkable { walkable = f.walkable }
         // その日が終わる(日没・夜明け)と再開の 1 行は消える

@@ -1,0 +1,18 @@
+{
+  "identifier" : "6BCAC4B4-34E7-4F72-AFD4-732D290A14B5",
+  "nonRenewingSubscriptionProducts" : [ ],
+  "products" : [
+    {
+      "displayPrice" : "980",
+      "familyShareable" : true,
+      "internalID" : "6D3B5BCF-5B09-494B-A1CE-45B9BA1F5970",
+      "localizations" : [ { "description" : "", "displayName" : "", "locale" : "ja" } ],
+      "productID" : "reforge.fullgame",
+      "referenceName" : "Full Game",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : { },
+  "subscriptionGroups" : [ ],
+  "version" : { "major" : 3, "minor" : 0 }
+}

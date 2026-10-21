@@ -12,6 +12,7 @@ import RFWorld
 /// 世界状態 → Frame(と、区画・調べる・足元カード・工程表などの引き出し)。持ち主: U13 画面。
 public struct FrameBuilder: Sendable {
     public let content: ContentDB
+    public var entitlements = Entitlements()
     public var language: LanguageID = .ja
     public var markFallback = false
     public var vision = VisionRadiusRule()
@@ -78,6 +79,9 @@ public struct FrameBuilder: Sendable {
             renamed: [],
             runEnded: !w.run.isActive)
         frame.ui = unlocks(w)
+        if TrialGate.closed(w, content, entitlements) {
+            frame.trial = TrialFrame(mode: TrialGate.mode(content), deferredCount: w.trial?.deferred.count ?? 0)
+        }
         // 帯の要素の門(U20。門の無い古いデータでは全部出る)
         frame.clock.showsDayLeft = !w.clock.held && frame.ui.isOpen(UIElements.bandDay)
         if !frame.ui.isOpen(UIElements.bandObjective) { frame.objective = nil }

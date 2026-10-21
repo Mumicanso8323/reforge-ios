@@ -1,12 +1,12 @@
 import SwiftUI
 
 /// S8 設定。下からの札(InkCard)の中身。右上の角のボタン(SettingsCorner.swift)で開閉する。効果音(MVP は音なし)とプライバシー(P3 で URL)は出さない。
-/// 広告を消す画面は札を重ねず、この中身を差し替えて出す。
+/// 購入はこの札の中で完結する。
 struct SettingsView: View {
     @Bindable var app: AppModel
     /// 札を閉じる(記録を消した後など)。
     var close: () -> Void
-    @State private var showRemoveAds = false
+    @State private var price: String?
     @State private var restoreMessage: String?
 #if DEBUG
     /// 開発の設定(DEBUG のビルドだけ。配る dev の ipa は Release なので出ない。保存には入れない)。
@@ -49,30 +49,28 @@ struct SettingsView: View {
                     .foregroundStyle(InkColor.textDim)
                 recordsSection
             }
-        } else if showRemoveAds {
-            RemoveAdsView(app: app, back: { showRemoveAds = false })
         } else {
             VStack(alignment: .leading, spacing: 24) {
                 // 言語の節(選べる言語が 2 つ以上のときだけ出る。いまは日本語だけなので何も置かない)
                 LanguageSection(app: app)
 
-                if AdPolicy.shown {
-                    InkSection(title: ui("ui.body.ads")) {
-                        if app.adsRemoved {
-                            InkRow(title: ui("ui.body.ads_hidden"))
-                        } else {
-                            Button {
-                                showRemoveAds = true
-                            } label: {
-                                InkRow(title: ui("ui.body.remove_ads"), value: Text(verbatim: "›"))
-                            }
+                InkSection(title: ui("ui.store.title")) {
+                    if app.game?.trial?.mode == .fence, !app.trialNoticeVisible {
+                        Button { app.trialNoticeVisible = true } label: { InkRow(title: ui("ui.trial.waiting")) }
                             .buttonStyle(.inkRow)
-                            .accessibilityIdentifier("removeAdsButton")
+                    }
+                    if app.storeService.isAvailable {
+                        if app.entitlements.fullGame {
+                            InkRow(title: ui("ui.store.full_game"), value: ui("ui.store.unlocked"))
+                        } else {
+                            Button { Task { await app.purchaseFullGame() } } label: {
+                                InkRow(title: ui("ui.store.full_game"), value: price.map { Text(verbatim: $0) } ?? ui("ui.store.buy"))
+                            }.buttonStyle(.inkRow).accessibilityIdentifier("fullGamePurchaseButton")
                         }
                         Button {
                             Task {
                                 await app.restorePurchases()
-                                restoreMessage = app.adsRemoved ? UIText.shared.string("ui.body.restore_done") : UIText.shared.string("ui.body.restore_none")
+                                restoreMessage = app.entitlements.fullGame ? UIText.shared.string("ui.body.restore_done") : UIText.shared.string("ui.body.restore_none")
                             }
                         } label: {
                             InkRow(title: ui("ui.body.restore_purchases"), detail: restoreMessage.map { spokenText($0) })
@@ -80,7 +78,7 @@ struct SettingsView: View {
                         .buttonStyle(.inkRow)
                         .accessibilityIdentifier("restoreButton")
                     }
-                }
+                }.task { price = await app.storeService.displayPrice(for: ProductID.fullGame) }
 
 #if DEBUG
                 if GameStore.devSettingsAvailable {

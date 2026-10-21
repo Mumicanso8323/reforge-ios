@@ -108,6 +108,9 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case hearthStoked(placement: EntityID)
     /// 煙・縄張り・闇に引かれて、今夜その獣が寄ることになった(lure のしきい値を越えた。U21)。最初の脅威の引き金。
     case lured(enemy: EnemyKindID)
+    /// The data-defined free-opening boundary was reached/released.
+    case trialReached
+    case trialReleased
 
     /// 物語の出来事の引き金に書く名前。
     public var hook: String {
@@ -156,6 +159,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .hearthLevelChanged: "hearth"
         case .hearthStoked: "hearth.stoked"
         case .lured: "lured"
+        case .trialReached: "trial.reached"
+        case .trialReleased: "trial.released"
         case .trapSprung: "trap.sprung"
         case .researchCompleted: "research.completed"
         case .skillAcquired: "skill"

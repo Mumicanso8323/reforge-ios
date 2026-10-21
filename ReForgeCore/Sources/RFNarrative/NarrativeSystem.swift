@@ -89,6 +89,16 @@ public struct NarrativeSystem: SimSystem {
         for def in defs {
             guard Self.mayFire(def.id, def, ctx.world) else { continue }
             guard ConditionEvaluator.evaluate(def.trigger.when, &ctx, trigger: trigger) else { continue }
+            if TrialGate.closed(ctx.world, ctx.content, ctx.entitlements), TrialGate.mode(ctx.content) == .fence,
+               ctx.content.trialGate?.holds?.events?.contains(def.id) == true {
+                var trial = ctx.world.trial ?? TrialState()
+                if !trial.deferred.contains(where: { $0.kind == .event && $0.id == def.id.rawValue }) {
+                    trial.deferred.append(TrialHeld(kind: .event, id: def.id.rawValue, since: ctx.world.clock.now))
+                    ctx.world.trial = trial
+                    ctx.changes.mark(.narrative)
+                }
+                continue
+            }
             fire(def.id, def, &ctx, trigger: trigger)
         }
     }

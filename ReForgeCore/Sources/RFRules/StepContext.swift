@@ -8,6 +8,8 @@ import RFWorld
 public struct StepContext {
     public var world: WorldState
     public let content: ContentDB
+    /// Runtime-only purchase rights supplied by Simulation.
+    public let entitlements: Entitlements
     /// このステップで出た出来事(本体が react に配る)。
     public private(set) var events: [DomainEvent] = []
     /// 後で処理するコマンド(効果から出た戦闘の開始など)。
@@ -19,9 +21,10 @@ public struct StepContext {
     /// 仕組みがまだ無い効果など、黙って捨てたくないもの(テストが 0 件を確かめる)。
     public var warnings: [String] = []
 
-    public init(world: WorldState, content: ContentDB) {
+    public init(world: WorldState, content: ContentDB, entitlements: Entitlements = Entitlements()) {
         self.world = world
         self.content = content
+        self.entitlements = entitlements
     }
 
     // MARK: 出来事

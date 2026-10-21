@@ -5,6 +5,15 @@ import RFTestSupport
 import XCTest
 
 final class ContentTests: XCTestCase {
+    func testTrialGateDecodesAndRequiresResumeForHeldFailures() throws {
+        var db = ContentDB()
+        try ContentLoader.apply(json: Data(#"""
+        {"trialGate":{"when":{"always":{}},"holds":{"failures":["failure.test"]}}}
+        """#.utf8), to: &db)
+        XCTAssertEqual(db.trialGate?.mode, nil)
+        XCTAssertTrue(ContentValidator.validate(db).contains { $0.rule == "trialGate.resume" })
+    }
+
     /// 公開の層だけでも読めて、検証にエラーが無い(公開版だけでビルドとテストが通る)。
     func testPublicLayerLoadsAndValidates() throws {
         let db = try TestContent.publicOnly()
