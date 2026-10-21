@@ -50,6 +50,11 @@ extension GameStore {
     /// セーブ地点の一覧(夜明けの新しい順 → 手動の番号順)。
     func savePoints() -> [SavePoint] { (try? book.savePoints()) ?? [] }
 
+    /// セーブ地点の一覧を自動(夜明け)と手動の 2 つに分けたもの(D §7.4)。
+    func savePointGroups(activeOnly: Bool) -> SavePointGroups {
+        (try? book.savePointGroups(activeOnly: activeOnly)) ?? SavePointGroups(auto: [], manual: [])
+    }
+
     /// 手動セーブ(確認なしで上書き。枠は 3 つあるので戻せる)。
     func saveManual(_ index: Int) async {
         guard (0..<SavePolicy.manualSlots).contains(index) else { return }

@@ -5,6 +5,8 @@ import UIKit
 /// 上 1/3 に題、下 1/4 にボタン。絵が無いときは墨の地だけで出す。
 struct TitleView: View {
     @Bindable var app: AppModel
+    /// 「セーブから読む」の一覧の札を開いているか。
+    @State private var loadOpen = false
 
     var body: some View {
         ZStack {
@@ -52,6 +54,16 @@ struct TitleView: View {
                         }
                         .buttonStyle(.ink(.primary))
                         .accessibilityIdentifier("newGameButton")
+                        // 中断の枠が無い・読めないとき、自動か手動の枠があれば、そこから読める
+                        if app.hasSavePoints {
+                            Button {
+                                loadOpen.toggle()
+                            } label: {
+                                ui("ui.button.load_from_title")
+                            }
+                            .buttonStyle(.ink(.secondary))
+                            .accessibilityIdentifier("loadFromTitle")
+                        }
                     }
                 }
                 .frame(maxWidth: 280)
@@ -60,5 +72,11 @@ struct TitleView: View {
             .padding(.horizontal, 24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .inkCard(isPresented: $loadOpen, title: ui("ui.button.load_from_title")) {
+            SavePointSections(groups: app.savePointGroups()) { slot in
+                loadOpen = false
+                app.loadFromTitle(slot)
+            }
+        }
     }
 }

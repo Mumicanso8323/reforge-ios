@@ -17,6 +17,8 @@
     "ui.body.load_failed": "データを読み込めませんでした",
     "ui.body.purchase_unavailable": "いまは購入できません(準備中)",
     "ui.body.records": "記録",
+    "ui.body.records_auto": "夜明けの記録",
+    "ui.body.records_manual": "自分の記録",
     "ui.body.remove_ads": "広告を消す",
     "ui.body.remove_ads_blurb": "広告を消します。ゲームの内容は変わりません。",
     "ui.body.restore_done": "購入を復元しました",

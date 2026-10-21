@@ -83,6 +83,7 @@
     "ui.button.back": "← もどる",
     "ui.button.clear": "崩す",
     "ui.button.discard_plate": "捨てる",
+    "ui.button.load_from_title": "セーブから読む",
     "ui.button.load_plate": "写す",
     "ui.button.make_plate": "札にする",
     "ui.button.place": "置く",
