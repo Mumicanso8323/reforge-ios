@@ -12,7 +12,12 @@
       "type" : "NonConsumable"
     }
   ],
-  "settings" : { },
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_locale" : "ja",
+    "_storefront" : "JPN",
+    "_storeKitErrors" : [ ]
+  },
   "subscriptionGroups" : [ ],
   "version" : { "major" : 3, "minor" : 0 }
 }

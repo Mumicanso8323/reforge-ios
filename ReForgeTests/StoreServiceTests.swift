@@ -11,6 +11,7 @@ final class StoreServiceTests: XCTestCase {
 
     override func setUpWithError() throws {
         session = try SKTestSession(configurationFileNamed: "ReForge")
+        session.resetToDefaultState()
         session.disableDialogs = true
         session.clearTransactions()
     }
@@ -24,9 +25,14 @@ final class StoreServiceTests: XCTestCase {
     func testStoreKitPurchaseRefundRestoreAndFamilyShareableFullGame() async throws {
         let service = StoreKitStoreService()
         XCTAssertEqual(service.productIds, [ProductID.fullGame])
-        // CI の記録は外れた行の番号だけを残すので、外れ方ごとに行を分ける
-        let loaded = try await Product.products(for: [ProductID.fullGame])
-        XCTAssertEqual(loaded.count, 1, "試験の店から商品を読めない")
+        // CI の記録は英数だけを残すので、外れ方は「STORE 」で始まる英数の文で書く
+        var loaded: [Product] = []
+        var loadError = "none"
+        for _ in 0..<5 where loaded.isEmpty {
+            do { loaded = try await Product.products(for: [ProductID.fullGame]) } catch { loadError = String(describing: error) }
+            if loaded.isEmpty { try await Task.sleep(nanoseconds: 500_000_000) }
+        }
+        XCTAssertEqual(loaded.count, 1, "STORE products empty error=\(loadError) storefront=\(session.storefront) locale=\(session.locale.identifier)")
         let before = await service.entitlements()
         XCTAssertFalse(before.contains(ProductID.fullGame))
 
@@ -36,18 +42,18 @@ final class StoreServiceTests: XCTestCase {
                 switch try await product.purchase() {
                 case .success(.verified(let transaction)):
                     await transaction.finish()
-                    XCTFail("2 度目の購入だけが通った")
+                    XCTFail("STORE second purchase only")
                 case .success(.unverified):
-                    XCTFail("取引を検証できない")
+                    XCTFail("STORE unverified")
                 case .pending:
-                    XCTFail("購入が保留になった")
+                    XCTFail("STORE pending")
                 case .userCancelled:
-                    XCTFail("購入が取り消された")
+                    XCTFail("STORE cancelled")
                 @unknown default:
-                    XCTFail("購入の結果が分からない")
+                    XCTFail("STORE unknown result")
                 }
             } catch {
-                XCTFail("購入で投げた: \(error)")
+                XCTFail("STORE purchase threw \(String(describing: error))")
             }
         }
         XCTAssertTrue(bought, "購入した検証済み取引を権利にする")
