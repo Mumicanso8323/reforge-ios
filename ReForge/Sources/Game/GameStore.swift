@@ -139,6 +139,8 @@ final class GameStore {
 #if DEBUG
     /// 試験の継ぎ目: 「戻す」の差し替えを本体に送る直前に待つ(後の操作が先に届く形を作る)。
     @ObservationIgnored var undoInstallHook: (@MainActor () async -> Void)?
+    /// 試験用: 後の操作が走っている「戻す」の差し替えを待ち始める所で呼ぶ。
+    @ObservationIgnored var undoSettleHook: (@MainActor () async -> Void)?
 #endif
     @ObservationIgnored private var lastPhase: DayPhase = .day
     @ObservationIgnored private var lastDay = 0
@@ -308,6 +310,9 @@ final class GameStore {
     /// 走り出した「戻す」の差し替えが本体に届くまで待つ。差し替えの中(取り込みが呼ぶ保存など)からは待たない(自分を待って止まらない)。
     func settleUndo() async {
         guard !UndoChain.inside, let t = undoReplacement else { return }
+#if DEBUG
+        await undoSettleHook?()
+#endif
         await t.value
     }
 

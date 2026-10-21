@@ -124,11 +124,13 @@ final class WorkbenchAppTests: XCTestCase {
         await wb.discard(plate, s)
         // 「戻す」の差し替えを本体へ送る手前で止め、その間に次を押す(差し替えより後の操作が先に本体へ届きうる形)
         let gate = Gate()
+        let settling = Gate()
         s.undoInstallHook = { await gate.wait() }
+        s.undoSettleHook = { await settling.arrive() }
         s.undoTimed()
         await gate.entered()  // 差し替えが関門で止まってから次を押す
         async let second: Void = wb.discard(plate, s)
-        for _ in 0..<200 { await Task.yield() }
+        await settling.entered()  // 次の操作が差し替えを待ち始めてから関門を開ける
         await gate.open()
         await second
         XCTAssertNil(wb.message, "戻した札をもう一度捨てられる")
@@ -170,10 +172,15 @@ private actor Gate {
     private var waiters: [CheckedContinuation<Void, Never>] = []
     private var watchers: [CheckedContinuation<Void, Never>] = []
 
-    func wait() async {
+    /// 止まらずに着いた印だけを付ける。
+    func arrive() {
         arrived = true
         watchers.forEach { $0.resume() }
-        watchers = []
+        watchers.removeAll()
+    }
+
+    func wait() async {
+        arrive()
         if opened { return }
         await withCheckedContinuation { waiters.append($0) }
     }
