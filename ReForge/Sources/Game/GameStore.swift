@@ -136,6 +136,10 @@ final class GameStore {
     @ObservationIgnored private var timedUndoTask: Task<Void, Never>?
     /// 帯の「戻す」で走り出した世界の差し替え。後から来た操作・差し替えはこれを待ってから本体へ送る(古い写しが後の操作を消さない)。
     @ObservationIgnored private var undoReplacement: Task<Void, Never>?
+#if DEBUG
+    /// 試験の継ぎ目: 「戻す」の差し替えを本体に送る直前に待つ(後の操作が先に届く形を作る)。
+    @ObservationIgnored var undoInstallHook: (@MainActor () async -> Void)?
+#endif
     @ObservationIgnored private var lastPhase: DayPhase = .day
     @ObservationIgnored private var lastDay = 0
     /// 前回の操作の実時刻の置き場(保存の外。PT-B2)と、実時刻の読み方(テストで差し替える)。
@@ -246,6 +250,7 @@ final class GameStore {
 #endif
         // 保留の間(最初の行為の前)も呼ぶ。本体は、最初の行為を押していなければ何もしない(PT-B8)
         guard isActive, !isPaused, !benchHoldsClock, clock.running || clock.held else { return }
+        await settleUndo()  // 「戻す」の差し替えより先に時計を進めない(差し替えで進めた分が消える)
         let start = performanceNow()
         os_signpost(.begin, log: perfSignpost, name: "clockStep")
         let (f, report) = await host.tick(realSeconds: dt)
@@ -300,9 +305,10 @@ final class GameStore {
         return await installWorld(world)
     }
 
-    /// 走り出した「戻す」の差し替えが本体に届くまで待つ。
+    /// 走り出した「戻す」の差し替えが本体に届くまで待つ。差し替えの中(取り込みが呼ぶ保存など)からは待たない(自分を待って止まらない)。
     func settleUndo() async {
-        if let t = undoReplacement { await t.value }
+        guard !UndoChain.inside, let t = undoReplacement else { return }
+        await t.value
     }
 
     private func installWorld(_ world: WorldState) async -> Frame {
@@ -452,7 +458,12 @@ final class GameStore {
         let previous = undoReplacement
         let task = Task { @MainActor in
             await previous?.value
-            _ = await installWorld(pending.world)
+            await UndoChain.$inside.withValue(true) {
+#if DEBUG
+                await undoInstallHook?()
+#endif
+                _ = await installWorld(pending.world)
+            }
         }
         undoReplacement = task
         return task
@@ -654,7 +665,6 @@ final class GameStore {
 #if DEBUG
         if Self.freezeClock { return }  // 撮る起動は保存を書かない
 #endif
-        await settleUndo()  // 走り出した「戻す」を書いてから保存する
         do {
             let data = try await host.saveData(slot: .resume, stamps: contentStamps)
             try await saveWriter.write(data, slot: .resume)
@@ -671,4 +681,9 @@ final class GameStore {
         guard !slowSteps.isEmpty else { return nil }
         return "\(slowSteps.count) 件・最長 \(slowSteps.map(\.milliseconds).max() ?? 0)ms"
     }
+}
+
+/// 「戻す」の差し替えの中にいるか(差し替えが呼ぶ保存が自分を待たないため)。
+enum UndoChain {
+    @TaskLocal static var inside = false
 }

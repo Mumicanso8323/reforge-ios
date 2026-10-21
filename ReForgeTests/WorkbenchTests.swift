@@ -122,8 +122,14 @@ final class WorkbenchAppTests: XCTestCase {
             return XCTFail("試験用の札を作れない: \(wb.message ?? "-")")
         }
         await wb.discard(plate, s)
-        s.undoTimed()  // 差し替えを待たずに次を押す
-        await wb.discard(plate, s)
+        // 「戻す」の差し替えを本体へ送る手前で止め、その間に次を押す(差し替えより後の操作が先に本体へ届きうる形)
+        let gate = Gate()
+        s.undoInstallHook = { await gate.wait() }
+        s.undoTimed()
+        async let second: Void = wb.discard(plate, s)
+        for _ in 0..<200 { await Task.yield() }
+        await gate.open()
+        await second
         XCTAssertNil(wb.message, "戻した札をもう一度捨てられる")
         XCTAssertNotNil(s.timedUndo, "2 度目の捨てるにも帯が出る")
         let after = await s.host.world
@@ -153,5 +159,22 @@ final class WorkbenchAppTests: XCTestCase {
         await s.undoTimed()?.value
         let restored = await s.host.world
         XCTAssertEqual(restored, before, "取り消しで技能を付ける前へ戻す")
+    }
+}
+
+/// 開くまで待たせる関門(試験用)。
+private actor Gate {
+    private var opened = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        if opened { return }
+        await withCheckedContinuation { waiters.append($0) }
+    }
+
+    func open() {
+        opened = true
+        waiters.forEach { $0.resume() }
+        waiters = []
     }
 }
