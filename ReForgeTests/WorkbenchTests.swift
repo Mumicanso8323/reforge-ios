@@ -107,6 +107,29 @@ final class WorkbenchAppTests: XCTestCase {
         XCTAssertNil(after.invention.designs[plate.design], "捨てたまま")
     }
 
+    /// 「戻す」の直後の操作は、戻した世界の上で効く(戻す差し替えが後の操作を上書きしない)。
+    func testOperationRightAfterUndoRunsOnTheRestoredWorld() async throws {
+        let s = try store()
+        await s.load()
+        var unlocked = await s.host.world
+        unlocked.research.unlocked.modules.insert("furnace")
+        await s.refresh(await s.host.replace(world: unlocked))
+        let wb = s.workbench
+        await wb.reload(s)
+        await wb.append("furnace", s)
+        await wb.makePlate(s)
+        guard let plate = wb.bench?.plates.first else {
+            return XCTFail("試験用の札を作れない: \(wb.message ?? "-")")
+        }
+        await wb.discard(plate, s)
+        s.undoTimed()  // 差し替えを待たずに次を押す
+        await wb.discard(plate, s)
+        XCTAssertNil(wb.message, "戻した札をもう一度捨てられる")
+        XCTAssertNotNil(s.timedUndo, "2 度目の捨てるにも帯が出る")
+        let after = await s.host.world
+        XCTAssertNil(after.invention.designs[plate.design], "後の操作が残る")
+    }
+
     /// 技能を付ける選びもすぐ反映し、取り消すと技能を付ける前の世界へ戻る。
     func testGrantUndoRestoresThePreviousWorld() async throws {
         let s = try store()

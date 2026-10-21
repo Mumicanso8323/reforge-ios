@@ -16,6 +16,7 @@ extension GameStore {
 
     /// 夜明けの自動セーブ。
     func saveDawn() async {
+        await settleUndo()  // 走り出した「戻す」を書いてから保存する
         do {
             let data = try await host.dawnSaveData(stamps: contentStamps)
             try await saveWriter.autosaveDawn(data)
@@ -33,6 +34,7 @@ extension GameStore {
     /// 4 択の 1 つを実行し、世界を差し替える。失敗したら理由を 1 行で返す(画面は札の中に出す)。
     @discardableResult
     func recover(_ option: RecoveryOption, target: SaveSlot? = nil) async -> String? {
+        await settleUndo()
         let failed = await host.world
         do {
             let r = try recovery.perform(option, failed: failed, target: target, newSeed: UInt64.random(in: .min ... .max))
@@ -49,6 +51,7 @@ extension GameStore {
     @discardableResult
     func recoverUndoable(_ option: RecoveryOption, target: SaveSlot? = nil, label: String) async -> String? {
         commitTimedUndo()
+        await settleUndo()
         let before = await host.world
         let problem = await recover(option, target: target)
         if problem == nil { beginTimedUndo(world: before, label: label, pausesClock: true) }
@@ -68,6 +71,7 @@ extension GameStore {
     /// 手動セーブ(確認なしで上書き。枠は 3 つあるので戻せる)。
     func saveManual(_ index: Int) async {
         guard (0..<SavePolicy.manualSlots).contains(index) else { return }
+        await settleUndo()  // 走り出した「戻す」を書いてから保存する
         do {
             let data = try await host.saveData(slot: .manual(index: index), stamps: contentStamps)
             try await saveWriter.write(data, slot: .manual(index: index))

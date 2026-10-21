@@ -134,6 +134,8 @@ final class GameStore {
     @ObservationIgnored var noticeLifetime: TimeInterval = 4
     @ObservationIgnored private var decisionUndoTask: Task<Void, Never>?
     @ObservationIgnored private var timedUndoTask: Task<Void, Never>?
+    /// 帯の「戻す」で走り出した世界の差し替え。後から来た操作・差し替えはこれを待ってから本体へ送る(古い写しが後の操作を消さない)。
+    @ObservationIgnored private var undoReplacement: Task<Void, Never>?
     @ObservationIgnored private var lastPhase: DayPhase = .day
     @ObservationIgnored private var lastDay = 0
     /// 前回の操作の実時刻の置き場(保存の外。PT-B2)と、実時刻の読み方(テストで差し替える)。
@@ -203,6 +205,9 @@ final class GameStore {
     }
 
     func setEntitlements(_ entitlements: Entitlements) async {
+        // 権利が替わると待たせていた出来事が動くので、開いている帯は確定する
+        commitTimedUndo()
+        await settleUndo()
         await refresh(await host.setEntitlements(entitlements))
     }
 
@@ -291,6 +296,16 @@ final class GameStore {
     @discardableResult
     func replaceWorld(_ world: WorldState) async -> Frame {
         commitTimedUndo()
+        await settleUndo()
+        return await installWorld(world)
+    }
+
+    /// 走り出した「戻す」の差し替えが本体に届くまで待つ。
+    func settleUndo() async {
+        if let t = undoReplacement { await t.value }
+    }
+
+    private func installWorld(_ world: WorldState) async -> Frame {
         let f = await host.replace(world: world)
 #if DEBUG
         ReplayStats.replaces += 1
@@ -331,7 +346,10 @@ final class GameStore {
             Task { preview = await host.placementPreview(kind, at: cell) }
             return
         }
+        // 調べたことは世界に残るので、開いている帯は確定する(戻すで調べた事を消さない)
+        commitTimedUndo()
         Task {
+            await settleUndo()
             inspection = await host.inspect(at: cell)
             await refresh(await host.frame)
             await refreshCard()
@@ -398,6 +416,7 @@ final class GameStore {
     @discardableResult
     func performUndoable(_ command: Command, label: String, seconds: Int = 4, pausesClock: Bool = false) async -> String? {
         noteOperation()  // 前の帯は確定して閉じる(押した物は必ず効く)
+        await settleUndo()
         let before = await host.world
         let (f, rejection, rejectionRef) = await perform(throughHost: command)
         show(notice: rejectionRef)
@@ -430,7 +449,13 @@ final class GameStore {
         timedUndoTask = nil
         timedUndo = nil
         isPaused = pending.wasPaused
-        return Task { _ = await replaceWorld(pending.world) }
+        let previous = undoReplacement
+        let task = Task { @MainActor in
+            await previous?.value
+            _ = await installWorld(pending.world)
+        }
+        undoReplacement = task
+        return task
     }
 
     /// 帯を確定して閉じる(時間切れ・次の操作・世界の差し替え)。古い写しで後の操作や別の走行を消さない。
@@ -489,6 +514,7 @@ final class GameStore {
 
     /// host.perform と同じ(Frame と断った理由)。出来事も見て、振動を鳴らす。
     private func perform(throughHost command: Command) async -> (frame: Frame, rejection: String?, rejectionRef: TextRef?) {
+        await settleUndo()
         let (f, report) = await host.send(command)
         consume(report)
         fireHaptics(for: report.events)
@@ -628,6 +654,7 @@ final class GameStore {
 #if DEBUG
         if Self.freezeClock { return }  // 撮る起動は保存を書かない
 #endif
+        await settleUndo()  // 走り出した「戻す」を書いてから保存する
         do {
             let data = try await host.saveData(slot: .resume, stamps: contentStamps)
             try await saveWriter.write(data, slot: .resume)
