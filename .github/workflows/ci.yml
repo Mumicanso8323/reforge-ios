@@ -149,6 +149,9 @@ jobs:
         run: python3 tools/test_released_languages.py
       - name: 束を作るシェルの確かめ(bash 3.2・ストアの版だけ言語を削る)
         run: python3 tools/test_stage_scripts.py
+      - name: 時刻の色の写真の判定の確かめ(真っ黒な地図を外れにする)
+        if: always()
+        run: python3 tools/test_check_time_tint_shots.py
       # testflight ジョブは app-switches を needs に持つので、ここが落ちると TestFlight へ上げない(門)
       - name: Release の組みに debug の物が入らない
         if: always()
@@ -490,9 +493,12 @@ jobs:
           python3 tools/collect-screens.py screens-raw screens --device "${{ steps.sim.outputs.name }}" \
             --time-raw screens-raw-time-dark --time-raw screens-raw-time-light
 
-      # 時刻の色の写真の判定(部品は外観・時刻に依らない・地図だけが時刻で替わる・予約の赤・dayBar)
+      # 時刻の色の写真の判定。地図の中(地形がある・時刻で替わる・外観に依らない)・予約の赤・dayBar は外れたら赤にする
+      - name: 時刻の色の写真の判定(地図の中)
+        if: always()
+        run: python3 tools/check-time-tint-shots.py --map-only screens/time-report.json
       # 地図の外のハッシュは OS が描く帯(ホームインジケータなど)を含み、シミュレータの更新で揺れうるので、当面は知らせるだけ(赤にしない)
-      - name: 時刻の色の写真の判定
+      - name: 時刻の色の写真の判定(地図の外・知らせるだけ)
         if: always()
         continue-on-error: true
         run: python3 tools/check-time-tint-shots.py screens/time-report.json

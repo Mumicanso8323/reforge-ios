@@ -32,6 +32,19 @@ public enum Vision {
         return out
     }
 
+    /// いま見えているマスを既知にする(時計を進めずに、最初の一歩の「見る」と同じ範囲を知った形にする)。
+    /// 撮る起動(時計を止めた世界)が使う。発見・描き直しの印・出来事は出さない(進めた時の update が出す)。
+    public static func markVisibleKnown(_ w: inout WorldState, content: ContentDB) {
+        for (layerID, l) in w.map.layers {
+            let cells = visibleNow(w, content: content, layer: layerID)
+            guard !cells.isEmpty else { continue }
+            var known = w.knowledge.mapKnown[layerID] ?? GridBitset(size: l.size)
+            if known.size != l.size { known = GridBitset(size: l.size) }
+            for p in cells { known[p] = true }
+            w.knowledge.mapKnown[layerID] = known
+        }
+    }
+
     /// 一員の視界で既知を増やす。新しく知ったマスは画面の描き直しの印を付け、見つけた POI は発見にする。
     static func update(_ ctx: inout StepContext) {
         var revealed: [LayerID: Int] = [:]

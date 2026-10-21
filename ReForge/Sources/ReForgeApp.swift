@@ -274,6 +274,8 @@ final class AppModel {
             world.map[origin.layer]?.deposits.add(
                 DepositGenerator.make(id: DepositID("deposit.screenshot"), at: vein, category: .coal, rng: &rng))
         }
+        // 時計を止めた世界は「見る」の一歩が走らず、地図の既知が空のまま(地形が真っ黒)。いまの視界を既知にしておく
+        Vision.markVisibleKnown(&world, content: content)
         game = GameStore(content: content, world: world, saves: saves, language: gameLanguage, markFallback: markFallback)
         game?.isPaused = settingsOpen
         // 足元カードを焚き火に向ける(焚き火は足元の残骸を避けて隣に置かれる)

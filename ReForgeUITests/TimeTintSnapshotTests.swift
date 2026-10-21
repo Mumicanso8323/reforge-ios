@@ -23,6 +23,8 @@ final class TimeTintSnapshotTests: XCTestCase {
         let map: String
         /// 地図の枠の中の、予約の赤の画素の割合(0...1)
         let redFraction: Double
+        /// 地図の枠の中の、明るい画素(最大の色が 48 を超える)の割合(0...1)。地形が描かれているか
+        let litFraction: Double
         let dayBar: Bool
         /// dayBar のラベルに数字が無い(dayBar が無いときは true)
         let dayBarLabelHasNoDigits: Bool
@@ -142,16 +144,18 @@ final class TimeTintSnapshotTests: XCTestCase {
             let lightSpan = 255 - abs(high + low - 255)
             return hueNearRed && 2 * delta >= lightSpan
         }
-        var red = 0, total = 0
+        var red = 0, lit = 0, total = 0
         for y in map.y0..<max(map.y0, map.y1) {
             for x in map.x0..<max(map.x0, map.x1) {
                 let i = (y * w + x) * 4
                 total += 1
                 if isReservedRed(Int(pixels[i]), Int(pixels[i + 1]), Int(pixels[i + 2])) { red += 1 }
+                if max(pixels[i], pixels[i + 1], pixels[i + 2]) > 48 { lit += 1 }
             }
         }
         let record = Hashes(point: point, appearance: appearance, outside: hex(outside.finalize()), tabs: hashRect(tab),
                             map: hashRect(map), redFraction: total == 0 ? 1 : Double(red) / Double(total),
+                            litFraction: total == 0 ? 0 : Double(lit) / Double(total),
                             dayBar: dayBarExists, dayBarLabelHasNoDigits: labelOK)
         if let data = try? JSONEncoder().encode(record) {
             let a = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
