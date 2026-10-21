@@ -126,17 +126,27 @@ final class WorkbenchAppTests: XCTestCase {
         let gate = Gate()
         let settling = Gate()
         s.undoInstallHook = { await gate.wait() }
-        s.undoSettleHook = { await settling.arrive() }
+        // 帯の戻す先を写す前の待ち(performUndoable)だけを数える。時計など別の待ちの印では開けない
+        s.undoSettleHook = { site in if site.hasPrefix("performUndoable") { await settling.arrive() } }
         s.undoTimed()
         await gate.entered()  // 差し替えが関門で止まってから次を押す
         async let second: Void = wb.discard(plate, s)
-        await settling.entered()  // 次の操作が差し替えを待ち始めてから関門を開ける
+        var waited = await settling.hasArrived
+        for _ in 0..<500 where !waited {
+            try await Task.sleep(nanoseconds: 10_000_000)
+            waited = await settling.hasArrived
+        }
+        XCTAssertTrue(waited, "次の操作は戻す先を写す前に差し替えを待つ")
         await gate.open()
         await second
         XCTAssertNil(wb.message, "戻した札をもう一度捨てられる")
         XCTAssertNotNil(s.timedUndo, "2 度目の捨てるにも帯が出る")
         let after = await s.host.world
         XCTAssertNil(after.invention.designs[plate.design], "後の操作が残る")
+        // 2 度目の帯は、戻した世界(札がある)へ戻す
+        await s.undoTimed()?.value
+        let reundone = await s.host.world
+        XCTAssertNotNil(reundone.invention.designs[plate.design], "2 度目の帯は戻した世界へ戻す")
     }
 
     /// 技能を付ける選びもすぐ反映し、取り消すと技能を付ける前の世界へ戻る。
@@ -184,6 +194,8 @@ private actor Gate {
         if opened { return }
         await withCheckedContinuation { waiters.append($0) }
     }
+
+    var hasArrived: Bool { arrived }
 
     /// 誰かが関門に着くまで待つ。
     func entered() async {
