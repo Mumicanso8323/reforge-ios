@@ -420,6 +420,19 @@ final class AppModel {
     }
 }
 
+/// 単体試験の宿として起動したか。宿が先に StoreKit に繋ぐと、その接続が試験の店(SKTestSession)でなく
+/// Sandbox に結び付き、試験の商品が空になる。宿の間は起動時の権利の読みと取引の見張りを始めない。
+enum UnitTestHost {
+#if DEBUG
+    static let isActive: Bool = {
+        let env = ProcessInfo.processInfo.environment
+        return env["XCTestConfigurationFilePath"] != nil || env["XCTestBundlePath"] != nil || env["XCTestSessionIdentifier"] != nil
+    }()
+#else
+    static let isActive = false
+#endif
+}
+
 /// 背面の保存の確保の識別と、終えたかの印(完了と時間切れで 2 度終えない)。
 @MainActor
 final class BackgroundTaskBox {
@@ -465,12 +478,13 @@ struct RootView: View {
         .environment(\.locale, Locale(identifier: SpeechLanguage.base(app.language.effective)))
         .background(SpeechLanguageInstaller(identifier: SpeechLanguage.base(app.language.effective)))
         .task {
+            guard !UnitTestHost.isActive else { return }
             await app.refreshEntitlements()
             await app.observeTransactionUpdates()
         }
         .onChange(of: scenePhase) { _, phase in
             app.scenePhaseChanged(active: phase == .active)
-            if phase == .active { Task { await app.refreshEntitlements() } }
+            if phase == .active, !UnitTestHost.isActive { Task { await app.refreshEntitlements() } }
         }
     }
 
