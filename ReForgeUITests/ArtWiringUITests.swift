@@ -16,6 +16,14 @@ private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
     app.descendants(matching: .any).matching(identifier: id).firstMatch
 }
 
+/// 画面にある識別子の一覧(落ちた時の原因を当て推量しないため)。
+private func identifiers(_ app: XCUIApplication) -> [String] {
+    app.debugDescription.split(separator: "\n").compactMap { line -> String? in
+        guard let r = line.range(of: "identifier: '") else { return nil }
+        return String(line[r.upperBound...].prefix { $0 != "'" })
+    }
+}
+
 private func tapAnywhere(_ app: XCUIApplication, dy: CGFloat = 0.8) {
     app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: dy)).tap()
 }
@@ -55,6 +63,7 @@ final class ArtWiringUITests: XCTestCase {
             tapAnywhere(app, dy: 0.8)
             Thread.sleep(forTimeInterval: 1.0)
             why = " 押した点 \(point) の識別子: \(over.joined(separator: ",")) / 絵 \(art.frame) / 下のタップで送れる: \(element(app, "prologueLine-1").exists)"
+                + " / 画面の識別子: \(identifiers(app).joined(separator: ","))"
         }
         XCTAssertTrue(advanced, "絵の上のタップで送れない (\(language))\(why)")
         XCTAssertEqual(art.frame.minY, before.minY, accuracy: 0.5, "次の行で絵が動いた")
@@ -91,6 +100,18 @@ final class ArtWiringUITests: XCTestCase {
             checkStageWithArt(language: code, reduceMotion: false)
             checkDecisionWithArt(language: code, reduceMotion: false)
         }
+    }
+
+    /// 絵が無くても、場面はタップで次の行へ送れる(絵の試験が送りの不具合と絵の不具合を取り違えないための土台)。
+    func testStageAdvancesByTapWithoutArt() {
+        let app = launch("stage", art: nil)
+        defer { app.terminate() }
+        XCTAssertTrue(element(app, "prologueScene").waitForExistence(timeout: 60), "場面が出ない")
+        XCTAssertTrue(element(app, "prologueLine-0").waitForExistence(timeout: 15))
+        tapAnywhere(app)
+        Thread.sleep(forTimeInterval: 1.0)
+        XCTAssertTrue(element(app, "prologueLine-1").exists,
+                      "絵の無い場面でもタップで送れない。画面の識別子: \(identifiers(app).joined(separator: ","))")
     }
 
     /// 絵が無い・開かないときは、引数なしと行の位置が同じ(1 ピクセルも動かない)。
