@@ -138,6 +138,9 @@ jobs:
       - name: 足元カード・拠点のタブに、できない理由の文が無い
         if: always()
         run: python3 tools/check-no-reason-text.py
+      - name: アプリのソースにネットワークの API が無い(操作記録は端末の中だけ)
+        if: always()
+        run: python3 tools/check-no-network.py
       - name: 部品が暗い地のまま固定(端末の外観・時刻に依らない)
         if: always()
         run: python3 tools/check-fixed-dark.py

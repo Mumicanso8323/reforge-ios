@@ -21,7 +21,8 @@ final class GameStore {
     @ObservationIgnored private let performanceNow: () -> ContinuousClock.Instant
     @ObservationIgnored private let perfSink: any PerfSink
     @ObservationIgnored private let perfSignpost = OSLog(subsystem: "reforge", category: "perf")
-    private let playLog = PlayLog()
+    @ObservationIgnored var playLog = PlayLog()
+    @ObservationIgnored let playRecorder = PlayRecorder()
 
     private(set) var clock: ClockView
     /// 帯の目印の言葉の材料(W-19)。値が替わったときだけ写す。
@@ -416,6 +417,7 @@ final class GameStore {
     }
 
     func undoDecision() {
+        logPlay(kind: "undo", fields: ["source": "decision"])
         decisionUndoTask?.cancel()
         decisionUndoTask = nil
         decisionUndo = nil
@@ -456,6 +458,7 @@ final class GameStore {
     @discardableResult
     func undoTimed() -> Task<Void, Never>? {
         guard let pending = timedUndo else { return nil }
+        logPlay(kind: "undo", fields: ["source": "timed"])
         timedUndoTask?.cancel()
         timedUndoTask = nil
         timedUndo = nil
@@ -534,8 +537,13 @@ final class GameStore {
         let (f, report) = await host.send(command)
         consume(report)
         fireHaptics(for: report.events)
-        guard let r = report.rejection else { return (f, nil, nil) }
+        guard let r = report.rejection else {
+            recordCommand(command, rejection: nil, accepted: true)
+            await recordMarks()
+            return (f, nil, nil)
+        }
         let ref = await host.rejectionRef(r)
+        recordCommand(command, rejection: ref, accepted: false)
         return (f, await host.describe(r), ref)
     }
 
@@ -563,6 +571,7 @@ final class GameStore {
         lastRevision = f.revision
         frameTime = ProcessInfo.processInfo.systemUptime
         expireNoticeIfStale()
+        recordFrame(f)
         if clock != f.clock { clock = f.clock }
         if timeMark != f.timeMark { timeMark = f.timeMark }
         if timeWord != f.timeWord { timeWord = f.timeWord }
