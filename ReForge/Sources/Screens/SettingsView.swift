@@ -10,6 +10,10 @@ struct SettingsView: View {
     @AppStorage(PulseSettings.hapticsKey) private var hapticsOn = true
     @State private var price: String?
     @State private var restoreMessage: String?
+#if DEBUG || REFORGE_DEV
+    @State private var exported: ExportedLog?
+    @AppStorage(PlayLog.recordingKey) private var playLogRecording = true
+#endif
 #if DEBUG
     /// 開発の設定(DEBUG のビルドだけ。配る dev の ipa は Release なので出ない。保存には入れない)。
     @AppStorage(GameStore.devHoldClockKey) private var devHoldClock = false
@@ -35,7 +39,7 @@ struct SettingsView: View {
     private var recordsSection: some View {
         InkSection(title: ui("ui.body.records")) {
             InkHoldButton(label: ui("ui.button.delete_save"),
-                          hint: ui("ui.body.delete_save_hint")) {
+                          hint: ui("ui.body.delete_save_hint"), confirmID: "settings.deleteSave") {
                 app.deleteSave()
                 close()
             }
@@ -145,6 +149,25 @@ struct SettingsView: View {
                     }
                 }
 
+#endif
+
+#if DEBUG || REFORGE_DEV
+                // 遊んだ記録(端末の中だけ。書き出すのは、ここを押したときだけ)
+                if let log = app.game?.playLog {
+                    InkSection(title: Text(verbatim: "遊んだ記録")) {
+                        Toggle(isOn: $playLogRecording) { Text(verbatim: "遊んだ記録を取る") }
+                            .accessibilityIdentifier("playLogRecordingToggle")
+                            .padding(.top, 10)
+                        Button {
+                            if let url = try? log.export() { exported = ExportedLog(url: url) }
+                        } label: { InkRow(title: Text(verbatim: "遊んだ記録を書き出す")) }
+                            .buttonStyle(.inkRow)
+                            .accessibilityIdentifier("playLogExportButton")
+                        InkHoldButton(label: Text(verbatim: "遊んだ記録を消す"), confirmID: "settings.clearPlayLog") { log.clear() }
+                            .accessibilityIdentifier("playLogClearButton")
+                    }
+                    .sheet(item: $exported) { ShareSheet(url: $0.url) }
+                }
 #endif
 
                 InkSection(title: ui("ui.body.about")) {

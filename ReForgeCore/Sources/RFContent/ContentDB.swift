@@ -87,6 +87,8 @@ public struct ContentDB: Equatable, Sendable {
     /// 深さの気配(事実ごとの主題・工業の段の気配)。監査 PerceptionHintAudit が読む。
     public var hintThemes: [FactID: HintTheme] = [:]
     public var depthHints: [String: DepthHint] = [:]
+    /// 遊びの記録の節目(PT-B4)。中身は非公開の層。公開の層は mark.test.* の見本だけ。
+    public var playtestMarks: [String: PlaytestMarkDef] = [:]
     /// 掘る規則(刃の段と鉱脈の硬さ)。無ければどの鉱脈も掘れる。
     public var mining = MiningDef()
 

@@ -306,6 +306,8 @@ public struct StructureDef: ContentDef, Equatable {
     public var whenLit: HearthLevel?
     /// 置いた物が、灯りの外・未踏のマスにあっても見える(見えるだけ。行為は別に定義した物だけ)。
     public var seenInDark: Bool?
+    /// 置くと「決定」として数える(遊びの記録の日ごとの決定の数。PT-B4)。nil は数えない。
+    public var branchChoice: Bool?
 }
 
 /// マス・POI・置いた物に対してできる行為(漁る・汲む・掘る・観測する…)。

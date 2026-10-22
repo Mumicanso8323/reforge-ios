@@ -438,3 +438,46 @@ final class TendOfferContentTests: XCTestCase {
         XCTAssertTrue(rules.contains("text.exists"))
     }
 }
+
+/// TEST-B4-6: 節目の有無の両方で内容が読め、chance・trigger を使う節目は確かめでエラー。
+final class PlaytestMarkContentTests: XCTestCase {
+    func testLoadsWithAndWithoutMarks() throws {
+        var db = try TestContent.publicOnly()
+        XCTAssertNotNil(db.playtestMarks["mark.test.start"])
+        XCTAssertEqual(ContentValidator.validate(db).filter { $0.level == .error }, [])
+        db.playtestMarks = [:]
+        XCTAssertEqual(ContentValidator.validate(db).filter { $0.level == .error }, [])
+        var bare = ContentDB()
+        try ContentLoader.apply(json: Data(#"{"playtestMarks":[]}"#.utf8), to: &bare)
+        XCTAssertTrue(bare.playtestMarks.isEmpty)
+    }
+
+    func testChanceTriggerAndBadIDAreErrors() throws {
+        var db = try TestContent.publicOnly()
+        db.playtestMarks["mark.test.chance"] = PlaytestMarkDef(id: "mark.test.chance", when: .all(of: [.chance(basisPoints: 5000)]))
+        XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.rule == "playtestMark.deterministic" })
+        db.playtestMarks = ["bad.id": PlaytestMarkDef(id: "bad.id", when: .always)]
+        XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.rule == "playtestMark.id" })
+    }
+
+    func testFirstTimeMarkIsAnError() throws {
+        var db = try TestContent.publicOnly()
+        db.playtestMarks["mark.test.first"] = PlaytestMarkDef(id: "mark.test.first", when: .firstTime(query: ProvenanceQuery(act: .crafted)))
+        XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.rule == "playtestMark.firstTime" })
+    }
+
+    func testBranchChoiceIsOptionalAndOmittedWhenNil() throws {
+        let json = #"{"id":"structure.test.bc","cost":[],"buildSeconds":1,"provides":{}}"#
+        var def = try JSONDecoder().decode(StructureDef.self, from: Data(json.utf8))
+        XCTAssertNil(def.branchChoice)
+        XCTAssertFalse(String(decoding: try JSONEncoder().encode(def), as: UTF8.self).contains("branchChoice"))
+        def.branchChoice = true
+        XCTAssertTrue(String(decoding: try JSONEncoder().encode(def), as: UTF8.self).contains("branchChoice"))
+    }
+
+    func testRemoveDropsAMark() throws {
+        var db = try TestContent.publicOnly()
+        try ContentLoader.apply(json: Data(#"{"remove":{"playtestMarks":["mark.test.start"]}}"#.utf8), to: &db)
+        XCTAssertNil(db.playtestMarks["mark.test.start"])
+    }
+}

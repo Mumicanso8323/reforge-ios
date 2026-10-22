@@ -288,6 +288,8 @@ struct ContentFile: Codable {
         case codexShadows
         // 深さの気配(U19)
         case hintThemes, depthHints, mining
+        // 遊びの記録の節目(PT-B4)
+        case playtestMarks
     }
 
     /// 人が読むための注記のキー(読み飛ばす)。
@@ -360,6 +362,7 @@ struct ContentFile: Codable {
     var codexShadows: [CodexShadowDef]?
     var hintThemes: [HintTheme]?
     var depthHints: [DepthHint]?
+    var playtestMarks: [PlaytestMarkDef]?
     var mining: MiningDef?
 
     func apply(to db: inout ContentDB, file: String, seen: inout LayerKeys) throws {
@@ -478,6 +481,7 @@ struct ContentFile: Codable {
         upsert("codexShadows", &db.codexShadows, codexShadows)
         upsert("hintThemes", &db.hintThemes, hintThemes)
         upsert("depthHints", &db.depthHints, depthHints)
+        upsert("playtestMarks", &db.playtestMarks, playtestMarks)
         if let v = mining { db.mining = v }
         if !dups.isEmpty { throw ContentLoader.LoadError.duplicate(file: file, keys: dups.sorted()) }
         for (collection, ids) in (remove ?? [:]).sorted(by: { $0.key < $1.key }) {
@@ -534,6 +538,7 @@ struct ContentFile: Codable {
         case "exploreEvents": drop(&db.exploreEvents)
         case "hintThemes": drop(&db.hintThemes)
         case "depthHints": for id in ids { db.depthHints[id] = nil }
+        case "playtestMarks": for id in ids { db.playtestMarks[id] = nil }
         case "uiGates": drop(&db.uiGates)
         case "codexShadows": drop(&db.codexShadows)
         case "glyphs": drop(&db.glyphs)

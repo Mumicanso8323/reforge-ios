@@ -38,6 +38,7 @@ public enum ContentValidator {
         startMembersExist(db, &out)
         startClockWellFormed(db, &out)
         timeTintWellFormed(db, &out)
+        playtestMarksWellFormed(db, &out)
         eventPromptNeedsChoices(db, &out)
         eventsChangeTheWorld(db, &out)
         eventsNotTriggeredByDays(db, &out)

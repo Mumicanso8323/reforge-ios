@@ -1,0 +1,7 @@
+{
+  "//": "遊びの記録の節目(PlaytestMarkDef)の仕組みのテスト用の見本。本物の一覧は非公開の層に置く。",
+  "playtestMarks": [
+    { "id": "mark.test.start", "when": { "always": {} } },
+    { "id": "mark.test.revealed", "when": { "known": { "expr": "fact.test.revealed" } } }
+  ]
+}

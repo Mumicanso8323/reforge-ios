@@ -370,6 +370,7 @@ final class AppModel {
     /// 背面に回る・戻る。閉じている間は進まない(時計を止めて「つづきから」を書く)。
     func scenePhaseChanged(active: Bool) {
         game?.isActive = active
+        game?.logSession(active: active)
         if !active, let g = game { saveInBackground(g) }
     }
 

@@ -76,9 +76,15 @@ struct InkHoldButton: View {
     var showsHint: Bool = true
     /// 満ちるまでの秒数。
     var duration: Double = 1.2
+    /// 端末内の記録に残す画面の ID(PT-B4。出た・決めた・取りやめた)。nil なら記録しない。
+    var confirmID: String? = nil
     let action: () -> Void
+    /// 記録の口(GameStore が入れる)。
+    @MainActor static var logConfirm: ((_ id: String, _ phase: String) -> Void)?
 
     @State private var progress: CGFloat = 0
+    @State private var decided = false
+    @State private var pressStartedAt: Date?
     @State private var pressing = false
 
     var body: some View {
@@ -107,9 +113,20 @@ struct InkHoldButton: View {
                 .contentShape(Rectangle())
                 .onLongPressGesture(minimumDuration: duration, maximumDistance: 40, perform: {
                     progress = 0
+                    decided = true
+                    if let confirmID { Self.logConfirm?(confirmID, "decided") }
                     action()
                 }, onPressingChanged: { p in
                     pressing = p
+                    if p {
+                        pressStartedAt = Date()
+                    } else {
+                        // 満ちる長さまで押していたら決めた側(決めた後に取りやめを書かない)
+                        let held = pressStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+                        if !decided, held < duration, let confirmID { Self.logConfirm?(confirmID, "cancelled") }
+                        decided = false
+                        pressStartedAt = nil
+                    }
                     if p {
                         withAnimation(.linear(duration: duration)) { progress = 1 }
                     } else {
@@ -120,6 +137,7 @@ struct InkHoldButton: View {
                 // VoiceOver の「二回タップして長押し」は上の長押しにそのまま届く
                 .accessibilityAddTraits(.isButton)
                 .accessibilityHint(hint ?? Text(verbatim: ""))
+                .onAppear { if let confirmID { Self.logConfirm?(confirmID, "shown") } }
             if let hint, showsHint {
                 hint
                     .font(InkFont.caption)
