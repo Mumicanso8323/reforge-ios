@@ -133,4 +133,19 @@ final class DayWrapCalendarTests: XCTestCase {
         let b = DayWrapRules.Candidate.calendarOutlook(daysMin: 1, daysMax: 3, text: "b")
         XCTAssertEqual(DayWrapRules.mostUrgent([b, a])?.kind, .line)
     }
+
+    /// 検証を飛ばされた極端な値でも落ちない。
+    func testExtremeValuesDoNotTrap() {
+        for day in [Int.min, -1, 0, 1, Int.max] {
+            _ = range(day: day, count: 1)
+            _ = range(day: day, count: Int.max)
+            _ = range(day: day, count: Int.min)
+        }
+        let wild = ClockDef(seasons: SeasonCycleDef(cycleDays: 100_000, boundaries: [1, 100_000]),
+                            calendarOutlook: CalendarOutlookDef(counter: Self.counter, leadDays: Int.max, initialWidth: Int.max,
+                                                                narrowEvery: 0, narrowStep: Int.min))
+        for day in [1, 99_999, 100_000, Int.max] { _ = range(day: day, count: 5, seed: UInt64.max, wild) }
+        XCTAssertNil(range(day: Int.min, count: 1), "負の経過日は出さない")
+        XCTAssertEqual(Self.seasons.next(elapsedDays: Int.max).map { $0.daysLeft > 0 }, true)
+    }
 }

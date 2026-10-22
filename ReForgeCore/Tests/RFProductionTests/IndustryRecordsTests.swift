@@ -294,4 +294,20 @@ final class IndustryRecordsTests: XCTestCase {
         XCTAssertEqual(recs.count, 2)
         XCTAssertEqual(recs[1].tags, [IndustryRecords.powered])
     }
+
+    /// 古い保存(印が無い)で止まっている建造物は 0 を付けられ、最初に動き直した時に記録される。
+    func testOldSaveStoppedStructureRecordsWhenItResumes() throws {
+        let fx = try powerFixture()
+        var w = fx.world()
+        let dynamo = structure("test.dynamo", 12, status: .running, &w)
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(records(w, .powered).count, 1)
+        w.placements.items[dynamo]?.status = .broken
+        w.placements.items[dynamo]?.structure?.parameters["powered"] = nil
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(w.placements.items[dynamo]?.structure?.parameters["powered"], 0)
+        w.placements.items[dynamo]?.status = .running
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(records(w, .powered).count, 2)
+    }
 }

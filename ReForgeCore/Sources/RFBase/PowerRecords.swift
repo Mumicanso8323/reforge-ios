@@ -19,6 +19,11 @@ enum PowerRecords {
                   (ctx.content.structures[kind]?.provides["power"] ?? 0) > 0 else { continue }
             let active = p.status == .running && Hearths.effectsActive(p, ctx.content)
             let was = (p.structure?.parameters[key] ?? 0) != 0
+            // 古い保存(印のキーが無い)で今は働いていない建造物は 0 を付ける(再開で記録されるように)
+            if p.structure?.parameters[key] == nil, !active {
+                ctx.world.placements.items[id]?.structure?.parameters[key] = 0
+                continue
+            }
             guard active != was else { continue }
             ctx.world.placements.items[id]?.structure?.parameters[key] = active ? 1 : 0
             guard active else { continue }

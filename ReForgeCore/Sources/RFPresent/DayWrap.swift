@@ -89,11 +89,11 @@ public enum DayWrapRules {
     /// - 真の値が幅のどこに来るかは、世界の seed と替わり目の通し番号から決まる固定のずれ(毎日の帯で揺れない)。
     public static func calendarRange(clock: ClockDef, day: Int, count: Int, seed: UInt64) -> (daysMin: Int, daysMax: Int)? {
         guard let seasons = clock.seasons, let decl = clock.calendarOutlook, count >= 1,
-              let next = seasons.next(elapsedDays: day - 1), next.daysLeft <= decl.leadDays else { return nil }
+              let next = seasons.next(elapsedDays: day &- 1), next.daysLeft <= decl.leadDays else { return nil }
         let left = next.daysLeft
         let w = decl.width(count: count)
         guard w > 0 else { return (left, left) }
-        let offset = Int(mix(seed, UInt64(next.index)) % UInt64(w + 1))
+        let offset = Int(mix(seed, UInt64(truncatingIfNeeded: next.index)) % UInt64(w + 1))
         let lo = max(1, left - offset)
         return (lo, lo + w)
     }
