@@ -110,6 +110,11 @@ final class PulsePlayerTests: XCTestCase {
                                   saves: FileSaveStorage(directory: dir), defaults: try XCTUnwrap(UserDefaults(suiteName: "reforge.tests.\(UUID().uuidString)")),
                                   pulsePlayer: player)
             await store.load()
+            // 非公開の層は序の場面から始まり、序の間の Frame は脈を空にする。序を読み終えてから命令を送る(AppTests と同じ)
+            for _ in 0..<200 where store.prologue != nil {
+                _ = await store.perform(.narrative(.advanceScene))
+            }
+            XCTAssertNil(store.prologue, "序を読み終えた")
             let origin = WorldPoint(.surface, GridPoint(0, 0))
             let commands: [Command] = [
                 .production(.handwork(id: "handwork.test.none", input: nil, holding: true)),
