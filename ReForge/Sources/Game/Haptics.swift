@@ -64,6 +64,28 @@ struct HapticRamp {
     }
 }
 
+/// 手応えの触覚(PT-B3)。選択(軽)・成功(中)・名前つきの弱い物。
+enum HapticFeel: Equatable {
+    case select, success
+    /// 決断の帯が出た(中)。
+    case decision
+    /// 火が弱まった・消えた(弱)。
+    case fireDown
+}
+
+/// 触覚を 0.3 秒より詰めて打たない門(PT-B3)。合図(fire)・断り(nudge)・手応え(play)が同じ門を通る。
+/// 暗い場面の長押しの ramp は 0.25 秒おきに強まる設計なので通さない。
+struct HapticGate {
+    static let gap: TimeInterval = 0.3
+    private var last: TimeInterval = -.infinity
+
+    mutating func allow(at time: TimeInterval) -> Bool {
+        guard time - last >= Self.gap else { return false }
+        last = time
+        return true
+    }
+}
+
 /// 振動の口。実機は SystemHaptics、試験は数えるだけの物に差し替える。
 @MainActor
 protocol HapticFiring: AnyObject {
@@ -72,10 +94,13 @@ protocol HapticFiring: AnyObject {
     func ramp(intensity: Double)
     /// 押したが受け付けられなかった時の、弱い応え(文は出さない)。
     func nudge()
+    /// 手応えの触覚(PulsePlayer から。入切は呼ぶ側で見る)。
+    func play(_ feel: HapticFeel)
 }
 
 extension HapticFiring {
     func nudge() {}
+    func play(_ feel: HapticFeel) {}
 }
 
 /// 振動の出し方を 1 か所にまとめる(UIImpactFeedbackGenerator と UINotificationFeedbackGenerator)。
@@ -85,17 +110,23 @@ final class SystemHaptics: HapticFiring {
     private let light = UIImpactFeedbackGenerator(style: .light)
     private let medium = UIImpactFeedbackGenerator(style: .medium)
     private let notification = UINotificationFeedbackGenerator()
+    private let selection = UISelectionFeedbackGenerator()
+    private let settings: PulseSettings
+    private var gate = HapticGate()
+    private func allowed() -> Bool { enabled && gate.allow(at: ProcessInfo.processInfo.systemUptime) }
+
+    init(settings: PulseSettings = PulseSettings()) { self.settings = settings }
 
     private var enabled: Bool {
 #if targetEnvironment(simulator)
         false
 #else
-        !UIAccessibility.isReduceMotionEnabled
+        settings.hapticsOn && !UIAccessibility.isReduceMotionEnabled
 #endif
     }
 
     func fire(_ cue: HapticCue) {
-        guard enabled else { return }
+        guard allowed() else { return }
         switch cue {
         case .fireLit: medium.impactOccurred()
         case .gathered: light.impactOccurred()
@@ -111,7 +142,17 @@ final class SystemHaptics: HapticFiring {
     }
 
     func nudge() {
-        guard enabled else { return }
+        guard allowed() else { return }
         light.impactOccurred(intensity: 0.4)
+    }
+
+    func play(_ feel: HapticFeel) {
+        guard allowed() else { return }
+        switch feel {
+        case .select: selection.selectionChanged()
+        case .success: notification.notificationOccurred(.success)
+        case .decision: medium.impactOccurred()
+        case .fireDown: light.impactOccurred(intensity: 0.4)
+        }
     }
 }

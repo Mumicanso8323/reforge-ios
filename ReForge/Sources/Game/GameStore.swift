@@ -153,14 +153,20 @@ final class GameStore {
     @ObservationIgnored let haptics: any HapticFiring
     @ObservationIgnored private var hapticJudge = HapticJudge()
     @ObservationIgnored private var hapticRamp = HapticRamp()
+    /// 音・触覚・浮かぶ文字の手応え(PT-B3。Frame.pulses を鳴らす)。
+    let pulsePlayer: PulsePlayer
 
     init(content: ContentDB, world: WorldState, saves: FileSaveStorage,
          defaults: UserDefaults = .standard, now: @escaping () -> Date = Date.init,
          performanceNow: @escaping () -> ContinuousClock.Instant = { ContinuousClock().now },
          perfSink: any PerfSink = LoggerPerfSink(), saveWriter: (any SaveWriting)? = nil,
-         haptics: (any HapticFiring)? = nil,
+         haptics: (any HapticFiring)? = nil, pulsePlayer: PulsePlayer? = nil,
          language: LanguageID = .ja, markFallback: Bool = false, entitlements: Entitlements = Entitlements()) {
-        self.haptics = haptics ?? SystemHaptics()
+        let haptics = haptics ?? SystemHaptics()
+        self.haptics = haptics
+        // 試験の store は wav を読まない(実機は共有の 1 つを使う)
+        let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        self.pulsePlayer = pulsePlayer ?? PulsePlayer(sounds: underTest ? SilentSounds() : SystemSounds.shared, haptics: haptics)
         self.content = content
         self.saves = saves
         self.saveWriter = saveWriter ?? SaveWriter(storage: saves)
@@ -561,6 +567,7 @@ final class GameStore {
     func refresh(_ f: Frame) async {
         guard f.revision > lastRevision else { return }
         lastRevision = f.revision
+        pulsePlayer.play(f.pulses)
         frameTime = ProcessInfo.processInfo.systemUptime
         expireNoticeIfStale()
         if clock != f.clock { clock = f.clock }

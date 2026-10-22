@@ -111,6 +111,7 @@ final class LanguageSwitchTests: XCTestCase {
             restored.revision = before.revision
             restored.map.chunkRevisions = before.map.chunkRevisions
             restored.benchRevision = before.benchRevision
+            restored.pulses = before.pulses  // 手応えはその組み立ての間だけの物(言語の切替では起きない)
             XCTAssertEqual(restored, before, label)
             let restoredSave = try await save(host)
             XCTAssertEqual(restoredSave, saved, label)

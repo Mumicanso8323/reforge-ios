@@ -55,6 +55,7 @@ private struct DarkStartActionButton: View {
                 }
                 .frame(height: 3)
                 .background(InkColor.rule)
+                .pulseGlow(store.pulsePlayer.unitTick)
             }
         }
         // 進みの線はボタンの幅に揃える(線の GeometryReader が画面の幅まで広がらないよう、幅は中身(ボタン)で決める)
@@ -63,8 +64,10 @@ private struct DarkStartActionButton: View {
         // 押している間、進みに合わせて軽い振動を少しずつ強める(離したら止める)
         .onChange(of: action.progressPermille) { _, new in
             store.rampHaptic(permille: pressing ? new : nil)
+            if pressing { store.pulsePlayer.rub() }
         }
         .onChange(of: pressing) { _, now in
+            if now { store.pulsePlayer.press(); store.pulsePlayer.rub() }
             if !now { store.rampHaptic(permille: nil) }
         }
         .onChange(of: reduceMotion) { _, _ in pulse() }

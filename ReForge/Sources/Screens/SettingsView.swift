@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// S8 設定。下からの札(InkCard)の中身。右上の角のボタン(SettingsCorner.swift)で開閉する。効果音(MVP は音なし)とプライバシー(P3 で URL)は出さない。
+/// S8 設定。下からの札(InkCard)の中身。右上の角のボタン(SettingsCorner.swift)で開閉する。効果音の音量と触覚の入切は UserDefaults(保存には入れない。PulseSettings)。プライバシー(P3 で URL)は出さない。
 /// 購入はこの札の中で完結する。
 struct SettingsView: View {
     @Bindable var app: AppModel
     /// 札を閉じる(記録を消した後など)。
     var close: () -> Void
+    @AppStorage(PulseSettings.volumeKey) private var effectVolume = PulseSettings.defaultVolume
+    @AppStorage(PulseSettings.hapticsKey) private var hapticsOn = true
     @State private var price: String?
     @State private var restoreMessage: String?
 #if DEBUG
@@ -83,6 +85,17 @@ struct SettingsView: View {
                         .accessibilityIdentifier("restoreButton")
                     }
                 }.task { price = await app.storeService.displayPrice(for: ProductID.fullGame) }
+                }
+
+                // 効果音の音量(0〜100)と触覚の入切。どちらも動かせる物だけ
+                InkSection(title: ui("ui.body.sound_volume")) {
+                    Slider(value: Binding(get: { Double(effectVolume) }, set: { effectVolume = Int($0.rounded()) }),
+                           in: 0...100, step: 5) { ui("ui.body.sound_volume") }
+                        .accessibilityIdentifier("effectVolumeSlider")
+                        .padding(.top, 10)
+                    Toggle(isOn: $hapticsOn) { ui("ui.body.haptics") }
+                        .accessibilityIdentifier("hapticsToggle")
+                        .padding(.top, 10)
                 }
 
 #if DEBUG

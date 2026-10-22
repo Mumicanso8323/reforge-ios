@@ -1,0 +1,139 @@
+import RFContent
+import RFKernel
+import RFMap
+import RFPerception
+import RFPresent
+import RFRules
+import RFSim
+import RFTestSupport
+import RFWorld
+import XCTest
+
+/// PT-B3 手応え(Frame.pulses)。来歴と出来事から作り、次のフレームには残さず、世界は変えない(INV-B3-2)。
+final class PulsesTests: XCTestCase {
+    private func rig() throws -> (TestRig, FrameBuilder, WorldState) {
+        let rig = try TestRig.publicOnly()
+        let builder = FrameBuilder(content: rig.content)
+        return (rig, builder, rig.factory.newWorld(seed: 1))
+    }
+
+    private func report(_ events: [DomainEvent], rejection: Rejection? = nil) -> StepReport {
+        var r = StepReport()
+        r.events = events
+        r.rejection = rejection
+        return r
+    }
+
+    /// TEST-B3-1 手作業の 1 単位で unitDone が 1 つだけ入り、次のフレームには残らない。
+    func testUnitDoneOnceAndNotCarried() throws {
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        let gathered = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .gathered, subject: .item("wood"))
+        }
+        let first = b.build(w, revision: 1, previous: nil, report: nil)
+        XCTAssertEqual(first.pulses, [], "報告の無い組み立ては手応えを返さない")
+        let ev = DomainEvent.itemGained(holder: .person(.noah), stuff: .item("wood"), quantity: 1, record: gathered)
+        let second = b.build(w, revision: 2, previous: first, report: report([ev]))
+        let units = second.pulses.filter { if case .unitDone = $0 { true } else { false } }
+        XCTAssertEqual(units.count, 1)
+        guard case .unitDone(_, let count) = units[0] else { return XCTFail() }
+        XCTAssertEqual(count, 1)
+        let third = b.build(w, revision: 3, previous: second, report: report([]))
+        XCTAssertEqual(third.pulses, [], "次のフレームには残らない")
+    }
+
+    /// TEST-B3-2 断られた命令で rejected が理由つきで入る。
+    func testRejectedCarriesReason() throws {
+        let (rig, b, w) = try rig()
+        let reason = TextID("reason.test.pulse")
+        let r = Rejection(reason)
+        let f = b.build(w, revision: 1, previous: nil, report: report([], rejection: r))
+        let expected = Perceiver(content: rig.content, world: w, language: b.language, markFallback: b.markFallback)
+            .rejectionText(reason)
+        XCTAssertEqual(f.pulses, [.rejected(reason: expected)])
+    }
+
+    /// TEST-B3-3 火が点いた・弱まった・消えたで fire が入る。
+    func testFirePulses() throws {
+        let (_, b, w) = try rig()
+        func fire(_ level: HearthLevel, previous: Frame?) -> Frame {
+            b.build(w, revision: (previous?.revision ?? 0) + 1, previous: previous,
+                    report: report([.hearthLevelChanged(placement: EntityID(1), level: level)]))
+        }
+        var f = fire(.burning, previous: nil)
+        XCTAssertEqual(f.pulses, [.fire(.lit)])
+        f = b.build(w, revision: 3, previous: nil, report: report([
+            .hearthLevelChanged(placement: EntityID(1), level: .burning),
+            .hearthLevelChanged(placement: EntityID(1), level: .smoldering),
+            .hearthLevelChanged(placement: EntityID(1), level: .out)]))
+        XCTAssertEqual(f.pulses, [.fire(.lit), .fire(.weakened), .fire(.out)])
+    }
+
+    func testFedAndNightAndWorldUnchanged() throws {
+        let (_, b, w) = try rig()
+        let before = w
+        let f = b.build(w, revision: 1, previous: nil, report: report([
+            .hearthStoked(placement: EntityID(1)), .phaseChanged(to: .dusk, day: 1)]))
+        XCTAssertEqual(f.pulses, [.fed, .nightBegan])
+        XCTAssertEqual(w, before, "INV-B3-2 世界は変えない")
+    }
+
+    /// 札の名前が first_ で始まる新しい記録は firstTime になる(名前は決め打ちしない)。ただの記録は ならない。
+    func testFirstTimeFromFirstTag() throws {
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        func record(_ tags: Set<ProvenanceTag>, act: ActKind) -> ProvenanceID {
+            w.ledger.append { id in
+                ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: act,
+                                 subject: .item("wood"), tags: tags)
+            }
+        }
+        _ = record([], act: .gathered)
+        let plain = record([], act: .gathered)
+        let tagged = record(["tag.test.first_hot_furnace"], act: .gathered)
+        let none = b.build(w, revision: 1, previous: nil, report: report([.finiteUsed(record: plain)]))
+        XCTAssertFalse(none.pulses.contains { if case .firstTime = $0 { true } else { false } })
+        let some = b.build(w, revision: 2, previous: none, report: report([.finiteUsed(record: tagged)]))
+        XCTAssertEqual(some.pulses.filter { if case .firstTime = $0 { true } else { false } }.count, 1)
+    }
+
+    /// 作った物・報酬(手作業でも採取でもない入手)では unitDone を出さない。採取の記録の入手は出す。
+    func testUnitDoneOnlyForHandworkOrGather() throws {
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        let crafted = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .crafted, subject: .item("wood"))
+        }
+        let gathered = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .gathered, subject: .item("wood"))
+        }
+        func units(_ record: ProvenanceID) -> Int {
+            let ev = DomainEvent.itemGained(holder: .person(.noah), stuff: .item("wood"), quantity: 1, record: record)
+            return b.build(w, revision: 1, previous: nil, report: report([ev])).pulses
+                .filter { if case .unitDone = $0 { true } else { false } }.count
+        }
+        XCTAssertEqual(units(crafted), 0)
+        XCTAssertEqual(units(gathered), 1)
+    }
+
+    /// 同じ first_ の記録から firstTime は 1 つだけ(同じフレームの中でも、前のフレームの分とも重ねない)。
+    func testFirstTimeNotDuplicated() throws {
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        let rec = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .gathered, subject: .item("wood"),
+                             tags: ["tag.test.first_hot_furnace"])
+        }
+        func firsts(_ f: Frame) -> Int { f.pulses.filter { if case .firstTime = $0 { true } else { false } }.count }
+        let ev = DomainEvent.finiteUsed(record: rec)
+        let one = b.build(w, revision: 1, previous: nil, report: report([ev, ev]))
+        XCTAssertEqual(firsts(one), 1)
+        let two = b.build(w, revision: 2, previous: one, report: report([ev]))
+        XCTAssertEqual(firsts(two), 0)
+    }
+}

@@ -79,6 +79,8 @@ public struct Frame: Equatable, Sendable {
     public var canSteer: Bool = false
     /// Runtime view of the optional free-opening boundary.
     public var trial: TrialFrame?
+    /// 前のフレームから後に起きた手応え(PT-B3。次のフレームには残らない)。
+    public var pulses: [Pulse] = []
 
     public init(revision: Int, language: LanguageID = .ja, clock: ClockView, timeMark: TimeMark = .day, timeTint: TimeTint = TimeOfDay.tint(minutes: 0, TimeOfDay.defaultDef(ClockDef())), timeWord: String? = nil,
                 status: [StatusItem], objective: String? = nil, map: MapView,
