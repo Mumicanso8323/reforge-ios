@@ -73,6 +73,19 @@ enum HapticFeel: Equatable {
     case fireDown
 }
 
+/// 触覚を 0.3 秒より詰めて打たない門(PT-B3)。合図(fire)・断り(nudge)・手応え(play)が同じ門を通る。
+/// 暗い場面の長押しの ramp は 0.25 秒おきに強まる設計なので通さない。
+struct HapticGate {
+    static let gap: TimeInterval = 0.3
+    private var last: TimeInterval = -.infinity
+
+    mutating func allow(at time: TimeInterval) -> Bool {
+        guard time - last >= Self.gap else { return false }
+        last = time
+        return true
+    }
+}
+
 /// 振動の口。実機は SystemHaptics、試験は数えるだけの物に差し替える。
 @MainActor
 protocol HapticFiring: AnyObject {
@@ -99,6 +112,8 @@ final class SystemHaptics: HapticFiring {
     private let notification = UINotificationFeedbackGenerator()
     private let selection = UISelectionFeedbackGenerator()
     private let settings: PulseSettings
+    private var gate = HapticGate()
+    private func allowed() -> Bool { enabled && gate.allow(at: ProcessInfo.processInfo.systemUptime) }
 
     init(settings: PulseSettings = PulseSettings()) { self.settings = settings }
 
@@ -111,7 +126,7 @@ final class SystemHaptics: HapticFiring {
     }
 
     func fire(_ cue: HapticCue) {
-        guard enabled else { return }
+        guard allowed() else { return }
         switch cue {
         case .fireLit: medium.impactOccurred()
         case .gathered: light.impactOccurred()
@@ -127,12 +142,12 @@ final class SystemHaptics: HapticFiring {
     }
 
     func nudge() {
-        guard enabled else { return }
+        guard allowed() else { return }
         light.impactOccurred(intensity: 0.4)
     }
 
     func play(_ feel: HapticFeel) {
-        guard enabled else { return }
+        guard allowed() else { return }
         switch feel {
         case .select: selection.selectionChanged()
         case .success: notification.notificationOccurred(.success)

@@ -164,7 +164,9 @@ final class GameStore {
          language: LanguageID = .ja, markFallback: Bool = false, entitlements: Entitlements = Entitlements()) {
         let haptics = haptics ?? SystemHaptics()
         self.haptics = haptics
-        self.pulsePlayer = pulsePlayer ?? PulsePlayer(haptics: haptics)
+        // 試験の store は wav を読まない(実機は共有の 1 つを使う)
+        let underTest = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        self.pulsePlayer = pulsePlayer ?? PulsePlayer(sounds: underTest ? SilentSounds() : SystemSounds.shared, haptics: haptics)
         self.content = content
         self.saves = saves
         self.saveWriter = saveWriter ?? SaveWriter(storage: saves)

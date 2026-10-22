@@ -26,10 +26,15 @@ final class PulsesTests: XCTestCase {
 
     /// TEST-B3-1 手作業の 1 単位で unitDone が 1 つだけ入り、次のフレームには残らない。
     func testUnitDoneOnceAndNotCarried() throws {
-        let (_, b, w) = try rig()
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        let gathered = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .gathered, subject: .item("wood"))
+        }
         let first = b.build(w, revision: 1, previous: nil, report: nil)
         XCTAssertEqual(first.pulses, [], "報告の無い組み立ては手応えを返さない")
-        let ev = DomainEvent.itemGained(holder: .person(.noah), stuff: .item("wood"), quantity: 1, record: nil)
+        let ev = DomainEvent.itemGained(holder: .person(.noah), stuff: .item("wood"), quantity: 1, record: gathered)
         let second = b.build(w, revision: 2, previous: first, report: report([ev]))
         let units = second.pulses.filter { if case .unitDone = $0 { true } else { false } }
         XCTAssertEqual(units.count, 1)
@@ -93,5 +98,42 @@ final class PulsesTests: XCTestCase {
         XCTAssertFalse(none.pulses.contains { if case .firstTime = $0 { true } else { false } })
         let some = b.build(w, revision: 2, previous: none, report: report([.finiteUsed(record: tagged)]))
         XCTAssertEqual(some.pulses.filter { if case .firstTime = $0 { true } else { false } }.count, 1)
+    }
+
+    /// 作った物・報酬(手作業でも採取でもない入手)では unitDone を出さない。採取の記録の入手は出す。
+    func testUnitDoneOnlyForHandworkOrGather() throws {
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        let crafted = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .crafted, subject: .item("wood"))
+        }
+        let gathered = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .gathered, subject: .item("wood"))
+        }
+        func units(_ record: ProvenanceID) -> Int {
+            let ev = DomainEvent.itemGained(holder: .person(.noah), stuff: .item("wood"), quantity: 1, record: record)
+            return b.build(w, revision: 1, previous: nil, report: report([ev])).pulses
+                .filter { if case .unitDone = $0 { true } else { false } }.count
+        }
+        XCTAssertEqual(units(crafted), 0)
+        XCTAssertEqual(units(gathered), 1)
+    }
+
+    /// 同じ first_ の記録から firstTime は 1 つだけ(同じフレームの中でも、前のフレームの分とも重ねない)。
+    func testFirstTimeNotDuplicated() throws {
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        let rec = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .gathered, subject: .item("wood"),
+                             tags: ["tag.test.first_hot_furnace"])
+        }
+        func firsts(_ f: Frame) -> Int { f.pulses.filter { if case .firstTime = $0 { true } else { false } }.count }
+        let ev = DomainEvent.finiteUsed(record: rec)
+        let one = b.build(w, revision: 1, previous: nil, report: report([ev, ev]))
+        XCTAssertEqual(firsts(one), 1)
+        let two = b.build(w, revision: 2, previous: one, report: report([ev]))
+        XCTAssertEqual(firsts(two), 0)
     }
 }

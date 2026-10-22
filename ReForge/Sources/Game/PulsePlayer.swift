@@ -42,6 +42,9 @@ protocol SoundPlaying: AnyObject {
 /// `.ambient`(ほかのアプリの音楽を止めない・消音スイッチで消える)。短い音は最初に読み込む(初回の遅れを避ける)。
 @MainActor
 final class SystemSounds: SoundPlaying {
+    /// アプリ全体で 1 つ(12 個の wav を読むのは最初の 1 回だけ)。
+    static let shared = SystemSounds()
+
     private var players: [UISound: AVAudioPlayer] = [:]
 
     init(bundle: Bundle = .main) {
@@ -62,6 +65,12 @@ final class SystemSounds: SoundPlaying {
     }
 }
 
+/// 音を鳴らさない口(試験の store が wav を読まないための物)。
+@MainActor
+final class SilentSounds: SoundPlaying {
+    func play(_ sound: UISound, volume: Double) {}
+}
+
 /// 浮かぶ文字(「+1 〈物〉」)。固定の形 + 物の名前だけ。
 struct Floater: Identifiable, Equatable {
     let id: Int
@@ -76,8 +85,6 @@ struct Floater: Identifiable, Equatable {
 final class PulsePlayer {
     static let maxFloaters = 5
     static let floaterLifetime: TimeInterval = 0.5
-    /// 触覚は 0.3 秒より詰めて打たない。
-    static let hapticGap: TimeInterval = 0.3
 
     private(set) var floaters: [Floater] = []
     /// 帯の短い文(「〈物〉ができた」「初めての〈物〉」「火が弱まった」)。2.5 秒。説明や理由は入れない。
@@ -96,7 +103,6 @@ final class PulsePlayer {
     @ObservationIgnored private let clock: () -> TimeInterval
     /// 試験だけが渡す、帯の文の代わり(ID をそのまま返すなど)。実機は nil で、固定文言の表から引く。
     @ObservationIgnored private let bannerStub: ((String) -> String)?
-    @ObservationIgnored private var lastHaptic: TimeInterval = -.infinity
     @ObservationIgnored private var fedCount = 0
     @ObservationIgnored private var nextID = 0
     @ObservationIgnored private var bannerTask: Task<Void, Never>?
@@ -109,7 +115,7 @@ final class PulsePlayer {
          clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
          bannerStub: ((String) -> String)? = nil) {
         self.bannerStub = bannerStub
-        self.sounds = sounds ?? SystemSounds()
+        self.sounds = sounds ?? SystemSounds.shared
         self.haptics = haptics
         self.settings = settings
         self.reduceMotion = reduceMotion
@@ -189,10 +195,7 @@ final class PulsePlayer {
 
     private func feel(_ feel: HapticFeel) {
         guard settings.hapticsOn else { return }
-        let t = clock()
-        guard t - lastHaptic >= Self.hapticGap else { return }
-        lastHaptic = t
-        haptics.play(feel)
+        haptics.play(feel)  // 0.3 秒の間隔は触覚の口(SystemHaptics の HapticGate)が 1 か所で見る
     }
 
     /// 「動きを減らす」が入っているときは浮かぶ文字を作らない(色の変化だけ)。

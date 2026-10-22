@@ -60,14 +60,60 @@ final class PulsePlayerTests: XCTestCase {
         XCTAssertEqual(onHaptics.feels, [.select])
     }
 
-    func testHapticsAreNotTighterThanGap() throws {
+    /// 触覚は 0.3 秒より詰めて打たない(合図・断り・手応えが通る 1 つの門)。
+    func testHapticGateAllowsOnlyAfterGap() {
+        var gate = HapticGate()
+        XCTAssertTrue(gate.allow(at: 10))
+        XCTAssertFalse(gate.allow(at: 10.2))
+        XCTAssertTrue(gate.allow(at: 10.3))
+    }
+
+    /// こする音は 0.35 秒おき。
+    func testRubSoundGap() throws {
         let s = try settings()
-        let haptics = RecordingHaptics()
-        let player = PulsePlayer(sounds: RecordingSounds(), haptics: haptics, settings: s, reduceMotion: { false },
-                                 clock: { 10 }, bannerStub: { $0 })
-        player.press()
-        player.press()
-        XCTAssertEqual(haptics.feels.count, 1, "0.3 秒より詰めて打たない")
+        let sounds = RecordingSounds()
+        var t = 100.0
+        let player = PulsePlayer(sounds: sounds, haptics: RecordingHaptics(), settings: s, reduceMotion: { false }, clock: { t })
+        player.rub()
+        t += 0.2
+        player.rub()
+        XCTAssertEqual(sounds.played.count, 1)
+        t += 0.2
+        player.rub()
+        XCTAssertEqual(sounds.played.map(\.0), [.rub, .rub])
+    }
+
+    /// 帯の文は本物の表の道(物の名前の引数つき)で引く。
+    func testBannerUsesRealTextTable() throws {
+        let content = try AppModel.loadBundledContent(bundle: .main)
+        UIText.shared.configure(tables: content.textTables, language: .ja, markFallback: false)
+        addTeardownBlock { UIText.shared.configure(tables: content.textTables, language: .ja, markFallback: false) }
+        let real = PulsePlayer(sounds: RecordingSounds(), haptics: RecordingHaptics(), settings: try settings())
+        real.play([.finished(name: "XYZ")])
+        XCTAssertEqual(real.banner, UIText.shared.string("ui.band.pulse_done", ["name": .string("XYZ")]))
+        XCTAssertTrue(real.banner?.contains("XYZ") == true)
+    }
+
+    /// INV-B3-2 音・触覚を切っても入れても、同じ命令の列で世界は同じ。
+    func testWorldIsSameWithAndWithoutSoundAndHaptics() async throws {
+        let c = try AppModel.loadBundledContent(bundle: .main)
+        func run(volume: Int, haptics: Bool) async throws -> WorldState {
+            let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+            addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
+            let s = try settings()
+            s.volume = volume
+            s.hapticsOn = haptics
+            let player = PulsePlayer(sounds: RecordingSounds(), haptics: RecordingHaptics(), settings: s)
+            let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3),
+                                  saves: FileSaveStorage(directory: dir), defaults: try XCTUnwrap(UserDefaults(suiteName: "reforge.tests.\(UUID().uuidString)")),
+                                  pulsePlayer: player)
+            await store.load()
+            for _ in 0..<20 { await store.clockStep(realSeconds: 0.5) }
+            return await store.host.world
+        }
+        let quiet = try await run(volume: 0, haptics: false)
+        let loud = try await run(volume: 100, haptics: true)
+        XCTAssertEqual(quiet, loud)
     }
 
     func testFeedSoundsCycleAndVolumeDefault() throws {

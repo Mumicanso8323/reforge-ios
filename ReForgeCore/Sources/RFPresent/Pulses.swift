@@ -45,11 +45,22 @@ extension FrameBuilder {
         guard let report else { return [] }
         var out: [Pulse] = []
         var level = previous?.fireGauge?.level ?? .out
+        // 同じ札・同じ名前は 1 回だけ(同じフレームの中でも、前のフレームの分とも重ねない)
+        var seen = Set<ProvenanceID>()
+        var firstNames = Set<String>()
+        for case .firstTime(let n) in previous?.pulses ?? [] { firstNames.insert(n) }
+        let interacted = report.events.contains { if case .interacted = $0 { true } else { false } }
         for event in report.events {
-            if let id = event.record, let name = firstName(id, w, p) { out.append(.firstTime(name: name)) }
+            if let id = event.record, seen.insert(id).inserted, let name = firstName(id, w, p), firstNames.insert(name).inserted {
+                out.append(.firstTime(name: name))
+            }
             switch event {
-            case .itemGained(let holder, let stuff, let quantity, _):
-                if holder.raw.hasPrefix("person:") { out.append(.unitDone(name: p.name(of: stuff), count: quantity)) }
+            case .itemGained(let holder, let stuff, let quantity, let record):
+                // 手作業・採取の 1 単位だけ(作った物・報酬・交換では出さない)
+                let act = record.flatMap { w.ledger.record($0)?.act }
+                if holder.raw.hasPrefix("person:"), interacted || act == .gathered || act == .mined {
+                    out.append(.unitDone(name: p.name(of: stuff), count: quantity))
+                }
             case .placed:
                 out.append(.placed)
             case .built(let placement, _):
