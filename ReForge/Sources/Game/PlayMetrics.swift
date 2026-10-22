@@ -63,6 +63,8 @@ final class FrameTicker: NSObject {
     private var link: CADisplayLink?
     var onFrame: ((TimeInterval) -> Void)?
 
+    var isRunning: Bool { link != nil }
+
     func start() {
         guard link == nil else { return }
         let l = CADisplayLink(target: self, selector: #selector(tick(_:)))

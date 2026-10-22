@@ -8,6 +8,7 @@ import RFWorld
 
 /// 操作記録に残す内容の組み立て(PT-B4)。記録は端末の中だけ。世界にも保存にも入れず、ID だけを書く。
 /// GameStore 本体からは 1 行ずつ呼ぶ。
+@MainActor
 final class PlayRecorder {
     /// 何も押さない時間がこれ以上なら `idle` を 1 件書く(秒)。
     static let idleSeconds: TimeInterval = 10
@@ -26,6 +27,8 @@ final class PlayRecorder {
     var thermalObserver: NSObjectProtocol?
     var marksLoaded = false
     var marksSeed: UInt64?
+    /// いまの画面(idle の行に入れる)。
+    var screen = "map"
 }
 
 /// 節目の追跡の置き場(playlog/marks.json。遊び〈seed〉ごと。保存には入れない)。
@@ -55,6 +58,39 @@ extension GameStore {
         return kind.hasPrefix("narrative.decide") || kind.hasPrefix("invention.makeDesign") || kind.contains("assign")
     }
 
+    /// 命令の中の ID・数・向きだけを取り出す(文字列は物語の文になりうるので入れない)。
+    nonisolated static func commandIDs(_ command: Command) -> String {
+        var out: [String] = []
+        func walk(_ value: Any, label: String?, depth: Int) {
+            guard depth < 5, out.count < 12 else { return }
+            let type = String(describing: Swift.type(of: value))
+            switch value {
+            case is String, is Substring: return
+            case let v as Int: out.append("\(label ?? "n")=\(v)")
+            case let v as Int64: out.append("\(label ?? "n")=\(v)")
+            case let v as Bool: out.append("\(label ?? "b")=\(v)")
+            default:
+                if type.hasPrefix("TypedID") || type.hasSuffix("ID") {
+                    out.append("\(label ?? "id")=\(value)")
+                    return
+                }
+                let m = Mirror(reflecting: value)
+                if m.displayStyle == .enum {
+                    if m.children.isEmpty { out.append("\(label ?? "case")=\(value)"); return }
+                    for c in m.children { walk(c.value, label: c.label, depth: depth + 1) }
+                } else if m.displayStyle == .struct || m.displayStyle == .tuple || m.displayStyle == .collection
+                            || m.displayStyle == .optional {
+                    for c in m.children.prefix(6) {
+                        walk(c.value, label: m.displayStyle == .optional ? label : (c.label ?? label), depth: depth + 1)
+                    }
+                }
+            }
+        }
+        // 先頭の case 名は kind に入っているので、中身だけを見る
+        for c in Mirror(reflecting: command).children { walk(c.value, label: c.label, depth: 0) }
+        return out.joined(separator: ",")
+    }
+
     /// データで「分かれ道」の印が付いた建てる物を置く命令か(StructureDef.branchChoice)。
     nonisolated static func placesBranchChoice(_ command: Command, _ content: ContentDB) -> Bool {
         func find(_ value: Any) -> StructureKindID? {
@@ -71,8 +107,8 @@ extension GameStore {
         guard playLog?.isRecording == true else { return }
         let kind = Self.commandKind(command)
         var fields = ["command": kind, "result": accepted ? "accepted" : "rejected"]
-        let args = String(describing: command)
-        fields["args"] = String(args.prefix(160))
+        let ids = Self.commandIDs(command)
+        if !ids.isEmpty { fields["ids"] = ids }
         if let rejection { fields["reason"] = rejection.id.rawValue }
         logPlay(kind: "command", fields: fields)
         let r = playRecorder
@@ -83,8 +119,9 @@ extension GameStore {
     }
 
     /// 命令を出した時刻を覚え、10 秒以上あいていたら `idle` を書く。
-    func recordTouch(screen: String = "map") {
+    func recordTouch() {
         guard playLog?.isRecording == true else { return }
+        let screen = playRecorder.screen
         playRecorder.metrics.touch(at: CACurrentMediaTime())
         let t = now()
         if let last = playRecorder.lastTouch {
@@ -148,7 +185,7 @@ extension GameStore {
 extension GameStore {
     /// 画面が出ている間、描画の合図で latency・hitch を数える。熱の段が変わったら power を 1 件。
     func startFrameMeter() {
-        guard playLog != nil else { return }
+        guard playLog?.isRecording == true else { return }
         let r = playRecorder
         r.ticker.onFrame = { [weak self] t in
             guard let self, self.playLog?.isRecording == true, self.isActive else { return }
@@ -168,6 +205,21 @@ extension GameStore {
         playRecorder.metrics.suspend()
     }
 
+    /// 後ろに下がるとき、止まったままだった時間が 10 秒以上なら idle を 1 件書く。
+    func flushIdle() {
+        let r = playRecorder
+        guard let last = r.lastTouch else { return }
+        let gap = now().timeIntervalSince(last)
+        if gap >= PlayRecorder.idleSeconds { logPlay(kind: "idle", fields: ["seconds": "\(Int(gap))", "screen": r.screen]) }
+        r.lastTouch = nil
+    }
+
+    /// 画面(タブ)を開いた。いまの画面を覚える。
+    func logPanel(_ name: String) {
+        playRecorder.screen = name
+        logPlay(kind: "panel", fields: ["tab": name])
+    }
+
     func logPower(event: String) {
         guard playLog?.isRecording == true else { return }
         var fields = DeviceSnapshot.power()
@@ -178,7 +230,10 @@ extension GameStore {
     /// 前に出た・後ろに下がった(画面の向きと操作棒の左右つき)と、その時の電池・熱。
     func logSession(active: Bool) {
         guard playLog?.isRecording == true else { return }
-        if !active { playRecorder.metrics.suspend() }
+        if !active {
+            playRecorder.metrics.suspend()
+            flushIdle()
+        }
         logPlay(kind: "session", fields: ["state": active ? "front" : "back", "orientation": DeviceSnapshot.orientation(),
                                           "hand": MapTouchSettings.hand(defaults).rawValue])
         logPower(event: active ? "front" : "back")

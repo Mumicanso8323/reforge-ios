@@ -84,6 +84,7 @@ struct InkHoldButton: View {
 
     @State private var progress: CGFloat = 0
     @State private var decided = false
+    @State private var pressStartedAt: Date?
     @State private var pressing = false
 
     var body: some View {
@@ -117,9 +118,14 @@ struct InkHoldButton: View {
                     action()
                 }, onPressingChanged: { p in
                     pressing = p
-                    if !p {
-                        if !decided, let confirmID { Self.logConfirm?(confirmID, "cancelled") }
+                    if p {
+                        pressStartedAt = Date()
+                    } else {
+                        // 満ちる長さまで押していたら決めた側(決めた後に取りやめを書かない)
+                        let held = pressStartedAt.map { Date().timeIntervalSince($0) } ?? 0
+                        if !decided, held < duration, let confirmID { Self.logConfirm?(confirmID, "cancelled") }
                         decided = false
+                        pressStartedAt = nil
                     }
                     if p {
                         withAnimation(.linear(duration: duration)) { progress = 1 }

@@ -166,4 +166,40 @@ final class PlayLogRecordingTests: XCTestCase {
         for i in 1...3700 { all += m.frame(at: 50 + Double(i) / 60) }
         XCTAssertEqual(all.filter { $0.kind == "hitch" }.first?.fields["count"], "0")
     }
+
+    /// TEST-B4-7(入切): 記録が切れている間は、描画の合図も書き込みも動かない(描画の時間に影響しない)
+    func testNothingRunsWhileRecordingIsOff() async throws {
+        let dir = tempDir()
+        let (store, log) = try await makeStore(dir: dir)
+        UserDefaults.standard.set(false, forKey: PlayLog.recordingKey)
+        defer { UserDefaults.standard.removeObject(forKey: PlayLog.recordingKey) }
+        let off = try XCTUnwrap(PlayLog(directory: dir.appendingPathComponent("off")))
+        store.playLog = off
+        store.startFrameMeter()
+        XCTAssertFalse(store.playRecorder.ticker.isRunning)
+        store.playRecorder.ticker.onFrame?(1)
+        store.playRecorder.ticker.onFrame?(5)
+        await store.perform(.crew(.steer(direction: nil)))
+        XCTAssertTrue(try events(off).isEmpty)
+        XCTAssertTrue(try events(log).isEmpty)
+    }
+
+    /// 命令の ID は、ID・数・向きだけ(文字列は入れない)
+    func testCommandIDsKeepOnlyIDsAndNumbers() {
+        XCTAssertEqual(GameStore.commandIDs(.crew(.steer(direction: .north))), "direction=north")
+    }
+
+    /// 後ろに下がるとき、止まったままなら idle を 1 件書き、いまの画面を入れる
+    func testIdleIsWrittenWhenGoingToBackgroundAndNamesTheScreen() async throws {
+        let (store, log) = try await makeStore(dir: tempDir())
+        store.logPanel("notes")
+        await store.perform(.crew(.steer(direction: nil)))
+        clockNow.addTimeInterval(30)
+        store.flushIdle()
+        let idle = try kinds(log, "idle")
+        XCTAssertEqual(idle.count, 1)
+        XCTAssertEqual(idle.first?["screen"], "notes")
+        store.flushIdle()
+        XCTAssertEqual(try kinds(log, "idle").count, 1)
+    }
 }

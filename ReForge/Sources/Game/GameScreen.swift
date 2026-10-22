@@ -129,7 +129,7 @@ struct GameScreen: View {
         // 設計かノートを開いている間は、開発の設定が入のとき時計を止める(PT-B2。切なら何も変わらない)
         .onChange(of: tab, initial: true) { _, t in
             store.benchOpen = (t == .design || t == .notes)
-            store.logPlay(kind: "panel", fields: ["tab": "\(t)"])
+            store.logPanel("\(t)")
         }
         .onAppear { store.startFrameMeter() }
         .onDisappear { store.stopFrameMeter() }
