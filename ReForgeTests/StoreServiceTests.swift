@@ -67,14 +67,15 @@ final class StoreServiceTests: XCTestCase {
 
         let purchase = try XCTUnwrap(session.allTransactions().last { $0.productIdentifier == ProductID.fullGame })
         try session.refundTransaction(identifier: purchase.identifier)
-        let afterRefund = await service.entitlements()
+        // 取り消しが currentEntitlements に届くまで少しかかることがある(iOS 26.2 のシミュレータ)
+        let afterRefund = await entitlements(of: service, contains: false)
         XCTAssertFalse(afterRefund.contains(ProductID.fullGame), "取り消された取引は権利にしない")
 
         // アプリの外で買った取引を AppStore.sync() で読み直すのが復元の経路。
         try session.buyProduct(productIdentifier: ProductID.fullGame)
         let restored = await service.restore()
         XCTAssertTrue(restored)
-        let afterRestore = await service.entitlements()
+        let afterRestore = await entitlements(of: service, contains: true)
         XCTAssertTrue(afterRestore.contains(ProductID.fullGame))
 
         let products = try await Product.products(for: [ProductID.fullGame])
@@ -83,6 +84,16 @@ final class StoreServiceTests: XCTestCase {
         // entitlements() は ownershipType を除外せず、検証済み・未取消の取引を同じ集合に入れる。
         let familyCompatible = await service.entitlements()
         XCTAssertTrue(familyCompatible.contains(ProductID.fullGame))
+    }
+
+    /// 権利の集合が期待の状態(商品を含む/含まない)になるまで、最大 5 秒待って読み直す。
+    private func entitlements(of service: StoreKitStoreService, contains expected: Bool) async -> Set<String> {
+        var result = await service.entitlements()
+        for _ in 0..<10 where result.contains(ProductID.fullGame) != expected {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            result = await service.entitlements()
+        }
+        return result
     }
 
     func testDefaultBuildKeepsTrialGateClosed() {

@@ -220,8 +220,10 @@ jobs:
         if: github.event_name != 'workflow_dispatch' || inputs.run_app_tests
         run: |
           set -o pipefail
-          udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
-          echo "simulator $udid"
+          # iOS 26.4 以降のシミュレータは StoreKitTest の店が設定ごと効かず商品が空で返る(Apple FB22237318)。効く 26.2 があればそれを使う
+          sim=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; c=[(k,x["udid"]) for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")]; print(next((k+" "+u for k,u in c if k.endswith("iOS-26-2")), c[0][0]+" "+c[0][1]))')
+          udid=${sim#* }; runtime=${sim%% *}
+          echo "simulator $udid ($runtime)"
           # シミュレータ用の簡易署名にする(StoreKit の試験の店を試すアプリは署名が要る)
           xcodebuild test -project ReForge.xcodeproj -scheme ReForge \
             -destination "id=$udid" -derivedDataPath build-test \
@@ -263,6 +265,10 @@ jobs:
           grep -aE "Test Case .*(passed|failed)|Executed|\*\* TEST" test.log | tail -20
           # 飛ばした試験(購入の試験は試験の店が動かない所で飛ばす)。英数の文だけ
           grep -aoE "Test Case '[^']+' skipped|STORE test store unavailable[^\"]{0,200}" test.log | LC_ALL=C tr -cd 'A-Za-z0-9_.:()[]/=, \n-' | cut -c1-300 | sort -u | head -5 || true
+          # 試験の店が動くはずの 26.2 で飛ばしたら外れにする(黙って飛ばし続けない)
+          if [ "${runtime##*.}" = "iOS-26-2" ] && grep -aq "STORE test store unavailable" test.log; then
+            echo "STORE skipped on iOS 26.2 (the test store should work there)"; exit 1
+          fi
 
       - name: Build (unsigned)
         run: |
