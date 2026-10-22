@@ -95,25 +95,39 @@ final class PulsePlayerTests: XCTestCase {
     }
 
     /// INV-B3-2 音・触覚を切っても入れても、同じ命令の列で世界は同じ。
+    /// 断られる命令(手作業・置く)を混ぜるので、どちらの store でも脈(断られた)が必ず出る。出たことも確かめる。
     func testWorldIsSameWithAndWithoutSoundAndHaptics() async throws {
         let c = try AppModel.loadBundledContent(bundle: .main)
-        func run(volume: Int, haptics: Bool) async throws -> WorldState {
+        func run(volume: Int, haptics: Bool) async throws -> (WorldState, Int) {
             let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
             addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
             let s = try settings()
             s.volume = volume
             s.hapticsOn = haptics
-            let player = PulsePlayer(sounds: RecordingSounds(), haptics: RecordingHaptics(), settings: s)
+            let sounds = RecordingSounds()
+            let player = PulsePlayer(sounds: sounds, haptics: RecordingHaptics(), settings: s)
             let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3),
                                   saves: FileSaveStorage(directory: dir), defaults: try XCTUnwrap(UserDefaults(suiteName: "reforge.tests.\(UUID().uuidString)")),
                                   pulsePlayer: player)
             await store.load()
-            for _ in 0..<20 { await store.clockStep(realSeconds: 0.5) }
-            return await store.host.world
+            let origin = WorldPoint(.surface, GridPoint(0, 0))
+            let commands: [Command] = [
+                .production(.handwork(id: "handwork.test.none", input: nil, holding: true)),
+                .production(.place(module: "test.none", at: origin, facing: .east)),
+                .production(.handwork(id: "handwork.test.none", input: nil, holding: false)),
+            ]
+            for command in commands {
+                _ = await store.perform(command)
+                await store.clockStep(realSeconds: 0.5)
+            }
+            return (await store.host.world, sounds.played.count)
         }
         let quiet = try await run(volume: 0, haptics: false)
         let loud = try await run(volume: 100, haptics: true)
-        XCTAssertEqual(quiet, loud)
+        XCTAssertGreaterThanOrEqual(quiet.1, 1, "脈が出た(音の口は音量 0 でも呼ばれる)")
+        XCTAssertGreaterThanOrEqual(loud.1, 1, "脈が出た")
+        XCTAssertEqual(quiet.1, loud.1)
+        XCTAssertEqual(quiet.0, loud.0)
     }
 
     func testFeedSoundsCycleAndVolumeDefault() throws {
