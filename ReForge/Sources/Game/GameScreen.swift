@@ -131,6 +131,8 @@ struct GameScreen: View {
             store.benchOpen = (t == .design || t == .notes)
             store.logPlay(kind: "panel", fields: ["tab": "\(t)"])
         }
+        .onAppear { store.startFrameMeter() }
+        .onDisappear { store.stopFrameMeter() }
         .onPreferenceChange(MapBandHeightKey.self) { mapBandHeight = $0 }
         // 止める形(freeze)の間は何も受け付けないので、帯・地図・タブを見せずに札だけを出す(Z1)
         .overlay {

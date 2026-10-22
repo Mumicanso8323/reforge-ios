@@ -460,6 +460,21 @@ final class PlaytestMarkContentTests: XCTestCase {
         XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.rule == "playtestMark.id" })
     }
 
+    func testFirstTimeMarkIsAnError() throws {
+        var db = try TestContent.publicOnly()
+        db.playtestMarks["mark.test.first"] = PlaytestMarkDef(id: "mark.test.first", when: .firstTime(query: ProvenanceQuery(act: .crafted)))
+        XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.rule == "playtestMark.firstTime" })
+    }
+
+    func testBranchChoiceIsOptionalAndOmittedWhenNil() throws {
+        let json = #"{"id":"structure.test.bc","cost":[],"buildSeconds":1,"provides":{}}"#
+        var def = try JSONDecoder().decode(StructureDef.self, from: Data(json.utf8))
+        XCTAssertNil(def.branchChoice)
+        XCTAssertFalse(String(decoding: try JSONEncoder().encode(def), as: UTF8.self).contains("branchChoice"))
+        def.branchChoice = true
+        XCTAssertTrue(String(decoding: try JSONEncoder().encode(def), as: UTF8.self).contains("branchChoice"))
+    }
+
     func testRemoveDropsAMark() throws {
         var db = try TestContent.publicOnly()
         try ContentLoader.apply(json: Data(#"{"remove":{"playtestMarks":["mark.test.start"]}}"#.utf8), to: &db)

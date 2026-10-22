@@ -109,7 +109,8 @@ final class PlayLog {
     func clear() {
         queue.sync {
             let fm = FileManager.default
-            for n in (try? fm.contentsOfDirectory(atPath: directory.path)) ?? [] {
+            // 節目の印(marks.json)は残す。消すと同じ節目がもう一度出る
+            for n in ((try? fm.contentsOfDirectory(atPath: directory.path)) ?? []) where n.hasSuffix(".jsonl") {
                 try? fm.removeItem(at: directory.appendingPathComponent(n))
             }
         }

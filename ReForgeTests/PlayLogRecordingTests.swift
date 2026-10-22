@@ -107,4 +107,63 @@ final class PlayLogRecordingTests: XCTestCase {
         off.flush()
         XCTAssertEqual(try String(contentsOf: off.export(), encoding: .utf8), "")
     }
+
+    /// TEST-B4-3b(offer): 決断の帯が出たときに offer が 1 件。同じ帯の間は増えない
+    func testOfferIsLoggedOnceWhenADecisionAppears() async throws {
+        let (store, log) = try await makeStore(dir: tempDir())
+        store.recordFrame(decision: nil, offers: [], day: 1)
+        store.recordFrame(decision: "decision-7", offers: [], day: 1)
+        store.recordFrame(decision: "decision-7", offers: [], day: 1)
+        XCTAssertEqual(try kinds(log, "offer"), [["decision": "decision-7"]])
+        store.recordFrame(decision: nil, offers: ["tendFire:p"], day: 2)
+        XCTAssertEqual(try kinds(log, "offer").count, 2)
+        XCTAssertEqual(try kinds(log, "day").count, 1)
+    }
+
+    /// 起動し直しても、初めての節目が 2 度出ない(playlog/marks.json)
+    func testMarkIsNotRepeatedAfterRestart() async throws {
+        var c = try AppModel.loadBundledContent(bundle: .main)
+        c.playtestMarks = ["mark.test.start": PlaytestMarkDef(id: "mark.test.start", when: .always)]
+        let dir = tempDir()
+        let (first, log) = try await makeStore(content: c, dir: dir)
+        await first.recordMarks()
+        let (second, _) = try await makeStore(content: c, dir: dir)
+        await second.recordMarks()
+        XCTAssertEqual(try kinds(log, "mark").count, 1)
+    }
+
+    /// TEST-B4-7: latency は 1 分に 6 件まで、hitch は 1 分に 1 件、100ms を超える間だけ数える
+    func testLatencyIsThrottledAndHitchCountedPerMinute() {
+        var m = PlayMetrics()
+        var t = 1000.0
+        var latencyFirstMinute = 0
+        var latencyTotal = 0
+        var hitches: [PlayMetrics.Emitted] = []
+        m.touch(at: t)
+        for i in 0..<4000 {  // 60fps。10 コマごとに触れる。1500 コマ目で 0.25 秒の引っかかり
+            t += 1.0 / 60
+            if i == 1500 { t += 0.25 }
+            let out = m.frame(at: t)
+            let n = out.filter { $0.kind == "latency" }.count
+            latencyTotal += n
+            if t - 1000 < 59 { latencyFirstMinute += n }
+            hitches += out.filter { $0.kind == "hitch" }
+            if i % 10 == 0 { m.touch(at: t) }
+        }
+        XCTAssertEqual(latencyFirstMinute, PlayMetrics.latencyPerMinute)
+        XCTAssertEqual(latencyTotal, PlayMetrics.latencyPerMinute * 2)
+        XCTAssertEqual(hitches.count, 1)
+        XCTAssertEqual(hitches.first?.fields["count"], "1")
+        XCTAssertEqual(hitches.first?.fields["longestMs"], "267")
+    }
+
+    func testSuspendDoesNotCountTheGapAsAHitch() {
+        var m = PlayMetrics()
+        _ = m.frame(at: 1)
+        m.suspend()
+        _ = m.frame(at: 50)
+        var all: [PlayMetrics.Emitted] = []
+        for i in 1...3700 { all += m.frame(at: 50 + Double(i) / 60) }
+        XCTAssertEqual(all.filter { $0.kind == "hitch" }.first?.fields["count"], "0")
+    }
 }

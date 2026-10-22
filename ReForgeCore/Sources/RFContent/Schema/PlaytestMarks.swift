@@ -23,6 +23,10 @@ extension ContentValidator {
                 case .chance, .trigger:
                     out.append(Issue(level: .error, rule: "playtestMark.deterministic",
                                      message: "\(key) の条件に chance・trigger は使えない"))
+                case .firstTime:
+                    // 引き金の来歴が無いので、節目の評価では成り立たない。ledger(atLeast: 1) で書く
+                    out.append(Issue(level: .error, rule: "playtestMark.firstTime",
+                                     message: "\(key) の条件に firstTime は使えない(ledger の atLeast で書く)"))
                 default: break
                 }
             }

@@ -37,7 +37,7 @@ struct SettingsView: View {
     private var recordsSection: some View {
         InkSection(title: ui("ui.body.records")) {
             InkHoldButton(label: ui("ui.button.delete_save"),
-                          hint: ui("ui.body.delete_save_hint")) {
+                          hint: ui("ui.body.delete_save_hint"), confirmID: "settings.deleteSave") {
                 app.deleteSave()
                 close()
             }
@@ -150,7 +150,7 @@ struct SettingsView: View {
                         } label: { InkRow(title: Text(verbatim: "遊んだ記録を書き出す")) }
                             .buttonStyle(.inkRow)
                             .accessibilityIdentifier("playLogExportButton")
-                        InkHoldButton(label: Text(verbatim: "遊んだ記録を消す")) { log.clear() }
+                        InkHoldButton(label: Text(verbatim: "遊んだ記録を消す"), confirmID: "settings.clearPlayLog") { log.clear() }
                             .accessibilityIdentifier("playLogClearButton")
                     }
                     .sheet(item: $exported) { ShareSheet(url: $0.url) }

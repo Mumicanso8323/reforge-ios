@@ -123,7 +123,7 @@ struct NotesTabView: View {
             if let im = s.grant, let sid = sheetID(source) { grantArea(im, labels: s.labels, sheet: sid) }
             if s.rosterConfirmed == false, let sid = sheetID(source) {
                 let labels = s.labels
-                InkHoldButton(label: coreText(labels?.rosterConfirm, ui("ui.roster.confirm")), hint: coreText(labels?.rosterConfirmHint, ui("ui.roster.confirm_hint"))) {
+                InkHoldButton(label: coreText(labels?.rosterConfirm, ui("ui.roster.confirm")), hint: coreText(labels?.rosterConfirmHint, ui("ui.roster.confirm_hint")), confirmID: "notes.rosterConfirm") {
                     Task { await wb.confirmRoster(sheet: sid, store) }
                 }
                 .accessibilityIdentifier("confirmRoster")

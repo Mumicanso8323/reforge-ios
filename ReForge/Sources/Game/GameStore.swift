@@ -208,7 +208,8 @@ final class GameStore {
             "zoomPlan": MapTouchSettings.zoomPlan(defaults).rawValue,
             "tapWalk": "\(defaults.bool(forKey: MapTouchSettings.tapWalkKey))",
             "autoReturn": "\(defaults.object(forKey: MapTouchSettings.autoReturnKey) as? Bool ?? true)",
-        ])
+        ].merging(DeviceSnapshot.settings()) { $1 })
+        InkHoldButton.logConfirm = { [weak self] id, phase in self?.logConfirm(id: id, phase: phase) }
     }
 
     func setEntitlements(_ entitlements: Entitlements) async {
