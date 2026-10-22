@@ -215,6 +215,7 @@ final class AppModel {
     func startScreenshotGame(failed: Bool, decision: Bool, darkStart: Bool = false, darkMark: Bool = false,
                              foot: Bool = false, dusk: Bool = false, focusFire: Bool = false, time: ScreenshotTime? = nil) {
         guard var content else { return }
+        if ScreenshotArt.current != nil, decision { content.events["event.test.decision"]?.art = ScreenshotArt.tall }
         if darkMark, var mark = content.structures["structure.fence"] {
             mark.seenInDark = true
             content.structures[mark.id] = mark
@@ -453,14 +454,14 @@ struct RootView: View {
             mainContent
             // 全画面の場面は安全域の外まで覆い、地図・帯・タブ・角のボタンは作らない。
             if let prologue = app.activePrologue {
-                PrologueScene(kind: prologue.kind, lines: prologue.lines, speakers: prologue.speakers,
+                PrologueScene(kind: prologue.kind, lines: prologue.lines, speakers: prologue.speakers, art: prologue.art,
                               advance: { app.advancePrologue() })
                     .ignoresSafeArea()
                 if app.canSkipPrologue {
                     PrologueSkipButton(skip: { app.skipPrologue() })
                 }
             } else if let scene = exitingScene {
-                PrologueScene(kind: scene.kind, lines: scene.lines, speakers: scene.speakers,
+                PrologueScene(kind: scene.kind, lines: scene.lines, speakers: scene.speakers, art: scene.art,
                               exiting: true, onExitDone: { exitingScene = nil })
                     .ignoresSafeArea()
             }

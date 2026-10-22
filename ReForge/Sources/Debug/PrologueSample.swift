@@ -9,9 +9,11 @@ import ReForgeEngine
 @Observable
 final class DebugPrologue {
     private let kind: PrologueView.Kind
+    private let art: ArtID?
 
-    init(kind: PrologueView.Kind = .prologue) {
+    init(kind: PrologueView.Kind = .prologue, art: ArtID? = nil) {
         self.kind = kind
+        self.art = art
     }
     private static func sample(verbatim text: String) -> String { text }
 
@@ -43,7 +45,7 @@ final class DebugPrologue {
         let sampleLines = Array(Self.scenes[scene].prefix(line + 1))
         let lines = kind == .stage ? Array(repeating: "test line", count: sampleLines.count) : sampleLines
         let speakers: [String?] = kind == .stage ? Array(repeating: Optional("test speaker"), count: lines.count) : []
-        return PrologueView(kind: kind, lines: lines, speakers: speakers, waiting: true)
+        return PrologueView(kind: kind, lines: lines, speakers: speakers, waiting: true, art: art)
     }
 
     /// 送り。場面の最後の行の後は次の場面の 1 行目へ。最後の場面の最後の行の後は終わる。

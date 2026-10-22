@@ -13,8 +13,36 @@ struct MapActionBand: View {
         } else if let pending = store.timedUndo {
             UndoBand(label: pending.label, seconds: pending.seconds, undo: { _ = store.undoTimed() })
         } else if let decision = store.decision {
+            // 絵は開けたときだけ(開けなければ絵なしと同じ並び)。56pt 角の切り出し。押せない。
+            let artID = decision.art.flatMap { ArtProvider.shared.image($0) != nil ? $0 : nil }
             VStack(spacing: 8) {
-                if let prompt = decision.prompt {
+                if let artID {
+                    HStack(alignment: .top, spacing: 8) {
+                        ArtView(id: artID, style: .square)
+                            .frame(width: 56, height: 56)
+                            .allowsHitTesting(false)
+                            #if DEBUG
+                            // 試験用: 切り出した 56pt 角の枠を XCUI が取れるように、透明の要素を重ねる(中の絵は切る前の大きさを返すため)
+                            .overlay {
+                                Color.clear
+                                    .accessibilityElement()
+                                    .accessibilityIdentifier("decisionArt")
+                                    .allowsHitTesting(false)
+                            }
+                            #endif
+                        if let prompt = decision.prompt {
+                            spokenText(prompt)
+                                .font(InkFont.body)
+                                .foregroundStyle(InkColor.text)
+                                .lineSpacing(InkFont.bodyLineSpacing / 2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .fixedSize(horizontal: false, vertical: true)
+                                .accessibilityIdentifier("decisionPrompt")
+                        } else {
+                            Spacer(minLength: 0)
+                        }
+                    }
+                } else if let prompt = decision.prompt {
                     spokenText(prompt)
                         .font(InkFont.body)
                         .foregroundStyle(InkColor.text)

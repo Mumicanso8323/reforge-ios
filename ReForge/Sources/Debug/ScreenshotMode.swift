@@ -1,5 +1,6 @@
 #if DEBUG
 import SwiftUI
+import UIKit
 import ReForgeEngine
 
 /// 画面の写真(CI のシミュレータで主な画面を言語ごとに撮る。docs/briefs/screen-snapshots.md)。
@@ -56,6 +57,56 @@ enum ScreenshotTime: String, CaseIterable {
     }
 }
 
+/// `-ReForgeScreenshotArt present|missing`(W-09): `stage` と `decisionBand` の画面にだけ効く。引数が無ければ何も変えない。
+/// present は試験の中で作る単色の PNG(縦長 110×250・横長 200×120)を絵の提供元に入れ、missing は ID だけ付けて提供元を空にする。
+enum ScreenshotArt: String {
+    case present, missing
+
+    static let tall: ArtID = "t01"
+    static let wide: ArtID = "t02"
+
+    static let current: ScreenshotArt? = {
+        guard ScreenshotMode.screen == .stage || ScreenshotMode.screen == .decisionBand else { return nil }
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-ReForgeScreenshotArt"), args.indices.contains(i + 1) else { return nil }
+        return ScreenshotArt(rawValue: args[i + 1])
+    }()
+
+    /// 単色の PNG(絵のファイルは持たない。試験とこの見本が使う)。
+    static func solidPNG(width: Int, height: Int, white: CGFloat = 0.6) -> Data {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height), format: format)
+        return renderer.pngData { ctx in
+            UIColor(white: white, alpha: 1).setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        }
+    }
+
+    /// 提供元を差し替える(missing は空)。
+    @MainActor
+    func install() {
+        switch self {
+        case .present:
+            ArtProvider.install(ArtProvider(files: [Self.tall: Self.solidPNG(width: 110, height: 250),
+                                                    Self.wide: Self.solidPNG(width: 200, height: 120)]))
+            Self.logFirstDraw()
+        case .missing:
+            ArtProvider.install(ArtProvider(files: [:]))
+        }
+    }
+
+    /// 3.4 の測り: 絵の最初の復号と描画に何 ms かかったか(画面の最初の描画の代わりの見積り。DEBUG のログ 1 行)。
+    @MainActor
+    private static func logFirstDraw() {
+        let start = Date()
+        guard let img = ArtProvider.shared.image(tall) else { return }
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: 390, height: 844))
+        _ = renderer.image { _ in img.draw(in: CGRect(x: 0, y: 0, width: 390, height: 844)) }
+        NSLog("[ReForge perf] art first draw %.1f ms", Date().timeIntervalSince(start) * 1000)
+    }
+}
+
 enum ScreenshotMode {
     /// `-ReForgeOfferPseudo YES`: 擬似言語を設定の言語の節に出す(L-10b。表を持たない言語の確かめと節の UI テスト用)。無ければ false。
     static let offersPseudo: Bool = {
@@ -98,6 +149,7 @@ enum ScreenshotMode {
         let saves = FileSaveStorage(directory: dir)
         GameStore.forceAllUIOpen = true
         GameStore.freezeClock = true
+        ScreenshotArt.current?.install()
         switch screen {
         case .bootFailure:
             // 束を読まずに失敗の画面を出す(中身の無い束を渡す)。書体は本物の束から入れておく(失敗の画面も本物の書体で出る)
@@ -117,7 +169,7 @@ enum ScreenshotMode {
             if screen == .settings { model.settingsOpen = true }
             // 序は、見本の場面を画面全体で出した形(送りは UI テストのタップ)
             if screen == .prologue { model.debugPrologue = DebugPrologue() }
-            if screen == .stage { model.debugPrologue = DebugPrologue(kind: .stage) }
+            if screen == .stage { model.debugPrologue = DebugPrologue(kind: .stage, art: ScreenshotArt.current == nil ? nil : ScreenshotArt.tall) }
             return model
         }
     }
@@ -155,6 +207,10 @@ private struct ScreenshotProbes: View {
         VStack(spacing: 0) {
             marker("screenshotGuard", ScreenshotMode.guardValue(app))
             marker("inkFitReport", InkFitLog.shared.report)
+            // 見本の場面の送りの進み(「場面.行」)。タップが届いたかを、行の描画と分けて読む
+            if let sample = app.debugPrologue {
+                marker("prologueProgress", "\(sample.scene).\(sample.line)")
+            }
             if ScreenshotMode.screen == .darkMark {
                 marker("darkMarkSample", app.game?.placements.contains(where: \.seenInDark) == true ? "1" : "0")
             }

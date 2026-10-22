@@ -127,6 +127,7 @@ public struct PrologueView: Equatable, Sendable {
     /// lines と同じ添字の話し手。nil の行には名前を出さない。
     public var speakers: [String?]
     public var waiting: Bool
+    /// `SceneDef.art`、無ければ今の行の話し手の立ち絵(認識の見え方)。
     public var art: ArtID?
 
     public init(kind: Kind = .prologue, lines: [String], speakers: [String?] = [], waiting: Bool, art: ArtID? = nil) {
@@ -422,9 +423,11 @@ public struct DecisionView: Equatable, Sendable {
     public var choices: [(id: ChoiceID, label: String)]
     /// 問いの文(無い決断は nil)。
     public var prompt: String?
+    /// 決断の帯に添える絵(無ければ nil)。
+    public var art: ArtID? = nil
 
     public static func == (a: Self, b: Self) -> Bool {
-        a.id == b.id && a.blocking == b.blocking && a.prompt == b.prompt && a.choices.map(\.id) == b.choices.map(\.id)
+        a.id == b.id && a.blocking == b.blocking && a.prompt == b.prompt && a.art == b.art && a.choices.map(\.id) == b.choices.map(\.id)
             && a.choices.map(\.label) == b.choices.map(\.label)
     }
 }

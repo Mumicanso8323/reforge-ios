@@ -795,6 +795,8 @@ public struct EventDef: ContentDef, Equatable {
     public var blocking: Bool?
     /// 来歴に付ける印。
     public var tags: [ProvenanceTag]?
+    /// 決断の帯に添える絵(中立の番号)。choices のある出来事だけが使う。
+    public var art: ArtID?
 }
 
 public struct ChoiceDef: Codable, Equatable, Sendable {
@@ -830,6 +832,8 @@ public struct SceneDef: ContentDef, Equatable {
     public var onEnd: [Effect]?
     /// 最後の行の次に続けて始める場面。
     public var then: SceneID?
+    /// この場面(ページ)の絵(中立の番号。art.sealed の中)。全画面の場面(prologue・stage)だけが使う。bubble では無視する。
+    public var art: ArtID?
 }
 
 /// 工程表(設計画面と同じ部品で開ける表)。ライン札・試作のほか、ある工程表の記録なども表として開ける。
