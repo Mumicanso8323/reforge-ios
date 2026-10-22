@@ -91,6 +91,10 @@ final class IndustryRecordsTests: XCTestCase {
       ],
       "structures": [
         { "id": "test.dynamo", "cost": [], "buildSeconds": 1, "provides": { "power": 5 }, "requiresBaseArea": false },
+        { "id": "test.fire_dynamo", "cost": [], "buildSeconds": 1, "provides": { "power": 3 }, "requiresBaseArea": false,
+          "whenLit": 1,
+          "hearth": { "capSeconds": 43200, "fuels": { "wood": 21600 }, "thresholds": [0, 10800, 21600, 32400],
+                      "light": [0, 2, 3, 4, 5], "burnPermille": [0, 500, 750, 1000, 1500] } },
         { "id": "test.lamp", "cost": [], "buildSeconds": 1, "provides": { "light": 3 }, "requiresBaseArea": false }
       ]
     }
@@ -195,5 +199,99 @@ final class IndustryRecordsTests: XCTestCase {
         XCTAssertEqual(ActKind(rawValue: "powered"), .powered)
         XCTAssertEqual(IndustryRecords.firstPower.rawValue, "tag.invention.first_power")
         XCTAssertEqual(IndustryRecords.firstHotFurnace.rawValue, "tag.invention.first_hot_furnace")
+    }
+
+    // MARK: 保存・取り消し
+
+    private func roundTrip(_ w: WorldState) throws -> WorldState {
+        try JSONDecoder().decode(WorldState.self, from: try JSONEncoder().encode(w))
+    }
+
+    /// 保存して読み直しても、働いている建造物・発電機は二重に記録しない。
+    func testSaveAndReloadDoesNotDoubleRecord() throws {
+        let fx = try powerFixture()
+        var w = fx.world(charcoal: 40)
+        w.research.unlocked.modules.formUnion(["test.generator"])
+        _ = structure("test.dynamo", 12, status: .running, &w)
+        _ = fx.place("test.generator", 13, 15, &w)
+        _ = fx.run(seconds: 600, &w)
+        XCTAssertEqual(records(w, .powered).count, 2)
+        var loaded = try roundTrip(w)
+        XCTAssertEqual(loaded, w)
+        _ = fx.run(seconds: 600, &loaded)
+        XCTAssertEqual(records(loaded, .powered).count, 2)
+    }
+
+    /// 古い保存(印のキーが無い)で既に記録のある建造物は、読んだ後に二重に記録しない。止まった後の再開は記録する。
+    func testOldSaveWithoutMarkerDoesNotDoubleRecord() throws {
+        let fx = try powerFixture()
+        var w = fx.world()
+        let dynamo = structure("test.dynamo", 12, status: .running, &w)
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(records(w, .powered).count, 1)
+        var old = w
+        old.placements.items[dynamo]?.structure?.parameters["powered"] = nil
+        _ = fx.run(seconds: 60, &old)
+        XCTAssertEqual(records(old, .powered).count, 1, "印だけ付け直す")
+        XCTAssertEqual(old.placements.items[dynamo]?.structure?.parameters["powered"], 1)
+        old.placements.items[dynamo]?.status = .broken
+        _ = fx.run(seconds: 60, &old)
+        old.placements.items[dynamo]?.status = .running
+        _ = fx.run(seconds: 60, &old)
+        XCTAssertEqual(records(old, .powered).count, 2, "止まった後の再開は記録する")
+    }
+
+    /// 取り消し(世界の写しに戻す)の後に同じ時間を進めても、記録は写しの時点から 1 回だけ。
+    func testRestoringSnapshotDoesNotDoubleRecord() throws {
+        let fx = try powerFixture()
+        var w = fx.world()
+        let dynamo = structure("test.dynamo", 12, status: .underConstruction(progress: 0), &w)
+        _ = fx.run(seconds: 60, &w)
+        let snapshot = w
+        w.placements.items[dynamo]?.status = .running
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(records(w, .powered).count, 1)
+        w = snapshot
+        XCTAssertTrue(records(w, .powered).isEmpty)
+        w.placements.items[dynamo]?.status = .running
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(records(w, .powered).count, 1)
+    }
+
+    /// 保存の形: 印は建造物の parameters の 1 キーだけで、版は上がらない。電気を出さない建造物には付かない。
+    func testSaveShapeAddsOnlyMarkerKey() throws {
+        let fx = try powerFixture()
+        var w = fx.world()
+        let dynamo = structure("test.dynamo", 12, status: .running, &w)
+        let lamp = structure("test.lamp", 14, status: .running, &w)
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(w.placements.items[dynamo]?.structure?.parameters, ["powered": 1])
+        XCTAssertEqual(w.placements.items[lamp]?.structure?.parameters, [:])
+        XCTAssertNil(w.placements.items[dynamo]?.structure?.durability)
+    }
+
+    /// whenLit の建造物は、火が点いて効いている間だけ働く。消えて点け直すと 2 回目(powered だけ)。
+    func testStructureWhenLitTransitions() throws {
+        let fx = try powerFixture()
+        var w = fx.world()
+        let id = structure("test.fire_dynamo", 12, status: .running, &w)
+        w.placements.items[id]?.structure?.hearth = HearthState(fuel: 0, lit: false)
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertTrue(records(w, .powered).isEmpty, "火が消えている間は働かない")
+        w.placements.items[id]?.structure?.hearth = HearthState(fuel: 30_000_000, lit: true)
+        _ = fx.run(seconds: 60, &w)
+        var recs = records(w, .powered)
+        XCTAssertEqual(recs.count, 1)
+        XCTAssertEqual(recs[0].tags, [IndustryRecords.powered, IndustryRecords.firstPower])
+        _ = fx.run(seconds: 300, &w)
+        XCTAssertEqual(records(w, .powered).count, 1)
+        w.placements.items[id]?.structure?.hearth = HearthState(fuel: 0, lit: false)
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(w.placements.items[id]?.structure?.parameters["powered"], 0)
+        w.placements.items[id]?.structure?.hearth = HearthState(fuel: 30_000_000, lit: true)
+        _ = fx.run(seconds: 60, &w)
+        recs = records(w, .powered)
+        XCTAssertEqual(recs.count, 2)
+        XCTAssertEqual(recs[1].tags, [IndustryRecords.powered])
     }
 }

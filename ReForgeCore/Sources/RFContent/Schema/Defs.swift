@@ -67,6 +67,9 @@ public struct SeasonCycleDef: Codable, Equatable, Sendable {
     /// 1 周の中の替わり目の日(経過日の余りがこの値に着くと替わる。例 [85, 170, 255, 340])。
     public var boundaries: [Int]
 
+    /// 日数の欄の上限(検証が弾く。算術があふれない大きさ)。
+    public static let maxDays = 100_000
+
     public init(cycleDays: Int, boundaries: [Int]) {
         self.cycleDays = cycleDays
         self.boundaries = boundaries
@@ -75,15 +78,17 @@ public struct SeasonCycleDef: Codable, Equatable, Sendable {
     /// 経過日(1 日目 = 0)から見た「次の替わり目までの日数」と、その替わり目の通し番号(周回をまたいで数える)。
     /// 定義が使えない(周が 0 以下・替わり目が無い)ときは nil。
     public func next(elapsedDays: Int) -> (daysLeft: Int, index: Int)? {
-        let bs = boundaries.filter { $0 > 0 }.sorted()
-        guard cycleDays > 0, !bs.isEmpty, elapsedDays >= 0 else { return nil }
+        // 周の外の替わり目は無いものとして扱う(検証が弾くが、検証を通らない値でも落ちない)
+        guard (1...Self.maxDays).contains(cycleDays) else { return nil }
+        let bs = boundaries.filter { $0 > 0 && $0 <= cycleDays }.sorted()
+        guard !bs.isEmpty, elapsedDays >= 0 else { return nil }
         let cycle = elapsedDays / cycleDays
         let pos = elapsedDays % cycleDays
         if let i = bs.firstIndex(where: { $0 > pos }) {
-            return (bs[i] - pos, cycle * bs.count + i)
+            return (bs[i] - pos, cycle &* bs.count &+ i)
         }
         // 最後の替わり目を過ぎている(周の長さより内側にしか置かないときの保険)。次の周の最初へ
-        return (bs[0] + cycleDays - pos, (cycle + 1) * bs.count)
+        return (bs[0] + cycleDays - pos, (cycle &+ 1) &* bs.count)
     }
 }
 
@@ -120,9 +125,15 @@ public struct CalendarOutlookDef: Codable, Equatable, Sendable {
     }
 
     /// 数え(観測の夜の数)に対する幅。0 なら日数 1 つ。
+    /// 負の narrowStep は 0 として扱い(広がらない)、算術はあふれない(検証を通らない値でも落ちない)。
     public func width(count: Int) -> Int {
-        max(0, initialWidth - (count / max(1, narrowEvery)) * narrowStep)
+        let start = min(max(0, initialWidth), Self.maxWidth)
+        let cut = (max(0, count) / max(1, narrowEvery)).multipliedReportingOverflow(by: max(0, narrowStep))
+        return cut.overflow ? 0 : max(0, start - cut.partialValue)
     }
+
+    /// 幅と狭める量の上限(検証が弾く)。
+    public static let maxWidth = 1000
 }
 
 /// 時計の設定。
