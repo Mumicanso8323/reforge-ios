@@ -34,12 +34,24 @@ extension Frame {
 }
 
 extension FrameBuilder {
+    /// 来歴の札の名前が first_ で始まる新しい記録(first_hot_furnace・tag.invention.first_smelt など。名前は決め打ちしない)、
+    /// または同じ行為・同じ対象の最初の記録(作った・建てた)なら、その対象の名前。
+    func firstName(_ id: ProvenanceID, _ w: WorldState, _ p: Perceiver) -> String? {
+        guard let r = w.ledger.record(id) else { return nil }
+        let tagged = r.tags.contains { ($0.rawValue.split(separator: ".").last ?? "").hasPrefix("first_") }
+        let firstOfKind = (r.act == .crafted || r.act == .built) && w.ledger.first(r.act, r.subject) == id
+        guard tagged || firstOfKind else { return nil }
+        let name = p.name(of: r.subject)
+        return name.isEmpty ? nil : name
+    }
+
     /// 進行の結果(report)と前のフレームとの差から手応えを作る。report が無ければ(ロード・言語の切替)空。
     func pulses(_ w: WorldState, _ p: Perceiver, frame: Frame, previous: Frame?, report: StepReport?) -> [Pulse] {
         guard let report else { return [] }
         var out: [Pulse] = []
         var level = previous?.fireGauge?.level ?? .out
         for event in report.events {
+            if let id = event.record, let name = firstName(id, w, p) { out.append(.firstTime(name: name)) }
             switch event {
             case .itemGained(let holder, let stuff, let quantity, _):
                 if holder.raw.hasPrefix("person:") { out.append(.unitDone(name: p.name(of: stuff), count: quantity)) }

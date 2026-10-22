@@ -32,7 +32,7 @@ final class PulsePlayerTests: XCTestCase {
         let haptics = RecordingHaptics()
         var t = 0.0
         let player = PulsePlayer(sounds: sounds, haptics: haptics, settings: s, reduceMotion: { reduceMotion },
-                                 clock: { t += 1; return t })
+                                 clock: { t += 1; return t }, bannerStub: { $0 })
         return (player, sounds, haptics)
     }
 
@@ -64,7 +64,7 @@ final class PulsePlayerTests: XCTestCase {
         let s = try settings()
         let haptics = RecordingHaptics()
         let player = PulsePlayer(sounds: RecordingSounds(), haptics: haptics, settings: s, reduceMotion: { false },
-                                 clock: { 10 })
+                                 clock: { 10 }, bannerStub: { $0 })
         player.press()
         player.press()
         XCTAssertEqual(haptics.feels.count, 1, "0.3 秒より詰めて打たない")
@@ -84,5 +84,15 @@ final class PulsePlayerTests: XCTestCase {
         for sound in UISound.allCases {
             XCTAssertNotNil(bundle.url(forResource: sound.rawValue, withExtension: "wav"), sound.rawValue)
         }
+    }
+
+    /// 帯の文は表の ID を引く(物の名前を差し込む)。2.5 秒で消える仕組みの前に、出る文を確かめる。
+    func testBannerAndTicks() throws {
+        let (player, _, _) = try make()
+        player.play([.finished(name: "x")])
+        XCTAssertEqual(player.banner, "ui.band.pulse_done")
+        XCTAssertEqual(player.doneTick, 1)
+        player.play([.fire(.weakened)])
+        XCTAssertEqual(player.banner, "ui.band.pulse_fire_down")
     }
 }

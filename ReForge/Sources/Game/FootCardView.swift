@@ -13,10 +13,14 @@ struct FootCardView: View {
                     spokenText(store.footCard?.title ?? " ")
                         .font(InkFont.body)
                         .bold()
+                        .pulseGlow(store.pulsePlayer.doneTick)
                         // 名前は 2 行まで(日本語は 1 行のまま。高さは minHeight 84 から内容に合わせて伸びる)
                         .lineLimit(2)
                         .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 4)
+                    if let banner = store.pulsePlayer.banner {
+                        spokenText(banner).font(InkFont.caption).foregroundStyle(InkColor.accent)
+                    }
                     // 断りの文・「近くにもう無い」の類は出さない(説明で補わない)。押した事実への応えはボタンの揺れと触覚
                 }
                 // できない理由の一文(card.hint)は出さない: 押せない物はボタンを置かず、説明でも補わない(INV-F1)
@@ -45,6 +49,7 @@ struct FootCardView: View {
                 .frame(maxWidth: .infinity, minHeight: InkMetric.buttonHeight, alignment: .leading)
             }
         }
+        .pulseBulge(store.pulsePlayer.placedTick)
         .overlay(alignment: .topTrailing) { FloatingPulseText(player: store.pulsePlayer) }
         // 子の識別子(holdRing・footAction など)を上書きしないよう、まとめずに含む形にする
         .accessibilityElement(children: .contain)
@@ -114,6 +119,7 @@ struct ActionButton: View {
                 .accessibilityValue(Text(verbatim: HoldRing.spokenValue(hold: true) ?? ""))
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("holdRing")
+                .pulseGlow(store.pulsePlayer.unitTick)
                 .refusalShake(store.refusals)
         } else {
             Button {
@@ -128,6 +134,7 @@ struct ActionButton: View {
             }
             .buttonStyle(.ink(.secondary, fill: true))
             .accessibilityIdentifier("footAction")
+            .pulseGlow(store.pulsePlayer.unitTick)
             .refusalShake(store.refusals)
         }
     }
@@ -148,4 +155,46 @@ extension View {
             }
         }
     }
+}
+
+/// 1 度ふくらむ(置いた所)。「動きを減らす」では何もしない。
+private struct PulseBulge: ViewModifier {
+    let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content
+        } else {
+            content.keyframeAnimator(initialValue: 1.0, trigger: trigger) { view, scale in
+                view.scaleEffect(scale)
+            } keyframes: { _ in
+                KeyframeTrack {
+                    LinearKeyframe(1.04, duration: 0.08)
+                    LinearKeyframe(1.0, duration: 0.14)
+                }
+            }
+        }
+    }
+}
+
+/// 1 度明るく光って戻る(色の変化だけ。「動きを減らす」でも同じ)。
+private struct PulseGlow: ViewModifier {
+    let trigger: Int
+
+    func body(content: Content) -> some View {
+        content.keyframeAnimator(initialValue: 0.0, trigger: trigger) { view, glow in
+            view.overlay { InkColor.accent.opacity(glow).allowsHitTesting(false) }
+        } keyframes: { _ in
+            KeyframeTrack {
+                LinearKeyframe(0.35, duration: 0.05)
+                LinearKeyframe(0, duration: 0.35)
+            }
+        }
+    }
+}
+
+extension View {
+    func pulseBulge(_ trigger: Int) -> some View { modifier(PulseBulge(trigger: trigger)) }
+    func pulseGlow(_ trigger: Int) -> some View { modifier(PulseGlow(trigger: trigger)) }
 }

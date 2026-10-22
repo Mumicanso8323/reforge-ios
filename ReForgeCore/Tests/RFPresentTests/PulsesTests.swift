@@ -74,4 +74,24 @@ final class PulsesTests: XCTestCase {
         XCTAssertEqual(f.pulses, [.fed, .nightBegan])
         XCTAssertEqual(w, before, "INV-B3-2 世界は変えない")
     }
+
+    /// 札の名前が first_ で始まる新しい記録は firstTime になる(名前は決め打ちしない)。ただの記録は ならない。
+    func testFirstTimeFromFirstTag() throws {
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        func record(_ tags: Set<ProvenanceTag>, act: ActKind) -> ProvenanceID {
+            w.ledger.append { id in
+                ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: act,
+                                 subject: .item("wood"), tags: tags)
+            }
+        }
+        _ = record([], act: .gathered)
+        let plain = record([], act: .gathered)
+        let tagged = record(["tag.test.first_hot_furnace"], act: .gathered)
+        let none = b.build(w, revision: 1, previous: nil, report: report([.finiteUsed(record: plain)]))
+        XCTAssertFalse(none.pulses.contains { if case .firstTime = $0 { true } else { false } })
+        let some = b.build(w, revision: 2, previous: none, report: report([.finiteUsed(record: tagged)]))
+        XCTAssertEqual(some.pulses.filter { if case .firstTime = $0 { true } else { false } }.count, 1)
+    }
 }

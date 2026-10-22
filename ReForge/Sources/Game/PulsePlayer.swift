@@ -80,19 +80,35 @@ final class PulsePlayer {
     static let hapticGap: TimeInterval = 0.3
 
     private(set) var floaters: [Floater] = []
+    /// 帯の短い文(「〈物〉ができた」「初めての〈物〉」「火が弱まった」)。2.5 秒。説明や理由は入れない。
+    private(set) var banner: String?
+    /// 見た目の合図(増えるたびに、画面が 1 度光る・ふくらむ)。「動きを減らす」でも色の変化は出す。
+    private(set) var unitTick = 0
+    private(set) var placedTick = 0
+    private(set) var doneTick = 0
+    private(set) var feedTick = 0
+    private(set) var fireDownTick = 0
 
     @ObservationIgnored private let sounds: any SoundPlaying
     @ObservationIgnored private let haptics: any HapticFiring
     @ObservationIgnored private let settings: PulseSettings
     @ObservationIgnored private let reduceMotion: () -> Bool
     @ObservationIgnored private let clock: () -> TimeInterval
+    /// 試験だけが渡す、帯の文の代わり(ID をそのまま返すなど)。実機は nil で、固定文言の表から引く。
+    @ObservationIgnored private let bannerStub: ((String) -> String)?
     @ObservationIgnored private var lastHaptic: TimeInterval = -.infinity
     @ObservationIgnored private var fedCount = 0
     @ObservationIgnored private var nextID = 0
+    @ObservationIgnored private var bannerTask: Task<Void, Never>?
+    @ObservationIgnored private var lastRub: TimeInterval = -.infinity
+    static let bannerLifetime: TimeInterval = 2.5
+    static let rubGap: TimeInterval = 0.35
 
     init(sounds: (any SoundPlaying)? = nil, haptics: any HapticFiring, settings: PulseSettings = PulseSettings(),
          reduceMotion: @escaping () -> Bool = { UIAccessibility.isReduceMotionEnabled },
-         clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime }) {
+         clock: @escaping () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+         bannerStub: ((String) -> String)? = nil) {
+        self.bannerStub = bannerStub
         self.sounds = sounds ?? SystemSounds()
         self.haptics = haptics
         self.settings = settings
@@ -106,6 +122,14 @@ final class PulsePlayer {
         feel(.select)
     }
 
+    /// 火起こしの長押しの間(進みが動くたび)。ui_rub は 0.35 秒おき。触覚は暗い場面の長押しの ramp(HapticRamp)が鳴らす。
+    func rub() {
+        let t = clock()
+        guard t - lastRub >= Self.rubGap else { return }
+        lastRub = t
+        play(.rub)
+    }
+
     func play(_ pulses: [Pulse]) {
         for pulse in pulses { play(pulse) }
     }
@@ -114,29 +138,48 @@ final class PulsePlayer {
         switch pulse {
         case .unitDone(let name, let count):
             play(.unit)
+            unitTick += 1
             float("+\(count) \(name)")
         case .placed:
             play(.place)
             feel(.select)
-        case .finished:
+            placedTick += 1
+        case .finished(let name):
             play(.done, scale: 0.8)  // 成功の触覚は既存の経路(HapticCue.built)が鳴らす
-        case .firstTime:
+            doneTick += 1
+            show(banner: bannerStub?("ui.band.pulse_done") ?? UIText.shared.string("ui.band.pulse_done", ["name": .string(name)]))
+        case .firstTime(let name):
             play(.done)
             feel(.success)
+            doneTick += 2
+            show(banner: bannerStub?("ui.band.pulse_first") ?? UIText.shared.string("ui.band.pulse_first", ["name": .string(name)]))
         case .rejected:
             play(.reject)  // 弱い触覚(nudge)と揺れは store.show(notice:) が鳴らす
         case .fed:
             fedCount = fedCount % 3 + 1
             play([.feed1, .feed2, .feed3][fedCount - 1])
+            feedTick += 1
         case .fire(.lit):
             play(.ignite)
         case .fire(.weakened), .fire(.out):
             play(.fireDown)
             feel(.fireDown)
+            fireDownTick += 1
+            show(banner: bannerStub?("ui.band.pulse_fire_down") ?? UIText.shared.string("ui.band.pulse_fire_down"))
         case .nightBegan:
             play(.night)
         case .decisionShown:
             feel(.decision)
+        }
+    }
+
+    private func show(banner text: String) {
+        banner = text
+        bannerTask?.cancel()
+        bannerTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.bannerLifetime))
+            guard !Task.isCancelled else { return }
+            self?.banner = nil
         }
     }
 

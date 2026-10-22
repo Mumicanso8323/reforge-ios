@@ -78,6 +78,8 @@ struct StatusBandView: View {
         return HStack(spacing: 3) {
             ui("ui.band.fire").foregroundStyle(InkColor.textDim)
             spokenText(word).foregroundStyle(Self.fireColor(g))
+                .pulseBulge(store.pulsePlayer.feedTick)  // くべた: 火の字が 1 度ふくらむ
+                .pulseGlow(store.pulsePlayer.fireDownTick)  // 弱まった・消えた: 色が 1 度変わる
         }
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityElement(children: .combine)
