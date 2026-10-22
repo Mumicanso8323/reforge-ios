@@ -71,8 +71,9 @@ final class PlayLogRecordingTests: XCTestCase {
         var c = try AppModel.loadBundledContent(bundle: .main)
         c.playtestMarks = ["mark.test.start": PlaytestMarkDef(id: "mark.test.start", when: .always)]
         let (store, log) = try await makeStore(content: c, dir: tempDir())
-        await store.perform(.crew(.steer(direction: nil)))
-        await store.perform(.crew(.steer(direction: nil)))
+        // 命令の後と夜明けに呼ばれる見回りを直に 2 回(始まりは序や暗い場面で命令が断られることがあるので、命令には頼らない)
+        await store.recordMarks()
+        await store.recordMarks()
         XCTAssertEqual(try kinds(log, "mark"), [["mark": "mark.test.start"]])
     }
 
@@ -110,11 +111,13 @@ final class PlayLogRecordingTests: XCTestCase {
     /// TEST-B4-3b(offer): 決断の帯が出たときに offer が 1 件。同じ帯の間は増えない
     func testOfferIsLoggedOnceWhenADecisionAppears() async throws {
         let (store, log) = try await makeStore(dir: tempDir())
-        store.recordFrame(decision: nil, offers: [], day: 1)
-        store.recordFrame(decision: "decision-7", offers: [], day: 1)
-        store.recordFrame(decision: "decision-7", offers: [], day: 1)
+        // 日は読み込んだ世界の今日から(読み込みの Frame が覚えた日と違うと、そこで day が 1 件増える)
+        let today = store.clock.day
+        store.recordFrame(decision: nil, offers: [], day: today)
+        store.recordFrame(decision: "decision-7", offers: [], day: today)
+        store.recordFrame(decision: "decision-7", offers: [], day: today)
         XCTAssertEqual(try kinds(log, "offer"), [["decision": "decision-7"]])
-        store.recordFrame(decision: nil, offers: ["tendFire:p"], day: 2)
+        store.recordFrame(decision: nil, offers: ["tendFire:p"], day: today + 1)
         XCTAssertEqual(try kinds(log, "offer").count, 2)
         XCTAssertEqual(try kinds(log, "day").count, 1)
     }
