@@ -15,7 +15,8 @@ public enum ContentValidator {
         public var description: String { "[\(level.rawValue)] \(rule): \(message)" }
     }
 
-    public static func validate(_ db: ContentDB, released: [LanguageID] = LanguageID.released) -> [Issue] {
+    public static func validate(_ db: ContentDB, released: [LanguageID] = LanguageID.released,
+                                art: Set<ArtID>? = nil) -> [Issue] {
         var out: [Issue] = []
         // 認識の層(U3)
         perceptionHasDefault(db, &out)
@@ -50,6 +51,7 @@ public enum ContentValidator {
         artIDsAreNeutral(db, &out)  // 立ち絵の ID の形(U18)
         tendOfferWellFormed(db, &out)  // 火の番の申し出(W-02d)
         extractPurityBonusInRange(db, &out)  // 掘り出しの純度の上積み(P-13)
+        artReferencesWellFormed(db, art: art, &out)  // 場面・決断・見え方の絵の ID(W-09)
         return out
     }
 
@@ -625,6 +627,39 @@ public enum ContentValidator {
                 if a.rawValue.isEmpty || !a.rawValue.allSatisfy(allowed.contains) {
                     out.append(Issue(level: .error, rule: "perception.art", message: "\(s) の絵の ID の形が中立の番号でない"))
                 }
+            }
+        }
+    }
+
+    /// 場面・出来事・見え方の絵の ID の形と実在(W-09)。art が nil(絵の一覧が分からない)のときは実在を調べない。
+    static func artReferencesWellFormed(_ db: ContentDB, art: Set<ArtID>?, _ out: inout [Issue]) {
+        let allowed = Set("abcdefghijklmnopqrstuvwxyz0123456789._")
+        func check(_ id: ArtID, owner: String) {
+            if id.rawValue.isEmpty || !id.rawValue.allSatisfy(allowed.contains) {
+                out.append(Issue(level: .error, rule: "art.form", message: "\(owner) の絵の ID の形が中立の番号でない"))
+            }
+            if let art, !art.contains(id) {
+                out.append(Issue(level: .error, rule: "art.exists", message: "\(owner) の絵 \(id.rawValue) が art に無い"))
+            }
+        }
+        for (id, def) in db.scenes.sorted(by: { $0.key < $1.key }) {
+            guard let a = def.art else { continue }
+            check(a, owner: "\(id)")
+            if def.style == nil || def.style == .bubble {
+                out.append(Issue(level: .warning, rule: "art.bubble", message: "\(id) は bubble の場面で絵は無視される"))
+            }
+        }
+        for (id, def) in db.events.sorted(by: { $0.key < $1.key }) {
+            guard let a = def.art else { continue }
+            check(a, owner: "\(id)")
+            if def.choices?.isEmpty ?? true {
+                out.append(Issue(level: .warning, rule: "art.event.nochoices", message: "\(id) に choices が無く絵は使われない"))
+            }
+        }
+        for (s, def) in db.perception.sorted(by: { $0.key < $1.key }) {
+            for v in def.variants {
+                guard let a = v.art else { continue }
+                check(a, owner: "\(s)")
             }
         }
     }

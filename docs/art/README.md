@@ -201,5 +201,6 @@
 |---|---|---|
 | 公開してよい絵(タイトル。仮) | `ReForge/Resources/Art/` | `UIImage(named:)` |
 | 立ち絵・山場の絵(いまは無し) | 非公開の `content/private/art/<ArtID>.png`(公開リポジトリには入れない) | `content/art.sealed` に封をして束に入れる。`ContentLoader.loadBundledArt` で読む。アプリ側は `ArtProvider` で包み、開けなければ絵なしにする |
+| 場面・決断の絵の引き方 | データ側は `SceneDef.art`(全画面の場面 1 ページに 1 枚)・`EventDef.art`(決断の帯)。話し手の立ち絵は認識の見え方 `Variant.art`(`scene.art` が無い場面だけ) | 本体は `PrologueView.art`・`DecisionView.art` に ID を載せるだけ。画面の側が `ArtView(style:)` で出す(縦長は上から 45% の切り出し)。開けなければ今と同じ見た目 |
 
 `ArtID` は中立の番号にする(意味の分かる名前を付けない)。どの山場の絵かの対応は、非公開のコンテンツに書く。

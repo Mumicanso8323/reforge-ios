@@ -258,7 +258,7 @@ public struct FrameBuilder: Sendable {
         w.narrative.pending.first.map { d in
             DecisionView(id: d.id, blocking: d.blocking, choices: d.choices.map { c in
                 (c, content.events[d.event]?.choices?.first { $0.id == c }.map { p.text($0.label) } ?? p.text(Perceiver.unknownText))
-            }, prompt: content.events[d.event]?.prompt.map { p.text($0) })
+            }, prompt: content.events[d.event]?.prompt.map { p.text($0) }, art: content.events[d.event]?.art)
         }
     }
 
@@ -287,9 +287,10 @@ public struct FrameBuilder: Sendable {
         case .some(.bubble), .none: return nil
         }
         let lines = shownLines(def, s, w)
+        let art = def.art ?? lines.last?.speaker.flatMap { p.art(Subject.person($0)) }
         return PrologueView(kind: kind, lines: lines.map { p.text($0.text) },
                             speakers: lines.map { $0.speaker.map { p.name(content.people[$0]?.name ?? Subject.person($0)) } },
-                            waiting: true)
+                            waiting: true, art: art)
     }
 
     func darkStart(_ w: WorldState) -> DarkStartView? {

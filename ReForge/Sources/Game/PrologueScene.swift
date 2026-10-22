@@ -58,6 +58,8 @@ struct PrologueScene: View {
     var kind: PrologueView.Kind = .prologue
     let lines: [String]
     var speakers: [String?] = []
+    /// この場面(ページ)の絵。開けなければ絵なし(今のレイアウトのまま)。
+    var art: ArtID? = nil
     var style: PrologueStyle = .current
     var exiting = false
     var advance: () -> Void = {}
@@ -78,6 +80,7 @@ struct PrologueScene: View {
     @State private var sceneOpacity = 1.0
     @State private var groundDark = false
     @State private var job: Task<Void, Never>?
+    @State private var artReady = false
 
     private static let fontSize: CGFloat = 19
     fileprivate static let space = "prologueSpace"
@@ -89,6 +92,9 @@ struct PrologueScene: View {
                     .ignoresSafeArea()
                     .contentShape(Rectangle())
                     .onTapGesture { tapped() }
+                if let artID = visibleArt {
+                    artZone(artID, size: geo.size)
+                }
                 textBlock(height: geo.size.height)
                     .allowsHitTesting(false)
             }
@@ -117,13 +123,30 @@ struct PrologueScene: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .allowsHitTesting(false)
         }
+        .overlayPreferenceValue(PrologueArtFrameKey.self) { frame in
+            if let frame {
+                Color.clear
+                    .frame(width: frame.width, height: frame.height)
+                    .position(x: frame.midX, y: frame.midY)
+                    .accessibilityElement()
+                    .accessibilityIdentifier("sceneArt")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .allowsHitTesting(false)
+            }
+        }
         #endif
         .onAppear {
             if exiting {
+                artReady = true
                 runExit()
             } else {
                 show(lines: lines, announce: false)
                 startBlink()
+                if reduceMotion {
+                    artReady = true
+                } else {
+                    withAnimation(.easeOut(duration: 0.4)) { artReady = true }
+                }
             }
         }
         .onChange(of: lines) { _, new in
@@ -134,6 +157,39 @@ struct PrologueScene: View {
     }
 
     // MARK: - 描く
+
+    /// 絵が有るときだけ絵の区画を作る(封が開かなければ絵なしと同じ=今のレイアウト)。
+    private var visibleArt: ArtID? {
+        guard let art, ArtProvider.shared.image(art) != nil else { return nil }
+        return art
+    }
+
+    /// 画面の上寄り。文の塊(textBlock)の上の余白 0.46 の手前までに収める。タップは通す。
+    private func artZone(_ id: ArtID, size: CGSize) -> some View {
+        let top = max(Self.safeTop, size.height * 0.06)
+        return ArtView(id: id, style: .scene)
+            .id(id)
+            .transition(.opacity)
+            .frame(maxWidth: max(0, size.width - 64), maxHeight: size.height * 0.34)
+            .frame(maxWidth: .infinity, alignment: .top)
+            .frame(height: size.height * 0.34, alignment: .top)
+            .opacity(artReady ? 1 : 0)
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.4), value: id)
+            .background(
+                GeometryReader { proxy in
+                    Color.clear.preference(key: PrologueArtFrameKey.self, value: proxy.frame(in: .named(Self.space)))
+                }
+            )
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .padding(.top, top)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    private static var safeTop: CGFloat {
+        UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .flatMap(\.windows).first { $0.isKeyWindow }?.safeAreaInsets.top ?? 0
+    }
 
     private func textBlock(height: CGFloat) -> some View {
         ScrollViewReader { proxy in
@@ -164,7 +220,7 @@ struct PrologueScene: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollDisabled(true)
-            .frame(height: height * 0.5)
+            .frame(height: height * (visibleArt == nil ? 0.5 : 0.42))
             .mask(
                 LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.14),
                                        .init(color: .black, location: 1)],
@@ -176,7 +232,7 @@ struct PrologueScene: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .padding(.top, height * 0.2)
+        .padding(.top, height * (visibleArt == nil ? 0.2 : 0.46))
     }
 
     @ViewBuilder
@@ -337,5 +393,13 @@ private struct PrologueLineFramesKey: PreferenceKey {
     static let defaultValue: [Int: CGRect] = [:]
     static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
         value.merge(nextValue()) { $1 }
+    }
+}
+
+/// 絵の区画の frame(場面の座標)。試験用の透明の要素の位置に使う。
+private struct PrologueArtFrameKey: PreferenceKey {
+    static let defaultValue: CGRect? = nil
+    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
+        value = nextValue() ?? value
     }
 }
