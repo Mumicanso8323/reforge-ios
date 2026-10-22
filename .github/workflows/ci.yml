@@ -366,7 +366,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && inputs.screens
     needs: [core, app-switches]
     runs-on: macos-26
-    timeout-minutes: 60
+    timeout-minutes: 90  # いつもは 50〜54 分。10/22 夕方に 60 分で切れた
     steps:
       - uses: actions/checkout@v5
 
