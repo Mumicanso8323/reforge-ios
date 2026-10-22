@@ -16,12 +16,14 @@ private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
     app.descendants(matching: .any).matching(identifier: id).firstMatch
 }
 
-/// 画面にある識別子の一覧(落ちた時の原因を当て推量しないため)。
+/// 画面にある識別子の一覧と、見本の場面の送りの進み(落ちた時の原因を当て推量しないため)。
 private func identifiers(_ app: XCUIApplication) -> [String] {
-    app.debugDescription.split(separator: "\n").compactMap { line -> String? in
+    let ids = app.debugDescription.split(separator: "\n").compactMap { line -> String? in
         guard let r = line.range(of: "identifier: '") else { return nil }
         return String(line[r.upperBound...].prefix { $0 != "'" })
     }
+    let progress = element(app, "prologueProgress")
+    return ids + ["進み=\(progress.exists ? String(describing: progress.value ?? "nil") : "無し")"]
 }
 
 private func tapAnywhere(_ app: XCUIApplication, dy: CGFloat = 0.8) {

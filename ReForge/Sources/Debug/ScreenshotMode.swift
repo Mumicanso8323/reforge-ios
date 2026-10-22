@@ -207,6 +207,10 @@ private struct ScreenshotProbes: View {
         VStack(spacing: 0) {
             marker("screenshotGuard", ScreenshotMode.guardValue(app))
             marker("inkFitReport", InkFitLog.shared.report)
+            // 見本の場面の送りの進み(「場面.行」)。タップが届いたかを、行の描画と分けて読む
+            if let sample = app.debugPrologue {
+                marker("prologueProgress", "\(sample.scene).\(sample.line)")
+            }
             if ScreenshotMode.screen == .darkMark {
                 marker("darkMarkSample", app.game?.placements.contains(where: \.seenInDark) == true ? "1" : "0")
             }
