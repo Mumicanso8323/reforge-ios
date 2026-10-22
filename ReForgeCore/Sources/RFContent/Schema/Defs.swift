@@ -60,6 +60,71 @@ public struct MatterMatch: Codable, Hashable, Sendable {
 
 // MARK: - 時間・地図
 
+/// 季節の巡り(W-24)。1 日目からの経過日を cycleDays で割った余りで、次の替わり目までの日数を出す。
+public struct SeasonCycleDef: Codable, Equatable, Sendable {
+    /// 1 周の日数(例 340)。
+    public var cycleDays: Int
+    /// 1 周の中の替わり目の日(経過日の余りがこの値に着くと替わる。例 [85, 170, 255, 340])。
+    public var boundaries: [Int]
+
+    public init(cycleDays: Int, boundaries: [Int]) {
+        self.cycleDays = cycleDays
+        self.boundaries = boundaries
+    }
+
+    /// 経過日(1 日目 = 0)から見た「次の替わり目までの日数」と、その替わり目の通し番号(周回をまたいで数える)。
+    /// 定義が使えない(周が 0 以下・替わり目が無い)ときは nil。
+    public func next(elapsedDays: Int) -> (daysLeft: Int, index: Int)? {
+        let bs = boundaries.filter { $0 > 0 }.sorted()
+        guard cycleDays > 0, !bs.isEmpty, elapsedDays >= 0 else { return nil }
+        let cycle = elapsedDays / cycleDays
+        let pos = elapsedDays % cycleDays
+        if let i = bs.firstIndex(where: { $0 > pos }) {
+            return (bs[i] - pos, cycle * bs.count + i)
+        }
+        // 最後の替わり目を過ぎている(周の長さより内側にしか置かないときの保険)。次の周の最初へ
+        return (bs[0] + cycleDays - pos, (cycle + 1) * bs.count)
+    }
+}
+
+/// 暦の見込みを出す条件の宣言(W-24)。観測の夜を重ねるほど、見込みの幅が狭まり、最後は日数になる。
+public struct CalendarOutlookDef: Codable, Equatable, Sendable {
+    /// 観測の夜を数える内容の数え。1 以上で出し始める。
+    public var counter: CounterID
+    /// 替わり目までの日数がこれ以下の帯から出す。既定 25。
+    public var leadDays: Int
+    /// 数えが narrowEvery 未満の時の幅。既定 8。
+    public var initialWidth: Int
+    /// 数えがこの値増えるごとに狭まる。既定 3。
+    public var narrowEvery: Int
+    /// 1 回に狭まる幅。既定 2。
+    public var narrowStep: Int
+
+    public init(counter: CounterID, leadDays: Int = 25, initialWidth: Int = 8, narrowEvery: Int = 3, narrowStep: Int = 2) {
+        self.counter = counter
+        self.leadDays = leadDays
+        self.initialWidth = initialWidth
+        self.narrowEvery = narrowEvery
+        self.narrowStep = narrowStep
+    }
+
+    private enum CodingKeys: String, CodingKey { case counter, leadDays, initialWidth, narrowEvery, narrowStep }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        counter = try c.decode(CounterID.self, forKey: .counter)
+        leadDays = try c.decodeIfPresent(Int.self, forKey: .leadDays) ?? 25
+        initialWidth = try c.decodeIfPresent(Int.self, forKey: .initialWidth) ?? 8
+        narrowEvery = try c.decodeIfPresent(Int.self, forKey: .narrowEvery) ?? 3
+        narrowStep = try c.decodeIfPresent(Int.self, forKey: .narrowStep) ?? 2
+    }
+
+    /// 数え(観測の夜の数)に対する幅。0 なら日数 1 つ。
+    public func width(count: Int) -> Int {
+        max(0, initialWidth - (count / max(1, narrowEvery)) * narrowStep)
+    }
+}
+
 /// 時計の設定。
 public struct ClockDef: Codable, Equatable, Sendable {
     /// 昼の実秒(既定 180)。
@@ -68,11 +133,18 @@ public struct ClockDef: Codable, Equatable, Sendable {
     public var dayGameHours: Int
     /// 夜のゲーム時間(既定 18)。1 日 = 昼 + 夜(内部では 26 時間。画面には時間数を出さない)。
     public var nightGameHours: Int
+    /// 季節の巡り(W-24)。nil(今の内容)は替わり目の見込みを出さない。
+    public var seasons: SeasonCycleDef?
+    /// 暦の見込みを出す条件の宣言(W-24)。nil は出さない。seasons も要る。
+    public var calendarOutlook: CalendarOutlookDef?
 
-    public init(dayRealSeconds: Int = 180, dayGameHours: Int = 8, nightGameHours: Int = 18) {
+    public init(dayRealSeconds: Int = 180, dayGameHours: Int = 8, nightGameHours: Int = 18,
+                seasons: SeasonCycleDef? = nil, calendarOutlook: CalendarOutlookDef? = nil) {
         self.dayRealSeconds = dayRealSeconds
         self.dayGameHours = dayGameHours
         self.nightGameHours = nightGameHours
+        self.seasons = seasons
+        self.calendarOutlook = calendarOutlook
     }
 
     public var dayGameSeconds: Int64 { Int64(dayGameHours) * 3600 }

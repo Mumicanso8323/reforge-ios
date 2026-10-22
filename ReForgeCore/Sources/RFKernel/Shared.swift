@@ -46,6 +46,8 @@ public enum ActKind: String, Codable, CaseIterable, Sendable {
     case raided             // 蓄えを奪われた(獣など。U9)
     case achieved           // 目標を果たした・結末に着いた(U11)
     case destroyed          // 置いた物が壊された(爆発・襲撃など。U16。直せば repaired)
+    case heated             // 炉が予熱から workTemp に届いた(W-24。札は furnace_hot・初めては first_hot_furnace)
+    case powered            // 電気を出す物が働き始めた(W-24。札は powered・初めては first_power)
 }
 
 /// 数の比較(条件で使う)。

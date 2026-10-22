@@ -55,6 +55,8 @@ public enum DayWrapRules {
     public enum Kind: Int, Equatable, Sendable, CaseIterable {
         // 同じ急ぎなら、小さい方を先に出す(水 → 食料 → 火 → ライン)
         case water, food, fire, line
+        // 暦の見込み(W-24)。同じ急ぎなら一番後
+        case calendar
     }
 
     public struct Candidate: Equatable, Sendable {
@@ -62,12 +64,46 @@ public enum DayWrapRules {
         /// 困るまでの見当(千分率の日数。小さいほど急ぐ)。
         public var milliDays: Int
         public var text: String
+        /// 暦の見込みの日数の幅(暦以外は nil)。同じ値なら日数 1 つの文。
+        public var daysMin: Int?
+        public var daysMax: Int?
 
-        public init(kind: Kind, milliDays: Int, text: String) {
+        public init(kind: Kind, milliDays: Int, text: String, daysMin: Int? = nil, daysMax: Int? = nil) {
             self.kind = kind
             self.milliDays = milliDays
             self.text = text
+            self.daysMin = daysMin
+            self.daysMax = daysMax
         }
+
+        /// 暦の見込みの候補。daysMin == daysMax なら日数の文、違えば幅の文。急ぎは小さい方の日数。
+        public static func calendarOutlook(daysMin: Int, daysMax: Int, text: String) -> Candidate {
+            Candidate(kind: .calendar, milliDays: daysMin * 1000, text: text, daysMin: daysMin, daysMax: daysMax)
+        }
+    }
+
+    /// 暦の見込みの日数の幅 [daysMin, daysMax](真の残り日数を必ず含む)。出さない時は nil。
+    ///
+    /// - 季節の定義・宣言が無い、数えが 0、替わり目まで leadDays より遠い時は出さない。
+    /// - 幅 w = max(0, initialWidth - (数え / narrowEvery) * narrowStep)。w == 0 は日数 1 つ。
+    /// - 真の値が幅のどこに来るかは、世界の seed と替わり目の通し番号から決まる固定のずれ(毎日の帯で揺れない)。
+    public static func calendarRange(clock: ClockDef, day: Int, count: Int, seed: UInt64) -> (daysMin: Int, daysMax: Int)? {
+        guard let seasons = clock.seasons, let decl = clock.calendarOutlook, count >= 1,
+              let next = seasons.next(elapsedDays: day - 1), next.daysLeft <= decl.leadDays else { return nil }
+        let left = next.daysLeft
+        let w = decl.width(count: count)
+        guard w > 0 else { return (left, left) }
+        let offset = Int(mix(seed, UInt64(next.index)) % UInt64(w + 1))
+        let lo = max(1, left - offset)
+        return (lo, lo + w)
+    }
+
+    /// splitmix64 による固定のずれ(世界の seed × 替わり目の番号)。
+    static func mix(_ seed: UInt64, _ index: UInt64) -> UInt64 {
+        var z = seed &+ (index &+ 1) &* 0x9E37_79B9_7F4A_7C15
+        z = (z ^ (z >> 30)) &* 0xBF58_476D_1CE4_E5B9
+        z = (z ^ (z >> 27)) &* 0x94D0_49BB_1331_11EB
+        return z ^ (z >> 31)
     }
 
     /// 食料・水を候補に入れる残り日数の上限(千分率)。これより多ければ急がない。
@@ -219,6 +255,17 @@ extension FrameBuilder {
             }
             out.append(.init(kind: .line, milliDays: DayWrapRules.stoppedLineMilliDays, text: text))
             break
+        }
+        // 暦の見込み(季節の定義・宣言・数えがある内容だけ)
+        if let decl = content.clock.calendarOutlook,
+           let r = DayWrapRules.calendarRange(clock: content.clock, day: w.clock.day,
+                                              count: w.narrative.counters[decl.counter] ?? 0, seed: w.seed) {
+            let text: String = if r.daysMin == r.daysMax {
+                label(p, "ui.daywrap.calendar_days_left", ["n": .int(Int64(r.daysMin))])
+            } else {
+                label(p, "ui.daywrap.calendar_days_range", ["min": .int(Int64(r.daysMin)), "max": .int(Int64(r.daysMax))])
+            }
+            out.append(DayWrapRules.Candidate.calendarOutlook(daysMin: r.daysMin, daysMax: r.daysMax, text: text))
         }
         return out
     }

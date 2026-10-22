@@ -45,6 +45,7 @@ public struct BaseSystem: SimSystem {
     public func step(_ ctx: inout StepContext) {
         Construction.advance(&ctx)
         Hearths.advanceStructures(seconds: Int(SimStep.gameSeconds), &ctx)
+        PowerRecords.advance(&ctx)
     }
 
     public func react(to event: DomainEvent, _ ctx: inout StepContext) {

@@ -1,4 +1,5 @@
 import RFKernel
+import RFRules
 
 /// 発明が来歴に付ける印。コンテンツの条件・出来事がこの ID で指す(物語の「最初の鉄」など)。
 ///
@@ -10,6 +11,14 @@ public enum InventionTags {
     public static let smelted: ProvenanceTag = "tag.invention.smelted"
     /// 初めての製錬(ledger にまだ smelted の記録が無かった)。できた物は唯一品として残る。
     public static let firstSmelt: ProvenanceTag = "tag.invention.first_smelt"
+    /// 炉が予熱から workTemp に届いた(毎回。冷えて予熱し直して届いた時も付く)。
+    public static let furnaceHot: ProvenanceTag = IndustryRecords.furnaceHot
+    /// 炉が初めて workTemp に届いた(ledger にまだ furnace_hot の記録が無かった)。
+    public static let firstHotFurnace: ProvenanceTag = IndustryRecords.firstHotFurnace
+    /// 電気を出す物が働き始めた(毎回。止まって再び働き始めた時も付く)。
+    public static let powered: ProvenanceTag = IndustryRecords.powered
+    /// 電気を初めて出した(ledger にまだ powered の記録が無かった)。
+    public static let firstPower: ProvenanceTag = IndustryRecords.firstPower
 }
 
 /// 断った理由(文字列表のキー)。画面は足元カードに 1 行出す。
