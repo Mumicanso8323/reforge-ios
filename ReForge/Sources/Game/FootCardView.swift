@@ -45,9 +45,31 @@ struct FootCardView: View {
                 .frame(maxWidth: .infinity, minHeight: InkMetric.buttonHeight, alignment: .leading)
             }
         }
+        .overlay(alignment: .topTrailing) { FloatingPulseText(player: store.pulsePlayer) }
         // 子の識別子(holdRing・footAction など)を上書きしないよう、まとめずに含む形にする
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("footCard")
+    }
+}
+
+/// 手作業の 1 単位の「+1 〈物〉」。足元カードの上に 0.5 秒浮かぶ(同時に 5 個まで。「動きを減らす」では作られない)。
+struct FloatingPulseText: View {
+    let player: PulsePlayer
+
+    var body: some View {
+        VStack(alignment: .trailing, spacing: 2) {
+            ForEach(player.floaters) { floater in
+                spokenText(floater.text)
+                    .font(InkFont.body)
+                    .foregroundStyle(InkColor.accent)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .animation(.easeOut(duration: 0.2), value: player.floaters)
+        .offset(y: -26)
+        .padding(.trailing, 12)
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
     }
 }
 
@@ -79,6 +101,7 @@ struct ActionButton: View {
                     .onChanged { _ in
                         guard !pressing else { return }
                         pressing = true
+                        store.pulsePlayer.press()
                         store.act(action, pressing: true)
                     }
                     .onEnded { _ in
@@ -94,6 +117,7 @@ struct ActionButton: View {
                 .refusalShake(store.refusals)
         } else {
             Button {
+                store.pulsePlayer.press()
                 store.act(action, pressing: true)
             } label: {
                 spokenText(action.label)
