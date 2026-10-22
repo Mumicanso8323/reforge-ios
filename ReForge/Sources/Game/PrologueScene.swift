@@ -85,14 +85,7 @@ struct PrologueScene: View {
     private static let fontSize: CGFloat = 19
     fileprivate static let space = "prologueSpace"
 
-    #if DEBUG
-    @MainActor static var bodyCount = 0
-    #endif
-
     var body: some View {
-        #if DEBUG
-        let _ = { Self.bodyCount += 1 }()
-        #endif
         GeometryReader { geo in
             ZStack {
                 (groundDark ? Color.black : InkColor.prologueGround)
@@ -146,13 +139,6 @@ struct PrologueScene: View {
             }
             .allowsHitTesting(false)
         }
-        .overlay(
-            Color.clear.frame(width: 1, height: 1)
-                .accessibilityElement()
-                .accessibilityIdentifier("prologueBodyCount")
-                .accessibilityValue("\(Self.bodyCount)")
-                .allowsHitTesting(false),
-            alignment: .bottomTrailing)
         #endif
         .onAppear {
             if exiting {
