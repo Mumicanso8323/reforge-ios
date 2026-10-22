@@ -54,6 +54,31 @@ final class ArtProviderTests: XCTestCase {
         XCTAssertEqual(try heightOverWidth(.full, wide), 120.0 / 200.0, accuracy: 0.03)
     }
 
+    /// `.square` は縦長も横長も、置いた正方形の枠をそのまま埋める(余白を作らない)。
+    func testSquareStyleFillsTheFrame() throws {
+        for id in [tall, wide] {
+            let renderer = ImageRenderer(content: ArtView(id: id, style: .square).frame(width: 56, height: 56))
+            renderer.scale = 1
+            let image = try XCTUnwrap(renderer.uiImage)
+            XCTAssertEqual(image.size.width, 56, accuracy: 0.5)
+            XCTAssertEqual(image.size.height, 56, accuracy: 0.5)
+            let cg = try XCTUnwrap(image.cgImage)
+            for (x, y) in [(1, 1), (54, 54)] {
+                XCTAssertEqual(try alpha(cg, x: x, y: y), 255, "\(id) の (\(x), \(y)) が塗られていない")
+            }
+        }
+    }
+
+    /// 左上を原点とした 1 画素の不透明度。
+    private func alpha(_ cg: CGImage, x: Int, y: Int) throws -> UInt8 {
+        var px: [UInt8] = [0, 0, 0, 0]
+        let ctx = try XCTUnwrap(CGContext(data: &px, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                          space: CGColorSpaceCreateDeviceRGB(),
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        ctx.draw(cg, in: CGRect(x: -x, y: y - cg.height + 1, width: cg.width, height: cg.height))
+        return px[3]
+    }
+
     func testMissingArtDrawsNothing() {
         let renderer = ImageRenderer(content: ArtView(id: "t99", style: .scene).frame(width: 100))
         renderer.scale = 1

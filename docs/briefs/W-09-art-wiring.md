@@ -125,7 +125,7 @@ struct ArtView: View {
 - 動きを減らす・終わりの移り(`runExit`)は今のまま。絵は場面の `sceneOpacity` に従って一緒に消える。
 
 ### 3.3 決断の帯(`Game/MapActionBand.swift`。この単位は決断の分岐の中だけ触ってよい)
-- `decision.art` が非 nil で `ArtProvider.shared.image(...)` が非 nil のときだけ、問いの文(`decisionPrompt`)の左に 56pt 角の切り出し(`ArtView(style: .scene)` を `frame(width: 56, height: 56)`・`clipped`)を置く。問いの文が nil のときは、選ぶボタンの上の行に、左そろえで 56pt 角だけを置く。
+- `decision.art` が非 nil で `ArtProvider.shared.image(...)` が非 nil のときだけ、問いの文(`decisionPrompt`)の左に 56pt 角の切り出し(`ArtView(style: .square)` を `frame(width: 56, height: 56)`。`.scene` は縦横比を保って収めるので正方形を埋めない(10/22 CI で 54.7×56 になった))を置く。問いの文が nil のときは、選ぶボタンの上の行に、左そろえで 56pt 角だけを置く。
 - 絵が無い・開かないときは `VStack` の中身も余白も今と同じ(`HStack` で包むのは絵のあるときだけ)。選ぶボタンの並び・高さ・`decisionBand` の識別子・`decide` は変えない。帯が地図の枠を動かさない(今のまま)。
 - 絵は押せない(ボタンにしない・タップを受けない)。識別子 `decisionArt`。
 

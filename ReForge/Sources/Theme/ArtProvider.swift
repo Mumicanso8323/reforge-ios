@@ -49,12 +49,14 @@ final class ArtProvider {
     }
 }
 
-/// 絵の出し方。`.full` は縦横比のまま全体(仲間のタブ。既定)、`.scene` は場面・決断の帯の切り出し。
-enum ArtStyle { case full, scene }
+/// 絵の出し方。`.full` は縦横比のまま全体(仲間のタブ。既定)、`.scene` は場面の切り出し、
+/// `.square` は置いた枠いっぱいを上寄せで埋める切り出し(決断の帯の 56pt 角)。
+enum ArtStyle { case full, scene, square }
 
 /// 封をした絵を 1 枚置く。絵が無ければ何も描かない(場所も取らない)。
 /// 使い方: `ArtView(id: "p03")` (ID は中立の番号)
 /// `.scene`: 縦長(高さ/幅 2.0 以上。全身)は上から 45% を幅いっぱいで切り出す。それ未満は全体を収める。
+/// `.square`: 枠の大きさは呼ぶ側が決める(`frame(width:height:)`)。短い辺で埋め、縦長は上、横長は中央を残す。
 struct ArtView: View {
     let id: ArtID
     var style: ArtStyle = .full
@@ -66,7 +68,16 @@ struct ArtView: View {
     var body: some View {
         if let img = ArtProvider.shared.image(id) {
             let ratio = img.size.width > 0 ? img.size.height / img.size.width : 1
-            if style == .scene, ratio >= Self.tallRatio {
+            if style == .square {
+                Color.clear
+                    .overlay(alignment: ratio > 1 ? .top : .center) {
+                        Image(uiImage: img)
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    }
+                    .clipped()
+                    .accessibilityHidden(true)
+            } else if style == .scene, ratio >= Self.tallRatio {
                 Color.clear
                     .aspectRatio(1 / (ratio * Self.cropFraction), contentMode: .fit)
                     .overlay(alignment: .top) {

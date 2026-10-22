@@ -40,7 +40,23 @@ final class ArtWiringUITests: XCTestCase {
         let before = art.frame
         tapAnywhere(app, dy: 0.15)  // 絵の上でも送れる
         Thread.sleep(forTimeInterval: 1.0)
-        XCTAssertTrue(element(app, "prologueLine-1").exists, "絵の上のタップで送れない (\(language))")
+        let advanced = element(app, "prologueLine-1").exists
+        // 落ちた時に、押した点に重なる識別子と、下の方のタップなら送れるかを出す(原因を当て推量しない)
+        var why = ""
+        if !advanced {
+            let point = CGPoint(x: screen.midX, y: screen.minY + screen.height * 0.15)
+            let over = app.debugDescription.split(separator: "\n").compactMap { line -> String? in
+                guard let r = line.range(of: "identifier: '"),
+                      let f = line.range(of: "{{"), let e = line[f.lowerBound...].range(of: "}}") else { return nil }
+                let nums = line[f.lowerBound..<e.upperBound].split { !"0123456789.-".contains($0) }.compactMap { Double($0) }
+                guard nums.count == 4, CGRect(x: nums[0], y: nums[1], width: nums[2], height: nums[3]).contains(point) else { return nil }
+                return String(line[r.upperBound...].prefix { $0 != "'" })
+            }
+            tapAnywhere(app, dy: 0.8)
+            Thread.sleep(forTimeInterval: 1.0)
+            why = " 押した点 \(point) の識別子: \(over.joined(separator: ",")) / 絵 \(art.frame) / 下のタップで送れる: \(element(app, "prologueLine-1").exists)"
+        }
+        XCTAssertTrue(advanced, "絵の上のタップで送れない (\(language))\(why)")
         XCTAssertEqual(art.frame.minY, before.minY, accuracy: 0.5, "次の行で絵が動いた")
         XCTAssertEqual(art.frame.height, before.height, accuracy: 0.5)
     }

@@ -18,11 +18,18 @@ struct MapActionBand: View {
             VStack(spacing: 8) {
                 if let artID {
                     HStack(alignment: .top, spacing: 8) {
-                        ArtView(id: artID, style: .scene)
+                        ArtView(id: artID, style: .square)
                             .frame(width: 56, height: 56)
-                            .clipped()
                             .allowsHitTesting(false)
-                            .accessibilityIdentifier("decisionArt")
+                            #if DEBUG
+                            // 試験用: 切り出した 56pt 角の枠を XCUI が取れるように、透明の要素を重ねる(中の絵は切る前の大きさを返すため)
+                            .overlay {
+                                Color.clear
+                                    .accessibilityElement()
+                                    .accessibilityIdentifier("decisionArt")
+                                    .allowsHitTesting(false)
+                            }
+                            #endif
                         if let prompt = decision.prompt {
                             spokenText(prompt)
                                 .font(InkFont.body)
