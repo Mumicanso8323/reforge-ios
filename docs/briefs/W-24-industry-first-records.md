@@ -13,15 +13,23 @@
 - 条件からは今の形で引ける: `{"ledger": {"query": {"tag": "tag.invention.first_power"}, "atLeast": 1}}`、引き金は `{"on": ["heated"], "when": {"firstTime": {"query": {"act": "heated"}}}}`。出来事の `on` に新しい行いの名前が使えるようにする(今の `ActKind` の文字列の形に合わせる)。
 - 保存の形は変えない(記録は今の ledger の形。新しい行いの名前が増えるだけ)。
 
-## 急がない: 暦の見込みの 1 行
-- 帯の見込みの 1 行の種類(`DayWrap` の候補の型)に `calendarOutlook(daysLeft: Int)` を足す。出すのは、内容の事実(季節の答えを知った事実。ID は内容の定義 `clock.calendarFact: FactID?` で与える)を知った後だけ。`daysLeft` は次の季節の替わりまでの日数(季節の定義から計算)。文の ID `ui.daywrap.calendar_days_left`(5 言語。数は ICU の plural)。
-- 事実が無い・季節の定義が無い内容では出さない。
+## 暦の見込みの 1 行(v2 2026-10-22: 幅つき・観測で狭まる形に改めた。今回の範囲に含める)
+内容の側の求め: 季節の替わりが来る前に、観測を重ねたプレイヤーへ「何日後に替わるか」の見込みを出す。最初は幅があり、観測を重ねるほど狭まり、最後は日数になる。
+- **季節の定義**: `ClockDef` に省略可能な `seasons: SeasonCycleDef?` を足す。`SeasonCycleDef { cycleDays: Int; boundaries: [Int] }`(boundaries は 1 周の中の替わり目の日。例 cycleDays 340・boundaries [85, 170, 255, 340])。1 日目からの経過日を cycleDays で割った余りで、次の替わり目までの日数 `daysLeft` を出す。省略時(今の内容)は見込みを出さない。今の JSON はそのまま読める(既定 nil)。
+- **出す条件の宣言**: `ClockDef` に省略可能な `calendarOutlook: CalendarOutlookDef?`。`CalendarOutlookDef { counter: CounterID(観測の夜を数える内容の数え); leadDays: Int = 25; initialWidth: Int = 8; narrowEvery: Int = 3; narrowStep: Int = 2 }`。前の版の `clock.calendarFact` は作らない(未実装だったので置き換える)。
+- **出す時**: 数えが 1 以上 かつ `daysLeft <= leadDays` の日の帯だけ。幅 `w = max(0, initialWidth - (数え / narrowEvery) * narrowStep)`。`w == 0` なら日数 1 つ。`w > 0` なら `daysMin...daysMax`(幅 w、真の daysLeft を必ず含む。真の値が幅のどこに来るかは、世界の seed と替わり目の番号から決まる固定のずれで決め、毎日の帯で揺れない。daysMin は 1 未満にしない)。
+- **型**: 帯の見込みの候補(`DayWrap` の候補の型)に `calendarOutlook(daysMin: Int, daysMax: Int)` を足す(同じ値なら日数の文)。文の ID は `ui.daywrap.calendar_days_left`(日数)と `ui.daywrap.calendar_days_range`(幅)。5 言語・数は ICU の plural。
+- 季節の定義・宣言・数えが無い内容では出さない。
+
+## 内容の側が今この名前で待っている物(綴りを変えない)
+- 札 `tag.invention.first_hot_furnace`・`tag.invention.first_power`(出来事の条件が既にこの名前で指している。入るまでその出来事は起きない)。
+- 暦の宣言は、型が入った後に内容の側が `clock.seasons`・`clock.calendarOutlook` を書く。
 
 ## テスト(Linux。公開の層の試験の内容)
 - 試験の炉を予熱して `workTemp` に届かせると、`heated` の記録に `furnace_hot` と `first_hot_furnace` が付く。冷やして予熱し直すと、2 回目は `furnace_hot` だけ。
 - `provides["power"]` を持つ試験のモジュールを動かすと `powered` と `first_power`。止めて動かすと 2 回目は `powered` だけ。`power` を持たない物では付かない。
 - 条件 `firstTime` と `ledger` で引ける。出来事の `on: ["heated"]` で引き金になる。
-- 暦: 事実を知る前は候補に無い・知った後は `daysLeft` が季節の定義どおり。
+- 暦: 数えが 0・替わり目まで leadDays より遠い・定義が無い時は候補に無い。数えを増やすと幅が narrowEvery ごとに narrowStep 狭まり、最後は日数 1 つ。幅は真の daysLeft を必ず含み、同じ世界・同じ替わり目なら日ごとに揺れない。替わり目を越えると次の替わり目へ。今の内容の JSON(seasons 無し)が読める。
 
 ## 受け入れ
 - `swift test --package-path ReForgeCore` が公開の層で全部通る。統合担当が非公開の層を重ねて回す。
