@@ -1,7 +1,6 @@
 import XCTest
+import ReForgeEngine
 @testable import ReForge
-import RFContent
-import RFWorld
 
 /// PT-B4: 操作の記録(命令・無操作・節目・書き出し・消去・入切)。端末の中だけ。
 @MainActor

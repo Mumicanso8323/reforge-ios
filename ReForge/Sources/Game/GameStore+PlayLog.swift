@@ -2,10 +2,6 @@ import Foundation
 import QuartzCore
 import ReForgeEngine
 import UIKit
-import RFContent
-import RFPresent
-import RFSim
-import RFWorld
 
 /// 操作記録に残す内容の組み立て(PT-B4)。記録は端末の中だけ。世界にも保存にも入れず、ID だけを書く。
 /// GameStore 本体からは 1 行ずつ呼ぶ。
