@@ -222,20 +222,10 @@ jobs:
           set -o pipefail
           udid=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(x["udid"] for k,v in d.items() if "iOS" in k for x in v if x["name"].startswith("iPhone")))')
           echo "simulator $udid"
-          # シミュレータ用の簡易署名にする(署名の無いアプリは StoreKit の試験の店から商品を受け取れない)
-          sign="CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER="
-          # 先に購入の試験だけを別のプロセスで回し、シミュレータに試験の店の設定を残す(最初のプロセスの StoreKit の
-          # 接続は SKTestSession の後でも Sandbox に結び付くことがある。次のプロセスからは試験の店に繋がる)。
-          # ここの成否は問わない(本番の確かめは次の全部の回)。外れ方は英数の STORE の文だけを出す
-          xcodebuild test -project ReForge.xcodeproj -scheme ReForge \
-            -destination "id=$udid" -derivedDataPath build-test -only-testing:ReForgeTests/StoreServiceTests \
-            $sign > preflight.log 2>&1 && echo "preflight: store test passed" || {
-              echo "preflight: store test failed"
-              grep -aoE "STORE [^\"]{0,250}" preflight.log | LC_ALL=C tr -cd 'A-Za-z0-9_.:()[]/=, \n-' | cut -c1-300 | sort -u | head -5 || true
-            }
+          # シミュレータ用の簡易署名にする(StoreKit の試験の店を試すアプリは署名が要る)
           xcodebuild test -project ReForge.xcodeproj -scheme ReForge \
             -destination "id=$udid" -derivedDataPath build-test \
-            $sign > test.log 2>&1 \
+            CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= > test.log 2>&1 \
             || {
               if [ "$HAS_CONTENT_KEY" = "true" ]; then
                 # 非公開の層を重ねて回した。公開ログに XCTAssert の文面(物語の文が入りうる)を出さない。テストの名前(公開のコード)だけ。
@@ -271,6 +261,8 @@ jobs:
               exit 1
             }
           grep -aE "Test Case .*(passed|failed)|Executed|\*\* TEST" test.log | tail -20
+          # 飛ばした試験(購入の試験は試験の店が動かない所で飛ばす)。英数の文だけ
+          grep -aoE "Test Case '[^']+' skipped|STORE test store unavailable[^\"]{0,200}" test.log | LC_ALL=C tr -cd 'A-Za-z0-9_.:()[]/=, \n-' | cut -c1-300 | sort -u | head -5 || true
 
       - name: Build (unsigned)
         run: |
