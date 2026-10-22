@@ -659,7 +659,10 @@ public enum ContentValidator {
         for (s, def) in db.perception.sorted(by: { $0.key < $1.key }) {
             for v in def.variants {
                 guard let a = v.art else { continue }
-                check(a, owner: "\(s)")
+                // 形は perception.art(artIDsAreNeutral)が見ている。ここでは実在だけ(二重に出さない)。
+                if let art, !art.contains(a) {
+                    out.append(Issue(level: .error, rule: "art.exists", message: "\(s) の絵 \(a.rawValue) が art に無い"))
+                }
             }
         }
     }

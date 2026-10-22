@@ -99,6 +99,8 @@ struct PrologueScene: View {
                     .allowsHitTesting(false)
             }
             .coordinateSpace(name: Self.space)
+            // 絵の無いページから絵のあるページへ替わるときも、絵の挿入が 0.4 秒で浮かぶように親で動かす
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.4), value: visibleArt)
         }
         .opacity(sceneOpacity)
         .accessibilityElement(children: .ignore)
@@ -174,7 +176,6 @@ struct PrologueScene: View {
             .frame(maxWidth: .infinity, alignment: .top)
             .frame(height: size.height * 0.34, alignment: .top)
             .opacity(artReady ? 1 : 0)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.4), value: id)
             .background(
                 GeometryReader { proxy in
                     Color.clear.preference(key: PrologueArtFrameKey.self, value: proxy.frame(in: .named(Self.space)))

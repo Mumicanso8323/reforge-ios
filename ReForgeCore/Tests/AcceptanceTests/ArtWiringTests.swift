@@ -166,7 +166,11 @@ final class ArtWiringTests: XCTestCase {
             f.decision?.art = nil
             return f
         }
+        var sawSceneArt = false, sawDecisionArt = false
         func same(_ step: String) throws {
+            let shown = frame(withArt, wa)
+            sawSceneArt = sawSceneArt || shown.prologue?.art != nil
+            sawDecisionArt = sawDecisionArt || shown.decision?.art != nil
             let ea = try SaveCodec.encode(SaveEnvelope(slot: .resume, world: wa, content: []))
             let eb = try SaveCodec.encode(SaveEnvelope(slot: .resume, world: wb, content: []))
             XCTAssertEqual(ea, eb, step)
@@ -193,6 +197,8 @@ final class ArtWiringTests: XCTestCase {
             both { r, w in _ = r.simulation.advance(&w, realSeconds: 0.1) }
             try same("tick \(i)")
         }
+        XCTAssertTrue(sawSceneArt, "絵のあるフレームが実際に場面の絵を持った")
+        XCTAssertTrue(sawDecisionArt, "絵のあるフレームが実際に決断の絵を持った")
     }
 
     // 6
@@ -227,6 +233,12 @@ final class ArtWiringTests: XCTestCase {
         var bad = db
         bad.scenes["scene.test.art.page2"]?.art = "T_Upper"
         XCTAssertTrue(ContentValidator.validate(bad).contains { $0.rule == "art.form" && $0.level == .error })
+
+        var badVariant = db
+        badVariant.perception[Subject.person("person.test_c")]?.variants[0].art = "T_Upper"
+        let formIssues = ContentValidator.validate(badVariant).filter { $0.rule == "perception.art" || $0.rule == "art.form" }
+        XCTAssertEqual(formIssues.count, 1, "Variant.art の形の誤りは 1 回だけ出る")
+        XCTAssertEqual(formIssues.first?.level, .error)
 
         var nochoices = db
         nochoices.events["event.test.art.page"]?.art = "t01"
