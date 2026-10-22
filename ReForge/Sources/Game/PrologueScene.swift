@@ -85,7 +85,14 @@ struct PrologueScene: View {
     private static let fontSize: CGFloat = 19
     fileprivate static let space = "prologueSpace"
 
+    #if DEBUG
+    @MainActor static var bodyCount = 0
+    #endif
+
     var body: some View {
+        #if DEBUG
+        let _ = { Self.bodyCount += 1 }()
+        #endif
         GeometryReader { geo in
             ZStack {
                 (groundDark ? Color.black : InkColor.prologueGround)
@@ -125,17 +132,27 @@ struct PrologueScene: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .allowsHitTesting(false)
         }
-        .overlayPreferenceValue(PrologueArtFrameKey.self) { frame in
-            if let frame {
-                Color.clear
-                    .frame(width: frame.width, height: frame.height)
-                    .position(x: frame.midX, y: frame.midY)
-                    .accessibilityElement()
-                    .accessibilityIdentifier("sceneArt")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    .allowsHitTesting(false)
+        .overlay {
+            // 絵の区画の枠は場面の大きさから決まる(GeometryReader の preference の往復を使わない)。場面の 1 要素の外に置く
+            GeometryReader { geo in
+                if visibleArt != nil {
+                    let top = max(Self.safeTop, geo.size.height * 0.06)
+                    Color.clear
+                        .frame(width: geo.size.width, height: geo.size.height * 0.34)
+                        .position(x: geo.size.width / 2, y: top + geo.size.height * 0.17)
+                        .accessibilityElement()
+                        .accessibilityIdentifier("sceneArt")
+                }
             }
+            .allowsHitTesting(false)
         }
+        .overlay(
+            Color.clear.frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("prologueBodyCount")
+                .accessibilityValue("\(Self.bodyCount)")
+                .allowsHitTesting(false),
+            alignment: .bottomTrailing)
         #endif
         .onAppear {
             if exiting {
@@ -176,11 +193,6 @@ struct PrologueScene: View {
             .frame(maxWidth: .infinity, alignment: .top)
             .frame(height: size.height * 0.34, alignment: .top)
             .opacity(artReady ? 1 : 0)
-            .background(
-                GeometryReader { proxy in
-                    Color.clear.preference(key: PrologueArtFrameKey.self, value: proxy.frame(in: .named(Self.space)))
-                }
-            )
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .padding(.top, top)
             .allowsHitTesting(false)
@@ -394,13 +406,5 @@ private struct PrologueLineFramesKey: PreferenceKey {
     static let defaultValue: [Int: CGRect] = [:]
     static func reduce(value: inout [Int: CGRect], nextValue: () -> [Int: CGRect]) {
         value.merge(nextValue()) { $1 }
-    }
-}
-
-/// 絵の区画の frame(場面の座標)。試験用の透明の要素の位置に使う。
-private struct PrologueArtFrameKey: PreferenceKey {
-    static let defaultValue: CGRect? = nil
-    static func reduce(value: inout CGRect?, nextValue: () -> CGRect?) {
-        value = nextValue() ?? value
     }
 }

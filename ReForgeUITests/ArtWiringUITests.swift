@@ -23,7 +23,8 @@ private func identifiers(_ app: XCUIApplication) -> [String] {
         return String(line[r.upperBound...].prefix { $0 != "'" })
     }
     let progress = element(app, "prologueProgress")
-    return ids + ["進み=\(progress.exists ? String(describing: progress.value ?? "nil") : "無し")"]
+    let count = element(app, "prologueBodyCount")
+    return ids + ["描き直し=\(count.exists ? String(describing: count.value ?? "nil") : "無し")", "進み=\(progress.exists ? String(describing: progress.value ?? "nil") : "無し")"]
 }
 
 private func tapAnywhere(_ app: XCUIApplication, dy: CGFloat = 0.8) {
