@@ -51,6 +51,7 @@ public enum ContentValidator {
         artIDsAreNeutral(db, &out)  // 立ち絵の ID の形(U18)
         tendOfferWellFormed(db, &out)  // 火の番の申し出(W-02d)
         extractPurityBonusInRange(db, &out)  // 掘り出しの純度の上積み(P-13)
+        clockCalendarWellFormed(db, &out)  // 暦の見込み(W-24)
         return out
     }
 
@@ -65,6 +66,30 @@ public enum ContentValidator {
         }
         if !failures.isEmpty, gate.resume == nil {
             out.append(Issue(level: .error, rule: "trialGate.resume", message: "held failures need a resume rule"))
+        }
+    }
+
+    /// 季節の巡りと暦の見込みの宣言の値(W-24)。0・負・大きすぎる値、昇順でない・重なる・周を超える替わり目を弾く。
+    static func clockCalendarWellFormed(_ db: ContentDB, _ out: inout [Issue]) {
+        func bad(_ rule: String, _ message: String) { out.append(Issue(level: .error, rule: rule, message: message)) }
+        let days = 1...SeasonCycleDef.maxDays
+        let widths = 0...CalendarOutlookDef.maxWidth
+        if let s = db.clock.seasons {
+            if !days.contains(s.cycleDays) { bad("clock.seasons.cycleDays", "cycleDays が 1...\(SeasonCycleDef.maxDays) の外") }
+            if s.boundaries.isEmpty { bad("clock.seasons.boundaries", "boundaries が空") }
+            if zip(s.boundaries, s.boundaries.dropFirst()).contains(where: { $0 >= $1 }) {
+                bad("clock.seasons.boundaries", "boundaries が昇順でない・重なっている")
+            }
+            if s.boundaries.contains(where: { $0 < 1 || $0 > s.cycleDays }) {
+                bad("clock.seasons.boundaries", "boundaries が 1...cycleDays の外")
+            }
+        }
+        if let o = db.clock.calendarOutlook {
+            if db.clock.seasons == nil { bad("clock.calendarOutlook.seasons", "seasons が無いのに calendarOutlook がある") }
+            if !(0...SeasonCycleDef.maxDays).contains(o.leadDays) { bad("clock.calendarOutlook.leadDays", "leadDays が範囲の外") }
+            if !widths.contains(o.initialWidth) { bad("clock.calendarOutlook.initialWidth", "initialWidth が範囲の外") }
+            if !days.contains(o.narrowEvery) { bad("clock.calendarOutlook.narrowEvery", "narrowEvery が範囲の外") }
+            if !widths.contains(o.narrowStep) { bad("clock.calendarOutlook.narrowStep", "narrowStep が範囲の外") }
         }
     }
 

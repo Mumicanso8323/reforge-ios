@@ -21,6 +21,8 @@
     "ui.roster.confirm_hint": "長押しで確定",
     "ui.grant.title": "技能を付ける",
     "ui.grant.skip": "付けない",
-    "ui.grant.refused": "本人が断った"
+    "ui.grant.refused": "本人が断った",
+    "ui.daywrap.calendar_days_left": "{n, plural, other {季節の替わりまで あと # 日}}",
+    "ui.daywrap.calendar_days_range": "{max, plural, other {季節の替わりまで あと {min}〜# 日}}"
   }
 }

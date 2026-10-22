@@ -1,0 +1,7 @@
+{
+  "language": "ko",
+  "texts": {
+    "ui.daywrap.calendar_days_left": "{n, plural, other {계절이 바뀌기까지 #일}}",
+    "ui.daywrap.calendar_days_range": "{max, plural, other {계절이 바뀌기까지 {min}~#일}}"
+  }
+}

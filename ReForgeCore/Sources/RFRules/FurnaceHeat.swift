@@ -134,6 +134,12 @@ public enum FurnaceHeat {
             ctx.changes.mark(.placements)
             ctx.changes.markTile(p.at, .placements)
         }
+        // workTemp に届いた(予熱の終わり。冷えて予熱し直した時も)。初めてなら first_hot_furnace も付く(W-24)
+        if (before.heat ?? 0) < work, heat >= work, let kind = p.moduleKind {
+            let rec = ctx.recordIndustry(.heated, .module(kind, id), place: p.at, every: IndustryRecords.furnaceHot,
+                                         first: IndustryRecords.firstHotFurnace)
+            ctx.emit(.placementHeated(placement: id, record: rec))
+        }
     }
 
     /// 入口にある燃料のうち、熱を保てるもの(いま燃えている物を先に、次に ID の順)。

@@ -1,0 +1,7 @@
+{
+  "language": "en",
+  "texts": {
+    "ui.daywrap.calendar_days_left": "{n, plural, one {The season turns in # day} other {The season turns in # days}}",
+    "ui.daywrap.calendar_days_range": "{max, plural, one {The season turns in {min} to # day} other {The season turns in {min} to # days}}"
+  }
+}

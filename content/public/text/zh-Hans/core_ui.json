@@ -1,0 +1,7 @@
+{
+  "language": "zh-Hans",
+  "texts": {
+    "ui.daywrap.calendar_days_left": "{n, plural, other {距离换季还有 # 天}}",
+    "ui.daywrap.calendar_days_range": "{max, plural, other {距离换季还有 {min}~# 天}}"
+  }
+}

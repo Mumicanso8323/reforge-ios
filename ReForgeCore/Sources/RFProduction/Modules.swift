@@ -221,8 +221,15 @@ enum Modules {
             ctx.world.placements.items[id]?.module?.today.idleSeconds += dt
             return
         }
+        let wasRunning = p.status == .running
         setStatus(id, .running, waiting: nil, &ctx)
         if let m = ctx.world.placements.items[id]?.module, Self.kind(of: m, def) == .generate {
+            // 電気を出す発電機が働き始めた(止まって再び動いた時と、置いて最初のステップ)。W-24
+            if (def.power?.output ?? 0) > 0, !wasRunning || Self.neverTallied(m) {
+                let rec = ctx.recordIndustry(.powered, .module(kind, id), place: p.at, every: IndustryRecords.powered,
+                                             first: IndustryRecords.firstPower)
+                ctx.emit(.placementPowered(placement: id, record: rec))
+            }
             ctx.world.placements.items[id]?.module?.today.runningSeconds += dt
             Power.burnFuel(id, def, &ctx)
             return
@@ -234,6 +241,11 @@ enum Modules {
         guard let prog = ctx.world.placements.items[id]?.module?.progress, prog >= cycle else { return }
         ctx.world.placements.items[id]?.module?.progress = prog - cycle
         cycleOnce(id, def, &ctx)
+    }
+
+    /// 置いてから 1 ステップも働きも止まりもしていない(今日も昨日も集計が 0)。
+    static func neverTallied(_ m: ModuleRuntime) -> Bool {
+        m.today.runningSeconds + m.today.idleSeconds + m.yesterday.runningSeconds + m.yesterday.idleSeconds == 0
     }
 
     static func setStatus(_ id: EntityID, _ s: PlacementStatus, waiting: ItemID?, _ ctx: inout StepContext) {

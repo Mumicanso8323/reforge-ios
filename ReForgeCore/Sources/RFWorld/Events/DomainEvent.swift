@@ -102,6 +102,10 @@ public enum DomainEvent: Codable, Equatable, Sendable {
     case placementDestroyed(placement: EntityID, record: ProvenanceID)
     /// 壊れた置いた物を直した(U16)。
     case placementRepaired(placement: EntityID, record: ProvenanceID)
+    /// 炉が予熱から workTemp に届いた(W-24)。
+    case placementHeated(placement: EntityID, record: ProvenanceID)
+    /// 電気を出す物が働き始めた(W-24)。
+    case placementPowered(placement: EntityID, record: ProvenanceID)
     /// 火床の段が変わった(消えた・点いた・弱まった。U21)。
     case hearthLevelChanged(placement: EntityID, level: HearthLevel)
     /// プレイヤーの操作で火床に燃料をくべた(手触りの振動の合図。A-01)。
@@ -184,6 +188,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
         case .runResumed: "run.resumed"
         case .placementDestroyed: "destroyed"
         case .placementRepaired: "repaired"
+        case .placementHeated: "heated"
+        case .placementPowered: "powered"
         }
     }
 
@@ -200,7 +206,8 @@ public enum DomainEvent: Codable, Equatable, Sendable {
              .abilityUsed(_, _, let r), .eventFired(_, let r),
              .decided(_, _, let r), .chapterEnded(_, let r), .runResumed(_, let r),
              .explored(_, _, let r), .partChanged(_, _, let r),
-             .placementDestroyed(_, let r), .placementRepaired(_, let r):
+             .placementDestroyed(_, let r), .placementRepaired(_, let r),
+             .placementHeated(_, let r), .placementPowered(_, let r):
             r
         case .itemGained(_, _, _, let r): r
         case .hintHeard(_, _, let r): r
