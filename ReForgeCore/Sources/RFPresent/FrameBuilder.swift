@@ -97,7 +97,7 @@ public struct FrameBuilder: Sendable {
         frame.fireGauge = fireGaugeView(w)
         frame.offers = offers(w, p)
         frame.benchRevision = Self.benchRevision(previous: previous, report: report, revision: revision, day: w.clock.day)
-        frame.pulseList = pulses(w, p, frame: frame, previous: previous, report: report)
+        frame.pulses = pulses(w, p, frame: frame, previous: previous, report: report)
         if let prologue = prologue(w, p) {
             frame.prologue = prologue
             frame.status = []
@@ -119,7 +119,7 @@ public struct FrameBuilder: Sendable {
             frame.dayWrap = nil
             frame.fireGauge = nil
             frame.offers = []
-            frame.pulseList = []
+            frame.pulses = []
         } else {
             frame.darkStart = darkStart(w)
             if frame.darkStart == nil { applySteering(&frame, w) }

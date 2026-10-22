@@ -28,11 +28,6 @@ public enum Pulse: Equatable, Sendable {
 
 public enum FirePulse: String, Equatable, Sendable { case lit, weakened, out }
 
-extension Frame {
-    /// このフレームを組み立てた間に起きた手応え。前のフレームから後の分だけ。
-    public var pulses: [Pulse] { pulseList }
-}
-
 extension FrameBuilder {
     /// 来歴の札の名前が first_ で始まる新しい記録(first_hot_furnace・tag.invention.first_smelt など。名前は決め打ちしない)、
     /// または同じ行為・同じ対象の最初の記録(作った・建てた)なら、その対象の名前。
