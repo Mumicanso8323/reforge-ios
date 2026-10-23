@@ -1,4 +1,5 @@
 import XCTest
+import ReForgeEngine
 @testable import ReForge
 
 @MainActor
