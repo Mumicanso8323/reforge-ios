@@ -49,6 +49,9 @@ final class AppModel {
     /// StoreKit の署名付き記録から作る実行時の権利。保存や UserDefaults には書かない。
     private(set) var entitlements = Entitlements(fullGame: false)
     private let trialGateOpen: Bool
+    /// TestFlight か Xcode から入れた版と実行時に分かったとき true。保存や UserDefaults には書かない。
+    private(set) var distributionGateOpen = false
+    private let distributionReader: DistributionEnvironmentReader
     private(set) var game: GameStore?
     /// 「つづきから」があるか。
     private(set) var hasResume: Bool
@@ -131,7 +134,9 @@ final class AppModel {
          storeService: any StoreService = StoreKitStoreService(),
          backgroundTasks: any BackgroundTaskManaging = ApplicationBackgroundTasks(),
          bundle: Bundle = .main, defaults: UserDefaults = .standard,
-         language: AppLanguage? = nil) {
+         language: AppLanguage? = nil,
+         distributionReader: @escaping DistributionEnvironmentReader = DistributionGate.storeKitReader) {
+        self.distributionReader = distributionReader
         self.prologueSeen = PrologueSeen(defaults: defaults)
         FontBook.register(bundle: bundle)
         var content: ContentDB?
@@ -401,7 +406,17 @@ final class AppModel {
         if let game { await game.setEntitlements(gameEntitlements) }
     }
 
-    private var gameEntitlements: Entitlements { Entitlements(fullGame: trialGateOpen || entitlements.fullGame) }
+    private var gameEntitlements: Entitlements {
+        Entitlements(fullGame: trialGateOpen || distributionGateOpen || entitlements.fullGame)
+    }
+
+    /// 起動時に 1 回、入れ方を読む。sandbox か xcode なら門を開け、動いているゲームの権利も差し替える。
+    func loadDistributionGate() async {
+        let open = DistributionGate.opensGate(await distributionReader())
+        guard open != distributionGateOpen else { return }
+        distributionGateOpen = open
+        if let game { await game.setEntitlements(gameEntitlements) }
+    }
 
     func purchaseFullGame() async {
         _ = await storeService.purchase(ProductID.fullGame)
@@ -481,6 +496,7 @@ struct RootView: View {
         .background(SpeechLanguageInstaller(identifier: SpeechLanguage.base(app.language.effective)))
         .task {
             guard !UnitTestHost.isActive else { return }
+            await app.loadDistributionGate()
             await app.refreshEntitlements()
             await app.observeTransactionUpdates()
         }
