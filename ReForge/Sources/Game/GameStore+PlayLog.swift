@@ -26,9 +26,11 @@ final class PlayRecorder {
     var marksSeed: UInt64?
     /// いまの画面(idle の行に入れる)。
     var screen = "map"
+    /// 開いているタブ(設定を閉じたとき、idle の画面をここへ戻す)。
+    var tabName = "map"
 }
 
-/// 節目の追跡の置き場(playlog/marks.json。遊び〈seed〉ごと。保存には入れない)。
+/// 節目の追跡の置き場(playlog/marks-<seed>.json。遊び〈seed〉ごと。保存には入れない)。
 private struct MarksFile: Codable {
     var seed: UInt64
     var tracker: PlaytestMarkTracker
@@ -135,7 +137,7 @@ extension GameStore {
         guard playLog?.isRecording == true, !content.playtestMarks.isEmpty else { return }
         let world = await host.world
         let r = playRecorder
-        let url = playLog?.directory.appendingPathComponent("marks.json")
+        let url = playLog?.directory.appendingPathComponent("marks-\(world.seed).json")
         if !r.marksLoaded || r.marksSeed != world.seed {
             r.marksLoaded = true
             r.marksSeed = world.seed
@@ -211,10 +213,17 @@ extension GameStore {
         r.lastTouch = nil
     }
 
-    /// 画面(タブ)を開いた。いまの画面を覚える。
-    func logPanel(_ name: String) {
-        playRecorder.screen = name
-        logPlay(kind: "panel", fields: ["tab": name])
+    /// 画面(タブ・設定)を開いた・閉じた。触ったことにもなる(idle を誤って書かない)。いまの画面を覚える。
+    func logPanel(_ name: String, open: Bool = true) {
+        recordTouch()
+        let r = playRecorder
+        if open {
+            r.screen = name
+            if name != "settings" { r.tabName = name }
+        } else if name == "settings" {
+            r.screen = r.tabName
+        }
+        logPlay(kind: "panel", fields: ["tab": name, "state": open ? "open" : "close"])
     }
 
     func logPower(event: String) {

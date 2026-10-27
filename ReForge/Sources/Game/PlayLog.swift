@@ -82,10 +82,10 @@ final class PlayLog {
                 try? handle.seekToEnd()
                 try? handle.write(contentsOf: Data(line.utf8))
             } else {
-                // 新しい日のファイルを作る時に、全体の上限を見る
-                Self.prune(directory, maxBytes: maxBytes)
                 try? Data(line.utf8).write(to: url, options: .atomic)
             }
+            // 追記のたびに全体の上限を見る(同じ日のうちに超えても残り続けない)
+            Self.prune(directory, maxBytes: maxBytes)
         }
     }
 
@@ -109,7 +109,7 @@ final class PlayLog {
     func clear() {
         queue.sync {
             let fm = FileManager.default
-            // 節目の印(marks.json)は残す。消すと同じ節目がもう一度出る
+            // 節目の印(marks-<seed>.json)は残す。消すと同じ節目がもう一度出る
             for n in ((try? fm.contentsOfDirectory(atPath: directory.path)) ?? []) where n.hasSuffix(".jsonl") {
                 try? fm.removeItem(at: directory.appendingPathComponent(n))
             }

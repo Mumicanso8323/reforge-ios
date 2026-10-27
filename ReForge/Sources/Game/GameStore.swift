@@ -214,6 +214,8 @@ final class GameStore {
             "zoomPlan": MapTouchSettings.zoomPlan(defaults).rawValue,
             "tapWalk": "\(defaults.bool(forKey: MapTouchSettings.tapWalkKey))",
             "autoReturn": "\(defaults.object(forKey: MapTouchSettings.autoReturnKey) as? Bool ?? true)",
+            "version": Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "",
+            "build": Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "",
         ].merging(DeviceSnapshot.settings()) { $1 })
         InkHoldButton.logConfirm = { [weak self] id, phase in self?.logConfirm(id: id, phase: phase) }
     }
@@ -535,7 +537,7 @@ final class GameStore {
 
     func logPlay(kind: String, fields: [String: String]) {
         playLog?.append(PlayLogEvent(t: Date(), kind: kind, day: clock.day,
-                                     minute: Int(clock.dayRemainingPermille), fields: fields))
+                                     minute: Int(clock.minutesSinceDawn), fields: fields))
     }
 
     /// host.perform と同じ(Frame と断った理由)。出来事も見て、振動を鳴らす。

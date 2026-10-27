@@ -13,12 +13,12 @@ final class PlayLogRecordingTests: XCTestCase {
         return dir
     }
 
-    private func makeStore(content override: ContentDB? = nil, dir: URL) async throws -> (GameStore, PlayLog) {
+    private func makeStore(content override: ContentDB? = nil, dir: URL, seed: UInt64 = 3) async throws -> (GameStore, PlayLog) {
         let c = try override ?? AppModel.loadBundledContent(bundle: .main)
         let name = "reforge.tests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: name))
         addTeardownBlock { defaults.removePersistentDomain(forName: name) }
-        let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: 3),
+        let store = GameStore(content: c, world: GameBootstrap.newWorld(content: c, seed: seed),
                               saves: FileSaveStorage(directory: tempDir()), defaults: defaults, now: { [unowned self] in self.clockNow })
         let log = try XCTUnwrap(PlayLog(directory: dir.appendingPathComponent("playlog"), defaults: defaults))
         store.playLog = log
@@ -122,7 +122,7 @@ final class PlayLogRecordingTests: XCTestCase {
         XCTAssertEqual(try kinds(log, "day").count, 1)
     }
 
-    /// 起動し直しても、初めての節目が 2 度出ない(playlog/marks.json)
+    /// 起動し直しても、初めての節目が 2 度出ない(playlog/marks-<seed>.json)
     func testMarkIsNotRepeatedAfterRestart() async throws {
         var c = try AppModel.loadBundledContent(bundle: .main)
         c.playtestMarks = ["mark.test.start": PlaytestMarkDef(id: "mark.test.start", when: .always)]
@@ -203,5 +203,57 @@ final class PlayLogRecordingTests: XCTestCase {
         XCTAssertEqual(idle.first?["screen"], "notes")
         store.flushIdle()
         XCTAssertEqual(try kinds(log, "idle").count, 1)
+    }
+
+    /// minute は夜明けからの分(残りの千分率ではない)
+    func testMinuteIsMinutesSinceDawn() async throws {
+        let (store, log) = try await makeStore(dir: tempDir())
+        store.logPlay(kind: "probe", fields: [:])
+        let e = try XCTUnwrap(try events(log).first { $0["kind"] as? String == "probe" })
+        XCTAssertEqual(e["minute"] as? Int, store.clock.minutesSinceDawn)
+    }
+
+    /// 節目の印は遊び(seed)ごとのファイル。別の seed を遊んでも、元の seed の印は上書きされない
+    func testMarksFilesAreSeparatePerSeed() async throws {
+        var c = try AppModel.loadBundledContent(bundle: .main)
+        c.playtestMarks = ["mark.test.start": PlaytestMarkDef(id: "mark.test.start", when: .always)]
+        let dir = tempDir()
+        let (a, log) = try await makeStore(content: c, dir: dir, seed: 1)
+        await a.recordMarks()
+        let (b, _) = try await makeStore(content: c, dir: dir, seed: 2)
+        await b.recordMarks()
+        let (a2, _) = try await makeStore(content: c, dir: dir, seed: 1)
+        await a2.recordMarks()
+        XCTAssertEqual(try kinds(log, "mark").count, 2, "seed 1 と 2 で 1 件ずつ。seed 1 を読み直しても増えない")
+        let names = try FileManager.default.contentsOfDirectory(atPath: dir.appendingPathComponent("playlog").path)
+        XCTAssertTrue(names.contains("marks-1.json") && names.contains("marks-2.json"))
+    }
+
+    /// 同じ日のうちに上限を超えても、追記のたびに古い日から消える
+    func testPruneRunsOnAppendWithinTheSameDay() throws {
+        let dir = tempDir().appendingPathComponent("playlog")
+        let log = try XCTUnwrap(PlayLog(directory: dir, defaults: try XCTUnwrap(UserDefaults(suiteName: UUID().uuidString)), maxBytes: 600))
+        let old = Date(timeIntervalSince1970: 1_800_000_000)
+        for _ in 0..<4 { log.append(PlayLogEvent(t: old, kind: "x", day: 1, minute: 0, fields: ["k": String(repeating: "a", count: 60)])) }
+        let today = old.addingTimeInterval(86_400 * 5)
+        for _ in 0..<12 { log.append(PlayLogEvent(t: today, kind: "x", day: 2, minute: 0, fields: ["k": String(repeating: "a", count: 60)])) }
+        log.flush()
+        let files = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasSuffix(".jsonl") }
+        XCTAssertEqual(files.count, 1, "古い日は消え、いまの日だけ残る")
+    }
+
+    /// タブ・設定の開閉は panel の open/close で記録し、触ったことにもなる(idle を誤って書かない)
+    func testPanelOpenCloseAndTouchSuppressIdle() async throws {
+        let (store, log) = try await makeStore(dir: tempDir())
+        await store.perform(.crew(.steer(direction: nil)))
+        clockNow.addTimeInterval(8)
+        store.logPanel("settings")
+        clockNow.addTimeInterval(8)
+        store.logPanel("settings", open: false)
+        clockNow.addTimeInterval(8)
+        await store.perform(.crew(.steer(direction: nil)))
+        XCTAssertTrue(try kinds(log, "idle").isEmpty)
+        let panels = try kinds(log, "panel")
+        XCTAssertEqual(panels, [["tab": "settings", "state": "open"], ["tab": "settings", "state": "close"]])
     }
 }

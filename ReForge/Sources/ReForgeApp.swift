@@ -60,7 +60,10 @@ final class AppModel {
     /// 設定が開いているか(L-10a)。開いている間はゲームの時計を止める。開閉は右上の角のボタンだけが行う。
     /// 本体には何も送らない(ゲームのコマンドではない)。
     var settingsOpen = false {
-        didSet { game?.isPaused = settingsOpen }
+        didSet {
+            game?.isPaused = settingsOpen
+            if oldValue != settingsOpen { game?.logPanel("settings", open: settingsOpen) }
+        }
     }
     /// Presentation-only state for the non-blocking trial card; never saved.
     var trialNoticeVisible = true
