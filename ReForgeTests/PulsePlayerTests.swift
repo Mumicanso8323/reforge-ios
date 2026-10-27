@@ -48,6 +48,13 @@ final class PulsePlayerTests: XCTestCase {
         XCTAssertEqual(normal.floaters.count, PulsePlayer.maxFloaters)
     }
 
+    /// 手作業の 1 単位(.interacted の付かない生産の手作業も含む)で選択の触覚が鳴る。
+    func testUnitDoneFeelsSelect() throws {
+        let (player, _, haptics) = try make()
+        player.play([.unitDone(name: "x", count: 1)])
+        XCTAssertEqual(haptics.feels, [.select])
+    }
+
     /// TEST-B3-5 触覚の切で、触覚の呼び出しが 0 回(音は鳴る)。
     func testHapticsOffMakesNoHapticCalls() throws {
         let (player, sounds, haptics) = try make(haptics: false)

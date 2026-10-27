@@ -44,6 +44,18 @@ final class PulsesTests: XCTestCase {
         XCTAssertEqual(third.pulses, [], "次のフレームには残らない")
     }
 
+    /// 手作業の製作(DomainEvent.crafted)でも finished が入る(できた帯・音・成功の触覚)。
+    func testCraftedMakesFinished() throws {
+        let (_, b, base) = try rig()
+        var w = base
+        let (now, day, run) = (w.clock.now, w.clock.day, w.run.index)
+        let rec = w.ledger.append { id in
+            ProvenanceRecord(id: id, at: now, day: day, run: run, actor: .noah, act: .crafted, subject: .item("wood"))
+        }
+        let f = b.build(w, revision: 1, previous: nil, report: report([.crafted(quantity: 1, record: rec)]))
+        XCTAssertEqual(f.pulses.filter { if case .finished = $0 { true } else { false } }.count, 1)
+    }
+
     /// TEST-B3-2 断られた命令で rejected が理由つきで入る。
     func testRejectedCarriesReason() throws {
         let (rig, b, w) = try rig()

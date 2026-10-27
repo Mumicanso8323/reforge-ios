@@ -65,6 +65,12 @@ extension FrameBuilder {
                 out.append(.placed)
             case .built(let placement, _):
                 if let kind = w.placements.items[placement]?.kind { out.append(.finished(name: p.name(of: kind))) }
+            case .crafted(_, let record):
+                // 手作業の製作の完了(.built と同じく、できた帯・音・成功の触覚)
+                if let r = w.ledger.record(record) {
+                    let name = p.name(of: r.subject)
+                    if !name.isEmpty { out.append(.finished(name: name)) }
+                }
             case .hearthStoked:
                 out.append(.fed)
             case .hearthLevelChanged(_, let now):

@@ -78,6 +78,7 @@ final class FirstTouchTests: XCTestCase {
         XCTAssertEqual(judge.cues(for: [.hearthStoked(placement: placement)]), [.hearthFed])
         XCTAssertEqual(judge.cues(for: [.partChanged(poi: EntityID(2), part: "p", record: record)]), [.partOpened])
         XCTAssertEqual(judge.cues(for: [.built(placement: placement, record: record)]), [.built])
+        XCTAssertEqual(judge.cues(for: [.crafted(quantity: 1, record: record)]), [.built], "手作業の製作も成功の合図")
         let gain = DomainEvent.itemGained(holder: .base, stuff: .item("stick"), quantity: 1, record: record)
         let done = DomainEvent.interacted(person: .noah, interaction: "interaction.test.gather",
                                           at: WorldPoint(.surface, GridPoint(0, 0)), record: record)

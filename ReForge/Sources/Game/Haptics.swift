@@ -35,7 +35,7 @@ struct HapticJudge {
                 if before == .out, level != .out { mark(.fireLit) }
             case .hearthStoked: mark(.hearthFed)
             case .partChanged: mark(.partOpened)
-            case .built: mark(.built)
+            case .built, .crafted: mark(.built)
             case .interacted: interacted = true
             case .itemGained: gained = true
             default: break

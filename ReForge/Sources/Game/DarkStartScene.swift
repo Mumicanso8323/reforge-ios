@@ -95,7 +95,10 @@ private struct DarkStartActionButton: View {
                 .accessibilityLabel(spokenText(action.label))
                 .accessibilityAddTraits(.isButton)
         } else {
-            Button { store.act(action, pressing: true) } label: {
+            Button {
+                store.pulsePlayer.press()
+                store.act(action, pressing: true)
+            } label: {
                 spokenText(action.label)
                     .font(InkFont.body)
                     .lineLimit(1)

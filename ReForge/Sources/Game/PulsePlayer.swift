@@ -144,6 +144,7 @@ final class PulsePlayer {
         switch pulse {
         case .unitDone(let name, let count):
             play(.unit)
+            feel(.select)  // 生産の手作業は .interacted が付かず HapticJudge の採取の合図が鳴らないので、ここで鳴らす
             unitTick += 1
             float("+\(count) \(name)")
         case .placed:
@@ -151,7 +152,7 @@ final class PulsePlayer {
             feel(.select)
             placedTick += 1
         case .finished(let name):
-            play(.done, scale: 0.8)  // 成功の触覚は既存の経路(HapticCue.built)が鳴らす
+            play(.done, scale: 0.8)  // 成功の触覚は既存の経路(HapticCue.built。手作業の製作 .crafted も同じ合図)が鳴らす
             doneTick += 1
             show(banner: bannerStub?("ui.band.pulse_done") ?? UIText.shared.string("ui.band.pulse_done", ["name": .string(name)]))
         case .firstTime(let name):
