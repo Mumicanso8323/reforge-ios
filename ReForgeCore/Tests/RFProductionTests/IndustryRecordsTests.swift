@@ -132,6 +132,26 @@ final class IndustryRecordsTests: XCTestCase {
         XCTAssertEqual(all[1].tags, [IndustryRecords.powered])
     }
 
+    /// 動いた発電機が壊れ、直して(.running へ直に戻して)動き出すと、2 回目の powered が付く。
+    func testGeneratorRecordsPoweredAgainAfterBrokenAndRepaired() throws {
+        let fx = try powerFixture()
+        var w = fx.world(charcoal: 40)
+        w.research.unlocked.modules.formUnion(["test.generator", "test.sink"])
+        let gen = fx.place("test.generator", 13, 15, &w)
+        _ = fx.run(seconds: 60, &w)
+        _ = fx.run(seconds: 60, &w)
+        XCTAssertEqual(records(w, .powered).count, 1)
+        w.placements.items[gen]?.status = .broken
+        _ = fx.run(seconds: 60, &w)
+        w.placements.items[gen]?.status = .running
+        _ = fx.run(seconds: 60, &w)
+        let all = records(w, .powered)
+        XCTAssertEqual(all.count, 2)
+        XCTAssertEqual(all[1].tags, [IndustryRecords.powered])
+        _ = fx.run(seconds: 600, &w)
+        XCTAssertEqual(records(w, .powered).count, 2, "動き続けている間は増えない")
+    }
+
     /// 電気を出さない(出力 0・power を持たない)モジュールでは付かない。
     func testModulesThatDoNotProducePowerRecordNothing() throws {
         let fx = try powerFixture()

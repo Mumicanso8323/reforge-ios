@@ -214,6 +214,7 @@ enum Modules {
         let dt = SimStep.gameSeconds
         if p.status == .broken {  // 壊れて止まっている(U16。直すまで動かない)
             ctx.world.placements.items[id]?.module?.today.idleSeconds += dt
+            ctx.world.placements.items[id]?.module?.wasBroken = true
             return
         }
         if let (reason, item) = blocker(id, ctx.world, ctx.content) {
@@ -221,7 +222,8 @@ enum Modules {
             ctx.world.placements.items[id]?.module?.today.idleSeconds += dt
             return
         }
-        let wasRunning = p.status == .running
+        let wasRunning = p.status == .running && p.module?.wasBroken != true
+        if p.module?.wasBroken == true { ctx.world.placements.items[id]?.module?.wasBroken = false }
         setStatus(id, .running, waiting: nil, &ctx)
         if let m = ctx.world.placements.items[id]?.module, Self.kind(of: m, def) == .generate {
             // 電気を出す発電機が働き始めた(止まって再び動いた時と、置いて最初のステップ)。W-24
