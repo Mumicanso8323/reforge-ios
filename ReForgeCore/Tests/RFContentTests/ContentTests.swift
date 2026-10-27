@@ -460,10 +460,10 @@ final class PlaytestMarkContentTests: XCTestCase {
         XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.rule == "playtestMark.id" })
     }
 
-    func testFirstTimeMarkIsAnError() throws {
+    func testFirstTimeMarkIsAllowed() throws {
         var db = try TestContent.publicOnly()
         db.playtestMarks["mark.test.first"] = PlaytestMarkDef(id: "mark.test.first", when: .firstTime(query: ProvenanceQuery(act: .crafted)))
-        XCTAssertTrue(ContentValidator.validate(db).contains { $0.level == .error && $0.rule == "playtestMark.firstTime" })
+        XCTAssertEqual(ContentValidator.validate(db).filter { $0.level == .error }, [])
     }
 
     func testBranchChoiceIsOptionalAndOmittedWhenNil() throws {

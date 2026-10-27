@@ -15,11 +15,23 @@ public struct PlaytestMarkTracker: Codable, Equatable, Sendable {
     public mutating func update(_ w: WorldState, _ c: ContentDB) -> [String] {
         var fresh: [String] = []
         for (id, def) in c.playtestMarks.sorted(by: { $0.key < $1.key }) where reached[id] == nil {
-            if ConditionEvaluator.evaluatePure(def.when, world: w, content: c) == true {
+            if ConditionEvaluator.evaluatePure(Self.resolvingFirstTime(def.when), world: w, content: c) == true {
                 reached[id] = w.clock.now
                 fresh.append(id)
             }
         }
         return fresh
+    }
+
+    /// 節目には引き金の来歴が無いので、firstTime(query) は「その問い合わせに合う記録が来歴にある」(= ledger の atLeast 1)に読み替える。
+    /// 節目は初めて成り立った時に 1 度だけ出るので、初めての記録に当たる時に出るのと同じ。
+    static func resolvingFirstTime(_ c: Condition) -> Condition {
+        switch c {
+        case .firstTime(let q): .ledger(query: q, atLeast: 1)
+        case .all(let xs): .all(of: xs.map(resolvingFirstTime))
+        case .any(let xs): .any(of: xs.map(resolvingFirstTime))
+        case .not(let x): .not(that: resolvingFirstTime(x))
+        default: c
+        }
     }
 }

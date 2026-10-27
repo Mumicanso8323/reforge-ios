@@ -55,4 +55,20 @@ final class PlaytestMarkTrackerTests: XCTestCase {
         XCTAssertEqual(restored, tracker)
         XCTAssertEqual(restored.update(w, rig.content), [])
     }
+
+    /// firstTime の節目は、問い合わせに合う最初の記録が来歴に入ったステップで 1 度だけ返る。
+    func testFirstTimeMarkFiresWhenFirstMatchingRecordExists() throws {
+        var content = try TestContent.publicOnly()
+        content.playtestMarks = ["mark.test.ft": PlaytestMarkDef(
+            id: "mark.test.ft", when: .all(of: [.firstTime(query: ProvenanceQuery(act: .crafted))]))]
+        let rig = TestRig(content: content)
+        var w = rig.factory.newWorld(seed: 1)
+        var tracker = PlaytestMarkTracker()
+        XCTAssertEqual(tracker.update(w, rig.content), [])
+        var ctx = StepContext(world: w, content: rig.content)
+        _ = ctx.record(.crafted, .none)
+        w = ctx.world
+        XCTAssertEqual(tracker.update(w, rig.content), ["mark.test.ft"])
+        XCTAssertEqual(tracker.update(w, rig.content), [])
+    }
 }
