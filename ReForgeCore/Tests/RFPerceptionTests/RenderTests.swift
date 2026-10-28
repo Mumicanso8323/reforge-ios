@@ -82,9 +82,9 @@ final class RenderTests: XCTestCase {
         content.perception[subject]?.variants[0].glyph = "@"
         content.perception[subject]?.variants[0].glyphText = "test.glyph"
         content.textTables.tables[.ja]?["test.glyph"] = "*"
-        XCTAssertEqual(Perceiver(content: content, known: []).glyph(subject), "*")
-        XCTAssertEqual(Perceiver(content: content, known: [], language: .pseudo).glyph(subject), "*")
-        XCTAssertEqual(Perceiver(content: content, known: [], language: .en).glyph(subject), "@")
+        XCTAssertEqual(Perceiver(content: content, known: []).glyph(subject), "\u{FF0A}")
+        XCTAssertEqual(Perceiver(content: content, known: [], language: .pseudo).glyph(subject), "\u{FF0A}")
+        XCTAssertEqual(Perceiver(content: content, known: [], language: .en).glyph(subject), "\u{FF20}")
     }
 
     func testCoreUITextsAndSourcesContainNoPlayerJapaneseLiterals() throws {
@@ -149,8 +149,8 @@ final class RenderTests: XCTestCase {
         }
         XCTAssertEqual(chain(p()), MapGlyphFont.safe("\u{2592}"))
         content.glyphs[Subject.poi(kind)] = "K"
-        XCTAssertEqual(chain(p()), "K")
+        XCTAssertEqual(chain(p()), MapGlyphFont.safe("K"))
         content.glyphs[part] = "P"
-        XCTAssertEqual(chain(p()), "P")
+        XCTAssertEqual(chain(p()), MapGlyphFont.safe("P"))
     }
 }

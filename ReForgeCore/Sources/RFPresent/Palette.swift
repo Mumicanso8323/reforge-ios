@@ -49,7 +49,7 @@ public enum TilePalette {
     public static let poi = "poi"
     public static let noah = "noah"
     /// 人を表す地図の一字。向きは描画側の小さな三角で足す。
-    public static let noahGlyph = "@"
+    public static let noahGlyph = "\u{FF20}"
     /// ノア以外の一員を表す地図の一字。向きは描画側の小さな三角で足す。
     public static let memberGlyph = "○"
     public static let member = "member"

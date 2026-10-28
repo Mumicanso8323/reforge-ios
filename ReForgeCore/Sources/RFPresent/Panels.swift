@@ -117,7 +117,7 @@ extension FrameBuilder {
             let units = b.units.map { u -> BattleBand.Unit in
                 let g: String
                 switch u.ref {
-                case .person(let pid): g = pid == .noah ? "@" : p.glyph(Subject.person(pid))
+                case .person(let pid): g = pid == .noah ? TilePalette.noahGlyph : p.glyph(Subject.person(pid))
                 case .enemy(_, let kind, _):
                     g = p.glyph(Subject.enemy(kind))
                     foe = p.name(Subject.enemy(kind))
@@ -355,7 +355,7 @@ extension FrameBuilder {
             let a = w.people.effectiveAssignment(id) ?? .idle
             let (kind, target) = describe(a, w, p, researchDesks)
             return CrewMemberView(
-                id: id, name: p.name(Subject.person(id)), glyph: id == .noah ? "@" : p.glyph(Subject.person(id)),
+                id: id, name: p.name(Subject.person(id)), glyph: id == .noah ? TilePalette.noahGlyph : p.glyph(Subject.person(id)),
                 isNoah: id == .noah, assignment: kind, target: target, doing: doing(ps.activity),
                 body: .init(health: pct(ps.body.health), stamina: pct(ps.body.stamina), satiety: pct(ps.body.satiety),
                             hydration: pct(ps.body.hydration), mind: pct(ps.body.mind),

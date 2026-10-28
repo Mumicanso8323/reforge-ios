@@ -26,8 +26,15 @@ public enum MapGlyphFont {
     ]
 
     /// 地図に描く字列を、書体にある読める字だけにする(表に無い字はそのまま)。
+    /// ASCII の印字できる字は全角形にする(半角の字は送り幅が半分で、正方形のマスの中で細長く見える)。
     public static func safe(_ glyph: String) -> String {
-        guard glyph.contains(where: { substitutes[$0] != nil || readable[$0] != nil }) else { return glyph }
-        return String(glyph.map { substitutes[$0] ?? readable[$0] ?? $0 })
+        guard glyph.unicodeScalars.contains(where: { substitutes[Character($0)] != nil || readable[Character($0)] != nil || (0x21...0x7E).contains($0.value) }) else { return glyph }
+        var out = String.UnicodeScalarView()
+        for s in glyph.unicodeScalars {
+            for m in (substitutes[Character(s)] ?? readable[Character(s)] ?? Character(s)).unicodeScalars {
+                out.append((0x21...0x7E).contains(m.value) ? (Unicode.Scalar(m.value + 0xFEE0) ?? m) : m)
+            }
+        }
+        return String(out)
     }
 }

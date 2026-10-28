@@ -182,4 +182,97 @@ final class MapGlyphCoverageTests: XCTestCase {
             XCTAssertNotNil(from.unicodeScalars.first.map { (0xFF61...0xFF9F).contains($0.value) ? true : nil } ?? nil, "読める字の表の元は半角カナだけ \(code(from))")
         }
     }
+
+    /// ttf の hhea/hmtx/cmap から、コードポイント → 送り幅。unitsPerEm も返す。
+    static func advances(ttf data: [UInt8]) -> (unitsPerEm: Int, widths: [UInt32: Int]) {
+        func u16(_ o: Int) -> Int { Int(data[o]) << 8 | Int(data[o + 1]) }
+        func u32(_ o: Int) -> Int { u16(o) << 16 | u16(o + 2) }
+        func tableOffset(_ tag: String) -> Int {
+            for i in 0..<u16(4) where String(decoding: data[(12 + i * 16)..<(16 + i * 16)], as: UTF8.self) == tag { return u32(12 + i * 16 + 8) }
+            preconditionFailure("表が無い \(tag)")
+        }
+        let unitsPerEm = u16(tableOffset("head") + 18)
+        let hhea = tableOffset("hhea"), hmtx = tableOffset("hmtx")
+        let metrics = u16(hhea + 34)
+        func advance(_ gid: Int) -> Int { u16(hmtx + min(gid, metrics - 1) * 4) }
+        let cmap = tableOffset("cmap")
+        var widths: [UInt32: Int] = [:]
+        for i in 0..<u16(cmap + 2) {
+            let sub = cmap + u32(cmap + 4 + i * 8 + 4)
+            switch u16(sub) {
+            case 4:
+                let segs = u16(sub + 6) / 2
+                let ends = sub + 14
+                let starts = ends + segs * 2 + 2
+                let deltas = starts + segs * 2
+                let ranges = deltas + segs * 2
+                for s in 0..<segs {
+                    let end = u16(ends + s * 2), start = u16(starts + s * 2)
+                    guard start <= end, start != 0xFFFF else { continue }
+                    for c in start...end {
+                        let g: Int
+                        if u16(ranges + s * 2) == 0 { g = (c + u16(deltas + s * 2)) & 0xFFFF }
+                        else {
+                            let raw = u16(ranges + s * 2 + u16(ranges + s * 2) + (c - start) * 2)
+                            g = raw == 0 ? 0 : (raw + u16(deltas + s * 2)) & 0xFFFF
+                        }
+                        if g != 0 { widths[UInt32(c)] = advance(g) }
+                    }
+                }
+            case 12:
+                for k in 0..<u32(sub + 12) {
+                    let o = sub + 16 + k * 12
+                    let s = u32(o), e = u32(o + 4), g0 = u32(o + 8)
+                    if s <= e { for c in s...e { widths[UInt32(c)] = advance(g0 + c - s) } }
+                }
+            default: break
+            }
+        }
+        return (unitsPerEm, widths)
+    }
+
+    /// 今は半角のまま描いている字。デザインの見直し待ち。この表は減らすだけ(足さない。ASCII は入れない)。
+    static let knownNarrow: Set<UInt32> = [0x00B7, 0x2248, 0x25B7, 0x25CA, 0x25E6, 0x2663, 0x2666]
+    /// 非公開の層を重ねたときだけ現れる半角の字の数の上限(字そのものは公開のコードに書かない)。これも減らすだけ。
+    static let maxPrivateOnlyNarrow = 1
+
+    /// 地図に描く字は、マス(正方形)の幅いっぱいの字(送り幅 == unitsPerEm)にする。半角の字はマスの中で細長く見える。
+    func testMapGlyphsFillTheCell() throws {
+        var root = URL(fileURLWithPath: #filePath)
+        for _ in 0..<4 { root.deleteLastPathComponent() }
+        let data = try Data(contentsOf: root.appendingPathComponent("ReForge/Resources/Fonts/BIZUDGothic-Regular.ttf"))
+        let (em, widths) = Self.advances(ttf: [UInt8](data))
+        XCTAssertEqual(widths[0x4E00], em, "送り幅の読み取りが壊れている")
+        XCTAssertEqual(widths[0x41], em / 2, "送り幅の読み取りが壊れている(半角)")
+        var narrow: Set<UInt32> = []
+        var ascii: [String] = []
+        func check(_ glyph: String, _ owner: String) {
+            for u in MapGlyphFont.safe(glyph).unicodeScalars where !Character(u).isWhitespace {
+                if (0x21...0x7E).contains(u.value) { ascii.append("U+\(String(format: "%04X", u.value)) \(owner)") }
+                if let w = widths[u.value], w != em { narrow.insert(u.value) }
+            }
+        }
+        // 公開の層だけ・非公開の層を重ねた層の両方を調べる(使う字は層で違うので、消せる字の判定は両方の和で見る)
+        var narrowPublic: Set<UInt32>!
+        for db in [try TestContent.publicOnly(), try TestContent.full()] {
+            for (id, def) in db.perception.sorted(by: { $0.key.rawValue < $1.key.rawValue }) {
+                for (i, v) in def.variants.enumerated() { if let g = v.glyph { check(g, "\(id.rawValue) v\(i)") } }
+            }
+            for (id, g) in db.glyphs.sorted(by: { $0.key.rawValue < $1.key.rawValue }) { check(g, id.rawValue) }
+            for (name, g) in [("noahGlyph", TilePalette.noahGlyph), ("memberGlyph", TilePalette.memberGlyph),
+                              ("spentGlyph", TilePalette.spentGlyph), ("fallback", "？"), ("fallbackPoi", "▒"), ("fallbackDeposit", "♦")] {
+                check(g, name)
+            }
+            if narrowPublic == nil { narrowPublic = narrow }
+        }
+        XCTAssertEqual(ascii, [], "半角の ASCII が残っている地図の字(コードポイント 見出し)")
+        XCTAssertTrue(Self.knownNarrow.allSatisfy { !(0x21...0x7E).contains($0) }, "knownNarrow に ASCII を入れない")
+        let unexpected = narrowPublic.subtracting(Self.knownNarrow).sorted().map { String(format: "U+%04X", $0) }
+        XCTAssertEqual(unexpected, [], "マスの幅に満たない地図の字(コードポイント)")
+        // 非公開の層の字は公開のログに出さない。数だけ確かめる。
+        let privateOnly = narrow.subtracting(narrowPublic).subtracting(Self.knownNarrow)
+        XCTAssertLessThanOrEqual(privateOnly.count, Self.maxPrivateOnlyNarrow, "非公開の層で半角のまま残る字が上限を超えた")
+        let stale = Self.knownNarrow.subtracting(narrow).sorted().map { String(format: "U+%04X", $0) }
+        XCTAssertEqual(stale, [], "knownNarrow から消せる字(もう半角で使っていない)")
+    }
 }
